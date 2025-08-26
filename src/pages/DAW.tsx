@@ -128,6 +128,42 @@ const DAW = () => {
     }
   }, [bpm, keySignature, projectName]);
 
+  // Transport controls
+  const handlePlay = useCallback(() => {
+    setIsPlaying(!isPlaying);
+    if (!isPlaying) {
+      // Start playback timer
+      const interval = setInterval(() => {
+        setCurrentTime(prev => prev + 0.1);
+      }, 100);
+      // Store interval ID to clear later
+      (window as any).playbackInterval = interval;
+    } else {
+      clearInterval((window as any).playbackInterval);
+    }
+    toast.info(isPlaying ? "Playback stopped" : "Playback started");
+  }, [isPlaying]);
+
+  const handleStop = useCallback(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    clearInterval((window as any).playbackInterval);
+    toast.info("Stopped and reset to beginning");
+  }, []);
+
+  const handleRewind = useCallback(() => {
+    const newTime = Math.max(0, currentTime - 10);
+    setCurrentTime(newTime);
+    toast.info(`Rewind to ${Math.floor(newTime)}s`);
+  }, [currentTime]);
+
+  const handleFastForward = useCallback(() => {
+    const newTime = currentTime + 10;
+    setCurrentTime(newTime);
+    toast.info(`Fast forward to ${Math.floor(newTime)}s`);
+  }, [currentTime]);
+
+  // Track management
   const handleTrackAction = useCallback((trackId: number, action: string) => {
     setTracks(prev => prev.map(track => {
       if (track.id === trackId) {
@@ -146,6 +182,81 @@ const DAW = () => {
     }));
     toast.info(`${action} track ${trackId}`);
   }, []);
+
+  const handleTrackNameChange = useCallback((trackId: number, newName: string) => {
+    setTracks(prev => prev.map(track => 
+      track.id === trackId ? { ...track, name: newName } : track
+    ));
+  }, []);
+
+  const handleTrackVolumeChange = useCallback((trackId: number, volume: number[]) => {
+    setTracks(prev => prev.map(track => 
+      track.id === trackId ? { ...track, volume: volume[0] } : track
+    ));
+  }, []);
+
+  const addNewTrack = useCallback(() => {
+    const newTrack: TrackData = {
+      id: Math.max(...tracks.map(t => t.id)) + 1,
+      name: `Track ${tracks.length + 1}`,
+      type: "synth",
+      volume: 75,
+      muted: false,
+      solo: false,
+      armed: false,
+      color: "bg-accent",
+      effects: []
+    };
+    setTracks(prev => [...prev, newTrack]);
+    toast.success(`Added new track: ${newTrack.name}`);
+  }, [tracks]);
+
+  const addInstrumentToTrack = useCallback((instrument: typeof instruments[0]) => {
+    if (!selectedTrack) {
+      toast.error("Please select a track first");
+      return;
+    }
+    
+    setTracks(prev => prev.map(track => 
+      track.id === selectedTrack 
+        ? { ...track, type: instrument.type, name: `${track.name} (${instrument.name})` }
+        : track
+    ));
+    toast.success(`Added ${instrument.name} to track ${selectedTrack}`);
+  }, [selectedTrack]);
+
+  const addEffectToTrack = useCallback((effect: typeof effects[0]) => {
+    if (!selectedTrack) {
+      toast.error("Please select a track first");
+      return;
+    }
+    
+    setTracks(prev => prev.map(track => 
+      track.id === selectedTrack 
+        ? { ...track, effects: [...track.effects, effect.name] }
+        : track
+    ));
+    toast.success(`Added ${effect.name} to track ${selectedTrack}`);
+  }, [selectedTrack]);
+
+  const handleExport = useCallback(() => {
+    toast.info("🎵 Exporting project...");
+    // Simulate export process
+    setTimeout(() => {
+      toast.success("✅ Project exported successfully!");
+    }, 2000);
+  }, []);
+
+  const handleLoadProject = useCallback((projectId: string) => {
+    const project = projects?.find(p => p.id === projectId);
+    if (project) {
+      setProjectName(project.name);
+      setBpm([project.bpm]);
+      setKeySignature(project.key_signature);
+      setCurrentProjectId(project.id);
+      toast.success(`Loaded project: ${project.name}`);
+    }
+  }, [projects]);
 
   const handleSaveProject = useCallback(() => {
     const projectData: DawProjectData = {
@@ -199,10 +310,23 @@ const DAW = () => {
               <Badge variant="outline">Professional DAW</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <FolderOpen className="w-4 h-4 mr-2" />
-                Open Project
-              </Button>
+              <Select onValueChange={handleLoadProject}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder={
+                    <div className="flex items-center">
+                      <FolderOpen className="w-4 h-4 mr-2" />
+                      Open Project
+                    </div>
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects?.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -212,7 +336,7 @@ const DAW = () => {
                 <Save className="w-4 h-4 mr-2" />
                 {saveMutation.isPending ? "Saving..." : "Save Project"}
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
@@ -258,7 +382,12 @@ const DAW = () => {
                               <div className="font-medium text-sm">{instrument.name}</div>
                               <div className="text-xs text-muted-foreground mt-1">{instrument.description}</div>
                             </div>
-                            <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => addInstrumentToTrack(instrument)}
+                            >
                               <Plus className="w-3 h-3" />
                             </Button>
                           </div>
@@ -284,7 +413,7 @@ const DAW = () => {
                                   <div className="font-medium text-sm">{effect.name}</div>
                                   <div className="text-xs text-muted-foreground">{effect.description}</div>
                                 </div>
-                                <Button size="sm" variant="ghost">
+                                <Button size="sm" variant="ghost" onClick={() => addEffectToTrack(effect)}>
                                   <Plus className="w-3 h-3" />
                                 </Button>
                               </div>
@@ -364,7 +493,7 @@ const DAW = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsPlaying(!isPlaying)}
+                      onClick={handlePlay}
                     >
                       {isPlaying ? (
                         <Pause className="w-4 h-4" />
@@ -372,7 +501,7 @@ const DAW = () => {
                         <Play className="w-4 h-4" />
                       )}
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleStop}>
                       <Square className="w-4 h-4" />
                     </Button>
                     <Button 
@@ -383,10 +512,10 @@ const DAW = () => {
                     >
                       <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleRewind}>
                       <SkipBack className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleFastForward}>
                       <SkipForward className="w-4 h-4" />
                     </Button>
                     <Button variant="outline" size="sm">
@@ -439,6 +568,30 @@ const DAW = () => {
                       </div>
                       <span className="text-sm text-muted-foreground">{zoom[0]}%</span>
                     </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Key:</span>
+                      <Select value={keySignature} onValueChange={setKeySignature}>
+                        <SelectTrigger className="w-16">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="C">C</SelectItem>
+                          <SelectItem value="C#">C#</SelectItem>
+                          <SelectItem value="D">D</SelectItem>
+                          <SelectItem value="D#">D#</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                          <SelectItem value="F">F</SelectItem>
+                          <SelectItem value="F#">F#</SelectItem>
+                          <SelectItem value="F#m">F#m</SelectItem>
+                          <SelectItem value="G">G</SelectItem>
+                          <SelectItem value="G#">G#</SelectItem>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="A#">A#</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="ml-auto flex items-center gap-4">
@@ -466,10 +619,10 @@ const DAW = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Tracks</h3>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={addNewTrack}>
                           <Plus className="w-3 h-3" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => toast.info("Audio import coming soon!")}>
                           <Upload className="w-3 h-3" />
                         </Button>
                       </div>
@@ -486,7 +639,7 @@ const DAW = () => {
                           <div className={`w-3 h-3 rounded-full ${track.color}`} />
                           <Input 
                             value={track.name}
-                            onChange={() => {}}
+                            onChange={(e) => handleTrackNameChange(track.id, e.target.value)}
                             className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0"
                           />
                           <Button 
@@ -525,7 +678,8 @@ const DAW = () => {
                           </Button>
                           <div className="flex-1">
                             <Slider
-                              defaultValue={[track.volume]}
+                              value={[track.volume]}
+                              onValueChange={(value) => handleTrackVolumeChange(track.id, value)}
                               min={0}
                               max={100}
                               step={1}

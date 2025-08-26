@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { 
   Play, 
   Pause, 
@@ -20,36 +24,84 @@ import {
   FolderOpen,
   Wand2,
   Plus,
-  Minus
+  Minus,
+  RotateCcw,
+  Copy,
+  Scissors,
+  Layers,
+  Headphones,
+  Sliders,
+  Zap,
+  Download,
+  Upload
 } from "lucide-react";
+import { toast } from "sonner";
+import { AIPromptParser } from "@/components/AIPromptParser";
 
 const DAW = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [bpm, setBpm] = useState([118]);
   const [masterVolume, setMasterVolume] = useState([75]);
+  const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showPianoRoll, setShowPianoRoll] = useState(false);
+  const [showMixer, setShowMixer] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [showAIAssistant, setShowAIAssistant] = useState(true);
+  const [projectName, setProjectName] = useState("Untitled Project");
+  const [zoom, setZoom] = useState([100]);
 
   const tracks = [
-    { id: 1, name: "Log Drums", type: "drums", volume: 80, muted: false, solo: false, color: "bg-primary" },
-    { id: 2, name: "Piano Chords", type: "piano", volume: 70, muted: false, solo: false, color: "bg-secondary" },
-    { id: 3, name: "Bass Line", type: "bass", volume: 85, muted: false, solo: false, color: "bg-accent" },
-    { id: 4, name: "Percussion", type: "percussion", volume: 60, muted: false, solo: false, color: "bg-success" },
-    { id: 5, name: "Lead Synth", type: "synth", volume: 65, muted: true, solo: false, color: "bg-info" }
+    { id: 1, name: "Log Drums", type: "drums", volume: 80, muted: false, solo: false, armed: false, color: "bg-primary", effects: ["EQ", "Compressor"] },
+    { id: 2, name: "Piano Chords", type: "piano", volume: 70, muted: false, solo: false, armed: false, color: "bg-secondary", effects: ["Reverb"] },
+    { id: 3, name: "Bass Line", type: "bass", volume: 85, muted: false, solo: false, armed: false, color: "bg-accent", effects: ["Log Drum Saturator"] },
+    { id: 4, name: "Percussion", type: "percussion", volume: 60, muted: false, solo: false, armed: false, color: "bg-success", effects: [] },
+    { id: 5, name: "Lead Synth", type: "synth", volume: 65, muted: true, solo: false, armed: false, color: "bg-info", effects: ["3D Imager"] },
+    { id: 6, name: "Vocals", type: "vocals", volume: 75, muted: false, solo: false, armed: true, color: "bg-warning", effects: ["EQ", "Compressor", "Reverb"] }
   ];
 
   const instruments = [
-    { name: "Signature Log Drum", type: "drums", icon: Drum },
-    { name: "Amapiano Piano", type: "piano", icon: Piano },
-    { name: "Deep Bass Synth", type: "bass", icon: Music },
-    { name: "Vocal Sampler", type: "vocals", icon: Mic }
+    { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer with pitch glide control" },
+    { name: "Amapiano Piano", type: "piano", icon: Piano, description: "Classic M1-style piano with gospel voicings" },
+    { name: "Deep Bass Synth", type: "bass", icon: Music, description: "Sub-bass synthesizer with rhythmic emphasis" },
+    { name: "Vocal Sampler", type: "vocals", icon: Mic, description: "Advanced vocal processing and chopping" },
+    { name: "Shaker Groove Engine", type: "percussion", icon: Drum, description: "AI-powered percussion generator" },
+    { name: "Saxophone VST", type: "lead", icon: Music, description: "Realistic saxophone for Private School style" }
+  ];
+
+  const effects = [
+    { name: "EQ", category: "Core", description: "Professional 8-band parametric EQ" },
+    { name: "Compressor", category: "Core", description: "Vintage-style compressor with amapiano preset" },
+    { name: "Reverb", category: "Core", description: "Spatial reverb with hall and room settings" },
+    { name: "Delay", category: "Core", description: "Tempo-synced delay with feedback control" },
+    { name: "Limiter", category: "Core", description: "Transparent peak limiting" },
+    { name: "Log Drum Saturator", category: "Amapiano", description: "Enhance log drum character" },
+    { name: "Shaker Groove Engine", category: "Amapiano", description: "Intelligent percussion enhancement" },
+    { name: "3D Imager", category: "Amapiano", description: "Spatial width and depth control" },
+    { name: "Gospel Harmonizer", category: "Amapiano", description: "Authentic chord voicing enhancement" }
   ];
 
   const aiSuggestions = [
-    "Generate log drum pattern for current key",
-    "Suggest chord progression for bar 16-32",
-    "Add percussion layer to enhance groove",
-    "Analyze track and suggest mixing improvements"
+    "Generate log drum pattern in F# minor for bars 1-8",
+    "Suggest chord progression for Private School style",
+    "Add percussion layer to enhance the groove",
+    "Analyze track structure and suggest arrangement",
+    "Create bass line that complements the log drums", 
+    "Generate saxophone melody for the bridge section"
   ];
+
+  const handleAIGenerate = (suggestion: string) => {
+    toast.info(`🤖 AI Assistant: ${suggestion}`);
+    // Simulate AI generation
+    setTimeout(() => {
+      toast.success("✨ AI content generated and added to timeline!");
+    }, 2000);
+  };
+
+  const handleTrackAction = (trackId: number, action: string) => {
+    toast.info(`${action} track ${trackId}`);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,17 +110,37 @@ const DAW = () => {
         <div className="border-b border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gradient-primary">Amapiano DAW</h1>
-              <Badge variant="secondary">Beta</Badge>
+              <div className="flex items-center gap-2">
+                <Music className="w-6 h-6 text-primary" />
+                <Input 
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  className="text-xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0"
+                />
+              </div>
+              <Badge variant="outline">Professional DAW</Badge>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
                 <FolderOpen className="w-4 h-4 mr-2" />
-                Open
+                Open Project
               </Button>
               <Button variant="outline" size="sm">
                 <Save className="w-4 h-4 mr-2" />
-                Save
+                Save Project
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)}>
+                <Sliders className="w-4 h-4 mr-2" />
+                Mixer
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)}>
+                <Piano className="w-4 h-4 mr-2" />
+                Piano Roll
               </Button>
               <Button variant="outline" size="sm">
                 <Settings className="w-4 h-4" />
@@ -79,45 +151,65 @@ const DAW = () => {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-80 border-r border-border bg-sidebar overflow-y-auto">
+          <div className={`${showAIAssistant ? 'w-80' : 'w-64'} border-r border-border bg-sidebar overflow-y-auto transition-all duration-200`}>
             <Tabs defaultValue="instruments" className="h-full">
-              <TabsList className="grid w-full grid-cols-2 m-2">
-                <TabsTrigger value="instruments">Instruments</TabsTrigger>
-                <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 m-2">
+                <TabsTrigger value="instruments" className="text-xs">Instruments</TabsTrigger>
+                <TabsTrigger value="effects" className="text-xs">Effects</TabsTrigger>
+                <TabsTrigger value="ai-assistant" className="text-xs">AI</TabsTrigger>
               </TabsList>
 
               <TabsContent value="instruments" className="p-4 space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-3">Virtual Instruments</h3>
+                  <h3 className="font-semibold mb-3">Amapiano Instruments</h3>
                   <div className="space-y-2">
                     {instruments.map((instrument) => {
                       const Icon = instrument.icon;
                       return (
-                        <Card key={instrument.name} className="p-3 cursor-pointer hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
+                        <Card key={instrument.name} className="p-3 cursor-pointer hover:bg-muted/50 transition-colors group">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
                               <Icon className="w-4 h-4 text-primary" />
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <div className="font-medium text-sm">{instrument.name}</div>
-                              <div className="text-xs text-muted-foreground capitalize">{instrument.type}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{instrument.description}</div>
                             </div>
+                            <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Plus className="w-3 h-3" />
+                            </Button>
                           </div>
                         </Card>
                       );
                     })}
                   </div>
                 </div>
+              </TabsContent>
 
-                <div>
-                  <h3 className="font-semibold mb-3">Effects</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["EQ", "Compressor", "Reverb", "Delay", "Saturator", "3D Imager"].map((effect) => (
-                      <Button key={effect} variant="outline" size="sm" className="text-xs">
-                        {effect}
-                      </Button>
-                    ))}
-                  </div>
+              <TabsContent value="effects" className="p-4 space-y-4">
+                <div className="space-y-4">
+                  {["Core", "Amapiano"].map((category) => (
+                    <div key={category}>
+                      <h4 className="font-semibold mb-2 text-sm">{category} Effects</h4>
+                      <div className="space-y-1">
+                        {effects
+                          .filter(effect => effect.category === category)
+                          .map((effect) => (
+                            <Card key={effect.name} className="p-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium text-sm">{effect.name}</div>
+                                  <div className="text-xs text-muted-foreground">{effect.description}</div>
+                                </div>
+                                <Button size="sm" variant="ghost">
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </Card>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </TabsContent>
 
@@ -127,15 +219,33 @@ const DAW = () => {
                     <Wand2 className="w-4 h-4 text-primary" />
                     AI Assistant
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Get AI-powered suggestions for your amapiano production
-                  </p>
+                  
+                  <Card className="p-3 mb-4">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Natural Language Prompt</label>
+                        <Input
+                          placeholder="Generate a log drum pattern in F# minor..."
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <Button size="sm" className="w-full btn-glow">
+                        <Zap className="w-3 h-3 mr-2" />
+                        Generate
+                      </Button>
+                    </div>
+                  </Card>
+
                   <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">Quick Actions</h4>
                     {aiSuggestions.map((suggestion, index) => (
                       <Button 
                         key={index} 
                         variant="outline" 
                         size="sm" 
+                        onClick={() => handleAIGenerate(suggestion)}
                         className="w-full text-left h-auto p-3 justify-start whitespace-normal"
                       >
                         <Wand2 className="w-3 h-3 mr-2 flex-shrink-0 mt-0.5" />
@@ -143,21 +253,15 @@ const DAW = () => {
                       </Button>
                     ))}
                   </div>
-                </div>
 
-                <Card className="p-3">
-                  <h4 className="font-medium text-sm mb-2">Quick Generate</h4>
-                  <div className="space-y-2">
-                    <Button size="sm" className="w-full btn-glow">
-                      <Music className="w-3 h-3 mr-2" />
-                      Generate Loop
-                    </Button>
-                    <Button size="sm" variant="outline" className="w-full">
-                      <Drum className="w-3 h-3 mr-2" />
-                      Create Beat
-                    </Button>
-                  </div>
-                </Card>
+                  {aiPrompt && (
+                    <AIPromptParser
+                      prompt={aiPrompt}
+                      onParsedChange={(parsed) => console.log("AI parsed:", parsed)}
+                      className="border-0 shadow-none p-0 mt-4"
+                    />
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           </div>
@@ -166,64 +270,101 @@ const DAW = () => {
           <div className="flex-1 flex flex-col">
             {/* Transport Controls */}
             <div className="border-b border-border p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsPlaying(!isPlaying)}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Square className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <SkipBack className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <SkipForward className="w-4 h-4" />
-                  </Button>
-                </div>
-
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">BPM:</span>
-                    <div className="w-20">
-                      <Slider
-                        value={bpm}
-                        onValueChange={setBpm}
-                        min={80}
-                        max={160}
-                        step={1}
-                        className="w-full"
-                      />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-8">{bpm[0]}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsPlaying(!isPlaying)}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Square className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className={isRecording ? "bg-destructive text-destructive-foreground" : ""}
+                      onClick={() => setIsRecording(!isRecording)}
+                    >
+                      <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <SkipBack className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <SkipForward className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="w-4 h-4" />
-                    <div className="w-20">
-                      <Slider
-                        value={masterVolume}
-                        onValueChange={setMasterVolume}
-                        min={0}
-                        max={100}
-                        step={1}
-                        className="w-full"
-                      />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">BPM:</span>
+                      <div className="w-20">
+                        <Slider
+                          value={bpm}
+                          onValueChange={setBpm}
+                          min={80}
+                          max={160}
+                          step={1}
+                          className="w-full"
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground w-8">{bpm[0]}</span>
                     </div>
-                    <span className="text-sm text-muted-foreground w-8">{masterVolume[0]}</span>
-                  </div>
-                </div>
 
-                <div className="ml-auto text-sm font-mono">
-                  00:00:00
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-4 h-4" />
+                      <div className="w-20">
+                        <Slider
+                          value={masterVolume}
+                          onValueChange={setMasterVolume}
+                          min={0}
+                          max={100}
+                          step={1}
+                          className="w-full"
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground w-8">{masterVolume[0]}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Zoom:</span>
+                      <div className="w-20">
+                        <Slider
+                          value={zoom}
+                          onValueChange={setZoom}
+                          min={25}
+                          max={400}
+                          step={25}
+                          className="w-full"
+                        />
+                      </div>
+                      <span className="text-sm text-muted-foreground">{zoom[0]}%</span>
+                    </div>
+                  </div>
+
+                  <div className="ml-auto flex items-center gap-4">
+                    <div className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                      {String(Math.floor(currentTime / 60)).padStart(2, '0')}:
+                      {String(Math.floor(currentTime % 60)).padStart(2, '0')}:
+                      {String(Math.floor((currentTime % 1) * 100)).padStart(2, '0')}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm">
+                        <Headphones className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -232,30 +373,66 @@ const DAW = () => {
             <div className="flex-1 overflow-hidden">
               <div className="h-full flex">
                 {/* Track List */}
-                <div className="w-64 border-r border-border bg-muted/20">
+                <div className="w-80 border-r border-border bg-muted/20">
                   <div className="p-3 border-b border-border">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Tracks</h3>
-                      <Button size="sm" variant="outline">
-                        <Plus className="w-3 h-3" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline">
+                          <Plus className="w-3 h-3" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Upload className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   <div className="space-y-1">
                     {tracks.map((track) => (
-                      <div key={track.id} className="p-3 border-b border-border/50 hover:bg-muted/50 transition-colors">
+                      <div 
+                        key={track.id} 
+                        className={`p-3 border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer ${selectedTrack === track.id ? 'bg-primary/10' : ''}`}
+                        onClick={() => setSelectedTrack(track.id)}
+                      >
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`w-3 h-3 rounded-full ${track.color}`} />
-                          <span className="font-medium text-sm flex-1">{track.name}</span>
-                          <Button size="sm" variant="ghost" className="w-6 h-6 p-0">
-                            <Settings className="w-3 h-3" />
+                          <Input 
+                            value={track.name}
+                            onChange={() => {}}
+                            className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0"
+                          />
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className={`w-6 h-6 p-0 ${track.armed ? 'text-destructive' : ''}`}
+                            onClick={(e) => {e.stopPropagation(); handleTrackAction(track.id, 'arm')}}
+                          >
+                            <div className={`w-2 h-2 rounded-full ${track.armed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="w-6 h-6 p-0"
+                            onClick={() => setShowPianoRoll(!showPianoRoll)}
+                          >
+                            <Piano className="w-3 h-3" />
                           </Button>
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <Button size="sm" variant={track.muted ? "default" : "outline"} className="w-8 h-6 text-xs">
+                        <div className="flex items-center gap-2 text-xs mb-2">
+                          <Button 
+                            size="sm" 
+                            variant={track.muted ? "default" : "outline"} 
+                            className="w-8 h-6 text-xs"
+                            onClick={() => handleTrackAction(track.id, 'mute')}
+                          >
                             M
                           </Button>
-                          <Button size="sm" variant={track.solo ? "default" : "outline"} className="w-8 h-6 text-xs">
+                          <Button 
+                            size="sm" 
+                            variant={track.solo ? "default" : "outline"} 
+                            className="w-8 h-6 text-xs"
+                            onClick={() => handleTrackAction(track.id, 'solo')}
+                          >
                             S
                           </Button>
                           <div className="flex-1">
@@ -267,7 +444,17 @@ const DAW = () => {
                               className="w-full"
                             />
                           </div>
+                          <span className="text-xs w-8 text-right">{track.volume}</span>
                         </div>
+                        {track.effects.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {track.effects.map((effect) => (
+                              <Badge key={effect} variant="outline" className="text-xs px-1 py-0">
+                                {effect}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

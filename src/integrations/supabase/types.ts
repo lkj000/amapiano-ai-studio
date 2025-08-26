@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daw_projects: {
+        Row: {
+          bpm: number
+          created_at: string
+          id: string
+          key_signature: string | null
+          name: string
+          project_data: Json
+          time_signature: string | null
+          updated_at: string
+          user_id: string | null
+          version: number
+        }
+        Insert: {
+          bpm?: number
+          created_at?: string
+          id?: string
+          key_signature?: string | null
+          name: string
+          project_data: Json
+          time_signature?: string | null
+          updated_at?: string
+          user_id?: string | null
+          version?: number
+        }
+        Update: {
+          bpm?: number
+          created_at?: string
+          id?: string
+          key_signature?: string | null
+          name?: string
+          project_data?: Json
+          time_signature?: string | null
+          updated_at?: string
+          user_id?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

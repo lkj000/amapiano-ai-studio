@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useSaveDawProject, useDawProjects } from "@/hooks/useDawProjects";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,6 +38,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
+import { supabase } from "@/integrations/supabase/client";
+import type { DawProjectData, TrackData } from "@/types/daw";
 
 const DAW = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,15 +54,20 @@ const DAW = () => {
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [projectName, setProjectName] = useState("Untitled Project");
   const [zoom, setZoom] = useState([100]);
-
-  const tracks = [
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
+  const [keySignature, setKeySignature] = useState("F#m");
+  const [tracks, setTracks] = useState<TrackData[]>([
     { id: 1, name: "Log Drums", type: "drums", volume: 80, muted: false, solo: false, armed: false, color: "bg-primary", effects: ["EQ", "Compressor"] },
     { id: 2, name: "Piano Chords", type: "piano", volume: 70, muted: false, solo: false, armed: false, color: "bg-secondary", effects: ["Reverb"] },
     { id: 3, name: "Bass Line", type: "bass", volume: 85, muted: false, solo: false, armed: false, color: "bg-accent", effects: ["Log Drum Saturator"] },
     { id: 4, name: "Percussion", type: "percussion", volume: 60, muted: false, solo: false, armed: false, color: "bg-success", effects: [] },
     { id: 5, name: "Lead Synth", type: "synth", volume: 65, muted: true, solo: false, armed: false, color: "bg-info", effects: ["3D Imager"] },
     { id: 6, name: "Vocals", type: "vocals", volume: 75, muted: false, solo: false, armed: true, color: "bg-warning", effects: ["EQ", "Compressor", "Reverb"] }
-  ];
+  ]);
+
+  const { data: projects, isLoading: projectsLoading } = useDawProjects();
+  const saveMutation = useSaveDawProject();
+
 
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer with pitch glide control" },
@@ -91,17 +99,87 @@ const DAW = () => {
     "Generate saxophone melody for the bridge section"
   ];
 
-  const handleAIGenerate = (suggestion: string) => {
+  const handleAIGenerate = useCallback(async (suggestion: string) => {
     toast.info(`🤖 AI Assistant: ${suggestion}`);
-    // Simulate AI generation
-    setTimeout(() => {
-      toast.success("✨ AI content generated and added to timeline!");
-    }, 2000);
-  };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-music-generation', {
+        body: {
+          prompt: suggestion,
+          context: {
+            bpm: bpm[0],
+            keySignature,
+            projectName,
+          },
+        },
+      });
 
-  const handleTrackAction = (trackId: number, action: string) => {
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success("✨ AI content generated and added to timeline!");
+        console.log("Generated AI content:", data.data);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error("Failed to generate AI content");
+    }
+  }, [bpm, keySignature, projectName]);
+
+  const handleTrackAction = useCallback((trackId: number, action: string) => {
+    setTracks(prev => prev.map(track => {
+      if (track.id === trackId) {
+        switch (action) {
+          case 'mute':
+            return { ...track, muted: !track.muted };
+          case 'solo':
+            return { ...track, solo: !track.solo };
+          case 'arm':
+            return { ...track, armed: !track.armed };
+          default:
+            return track;
+        }
+      }
+      return track;
+    }));
     toast.info(`${action} track ${trackId}`);
-  };
+  }, []);
+
+  const handleSaveProject = useCallback(() => {
+    const projectData: DawProjectData = {
+      bpm: bpm[0],
+      keySignature,
+      timeSignature: "4/4",
+      tracks: tracks.map(track => ({
+        type: 'midi' as const,
+        name: track.name,
+        instrument: track.type,
+        startTime: 0,
+        duration: 8,
+        notes: [],
+      })),
+      mixer: {
+        masterVolume: masterVolume[0] / 100,
+        channels: tracks.map(track => ({
+          volume: track.volume / 100,
+          pan: 0,
+          isMuted: track.muted,
+          isSolo: track.solo,
+          effects: track.effects,
+        })),
+      },
+    };
+
+    saveMutation.mutate({
+      name: projectName,
+      projectData,
+      projectId: currentProjectId,
+      bpm: bpm[0],
+      keySignature,
+    });
+  }, [bpm, keySignature, tracks, masterVolume, projectName, currentProjectId, saveMutation]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,9 +203,14 @@ const DAW = () => {
                 <FolderOpen className="w-4 h-4 mr-2" />
                 Open Project
               </Button>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSaveProject}
+                disabled={saveMutation.isPending}
+              >
                 <Save className="w-4 h-4 mr-2" />
-                Save Project
+                {saveMutation.isPending ? "Saving..." : "Save Project"}
               </Button>
               <Button variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
@@ -231,7 +314,12 @@ const DAW = () => {
                           className="mt-1"
                         />
                       </div>
-                      <Button size="sm" className="w-full btn-glow">
+                      <Button 
+                        size="sm" 
+                        className="w-full btn-glow"
+                        onClick={() => aiPrompt && handleAIGenerate(aiPrompt)}
+                        disabled={!aiPrompt}
+                      >
                         <Zap className="w-3 h-3 mr-2" />
                         Generate
                       </Button>

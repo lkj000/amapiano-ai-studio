@@ -38,6 +38,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
+import { MixerPanel } from "@/components/MixerPanel";
+import { PianoRollPanel } from "@/components/PianoRollPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { supabase } from "@/integrations/supabase/client";
 import type { DawProjectData, TrackData } from "@/types/daw";
 
@@ -56,6 +59,7 @@ const DAW = () => {
   const [zoom, setZoom] = useState([100]);
   const [currentProjectId, setCurrentProjectId] = useState<string | undefined>();
   const [keySignature, setKeySignature] = useState("F#m");
+  const [showSettings, setShowSettings] = useState(false);
   const [tracks, setTracks] = useState<TrackData[]>([
     { id: 1, name: "Log Drums", type: "drums", volume: 80, muted: false, solo: false, armed: false, color: "bg-primary", effects: ["EQ", "Compressor"] },
     { id: 2, name: "Piano Chords", type: "piano", volume: 70, muted: false, solo: false, armed: false, color: "bg-secondary", effects: ["Reverb"] },
@@ -241,11 +245,39 @@ const DAW = () => {
 
   const handleExport = useCallback(() => {
     toast.info("🎵 Exporting project...");
-    // Simulate export process
+    
+    // Create export data
+    const exportData = {
+      projectName,
+      bpm: bpm[0],
+      keySignature,
+      tracks: tracks.map(track => ({
+        name: track.name,
+        type: track.type,
+        volume: track.volume,
+        effects: track.effects,
+        muted: track.muted,
+        solo: track.solo
+      })),
+      masterVolume: masterVolume[0],
+      timestamp: new Date().toISOString()
+    };
+
+    // Create and download file
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '_')}_export.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
     setTimeout(() => {
       toast.success("✅ Project exported successfully!");
-    }, 2000);
-  }, []);
+    }, 1000);
+  }, [projectName, bpm, keySignature, tracks, masterVolume]);
 
   const handleLoadProject = useCallback((projectId: string) => {
     const project = projects?.find(p => p.id === projectId);
@@ -349,7 +381,7 @@ const DAW = () => {
                 <Piano className="w-4 h-4 mr-2" />
                 Piano Roll
               </Button>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
                 <Settings className="w-4 h-4" />
               </Button>
             </div>
@@ -612,9 +644,25 @@ const DAW = () => {
 
             {/* Timeline */}
             <div className="flex-1 overflow-hidden">
-              <div className="h-full flex">
-                {/* Track List */}
-                <div className="w-80 border-r border-border bg-muted/20">
+              {showMixer ? (
+                <MixerPanel
+                  tracks={tracks}
+                  masterVolume={masterVolume}
+                  onMasterVolumeChange={setMasterVolume}
+                  onTrackVolumeChange={handleTrackVolumeChange}
+                  onTrackAction={handleTrackAction}
+                  onClose={() => setShowMixer(false)}
+                />
+              ) : showPianoRoll ? (
+                <PianoRollPanel
+                  selectedTrack={selectedTrack}
+                  tracks={tracks}
+                  onClose={() => setShowPianoRoll(false)}
+                />
+              ) : (
+                <div className="h-full flex">
+                  {/* Track List */}
+                  <div className="w-80 border-r border-border bg-muted/20">
                   <div className="p-3 border-b border-border">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Tracks</h3>
@@ -744,9 +792,15 @@ const DAW = () => {
                   </div>
                 </div>
               </div>
+            )}
             </div>
           </div>
         </div>
+        
+        <SettingsPanel
+          isOpen={showSettings}
+          onOpenChange={setShowSettings}
+        />
       </div>
     </div>
   );

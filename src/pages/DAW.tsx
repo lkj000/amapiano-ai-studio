@@ -12,15 +12,16 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
-import type { DawProjectData, DawTrack, MidiNote } from '@/types/daw';
+import type { DawProjectData, DawTrack, MidiNote, DragState } from '@/types/daw';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';
 import ProjectSettingsModal from '@/components/daw/ProjectSettingsModal';
-import { MixerPanel } from '@/components/MixerPanel';
-import { PianoRollPanel } from '@/components/PianoRollPanel';
+import MixerPanel from '@/components/MixerPanel';
+import PianoRollPanel from '@/components/PianoRollPanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
+import { supabase } from '@/integrations/supabase/client';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -389,6 +390,24 @@ export default function DawPage() {
     }
   };
 
+  const handleUpdateClip = useCallback((trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tracks: prev.tracks.map(t => {
+          if (t.id === trackId) {
+            return {
+              ...t,
+              clips: t.clips.map(c => c.id === clipId ? { ...c, ...updates } : c)
+            };
+          }
+          return t;
+        })
+      };
+    });
+  }, []);
+
   const handleUpdateNotes = useCallback((trackId: string, clipId: string, newNotes: MidiNote[]) => {
     setProjectData(prev => {
       if (!prev) return null;
@@ -406,6 +425,91 @@ export default function DawPage() {
       };
     });
   }, []);
+
+  const onClipMouseDown = useCallback((e: React.MouseEvent, trackId: string, clipId: string, clip: any) => {
+    const rect = timelineContainerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const resizeMargin = 8; // pixels from edge to trigger resize
+    const edgeX = e.clientX - rect.left;
+    const clipElement = e.currentTarget as HTMLElement;
+    const clipRect = clipElement.getBoundingClientRect();
+    const relativeX = e.clientX - clipRect.left;
+    
+    let dragType: 'move' | 'resize-left' | 'resize-right' = 'move';
+    
+    if (relativeX < resizeMargin) {
+      dragType = 'resize-left';
+    } else if (relativeX > clipRect.width - resizeMargin) {
+      dragType = 'resize-right';
+    }
+    
+    setDragState({
+      isDragging: true,
+      dragType,
+      clipId,
+      trackId,
+      startX: edgeX,
+      startTime: clip.startTime,
+      startDuration: clip.duration
+    });
+    
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragState.isDragging || !timelineContainerRef.current) return;
+    
+    const rect = timelineContainerRef.current.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const deltaX = currentX - dragState.startX;
+    const deltaTime = (deltaX / rect.width) * (32 * 100 / zoom[0]);
+    
+    if (dragState.dragType === 'move') {
+      const newStartTime = Math.max(0, dragState.startTime + deltaTime);
+      const snappedTime = Math.round(newStartTime * 4) / 4; // Snap to 16th notes
+      handleUpdateClip(dragState.trackId!, dragState.clipId!, { startTime: snappedTime });
+    } else if (dragState.dragType === 'resize-right' && dragState.startDuration) {
+      const newDuration = Math.max(0.25, dragState.startDuration + deltaTime);
+      const snappedDuration = Math.round(newDuration * 4) / 4;
+      handleUpdateClip(dragState.trackId!, dragState.clipId!, { duration: snappedDuration });
+    } else if (dragState.dragType === 'resize-left' && dragState.startDuration) {
+      const newStartTime = Math.max(0, dragState.startTime + deltaTime);
+      const deltaStartTime = newStartTime - dragState.startTime;
+      const newDuration = Math.max(0.25, dragState.startDuration - deltaStartTime);
+      
+      const snappedStartTime = Math.round(newStartTime * 4) / 4;
+      const snappedDuration = Math.round(newDuration * 4) / 4;
+      
+      handleUpdateClip(dragState.trackId!, dragState.clipId!, { 
+        startTime: snappedStartTime, 
+        duration: snappedDuration 
+      });
+    }
+  }, [dragState, zoom, handleUpdateClip]);
+
+  const handleMouseUp = useCallback(() => {
+    setDragState({
+      isDragging: false,
+      dragType: null,
+      clipId: null,
+      trackId: null,
+      startX: 0,
+      startTime: 0,
+    });
+  }, []);
+
+
+  useEffect(() => {
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
 
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer", color: "bg-red-500" },
@@ -738,7 +842,7 @@ export default function DawPage() {
                             key={clip.id} 
                             className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab hover:opacity-100 select-none group`} 
                             style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}
-                            onMouseDown={(e) => handleClipMouseDown(e, track.id, clip.id, clip)}
+                            onMouseDown={(e) => onClipMouseDown(e, track.id, clip.id, clip)}
                           >
                             {/* Resize handles */}
                             <div className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20" />
@@ -765,59 +869,26 @@ export default function DawPage() {
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
       {showMixer && projectData && (
         <MixerPanel 
-          tracks={projectData.tracks.map(t => ({
-            id: parseInt(t.id.split('_').pop() || '0'),
-            name: t.name,
-            type: t.type,
-            volume: t.mixer.volume * 100,
-            muted: t.mixer.isMuted,
-            solo: t.mixer.isSolo,
-            armed: t.isArmed,
-            color: t.color,
-            effects: t.mixer.effects,
-          }))}
-          masterVolume={[projectData.masterVolume * 100]} 
+          tracks={projectData.tracks} 
+          masterVolume={projectData.masterVolume * 100} 
           onClose={() => setShowMixer(false)} 
           onTrackVolumeChange={(trackId, volume) => {
-            const dawTrack = projectData.tracks.find(t => parseInt(t.id.split('_').pop() || '0') === trackId);
-            if (dawTrack) updateMixer(dawTrack.id, { volume: volume[0] / 100 });
+            updateMixer(trackId, { volume: volume / 100 });
           }} 
           onMasterVolumeChange={(volume) => {
-            setProjectData({ ...projectData, masterVolume: volume[0] / 100 });
-            setMasterVolume(volume[0] / 100);
+            setProjectData({ ...projectData, masterVolume: volume / 100 });
+            setMasterVolume(volume / 100);
           }}
-          onTrackAction={(trackId, action) => {
-            const dawTrack = projectData.tracks.find(t => parseInt(t.id.split('_').pop() || '0') === trackId);
-            if (!dawTrack) return;
-            switch (action) {
-              case 'mute':
-                updateMixer(dawTrack.id, { isMuted: !dawTrack.mixer.isMuted });
-                break;
-              case 'solo':
-                updateMixer(dawTrack.id, { isSolo: !dawTrack.mixer.isSolo });
-                break;
-              case 'arm':
-                updateTrack(dawTrack.id, { isArmed: !dawTrack.isArmed });
-                break;
-            }
-          }}
+          audioLevels={audioLevels}
         />
       )}
       {showPianoRoll && selectedTrack && (
         <PianoRollPanel 
-          selectedTrack={parseInt(selectedTrack.id.split('_').pop() || '0')}
-          tracks={projectData.tracks.map(t => ({
-            id: parseInt(t.id.split('_').pop() || '0'),
-            name: t.name,
-            type: t.type,
-            volume: t.mixer.volume * 100,
-            muted: t.mixer.isMuted,
-            solo: t.mixer.isSolo,
-            armed: t.isArmed,
-            color: t.color,
-            effects: t.mixer.effects,
-          }))}
+          selectedTrack={selectedTrack}
           onClose={() => setShowPianoRoll(false)}
+          onUpdateNotes={handleUpdateNotes}
+          audioContext={getAudioContext()}
+          onPlayNote={playNote}
         />
       )}
     </div>

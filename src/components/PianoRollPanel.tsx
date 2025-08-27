@@ -60,19 +60,25 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
 
   const handleDeleteSelected = () => {
     if (!selectedTrack || !selectedTrack.clips[0] || selectedNotes.length === 0) return;
-
-    const updatedNotes = (selectedTrack.clips[0].notes || []).filter(note => !selectedNotes.includes(note.id));
-    onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+    
+    const clip = selectedTrack.clips[0];
+    if (clip && 'notes' in clip) {
+      const updatedNotes = (clip.notes || []).filter(note => !selectedNotes.includes(note.id));
+      onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+    }
     setSelectedNotes([]);
   };
 
   const handleVelocityChange = (noteId: string, velocity: number) => {
     if (!selectedTrack || !selectedTrack.clips[0]) return;
-
-    const updatedNotes = (selectedTrack.clips[0].notes || []).map(note =>
-      note.id === noteId ? { ...note, velocity } : note
-    );
-    onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+    
+    const clip = selectedTrack.clips[0];
+    if (clip && 'notes' in clip) {
+      const updatedNotes = (clip.notes || []).map(note =>
+        note.id === noteId ? { ...note, velocity } : note
+      );
+      onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+    }
   };
 
   const keyToNote = (pitch: number) => {

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Play, Square, Pencil, Eraser, Scissors, Trash2 } from 'lucide-react';
+import { X, Play, Square, Pencil, Eraser, Scissors, Trash2, Copy, ClipboardPaste } from 'lucide-react';
 import type { DawTrack, MidiNote } from '@/types/daw';
 
 interface PianoRollPanelProps {
@@ -20,18 +20,181 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   const [snap, setSnap] = useState(16); // 16th note snap
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [draggedNote, setDraggedNote] = useState<string | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<'left' | 'right' | null>(null);
+  const [clipboard, setClipboard] = useState<MidiNote[]>([]);
+  const [tool, setTool] = useState<'select' | 'pencil' | 'eraser'>('select');
 
   // Piano keys (C4 to C6)
   const keys = Array.from({ length: 25 }, (_, i) => 84 - i); // MIDI notes 84 down to 60
 
+  const snapToGrid = (time: number) => {
+    const snapValue = 1 / (snap / 4); // Convert snap to beat fractions
+    return Math.round(time / snapValue) * snapValue;
+  };
+
+  const handleNoteMouseDown = useCallback((noteId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isNearLeftEdge = e.clientX - rect.left < 8;
+    const isNearRightEdge = rect.right - e.clientX < 8;
+    
+    if (tool === 'eraser') {
+      handleDeleteNote(noteId);
+      return;
+    }
+    
+    if (isNearLeftEdge || isNearRightEdge) {
+      setIsResizing(true);
+      setResizeDirection(isNearLeftEdge ? 'left' : 'right');
+      setDraggedNote(noteId);
+    } else {
+      setIsDragging(true);
+      setDraggedNote(noteId);
+    }
+    
+    setDragStart({ x: e.clientX, y: e.clientY });
+    
+    if (!selectedNotes.includes(noteId)) {
+      if (e.ctrlKey || e.metaKey) {
+        setSelectedNotes(prev => [...prev, noteId]);
+      } else {
+        setSelectedNotes([noteId]);
+      }
+    }
+    
+    // Play note for feedback
+    if (onPlayNote && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0]) {
+      const note = selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === noteId);
+      if (note) {
+        onPlayNote(note.pitch, note.velocity, 0.3);
+      }
+    }
+  }, [tool, selectedNotes, selectedTrack, onPlayNote]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging && !isResizing) return;
+    if (!dragStart || !draggedNote || !selectedTrack?.clips[0]) return;
+    
+    const clip = selectedTrack.clips[0];
+    if (!('notes' in clip)) return;
+    
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    
+    // Calculate time and pitch changes
+    const timeChange = (deltaX / (zoom / 100)) / 32; // Adjust for zoom
+    const pitchChange = Math.round(deltaY / -24); // Each piano key is ~24px
+    
+    const updatedNotes = (clip.notes || []).map(note => {
+      if (selectedNotes.includes(note.id)) {
+        if (isResizing) {
+          const snappedTimeChange = snapToGrid(timeChange);
+          if (resizeDirection === 'left') {
+            const newStartTime = Math.max(0, note.startTime + snappedTimeChange);
+            const newDuration = note.duration - snappedTimeChange;
+            return newDuration > 0.1 ? { ...note, startTime: newStartTime, duration: newDuration } : note;
+          } else {
+            const newDuration = Math.max(0.1, note.duration + snappedTimeChange);
+            return { ...note, duration: newDuration };
+          }
+        } else {
+          return {
+            ...note,
+            startTime: Math.max(0, snapToGrid(note.startTime + timeChange)),
+            pitch: Math.max(21, Math.min(108, note.pitch + pitchChange))
+          };
+        }
+      }
+      return note;
+    });
+    
+    onUpdateNotes(selectedTrack.id, clip.id, updatedNotes);
+  }, [isDragging, isResizing, dragStart, draggedNote, selectedTrack, selectedNotes, zoom, snap, resizeDirection, onUpdateNotes]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    setIsResizing(false);
+    setDraggedNote(null);
+    setDragStart(null);
+    setResizeDirection(null);
+  }, []);
+
+  // Mouse event listeners
+  useEffect(() => {
+    if (isDragging || isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, isResizing, handleMouseMove, handleMouseUp]);
+
+  const handleDeleteNote = (noteId: string) => {
+    if (!selectedTrack?.clips[0]) return;
+    const clip = selectedTrack.clips[0];
+    if ('notes' in clip) {
+      const updatedNotes = (clip.notes || []).filter(note => note.id !== noteId);
+      onUpdateNotes(selectedTrack.id, clip.id, updatedNotes);
+      setSelectedNotes(prev => prev.filter(id => id !== noteId));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (!selectedTrack?.clips[0] || selectedNotes.length === 0) return;
+    const clip = selectedTrack.clips[0];
+    if ('notes' in clip) {
+      const updatedNotes = (clip.notes || []).filter(note => !selectedNotes.includes(note.id));
+      onUpdateNotes(selectedTrack.id, clip.id, updatedNotes);
+    }
+    setSelectedNotes([]);
+  };
+
+  const handleCopyNotes = () => {
+    if (!selectedTrack?.clips[0] || selectedNotes.length === 0) return;
+    const clip = selectedTrack.clips[0];
+    if ('notes' in clip) {
+      const notesToCopy = (clip.notes || []).filter(note => selectedNotes.includes(note.id));
+      setClipboard(notesToCopy);
+    }
+  };
+
+  const handlePasteNotes = () => {
+    if (!selectedTrack?.clips[0] || clipboard.length === 0) return;
+    const clip = selectedTrack.clips[0];
+    if ('notes' in clip) {
+      const pastedNotes = clipboard.map(note => ({
+        ...note,
+        id: `note_${Date.now()}_${Math.random()}`,
+        startTime: note.startTime + 4 // Offset by 1 bar
+      }));
+      const updatedNotes = [...(clip.notes || []), ...pastedNotes];
+      onUpdateNotes(selectedTrack.id, clip.id, updatedNotes);
+    }
+  };
+
+  const handleVelocityChange = (noteId: string, velocity: number) => {
+    if (!selectedTrack?.clips[0]) return;
+    const clip = selectedTrack.clips[0];
+    if ('notes' in clip) {
+      const updatedNotes = (clip.notes || []).map(note =>
+        note.id === noteId ? { ...note, velocity } : note
+      );
+      onUpdateNotes(selectedTrack.id, clip.id, updatedNotes);
+    }
+  };
+
   const handleAddNote = (pitch: number, startTime: number) => {
-    if (!selectedTrack || !selectedTrack.clips[0]) return;
+    if (!selectedTrack?.clips[0] || tool !== 'pencil') return;
 
     const newNote: MidiNote = {
       id: `note_${Date.now()}`,
       pitch,
       velocity: 80,
-      startTime,
+      startTime: snapToGrid(startTime),
       duration: 1,
     };
 
@@ -43,42 +206,6 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     const clip = selectedTrack.clips[0] as any;
     const updatedNotes = [...(clip.notes || []), newNote];
     onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
-  };
-
-  const handleNoteClick = (noteId: string, note: MidiNote) => {
-    setSelectedNotes(prev => 
-      prev.includes(noteId) 
-        ? prev.filter(id => id !== noteId)
-        : [...prev, noteId]
-    );
-    
-    // Play the note when clicked
-    if (onPlayNote) {
-      onPlayNote(note.pitch, note.velocity, 0.3);
-    }
-  };
-
-  const handleDeleteSelected = () => {
-    if (!selectedTrack || !selectedTrack.clips[0] || selectedNotes.length === 0) return;
-    
-    const clip = selectedTrack.clips[0];
-    if (clip && 'notes' in clip) {
-      const updatedNotes = (clip.notes || []).filter(note => !selectedNotes.includes(note.id));
-      onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
-    }
-    setSelectedNotes([]);
-  };
-
-  const handleVelocityChange = (noteId: string, velocity: number) => {
-    if (!selectedTrack || !selectedTrack.clips[0]) return;
-    
-    const clip = selectedTrack.clips[0];
-    if (clip && 'notes' in clip) {
-      const updatedNotes = (clip.notes || []).map(note =>
-        note.id === noteId ? { ...note, velocity } : note
-      );
-      onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
-    }
   };
 
   const keyToNote = (pitch: number) => {
@@ -149,6 +276,29 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               <span className="text-sm">{zoom}%</span>
             </div>
             <div className="flex gap-1">
+              <Button 
+                size="sm" 
+                variant={tool === 'select' ? 'default' : 'outline'}
+                onClick={() => setTool('select')}
+              >
+                Select
+              </Button>
+              <Button 
+                size="sm" 
+                variant={tool === 'pencil' ? 'default' : 'outline'}
+                onClick={() => setTool('pencil')}
+              >
+                <Pencil className="w-3 h-3" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={tool === 'eraser' ? 'default' : 'outline'}
+                onClick={() => setTool('eraser')}
+              >
+                <Eraser className="w-3 h-3" />
+              </Button>
+            </div>
+            <div className="flex gap-1">
               <Button size="sm" variant="outline">
                 <Play className="w-3 h-3" />
               </Button>
@@ -157,24 +307,30 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               </Button>
             </div>
             <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={handleDeleteSelected} disabled={selectedNotes.length === 0}>
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </Button>
-                {selectedNotes.length === 1 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Velocity:</span>
-                    <Slider
-                      value={[selectedTrack?.clips[0]?.notes?.find(n => n.id === selectedNotes[0])?.velocity || 80]}
-                      onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
-                      min={1}
-                      max={127}
-                      step={1}
-                      className="w-20"
-                    />
-                  </div>
-                )}
-              </div>
+              <Button size="sm" variant="outline" onClick={handleCopyNotes} disabled={selectedNotes.length === 0}>
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={handlePasteNotes} disabled={clipboard.length === 0}>
+                <ClipboardPaste className="w-4 h-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleDeleteSelected} disabled={selectedNotes.length === 0}>
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+              {selectedNotes.length === 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">Velocity:</span>
+                  <Slider
+                    value={[selectedTrack?.clips[0]?.notes?.find(n => n.id === selectedNotes[0])?.velocity || 80]}
+                    onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
+                    min={1}
+                    max={127}
+                    step={1}
+                    className="w-20"
+                  />
+                </div>
+              )}
+            </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>
@@ -232,10 +388,12 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                     <div
                       className="absolute inset-0 cursor-pointer"
                       onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const startTime = (x / rect.width) * 32;
-                        handleAddNote(pitch, Math.round(startTime * snap) / snap);
+                        if (tool === 'pencil') {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const x = e.clientX - rect.left;
+                          const startTime = (x / rect.width) * 32;
+                          handleAddNote(pitch, startTime);
+                        }
                       }}
                     />
                     
@@ -247,13 +405,17 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                           selectedNotes.includes(note.id) 
                             ? 'bg-primary/90 ring-2 ring-primary' 
                             : 'bg-primary/70 hover:bg-primary/80'
-                        }`}
+                        } ${isResizing ? 'cursor-ew-resize' : 'cursor-move'}`}
                         style={{
                           left: `${(note.startTime / 32) * 100}%`,
                           width: `${Math.max((note.duration / 32) * 100, 1)}%`
                         }}
-                        onClick={() => handleNoteClick(note.id, note)}
-                      />
+                        onMouseDown={(e) => handleNoteMouseDown(note.id, e)}
+                      >
+                        {/* Resize handles */}
+                        <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-50 bg-primary" />
+                        <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-50 bg-primary" />
+                      </div>
                     ))}
                   </div>
                 ))}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { DawProjectData, DawTrack, AudioLevels, MidiNote } from '@/types/daw';
+import { useAudioEffects } from './useAudioEffects';
 
 export interface AudioEngineState {
   isPlaying: boolean;
@@ -34,6 +35,9 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const trackAnalyzers = useRef<Map<string, AnalyserNode>>(new Map());
 
+  // Initialize effects system
+  const effects = useAudioEffects(audioContextRef.current);
+
   // Initialize Web Audio API
   useEffect(() => {
     const initAudioContext = async () => {
@@ -65,7 +69,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     };
   }, []);
 
-  // Setup track gains when project data changes
+  // Setup track gains and effects when project data changes
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData) return;
 
@@ -74,19 +78,34 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     trackAnalyzers.current.clear();
 
     // Create gain nodes and analyzers for each track
-    projectData.tracks.forEach((track) => {
+    projectData.tracks.forEach(async (track) => {
       const gainNode = audioContextRef.current!.createGain();
       const analyzer = audioContextRef.current!.createAnalyser();
       
       analyzer.fftSize = 256;
-      gainNode.connect(analyzer);
-      analyzer.connect(masterGainRef.current!);
-      
       gainNode.gain.value = track.mixer?.volume || 0.8;
+      
+      // Initialize effects chain for the track
+      const effectsChain = await effects.initializeEffectsChain(
+        track.id, 
+        track.mixer?.effects || [], 
+        gainNode
+      );
+      
+      if (effectsChain) {
+        // Connect effects output to analyzer then master
+        effectsChain.outputGain.connect(analyzer);
+        analyzer.connect(masterGainRef.current!);
+      } else {
+        // Fallback: direct connection
+        gainNode.connect(analyzer);
+        analyzer.connect(masterGainRef.current!);
+      }
+      
       trackGainsRef.current.set(track.id, gainNode);
       trackAnalyzers.current.set(track.id, analyzer);
     });
-  }, [projectData]);
+  }, [projectData, effects]);
 
   // Audio level monitoring
   useEffect(() => {
@@ -277,6 +296,26 @@ export function useAudioEngine(projectData: DawProjectData | null) {
 
   const getAudioContext = useCallback(() => audioContextRef.current, []);
 
+  const addTrackEffect = useCallback(async (trackId: string, effectType: any) => {
+    const trackGain = trackGainsRef.current.get(trackId);
+    if (trackGain) {
+      await effects.addEffect(trackId, effectType, trackGain);
+    }
+  }, [effects]);
+
+  const removeTrackEffect = useCallback((trackId: string, effectId: string) => {
+    effects.removeEffect(trackId, effectId);
+  }, [effects]);
+
+  const updateEffectParam = useCallback((trackId: string, effectId: string, paramName: string, value: any) => {
+    effects.updateEffectParam(trackId, effectId, paramName, value);
+  }, [effects]);
+
+  const getTrackEffects = useCallback((trackId: string) => {
+    const chain = effects.getEffectsChain(trackId);
+    return chain?.effects || [];
+  }, [effects]);
+
   return {
     isPlaying,
     currentTime,
@@ -294,5 +333,9 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     getAudioContext,
     audioLevels,
     masterLevels,
+    addTrackEffect,
+    removeTrackEffect,
+    updateEffectParam,
+    getTrackEffects,
   };
 }

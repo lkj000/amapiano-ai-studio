@@ -38,11 +38,12 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-5-mini-2025-08-07',
-        max_completion_tokens: 2000,
+        max_completion_tokens: 3000,
         messages: [
           {
             role: 'system', 
-            content: `You are an AI music producer specializing in Amapiano music. Generate realistic MIDI data and track information based on user prompts. Always return valid JSON with the following structure:
+            content: `You are an expert AI music producer specializing in Amapiano and electronic music. Generate realistic, musically coherent MIDI patterns based on user prompts. Always return valid JSON with this exact structure:
+
             {
               "trackName": "Generated track name",
               "instrument": "Instrument name", 
@@ -55,18 +56,48 @@ serve(async (req) => {
                   "duration": 1
                 }
               ],
-              "clipDuration": 8,
-              "color": "bg-color-class"
+              "clipDuration": 16,
+              "color": "bg-purple-500"
             }
+
+            MUSICAL GUIDELINES:
             
-            For Amapiano:
-            - Log drums typically use pitches 36-51 (kick, snare, hi-hats)
-            - Piano chords use pitches 48-84 with velocities 60-100
-            - Bass lines use pitches 28-48 with strong velocities 90-127
-            - Generate 4-8 bar patterns (16-32 beats total)
-            - Use syncopated rhythms typical of Amapiano`
+            For LOG DRUMS (Amapiano signature sound):
+            - Kick: pitch 36, place on beats 1, 3, and syncopated positions
+            - Snare: pitch 38, typically on beats 2, 4 with ghost notes
+            - Hi-hats: pitches 42-46, create intricate 16th note patterns
+            - Percussion: pitches 39-51, add shakers, claps, rim shots
+            - Generate 16-32 beat patterns with signature log drum groove
+            
+            For PIANO/CHORDS:
+            - Use jazz chord progressions (7ths, 9ths, 11ths)
+            - Pitch range: 48-84 (C3 to C6)
+            - Create chord inversions and voice leading
+            - Add rhythmic stabs and sustained chords
+            - Velocity variations: 60-100 for dynamics
+            
+            For BASS:
+            - Sub-bass: pitches 24-48 (C1 to C3) 
+            - Create walking basslines or repetitive grooves
+            - Strong velocities: 90-127
+            - Syncopated rhythms that lock with kick drum
+            
+            For SYNTH LEADS:
+            - Pitch range: 60-96 (C4 to C7)
+            - Create melodic phrases with space
+            - Use call-and-response patterns
+            - Velocity: 70-110
+            
+            RHYTHM GUIDELINES:
+            - Use proper musical timing (4/4 time signature)
+            - Create authentic swing and groove patterns
+            - Add subtle timing variations for humanization
+            - Generate 8-16 bar patterns for good loop points`
           },
-          { role: 'user', content: `Generate a ${trackType} track for: ${prompt}` }
+          { 
+            role: 'user', 
+            content: `Generate a ${trackType} track for: "${prompt}". Make it musically sophisticated with proper chord progressions, rhythm patterns, and authentic ${trackType === 'midi' ? 'MIDI note sequences' : 'audio elements'}. Focus on creating something that sounds professional and musical.`
+          }
         ],
       }),
     });
@@ -147,62 +178,152 @@ serve(async (req) => {
 });
 
 function generateFallbackData(prompt: string, trackType: 'midi' | 'audio') {
-  // Generate a basic pattern based on prompt keywords
   const notes = [];
   const isLogDrum = prompt.toLowerCase().includes('log') || prompt.toLowerCase().includes('drum');
   const isPiano = prompt.toLowerCase().includes('piano') || prompt.toLowerCase().includes('chord');
   const isBass = prompt.toLowerCase().includes('bass');
+  const isSynth = prompt.toLowerCase().includes('synth') || prompt.toLowerCase().includes('lead');
 
   if (isLogDrum) {
-    // Generate log drum pattern
-    for (let i = 0; i < 16; i += 2) {
+    // Advanced log drum pattern with authentic Amapiano groove
+    const kickPattern = [0, 2, 4.5, 6, 8, 10, 12.5, 14]; // Syncopated kick pattern
+    const snarePattern = [4, 12]; // Snare on 2 and 4
+    const hihatPattern = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5];
+    
+    kickPattern.forEach((time, i) => {
       notes.push({
-        id: `note_${i}_kick`,
-        pitch: 36, // Kick
-        velocity: 100,
-        startTime: i,
-        duration: 0.5
+        id: `kick_${i}`,
+        pitch: 36,
+        velocity: 100 + Math.random() * 15,
+        startTime: time,
+        duration: 0.4
       });
-      if (i % 4 === 2) {
-        notes.push({
-          id: `note_${i}_snare`,
-          pitch: 38, // Snare
-          velocity: 90,
-          startTime: i,
-          duration: 0.25
-        });
-      }
-    }
+    });
+    
+    snarePattern.forEach((time, i) => {
+      notes.push({
+        id: `snare_${i}`,
+        pitch: 38,
+        velocity: 90 + Math.random() * 20,
+        startTime: time,
+        duration: 0.3
+      });
+    });
+    
+    hihatPattern.forEach((time, i) => {
+      notes.push({
+        id: `hihat_${i}`,
+        pitch: 42,
+        velocity: 40 + Math.random() * 30,
+        startTime: time,
+        duration: 0.1
+      });
+    });
+
+    // Add percussion elements
+    [1.5, 5.5, 9.5, 13.5].forEach((time, i) => {
+      notes.push({
+        id: `perc_${i}`,
+        pitch: 39,
+        velocity: 70,
+        startTime: time,
+        duration: 0.2
+      });
+    });
+
   } else if (isPiano) {
-    // Generate piano chord progression
-    const chords = [
-      [60, 64, 67], // C major
-      [65, 69, 72], // F major
-      [62, 65, 69], // D minor
-      [67, 71, 74], // G major
+    // Advanced jazz chord progression with inversions
+    const chordProgression = [
+      { root: 60, chord: [60, 64, 67, 71], time: 0 },    // CM7
+      { root: 57, chord: [57, 60, 64, 67], time: 4 },    // Am7
+      { root: 65, chord: [65, 69, 72, 76], time: 8 },    // FM7
+      { root: 67, chord: [67, 71, 74, 77], time: 12 }    // GM7
     ];
     
-    chords.forEach((chord, chordIndex) => {
+    chordProgression.forEach((chord, chordIndex) => {
+      // Main chord
+      chord.chord.forEach((pitch, noteIndex) => {
+        notes.push({
+          id: `chord_${chordIndex}_${noteIndex}`,
+          pitch,
+          velocity: 65 + Math.random() * 25,
+          startTime: chord.time,
+          duration: 3.8
+        });
+      });
+      
+      // Add rhythmic variations
+      if (chordIndex % 2 === 1) {
+        notes.push({
+          id: `stab_${chordIndex}`,
+          pitch: chord.root + 12,
+          velocity: 80,
+          startTime: chord.time + 2.5,
+          duration: 0.5
+        });
+      }
+    });
+
+  } else if (isBass) {
+    // Sophisticated bass line with walking pattern
+    const bassLine = [
+      { pitch: 36, time: 0, duration: 1 },      // C
+      { pitch: 36, time: 1.5, duration: 0.5 },  // C
+      { pitch: 33, time: 4, duration: 1 },      // A
+      { pitch: 33, time: 5.5, duration: 0.5 },  // A
+      { pitch: 41, time: 8, duration: 1 },      // F
+      { pitch: 43, time: 10, duration: 0.5 },   // G
+      { pitch: 43, time: 12, duration: 1 },     // G
+      { pitch: 31, time: 14, duration: 1 }      // G (lower)
+    ];
+    
+    bassLine.forEach((note, i) => {
+      notes.push({
+        id: `bass_${i}`,
+        pitch: note.pitch,
+        velocity: 110 + Math.random() * 15,
+        startTime: note.time,
+        duration: note.duration
+      });
+    });
+
+  } else if (isSynth) {
+    // Melodic synth lead
+    const melody = [
+      { pitch: 72, time: 0, duration: 1 },
+      { pitch: 74, time: 1.5, duration: 0.5 },
+      { pitch: 76, time: 2.5, duration: 1 },
+      { pitch: 74, time: 4, duration: 0.5 },
+      { pitch: 72, time: 5, duration: 1 },
+      { pitch: 69, time: 8, duration: 2 },
+      { pitch: 71, time: 11, duration: 1 },
+      { pitch: 72, time: 13, duration: 2 }
+    ];
+    
+    melody.forEach((note, i) => {
+      notes.push({
+        id: `synth_${i}`,
+        pitch: note.pitch,
+        velocity: 75 + Math.random() * 20,
+        startTime: note.time,
+        duration: note.duration
+      });
+    });
+  } else {
+    // Default pattern - simple chord progression
+    const simpleChords = [
+      [60, 64, 67], [57, 60, 64], [65, 69, 72], [67, 71, 74]
+    ];
+    
+    simpleChords.forEach((chord, chordIndex) => {
       chord.forEach((pitch, noteIndex) => {
         notes.push({
-          id: `note_${chordIndex}_${noteIndex}`,
+          id: `default_${chordIndex}_${noteIndex}`,
           pitch,
           velocity: 70 + Math.random() * 20,
           startTime: chordIndex * 4,
           duration: 3.5
         });
-      });
-    });
-  } else if (isBass) {
-    // Generate bass line
-    const bassNotes = [36, 41, 38, 43]; // Root progression
-    bassNotes.forEach((pitch, index) => {
-      notes.push({
-        id: `note_bass_${index}`,
-        pitch,
-        velocity: 110,
-        startTime: index * 4,
-        duration: 3.5
       });
     });
   }

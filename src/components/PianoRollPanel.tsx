@@ -3,199 +3,259 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Play, Square, Pencil, Eraser, Scissors } from 'lucide-react';
-import type { MidiNote } from '@/types/daw';
+import { X, Play, Square, Pencil, Eraser, Scissors, Trash2 } from 'lucide-react';
+import type { DawTrack, MidiNote } from '@/types/daw';
 
-export interface PianoRollPanelProps {
-  selectedTrack: number | null;
-  tracks: any[];
+interface PianoRollPanelProps {
+  selectedTrack: DawTrack | null;
   onClose: () => void;
-  onUpdateNotes?: (trackId: string, clipId: string, notes: MidiNote[]) => void;
+  onUpdateNotes: (trackId: string, clipId: string, notes: MidiNote[]) => void;
+  audioContext?: AudioContext;
+  onPlayNote?: (pitch: number, velocity?: number, duration?: number) => void;
 }
 
-export const PianoRollPanel: React.FC<PianoRollPanelProps> = ({
-  selectedTrack,
-  tracks,
-  onClose
-}) => {
-  const [tool, setTool] = useState('pencil');
-  const [noteLength, setNoteLength] = useState([16]); // 16th notes
-  const [velocity, setVelocity] = useState([100]);
-  const [zoom, setZoom] = useState([100]);
+export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext, onPlayNote }: PianoRollPanelProps) {
+  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
+  const [zoom, setZoom] = useState(100);
+  const [snap, setSnap] = useState(16); // 16th note snap
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
 
-  const selectedTrackData = tracks.find(t => t.id === selectedTrack);
-  
   // Piano keys (C4 to C6)
-  const keys = [
-    'C6', 'B5', 'A#5', 'A5', 'G#5', 'G5', 'F#5', 'F5', 'E5', 'D#5', 'D5', 'C#5',
-    'C5', 'B4', 'A#4', 'A4', 'G#4', 'G4', 'F#4', 'F4', 'E4', 'D#4', 'D4', 'C#4', 'C4'
-  ];
+  const keys = Array.from({ length: 25 }, (_, i) => 84 - i); // MIDI notes 84 down to 60
 
-  const isBlackKey = (key: string) => key.includes('#');
+  const handleAddNote = (pitch: number, startTime: number) => {
+    if (!selectedTrack || !selectedTrack.clips[0]) return;
+
+    const newNote: MidiNote = {
+      id: `note_${Date.now()}`,
+      pitch,
+      velocity: 80,
+      startTime,
+      duration: 1,
+    };
+
+    // Play the note for immediate feedback
+    if (onPlayNote) {
+      onPlayNote(pitch, 80, 0.5);
+    }
+
+    const clip = selectedTrack.clips[0] as any;
+    const updatedNotes = [...(clip.notes || []), newNote];
+    onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+  };
+
+  const handleNoteClick = (noteId: string, note: MidiNote) => {
+    setSelectedNotes(prev => 
+      prev.includes(noteId) 
+        ? prev.filter(id => id !== noteId)
+        : [...prev, noteId]
+    );
+    
+    // Play the note when clicked
+    if (onPlayNote) {
+      onPlayNote(note.pitch, note.velocity, 0.3);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (!selectedTrack || !selectedTrack.clips[0] || selectedNotes.length === 0) return;
+
+    const updatedNotes = (selectedTrack.clips[0].notes || []).filter(note => !selectedNotes.includes(note.id));
+    onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+    setSelectedNotes([]);
+  };
+
+  const handleVelocityChange = (noteId: string, velocity: number) => {
+    if (!selectedTrack || !selectedTrack.clips[0]) return;
+
+    const updatedNotes = (selectedTrack.clips[0].notes || []).map(note =>
+      note.id === noteId ? { ...note, velocity } : note
+    );
+    onUpdateNotes(selectedTrack.id, selectedTrack.clips[0].id, updatedNotes);
+  };
+
+  const keyToNote = (pitch: number) => {
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(pitch / 12) - 1;
+    const note = noteNames[pitch % 12];
+    return `${note}${octave}`;
+  };
+
+  const isBlackKey = (pitch: number) => {
+    const noteIndex = pitch % 12;
+    return [1, 3, 6, 8, 10].includes(noteIndex);
+  };
+
+  if (!selectedTrack || selectedTrack.type !== 'midi') {
+    return (
+      <Card className="fixed inset-4 z-50 bg-background">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Piano Roll</CardTitle>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            Please select a MIDI track to edit notes
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="w-full h-full border-0 rounded-none">
+    <Card className="fixed inset-4 z-50 bg-background flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">
-            Piano Roll - {selectedTrackData?.name || 'No Track Selected'}
+            Piano Roll - {selectedTrack.name}
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Snap:</span>
+              <Select value={snap.toString()} onValueChange={(v) => setSnap(parseInt(v))}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="4">1/4</SelectItem>
+                  <SelectItem value="8">1/8</SelectItem>
+                  <SelectItem value="16">1/16</SelectItem>
+                  <SelectItem value="32">1/32</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Zoom:</span>
+              <div className="w-20">
+                <Slider
+                  value={[zoom]}
+                  onValueChange={([v]) => setZoom(v)}
+                  min={25}
+                  max={400}
+                  step={25}
+                />
+              </div>
+              <span className="text-sm">{zoom}%</span>
+            </div>
+            <div className="flex gap-1">
+              <Button size="sm" variant="outline">
+                <Play className="w-3 h-3" />
+              </Button>
+              <Button size="sm" variant="outline">
+                <Square className="w-3 h-3" />
+              </Button>
+            </div>
+            <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={handleDeleteSelected} disabled={selectedNotes.length === 0}>
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </Button>
+                {selectedNotes.length === 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Velocity:</span>
+                    <Slider
+                      value={[selectedTrack?.clips[0]?.notes?.find(n => n.id === selectedNotes[0])?.velocity || 80]}
+                      onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
+                      min={1}
+                      max={127}
+                      step={1}
+                      className="w-20"
+                    />
+                  </div>
+                )}
+              </div>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0 flex-1">
-        {!selectedTrack ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Please select a track to edit MIDI notes
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <div className="flex h-full">
+          {/* Piano Keys */}
+          <div className="w-16 border-r border-border bg-muted/10 overflow-y-auto">
+            {keys.map((pitch) => (
+              <div
+                key={pitch}
+                className={`h-6 border-b border-border/30 flex items-center justify-center text-xs cursor-pointer hover:bg-primary/10 ${
+                  isBlackKey(pitch) ? 'bg-muted text-muted-foreground' : 'bg-background'
+                }`}
+                onClick={() => onPlayNote && onPlayNote(pitch, 80, 0.5)}
+              >
+                {keyToNote(pitch)}
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            {/* Toolbar */}
-            <div className="border-b border-border p-3 flex items-center gap-4">
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant={tool === 'pencil' ? 'default' : 'outline'}
-                  onClick={() => setTool('pencil')}
-                >
-                  <Pencil className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={tool === 'eraser' ? 'default' : 'outline'}
-                  onClick={() => setTool('eraser')}
-                >
-                  <Eraser className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={tool === 'cut' ? 'default' : 'outline'}
-                  onClick={() => setTool('cut')}
-                >
-                  <Scissors className="w-3 h-3" />
-                </Button>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs">Note:</span>
-                <Select value={noteLength[0].toString()} onValueChange={(v) => setNoteLength([parseInt(v)])}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">1/4</SelectItem>
-                    <SelectItem value="8">1/8</SelectItem>
-                    <SelectItem value="16">1/16</SelectItem>
-                    <SelectItem value="32">1/32</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs">Velocity:</span>
-                <div className="w-20">
-                  <Slider
-                    value={velocity}
-                    onValueChange={setVelocity}
-                    min={1}
-                    max={127}
-                    step={1}
-                  />
-                </div>
-                <span className="text-xs w-8">{velocity[0]}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs">Zoom:</span>
-                <div className="w-20">
-                  <Slider
-                    value={zoom}
-                    onValueChange={setZoom}
-                    min={25}
-                    max={400}
-                    step={25}
-                  />
-                </div>
-                <span className="text-xs">{zoom[0]}%</span>
-              </div>
-
-              <div className="ml-auto flex gap-1">
-                <Button size="sm" variant="outline">
-                  <Play className="w-3 h-3" />
-                </Button>
-                <Button size="sm" variant="outline">
-                  <Square className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Piano Roll Grid */}
-            <div className="flex h-96">
-              {/* Piano Keys */}
-              <div className="w-16 border-r border-border bg-muted/20">
-                {keys.map((key) => (
-                  <div
-                    key={key}
-                    className={`h-4 border-b border-border/30 flex items-center justify-center text-xs cursor-pointer hover:bg-primary/10 ${
-                      isBlackKey(key) ? 'bg-muted text-muted-foreground' : 'bg-background'
-                    }`}
-                  >
-                    {key}
+          {/* Note Grid */}
+          <div className="flex-1 overflow-auto">
+            <div className="relative">
+              {/* Time ruler */}
+              <div className="h-8 bg-muted/20 border-b border-border flex sticky top-0 z-10">
+                {Array.from({ length: 32 }, (_, i) => (
+                  <div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1 text-muted-foreground">
+                    {i + 1}
                   </div>
                 ))}
               </div>
 
-              {/* Note Grid */}
-              <div className="flex-1 overflow-auto">
-                <div className="relative">
-                  {/* Time ruler */}
-                  <div className="h-6 bg-muted border-b border-border flex">
-                    {Array.from({ length: 32 }, (_, i) => (
-                      <div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1">
-                        {i + 1}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Grid */}
-                  <div className="relative">
-                    {keys.map((key, keyIndex) => (
+              {/* Grid */}
+              <div className="relative" style={{ width: `${zoom}%` }}>
+                {keys.map((pitch) => (
+                  <div
+                    key={pitch}
+                    className={`h-6 border-b border-border/30 relative ${
+                      isBlackKey(pitch) ? 'bg-muted/20' : 'bg-background'
+                    }`}
+                  >
+                    {/* Grid lines */}
+                    {Array.from({ length: 32 * 4 }, (_, i) => (
                       <div
-                        key={key}
-                        className={`h-4 border-b border-border/30 relative ${
-                          isBlackKey(key) ? 'bg-muted/30' : 'bg-background'
+                        key={i}
+                        className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`}
+                        style={{ left: `${(i / (32 * 4)) * 100}%` }}
+                      />
+                    ))}
+                    
+                    {/* Click area for adding notes */}
+                    <div
+                      className="absolute inset-0 cursor-pointer"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const startTime = (x / rect.width) * 32;
+                        handleAddNote(pitch, Math.round(startTime * snap) / snap);
+                      }}
+                    />
+                    
+                    {/* Notes */}
+                    {selectedTrack.clips[0]?.notes?.filter(note => note.pitch === pitch).map(note => (
+                      <div
+                        key={note.id}
+                        className={`absolute top-0.5 bottom-0.5 rounded cursor-pointer transition-colors ${
+                          selectedNotes.includes(note.id) 
+                            ? 'bg-primary/90 ring-2 ring-primary' 
+                            : 'bg-primary/70 hover:bg-primary/80'
                         }`}
-                      >
-                        {/* Grid lines */}
-                        {Array.from({ length: 32 }, (_, i) => (
-                          <div
-                            key={i}
-                            className="absolute top-0 bottom-0 border-r border-border/10"
-                            style={{ left: `${(i / 32) * 100}%` }}
-                          />
-                        ))}
-                        
-                        {/* Sample notes for demo */}
-                        {keyIndex < 5 && Math.random() > 0.7 && (
-                          <div
-                            className="absolute top-0.5 bottom-0.5 bg-primary rounded opacity-80 cursor-pointer hover:opacity-100"
-                            style={{
-                              left: `${Math.random() * 50}%`,
-                              width: `${3 + Math.random() * 10}%`
-                            }}
-                          />
-                        )}
-                      </div>
+                        style={{
+                          left: `${(note.startTime / 32) * 100}%`,
+                          width: `${Math.max((note.duration / 32) * 100, 1)}%`
+                        }}
+                        onClick={() => handleNoteClick(note.id, note)}
+                      />
                     ))}
                   </div>
-                </div>
+                ))}
               </div>
             </div>
-          </>
-        )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
-};
+}

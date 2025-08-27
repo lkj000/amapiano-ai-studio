@@ -1,9 +1,11 @@
 // DAW Project Types
 export interface MidiNote {
-  pitch: number;
-  velocity: number;
-  startTime: number;
-  duration: number;
+  id: string;
+  pitch: number; // MIDI note number (0-127)
+  velocity: number; // Note velocity (0-127)
+  startTime: number; // Start time in beats
+  duration: number; // Duration in beats
+  pitchBend?: number; // Pitch bend value (-8192 to 8191)
 }
 
 export interface MidiClip {
@@ -97,4 +99,20 @@ export interface EffectData {
   name: string;
   category: string;
   description: string;
+}
+
+export interface AudioLevels {
+  left: number;
+  right: number;
+  peak: number;
+}
+
+export interface DragState {
+  isDragging: boolean;
+  dragType: 'move' | 'resize-left' | 'resize-right' | null;
+  clipId: string | null;
+  trackId: string | null;
+  startX: number;
+  startTime: number;
+  startDuration?: number;
 }

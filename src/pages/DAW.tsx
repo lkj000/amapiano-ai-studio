@@ -98,6 +98,14 @@ export default function DawPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
+  const [dragState, setDragState] = useState<DragState>({
+    isDragging: false,
+    dragType: null,
+    clipId: null,
+    trackId: null,
+    startX: 0,
+    startTime: 0,
+  });
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Modals state
@@ -110,7 +118,24 @@ export default function DawPage() {
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
   // Audio Engine
-  const { isPlaying, currentTime, setCurrentTime, isLooping, setIsLooping, play, pause, stop, setBpm, setTrackVolume, setMasterVolume } = useAudioEngine(projectData);
+  const { 
+    isPlaying, 
+    currentTime, 
+    setCurrentTime, 
+    isLooping, 
+    setIsLooping, 
+    play, 
+    pause, 
+    stop, 
+    setBpm, 
+    setTrackVolume, 
+    setMasterVolume,
+    playNote,
+    playClip,
+    getAudioContext,
+    audioLevels,
+    masterLevels
+  } = useAudioEngine(projectData);
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -178,15 +203,25 @@ export default function DawPage() {
   });
 
   const aiGenerateMutation = useMutation({
-    mutationFn: (data: { prompt: string; trackType: 'midi' | 'audio' }) => backend.music.generateDawElement(data),
+    mutationFn: async (data: { prompt: string; trackType: 'midi' | 'audio' }) => {
+      const { data: result, error } = await supabase.functions.invoke('ai-music-generation', {
+        body: data
+      });
+      
+      if (error) throw error;
+      if (!result.success) throw new Error(result.error || 'AI generation failed');
+      
+      return result;
+    },
     onSuccess: (data) => {
       setProjectData(prev => {
         if (!prev) return null;
         return { ...prev, tracks: [...prev.tracks, data.newTrack] };
       });
-      toast.success(`AI generated a new "${data.newTrack.name}" track!`);
+      toast.success(data.message || `AI generated a new track!`);
     },
     onError: (error: any) => {
+      console.error('AI Generation Error:', error);
       toast.error("AI Generation Failed", { description: error.message });
     }
   });
@@ -699,8 +734,16 @@ export default function DawPage() {
                     {projectData.tracks.map((track, trackIndex) => (
                       <div key={track.id} className="h-24 border-b border-border/30 relative flex items-center">
                         {track.clips.map(clip => (
-                          <div key={clip.id} className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center`} style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}>
-                            <span className="text-xs text-white font-medium">{clip.name}</span>
+                          <div 
+                            key={clip.id} 
+                            className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab hover:opacity-100 select-none group`} 
+                            style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}
+                            onMouseDown={(e) => handleClipMouseDown(e, track.id, clip.id, clip)}
+                          >
+                            {/* Resize handles */}
+                            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20" />
+                            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20" />
+                            <span className="text-xs text-white font-medium pointer-events-none">{clip.name}</span>
                           </div>
                         ))}
                         {Array.from({ length: 32 * 4 }, (_, i) => (

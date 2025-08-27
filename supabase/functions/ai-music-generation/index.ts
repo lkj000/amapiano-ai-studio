@@ -105,6 +105,22 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', errorText);
+      
+      // Check if it's a quota exceeded error (429)
+      if (response.status === 429) {
+        console.log('OpenAI quota exceeded, using fallback generation');
+        const fallbackTrack = generateFallbackData(prompt, trackType);
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          newTrack: fallbackTrack,
+          message: `AI quota exceeded, generated fallback ${trackType} track: ${fallbackTrack.name}`,
+          fallback: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
     }
 

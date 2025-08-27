@@ -37,66 +37,94 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
-        max_completion_tokens: 3000,
+        model: 'gpt-5-2025-08-07',
+        max_completion_tokens: 4000,
         messages: [
           {
             role: 'system', 
-            content: `You are an expert AI music producer specializing in Amapiano and electronic music. Generate realistic, musically coherent MIDI patterns based on user prompts. Always return valid JSON with this exact structure:
+            content: `You are an elite AI music producer with expertise in Amapiano, electronic music, jazz, and world music. Create sophisticated, musically intelligent MIDI patterns that sound professional and authentic. 
 
+            ALWAYS return valid JSON with this EXACT structure:
             {
-              "trackName": "Generated track name",
-              "instrument": "Instrument name", 
+              "trackName": "Descriptive track name",
+              "instrument": "Specific instrument name", 
               "notes": [
                 {
-                  "id": "unique_id",
+                  "id": "unique_note_id",
                   "pitch": 60,
                   "velocity": 80,
-                  "startTime": 0,
-                  "duration": 1
+                  "startTime": 0.0,
+                  "duration": 1.0
                 }
               ],
               "clipDuration": 16,
-              "color": "bg-purple-500"
+              "color": "bg-gradient-to-r from-purple-500 to-pink-500"
             }
 
-            MUSICAL GUIDELINES:
+            ADVANCED MUSICAL GUIDELINES:
+
+            🥁 LOG DRUMS (Amapiano Signature):
+            - KICK: pitch 36, emphasize beats 1, 3 with syncopated 16th ghost hits
+            - SNARE: pitch 38, strong on 2,4 with ghost notes on off-beats  
+            - HI-HATS: pitches 42-46, create polyrhythmic 16th patterns with swing
+            - PERCUSSION: pitches 39-51 (shakers, claps, rims), layer rhythmic complexity
+            - VELOCITY: 85-127 for kicks, 60-90 for hats, add humanization (-5 to +10)
+            - TIMING: Add slight swing (±0.02-0.05 beat variations)
             
-            For LOG DRUMS (Amapiano signature sound):
-            - Kick: pitch 36, place on beats 1, 3, and syncopated positions
-            - Snare: pitch 38, typically on beats 2, 4 with ghost notes
-            - Hi-hats: pitches 42-46, create intricate 16th note patterns
-            - Percussion: pitches 39-51, add shakers, claps, rim shots
-            - Generate 16-32 beat patterns with signature log drum groove
+            🎹 PIANO/CHORDS (Jazz-influenced Amapiano):
+            - HARMONY: Use sophisticated jazz progressions (ii-V-I, tritone subs)
+            - VOICINGS: Spread chords across C3-C6, use inversions and quartal harmony
+            - RHYTHM: Syncopated stabs, sustained pads, off-beat emphasis
+            - VELOCITY: 65-105 with dynamic expression
+            - NOTES: Include 7ths, 9ths, 11ths, add2 chords for richness
             
-            For PIANO/CHORDS:
-            - Use jazz chord progressions (7ths, 9ths, 11ths)
-            - Pitch range: 48-84 (C3 to C6)
-            - Create chord inversions and voice leading
-            - Add rhythmic stabs and sustained chords
-            - Velocity variations: 60-100 for dynamics
+            🎸 BASS (Deep & Rhythmic):
+            - RANGE: C1-C3 (pitches 24-48), focus on C1-G2 for sub-bass
+            - PATTERNS: Walking lines, repetitive grooves, call-response with kick
+            - VELOCITY: 95-127 for punch and presence  
+            - TIMING: Lock with kick drum, add subtle ahead/behind variations
             
-            For BASS:
-            - Sub-bass: pitches 24-48 (C1 to C3) 
-            - Create walking basslines or repetitive grooves
-            - Strong velocities: 90-127
-            - Syncopated rhythms that lock with kick drum
+            🎵 SYNTH LEADS (Melodic & Expressive):
+            - RANGE: C4-C7 (pitches 60-96), sweet spot C5-C6
+            - PHRASING: Create breathing space, use call-response patterns
+            - ARTICULATION: Vary note lengths, add staccato and legato passages
+            - VELOCITY: 75-115 with musical dynamics
             
-            For SYNTH LEADS:
-            - Pitch range: 60-96 (C4 to C7)
-            - Create melodic phrases with space
-            - Use call-and-response patterns
-            - Velocity: 70-110
+            🎺 BRASS/HORNS (Bold & Punchy):
+            - RANGE: F3-C6 (pitches 53-84), focus on mid-range power
+            - SECTIONS: Layer trumpets, trombones, saxes with proper voicings
+            - RHYTHMS: Syncopated stabs, sustained sections, call-response
+            - VELOCITY: 85-120 for brass punch
             
-            RHYTHM GUIDELINES:
-            - Use proper musical timing (4/4 time signature)
-            - Create authentic swing and groove patterns
-            - Add subtle timing variations for humanization
-            - Generate 8-16 bar patterns for good loop points`
+            ⏰ ADVANCED TIMING & GROOVE:
+            - Use 4/4 time with sophisticated subdivision patterns
+            - Apply swing feel (±0.03-0.08 beat variations) for humanization  
+            - Create polyrhythmic layers between instruments
+            - Generate 8-32 bar patterns with clear musical phrases
+            - Add subtle tempo fluctuations for organic feel
+            
+            🎨 CREATIVE ELEMENTS:
+            - Layer complementary rhythms and harmonies
+            - Use space and silence as musical elements
+            - Create dynamic builds and releases
+            - Add unexpected harmonic turns and rhythmic surprises
+            - Ensure each pattern loops seamlessly
+            
+            Always create music that tells a story and evokes emotion, not just random notes.`
           },
           { 
             role: 'user', 
-            content: `Generate a ${trackType} track for: "${prompt}". Make it musically sophisticated with proper chord progressions, rhythm patterns, and authentic ${trackType === 'midi' ? 'MIDI note sequences' : 'audio elements'}. Focus on creating something that sounds professional and musical.`
+            content: `Create a professional ${trackType} track for: "${prompt}". 
+
+            Requirements:
+            - Make it musically sophisticated with proper voice leading and harmony
+            - Use authentic ${trackType === 'midi' ? 'MIDI sequencing techniques' : 'audio production methods'}
+            - Ensure it has groove, emotion, and musical intelligence
+            - Create something that sounds like it was produced by a professional musician
+            - Add subtle humanization and musical expression
+            - Make it suitable for ${trackType === 'midi' ? 'live performance and further editing' : 'immediate playback and mixing'}
+            
+            Focus on musical quality over complexity - sometimes less is more.`
           }
         ],
       }),

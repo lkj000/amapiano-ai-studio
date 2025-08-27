@@ -17,7 +17,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';
 import ProjectSettingsModal from '@/components/daw/ProjectSettingsModal';
-import MixerPanel from '@/components/MixerPanel';
+import { OptimizedTimeline } from '@/components/OptimizedTimeline';
+import { OptimizedMixer } from '@/components/OptimizedMixer';
 import PianoRollPanel from '@/components/PianoRollPanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
@@ -451,6 +452,99 @@ export default function DawPage() {
       toast.info("Project settings updated. Don't forget to save!");
     }
   }, [projectData, setBpm, undoRedoControls]);
+
+  // Clip manipulation functions
+  const handleClipDuplicate = useCallback((clipId: string) => {
+    const track = projectData?.tracks.find(t => t.clips.some(c => c.id === clipId));
+    if (!track) return;
+    
+    const clip = track.clips.find(c => c.id === clipId);
+    if (!clip) return;
+    
+    const duplicatedClip = {
+      ...clip,
+      id: `clip_${Date.now()}`,
+      name: `${clip.name} Copy`,
+      startTime: clip.startTime + clip.duration
+    } as any;
+    
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === track.id ? { ...t, clips: [...t.clips, duplicatedClip] } as DawTrack : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Duplicated clip "${clip.name}"`);
+      return newData;
+    });
+    toast.success(`Clip "${clip.name}" duplicated`);
+  }, [projectData, undoRedoControls]);
+
+  const handleClipSplit = useCallback((clipId: string, position: number) => {
+    const track = projectData?.tracks.find(t => t.clips.some(c => c.id === clipId));
+    if (!track) return;
+    
+    const clipIndex = track.clips.findIndex(c => c.id === clipId);
+    if (clipIndex === -1) return;
+    
+    const clip = track.clips[clipIndex];
+    const splitPoint = position - clip.startTime;
+    
+    if (splitPoint <= 0 || splitPoint >= clip.duration) return;
+    
+    const firstPart = { ...clip, duration: splitPoint };
+    const secondPart = {
+      ...clip,
+      id: `clip_${Date.now()}`,
+      name: `${clip.name} (2)`,
+      startTime: position,
+      duration: clip.duration - splitPoint,
+      ...('notes' in clip ? {
+        notes: (clip as any).notes.filter((note: any) => note.startTime >= splitPoint)
+          .map((note: any) => ({ ...note, startTime: note.startTime - splitPoint }))
+      } : {})
+    } as any;
+    
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newClips = [...track.clips];
+      newClips[clipIndex] = firstPart;
+      newClips.push(secondPart);
+      
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === track.id ? { ...t, clips: newClips } as DawTrack : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Split clip "${clip.name}"`);
+      return newData;
+    });
+    toast.success(`Clip "${clip.name}" split`);
+  }, [projectData, undoRedoControls]);
+
+  const handleClipDelete = useCallback((clipId: string) => {
+    const track = projectData?.tracks.find(t => t.clips.some(c => c.id === clipId));
+    if (!track) return;
+    
+    const clip = track.clips.find(c => c.id === clipId);
+    if (!clip) return;
+    
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === track.id ? { ...t, clips: t.clips.filter(c => c.id !== clipId) } as DawTrack : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Deleted clip "${clip.name}"`);
+      return newData;
+    });
+    toast.success(`Clip "${clip.name}" deleted`);
+  }, [projectData, undoRedoControls]);
 
   const handleUpdateClip = useCallback((trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => {
     setProjectData(prev => {
@@ -974,18 +1068,19 @@ export default function DawPage() {
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
       {showMixer && projectData && (
-        <MixerPanel 
+        <OptimizedMixer 
           tracks={projectData.tracks} 
-          masterVolume={projectData.masterVolume * 100} 
+          masterVolume={projectData.masterVolume} 
           onClose={() => setShowMixer(false)} 
           onTrackVolumeChange={(trackId, volume) => {
-            updateMixer(trackId, { volume: volume / 100 });
+            updateMixer(trackId, { volume });
           }} 
           onMasterVolumeChange={(volume) => {
-            setProjectData({ ...projectData, masterVolume: volume / 100 });
-            setMasterVolume(volume / 100);
+            setProjectData({ ...projectData, masterVolume: volume });
+            setMasterVolume(volume);
           }}
           audioLevels={audioLevels}
+          masterLevels={masterLevels}
         />
       )}
       {showPianoRoll && selectedTrack && (

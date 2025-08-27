@@ -325,7 +325,7 @@ export default function RealTimeCollaborationPanel({
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      {participant.permissions?.isHost && <Crown className="h-3 w-3 text-amber-500" />}
+                      {(participant.permissions as any)?.isHost && <Crown className="h-3 w-3 text-amber-500" />}
                       <Circle className="h-2 w-2 text-green-500 fill-current" />
                     </div>
                   </div>

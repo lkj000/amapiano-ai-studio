@@ -148,8 +148,8 @@ export function useRealtimeCollaboration(projectId: string, projectData: DawProj
       if (state.conflictResolution === 'timestamp') {
         return a.timestamp - b.timestamp;
       } else if (state.conflictResolution === 'host-wins') {
-        const aIsHost = state.participants.get(a.userId)?.permissions?.isHost || false;
-        const bIsHost = state.participants.get(b.userId)?.permissions?.isHost || false;
+        const aIsHost = (state.participants.get(a.userId)?.permissions as any)?.isHost || false;
+        const bIsHost = (state.participants.get(b.userId)?.permissions as any)?.isHost || false;
         if (aIsHost && !bIsHost) return -1;
         if (!aIsHost && bIsHost) return 1;
         return a.timestamp - b.timestamp;
@@ -347,7 +347,7 @@ export function useRealtimeCollaboration(projectId: string, projectData: DawProj
           isActive: true,
           cursorPosition: presence.cursor,
           currentTool: presence.current_tool,
-          permissions: { isHost: presence.is_host },
+          permissions: { canEdit: true, canAddTracks: true, canDeleteTracks: false, isHost: presence.is_host } as any,
           joinedAt: presence.joined_at,
           lastSeen: new Date().toISOString()
         });

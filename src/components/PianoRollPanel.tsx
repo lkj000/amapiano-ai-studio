@@ -317,17 +317,18 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                 <Trash2 className="w-4 h-4" />
                 Delete
               </Button>
-              {selectedNotes.length === 1 && (
+                  {selectedNotes.length === 1 && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0] && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm">Velocity:</span>
                   <Slider
-                    value={[selectedTrack?.clips[0]?.notes?.find(n => n.id === selectedNotes[0])?.velocity || 80]}
+                    value={[selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80]}
                     onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
                     min={1}
                     max={127}
                     step={1}
                     className="w-20"
                   />
+                  <span className="text-xs w-8">{selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}</span>
                 </div>
               )}
             </div>
@@ -398,7 +399,8 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                     />
                     
                     {/* Notes */}
-                    {selectedTrack.clips[0]?.notes?.filter(note => note.pitch === pitch).map(note => (
+                    {selectedTrack.clips[0] && 'notes' in selectedTrack.clips[0] && 
+                     selectedTrack.clips[0].notes?.filter((note: MidiNote) => note.pitch === pitch).map((note: MidiNote) => (
                       <div
                         key={note.id}
                         className={`absolute top-0.5 bottom-0.5 rounded cursor-pointer transition-colors ${

@@ -702,11 +702,11 @@ export default function DawPage() {
               <Sliders className="w-4 h-4 mr-2" />
               Mixer
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)}>
+        <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)} disabled={!selectedTrackId}>
               <Piano className="w-4 h-4 mr-2" />
               Piano Roll
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowEffects(!showEffects)}>
+            <Button variant="outline" size="sm" onClick={() => setShowEffects(!showEffects)} disabled={!selectedTrackId}>
               <Zap className="w-4 h-4 mr-2" />
               Effects
             </Button>

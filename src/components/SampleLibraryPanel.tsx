@@ -70,7 +70,23 @@ export default function SampleLibraryPanel({
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as Sample[];
+      return data?.map(sample => ({
+        id: sample.id,
+        userId: sample.user_id,
+        name: sample.name,
+        description: sample.description,
+        fileUrl: sample.file_url,
+        category: sample.category as any,
+        bpm: sample.bpm,
+        keySignature: sample.key_signature,
+        duration: sample.duration,
+        fileSize: sample.file_size,
+        waveformData: sample.waveform_data as any,
+        tags: sample.tags || [],
+        isPublic: sample.is_public,
+        createdAt: sample.created_at,
+        updatedAt: sample.updated_at
+      })) || [];
     }
   });
 

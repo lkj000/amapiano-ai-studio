@@ -60,7 +60,16 @@ export default function CollaborationPanel({
         .eq('is_active', true);
         
       if (error) throw error;
-      return data as CollaborationSession[];
+      return data?.map(session => ({
+        id: session.id,
+        projectId: session.project_id,
+        hostUserId: session.host_user_id,
+        sessionName: session.session_name,
+        isActive: session.is_active,
+        participantLimit: session.participant_limit,
+        createdAt: session.created_at,
+        updatedAt: session.updated_at
+      })) || [];
     }
   });
 
@@ -78,7 +87,19 @@ export default function CollaborationPanel({
         .order('joined_at', { ascending: true });
         
       if (error) throw error;
-      return data as CollaborationParticipant[];
+      return data?.map(participant => ({
+        id: participant.id,
+        sessionId: participant.session_id,
+        userId: participant.user_id,
+        userName: participant.user_name,
+        userColor: participant.user_color,
+        isActive: participant.is_active,
+        cursorPosition: participant.cursor_position as any,
+        currentTool: participant.current_tool,
+        permissions: participant.permissions as any,
+        joinedAt: participant.joined_at,
+        lastSeen: participant.last_seen
+      })) || [];
     },
     enabled: !!activeSession
   });
@@ -95,7 +116,14 @@ export default function CollaborationPanel({
         .limit(20);
         
       if (error) throw error;
-      return data as ProjectChange[];
+      return data?.map(change => ({
+        id: change.id,
+        projectId: change.project_id,
+        userId: change.user_id,
+        changeType: change.change_type as any,
+        changeData: change.change_data,
+        timestamp: change.timestamp
+      })) || [];
     }
   });
 
@@ -113,7 +141,16 @@ export default function CollaborationPanel({
         .single();
         
       if (error) throw error;
-      return data as CollaborationSession;
+      return {
+        id: data.id,
+        projectId: data.project_id,
+        hostUserId: data.host_user_id,
+        sessionName: data.session_name,
+        isActive: data.is_active,
+        participantLimit: data.participant_limit,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
     },
     onSuccess: (session) => {
       setActiveSession(session);

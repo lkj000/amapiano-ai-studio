@@ -116,3 +116,140 @@ export interface DragState {
   startTime: number;
   startDuration?: number;
 }
+
+// Version 2.0 Types - Automation System
+export interface AutomationPoint {
+  time: number; // Time in beats
+  value: number; // Parameter value (0-1 normalized)
+  curve?: 'linear' | 'exponential' | 'logarithmic'; // Interpolation curve
+}
+
+export interface AutomationLane {
+  id: string;
+  projectId: string;
+  trackId: string;
+  parameterName: string; // 'volume', 'pan', 'effect_param'
+  parameterType: string;
+  effectId?: string; // For effect parameter automation
+  points: AutomationPoint[];
+  isEnabled: boolean;
+  color: string;
+}
+
+// Version 2.0 Types - Sample Library
+export interface Sample {
+  id: string;
+  userId?: string;
+  name: string;
+  description?: string;
+  fileUrl: string;
+  category: 'drums' | 'bass' | 'piano' | 'synth' | 'vocal' | 'fx' | 'loop' | 'misc';
+  bpm?: number;
+  keySignature?: string;
+  duration: number; // in seconds
+  fileSize?: number;
+  waveformData?: number[]; // Visualization data
+  tags: string[];
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Version 2.0 Types - Audio Recording
+export interface AudioRecording {
+  id: string;
+  name: string;
+  audioUrl: string;
+  duration: number;
+  waveformData?: number[];
+  recordedAt: string;
+}
+
+export interface RecordingState {
+  isRecording: boolean;
+  isPaused: boolean;
+  currentTime: number;
+  inputLevel: number;
+  recordedChunks: Blob[];
+}
+
+// Version 2.0 Types - Collaboration
+export interface CollaborationSession {
+  id: string;
+  projectId: string;
+  hostUserId: string;
+  sessionName: string;
+  isActive: boolean;
+  participantLimit: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CollaborationParticipant {
+  id: string;
+  sessionId: string;
+  userId: string;
+  userName: string;
+  userColor: string;
+  isActive: boolean;
+  cursorPosition?: { x: number; y: number };
+  currentTool?: string;
+  permissions: {
+    canEdit: boolean;
+    canAddTracks: boolean;
+    canDeleteTracks: boolean;
+  };
+  joinedAt: string;
+  lastSeen: string;
+}
+
+export interface ProjectChange {
+  id: string;
+  projectId: string;
+  userId: string;
+  changeType: 'track_add' | 'track_delete' | 'track_update' | 'clip_add' | 'clip_delete' | 'clip_update' | 'note_edit' | 'automation_edit';
+  changeData: any;
+  timestamp: string;
+}
+
+// Extended track types with automation
+export interface MidiTrackV2 extends MidiTrack {
+  automationLanes: AutomationLane[];
+}
+
+export interface AudioTrackV2 extends AudioTrack {
+  automationLanes: AutomationLane[];
+  recordings?: AudioRecording[];
+}
+
+export type DawTrackV2 = MidiTrackV2 | AudioTrackV2;
+
+export interface DawProjectDataV2 extends DawProjectData {
+  tracks: DawTrackV2[];
+  automationLanes: AutomationLane[];
+  samples: Sample[];
+  collaborationSession?: CollaborationSession;
+}
+
+// Waveform visualization
+export interface WaveformData {
+  peaks: number[];
+  duration: number;
+  sampleRate: number;
+}
+
+// UI State for Version 2.0
+export interface AutomationUIState {
+  selectedLane: string | null;
+  selectedPoints: string[];
+  tool: 'select' | 'draw' | 'erase';
+  showAutomation: boolean;
+}
+
+export interface SampleLibraryUIState {
+  selectedCategory: string;
+  searchQuery: string;
+  selectedSample: Sample | null;
+  isPlaying: boolean;
+  previewTime: number;
+}

@@ -21,6 +21,9 @@ import MixerPanel from '@/components/MixerPanel';
 import PianoRollPanel from '@/components/PianoRollPanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { useAudioEngine } from '@/hooks/useAudioEngine';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
+import UndoRedoControls from '@/components/UndoRedoControls';
+import EffectsPanel from '@/components/EffectsPanel';
 import { supabase } from '@/integrations/supabase/client';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -96,6 +99,7 @@ export default function DawPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [showPianoRoll, setShowPianoRoll] = useState(false);
   const [showMixer, setShowMixer] = useState(false);
+  const [showEffects, setShowEffects] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
@@ -118,7 +122,18 @@ export default function DawPage() {
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
 
-  // Audio Engine
+  // Undo/Redo System
+  const undoRedoControls = useUndoRedo(projectData, 50);
+
+  // Enhanced project data setter with undo/redo support
+  const setProjectDataWithHistory = useCallback((newData: DawProjectData | null, description?: string) => {
+    if (newData) {
+      undoRedoControls.pushState(newData, description);
+    }
+    setProjectData(newData);
+  }, [undoRedoControls]);
+
+  // Audio Engine with Effects
   const { 
     isPlaying, 
     currentTime, 
@@ -135,7 +150,11 @@ export default function DawPage() {
     playClip,
     getAudioContext,
     audioLevels,
-    masterLevels
+    masterLevels,
+    addTrackEffect,
+    removeTrackEffect,
+    updateEffectParam,
+    getTrackEffects
   } = useAudioEngine(projectData);
 
   // Step 1: Fetch project list
@@ -183,13 +202,13 @@ export default function DawPage() {
   // Step 5: Sync loaded data into local state for editing
   useEffect(() => {
     if (loadedProject) {
-      setProjectData(loadedProject.projectData);
+      setProjectDataWithHistory(loadedProject.projectData, 'Project loaded');
       setProjectName(loadedProject.name);
       if (!selectedTrackId && loadedProject.projectData.tracks.length > 0) {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
     }
-  }, [loadedProject, selectedTrackId]);
+  }, [loadedProject, selectedTrackId, setProjectDataWithHistory]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: string }) => backend.music.saveProject(data),
@@ -217,7 +236,9 @@ export default function DawPage() {
     onSuccess: (data) => {
       setProjectData(prev => {
         if (!prev) return null;
-        return { ...prev, tracks: [...prev.tracks, data.newTrack] };
+        const newData = { ...prev, tracks: [...prev.tracks, data.newTrack] };
+        undoRedoControls.pushState(newData, `AI generated track: ${data.newTrack.name}`);
+        return newData;
       });
       toast.success(data.message || `AI generated a new track!`);
     },
@@ -248,17 +269,21 @@ export default function DawPage() {
     aiGenerateMutation.mutate({ prompt, trackType: 'midi' });
   };
 
-  const updateTrack = (trackId: string, updates: { name?: string; isArmed?: boolean }) => {
+  const updateTrack = useCallback((trackId: string, updates: { name?: string; isArmed?: boolean }) => {
     setProjectData(prev => {
       if (!prev) return null;
-      return {
+      const newData = {
         ...prev,
         tracks: prev.tracks.map(t => t.id === trackId ? { ...t, ...updates } : t)
       };
+      if (updates.name) {
+        undoRedoControls.pushState(newData, `Renamed track to "${updates.name}"`);
+      }
+      return newData;
     });
-  };
+  }, [undoRedoControls]);
 
-  const updateMixer = (trackId: string, updates: Partial<DawTrack['mixer']>) => {
+  const updateMixer = useCallback((trackId: string, updates: Partial<DawTrack['mixer']>) => {
     setProjectData(prev => {
       if (!prev) return null;
       const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
@@ -268,9 +293,18 @@ export default function DawPage() {
         setTrackVolume(trackId, updates.volume);
       }
 
-      return { ...prev, tracks: newTracks };
+      const newData = { ...prev, tracks: newTracks };
+      // Only push state for significant changes (not volume adjustments)
+      if (updates.isMuted !== undefined || updates.isSolo !== undefined) {
+        const track = prev.tracks.find(t => t.id === trackId);
+        if (track) {
+          const action = updates.isMuted ? 'muted' : updates.isSolo ? 'soloed' : 'unmuted';
+          undoRedoControls.pushState(newData, `Track "${track.name}" ${action}`);
+        }
+      }
+      return newData;
     });
-  };
+  }, [setTrackVolume, undoRedoControls]);
 
   const handleAddTrack = (instrument?: { name: string, type: string, color: string }) => {
     if (!projectData) return;
@@ -299,32 +333,41 @@ export default function DawPage() {
       color: inst.color,
     };
 
-    setProjectData({ ...projectData, tracks: [...projectData.tracks, newTrack] });
+    const newData = { ...projectData, tracks: [...projectData.tracks, newTrack] };
+    undoRedoControls.pushState(newData, `Added track: ${inst.name}`);
+    setProjectData(newData);
     toast.success(`Track "${inst.name}" added.`);
   };
 
-  const handleRemoveTrack = (trackId: string) => {
+  const handleRemoveTrack = useCallback((trackId: string) => {
     setProjectData(prev => {
       if (!prev) return null;
       const trackToRemove = prev.tracks.find(t => t.id === trackId);
       if (trackToRemove) {
         toast.info(`Track "${trackToRemove.name}" removed.`);
+        const newData = {
+          ...prev,
+          tracks: prev.tracks.filter(t => t.id !== trackId)
+        };
+        undoRedoControls.pushState(newData, `Removed track: ${trackToRemove.name}`);
+        return newData;
       }
-      return {
-        ...prev,
-        tracks: prev.tracks.filter(t => t.id !== trackId)
-      };
+      return prev;
     });
-  };
+  }, [undoRedoControls]);
 
-  const handleAddEffectToTrack = (effectName: string) => {
+  const handleAddEffectToTrack = useCallback(async (effectName: string) => {
     if (!selectedTrackId) {
       toast.error("No track selected", { description: "Please select a track to add an effect." });
       return;
     }
+    
+    // Add effect to audio engine
+    await addTrackEffect(selectedTrackId, effectName as any);
+    
     setProjectData(prev => {
       if (!prev) return null;
-      return {
+      const newData = {
         ...prev,
         tracks: prev.tracks.map(t => {
           if (t.id === selectedTrackId && !t.mixer.effects.includes(effectName)) {
@@ -337,13 +380,25 @@ export default function DawPage() {
           return t;
         })
       };
+      const track = prev.tracks.find(t => t.id === selectedTrackId);
+      if (track && !track.mixer.effects.includes(effectName)) {
+        undoRedoControls.pushState(newData, `Added ${effectName} to "${track.name}"`);
+      }
+      return newData;
     });
-  };
+  }, [selectedTrackId, addTrackEffect, undoRedoControls]);
 
-  const handleRemoveEffectFromTrack = (trackId: string, effectName: string) => {
+  const handleRemoveEffectFromTrack = useCallback((trackId: string, effectName: string) => {
+    // Remove effect from audio engine
+    const trackEffects = getTrackEffects(trackId);
+    const effect = trackEffects.find(e => e.type === effectName);
+    if (effect) {
+      removeTrackEffect(trackId, effect.id);
+    }
+    
     setProjectData(prev => {
       if (!prev) return null;
-      return {
+      const newData = {
         ...prev,
         tracks: prev.tracks.map(t => {
           if (t.id === trackId) {
@@ -353,8 +408,13 @@ export default function DawPage() {
           return t;
         })
       };
+      const track = prev.tracks.find(t => t.id === trackId);
+      if (track) {
+        undoRedoControls.pushState(newData, `Removed ${effectName} from "${track.name}"`);
+      }
+      return newData;
     });
-  };
+  }, [getTrackEffects, removeTrackEffect, undoRedoControls]);
 
   const handleExport = () => {
     if (!projectData) {
@@ -380,20 +440,22 @@ export default function DawPage() {
     });
   };
 
-  const handleUpdateProjectSettings = (updatedData: Partial<DawProjectData>) => {
+  const handleUpdateProjectSettings = useCallback((updatedData: Partial<DawProjectData>) => {
     if (projectData) {
-      setProjectData({ ...projectData, ...updatedData });
+      const newData = { ...projectData, ...updatedData };
+      undoRedoControls.pushState(newData, 'Updated project settings');
+      setProjectData(newData);
       if (updatedData.bpm) {
         setBpm(updatedData.bpm);
       }
       toast.info("Project settings updated. Don't forget to save!");
     }
-  };
+  }, [projectData, setBpm, undoRedoControls]);
 
   const handleUpdateClip = useCallback((trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => {
     setProjectData(prev => {
       if (!prev) return null;
-      return {
+      const newData = {
         ...prev,
         tracks: prev.tracks.map(t => {
           if (t.id === trackId) {
@@ -405,13 +467,22 @@ export default function DawPage() {
           return t;
         })
       };
+      // Only push state on final update (not during drag)
+      if (!dragState.isDragging) {
+        const track = prev.tracks.find(t => t.id === trackId);
+        const clip = track?.clips.find(c => c.id === clipId);
+        if (track && clip) {
+          undoRedoControls.pushState(newData, `Updated clip "${clip.name}" in "${track.name}"`);
+        }
+      }
+      return newData;
     });
-  }, []);
+  }, [dragState.isDragging, undoRedoControls]);
 
   const handleUpdateNotes = useCallback((trackId: string, clipId: string, newNotes: MidiNote[]) => {
     setProjectData(prev => {
       if (!prev) return null;
-      return {
+      const newData = {
         ...prev,
         tracks: prev.tracks.map(t => {
           if (t.id === trackId && t.type === 'midi') {
@@ -423,8 +494,15 @@ export default function DawPage() {
           return t;
         })
       };
+      
+      const track = prev.tracks.find(t => t.id === trackId);
+      const clip = track?.clips.find(c => c.id === clipId);
+      if (track && clip) {
+        undoRedoControls.pushState(newData, `Updated notes in "${clip.name}"`);
+      }
+      return newData;
     });
-  }, []);
+  }, [undoRedoControls]);
 
   const onClipMouseDown = useCallback((e: React.MouseEvent, trackId: string, clipId: string, clip: any) => {
     const rect = timelineContainerRef.current?.getBoundingClientRect();
@@ -509,7 +587,24 @@ export default function DawPage() {
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
+    }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
+
+  // Undo/Redo handlers
+  const handleUndo = useCallback(() => {
+    const previousState = undoRedoControls.undo();
+    if (previousState) {
+      setProjectData(previousState);
+      toast.info("Undid last action");
+    }
+  }, [undoRedoControls]);
+
+  const handleRedo = useCallback(() => {
+    const nextState = undoRedoControls.redo();
+    if (nextState) {
+      setProjectData(nextState);
+      toast.info("Redid last action");
+    }
+  }, [undoRedoControls]);
 
   const instruments = [
     { name: "Signature Log Drum", type: "drums", icon: Drum, description: "Authentic amapiano log drum synthesizer", color: "bg-red-500" },
@@ -610,6 +705,10 @@ export default function DawPage() {
             <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)}>
               <Piano className="w-4 h-4 mr-2" />
               Piano Roll
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowEffects(!showEffects)}>
+              <Zap className="w-4 h-4 mr-2" />
+              Effects
             </Button>
             <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
               <Settings className="w-4 h-4" />
@@ -750,6 +849,13 @@ export default function DawPage() {
                   </Button>
                 </div>
 
+                {/* Undo/Redo Controls */}
+                <UndoRedoControls 
+                  undoRedoState={undoRedoControls.getState()} 
+                  onUndo={handleUndo} 
+                  onRedo={handleRedo} 
+                />
+
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">BPM:</span>
@@ -889,6 +995,27 @@ export default function DawPage() {
           onUpdateNotes={handleUpdateNotes}
           audioContext={getAudioContext()}
           onPlayNote={playNote}
+        />
+      )}
+      {showEffects && selectedTrackId && projectData && (
+        <EffectsPanel
+          trackId={selectedTrackId}
+          trackName={projectData.tracks.find(t => t.id === selectedTrackId)?.name || 'Unknown Track'}
+          effects={getTrackEffects(selectedTrackId)}
+          onClose={() => setShowEffects(false)}
+          onAddEffect={async (effectType) => {
+            await handleAddEffectToTrack(effectType);
+          }}
+          onRemoveEffect={(effectId) => {
+            const trackEffects = getTrackEffects(selectedTrackId);
+            const effect = trackEffects.find(e => e.id === effectId);
+            if (effect) {
+              handleRemoveEffectFromTrack(selectedTrackId, effect.type);
+            }
+          }}
+          onUpdateParam={(effectId, paramName, value) => {
+            updateEffectParam(selectedTrackId, effectId, paramName, value);
+          }}
         />
       )}
     </div>

@@ -212,7 +212,7 @@ export default function DawPage() {
     aiGenerateMutation.mutate({ prompt, trackType: 'midi' });
   };
 
-  const updateTrack = (trackId: string, updates: Partial<DawTrack>) => {
+  const updateTrack = (trackId: string, updates: { name?: string; isArmed?: boolean }) => {
     setProjectData(prev => {
       if (!prev) return null;
       return {
@@ -242,16 +242,26 @@ export default function DawPage() {
     const defaultInstrument = { name: "New Audio Track", type: "audio", color: "bg-gray-500" };
     const inst = instrument || defaultInstrument;
 
-    const newTrack: DawTrack = {
+    const isMidiTrack = ['piano', 'synth', 'bass', 'drums'].includes(inst.type);
+    
+    const newTrack: DawTrack = isMidiTrack ? {
       id: `track_${Date.now()}`,
-      type: ['piano', 'synth', 'bass'].includes(inst.type) ? 'midi' : 'audio',
+      type: 'midi' as const,
       name: inst.name,
       instrument: inst.name,
       clips: [],
       mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: inst.color,
-    } as DawTrack;
+    } : {
+      id: `track_${Date.now()}`,
+      type: 'audio' as const,
+      name: inst.name,
+      clips: [],
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: false,
+      color: inst.color,
+    };
 
     setProjectData({ ...projectData, tracks: [...projectData.tracks, newTrack] });
     toast.success(`Track "${inst.name}" added.`);

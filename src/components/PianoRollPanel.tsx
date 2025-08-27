@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Play, Square, Pencil, Eraser, Scissors } from 'lucide-react';
+import type { MidiNote } from '@/types/daw';
 
-interface PianoRollPanelProps {
+export interface PianoRollPanelProps {
   selectedTrack: number | null;
   tracks: any[];
   onClose: () => void;
+  onUpdateNotes?: (trackId: string, clipId: string, notes: MidiNote[]) => void;
 }
 
 export const PianoRollPanel: React.FC<PianoRollPanelProps> = ({

@@ -6,41 +6,59 @@ export interface MidiNote {
   duration: number;
 }
 
-export interface MidiTrack {
-  type: 'midi';
+export interface MidiClip {
+  id: string;
   name: string;
-  instrument: string;
   startTime: number;
   duration: number;
   notes: MidiNote[];
 }
 
-export interface AudioTrack {
-  type: 'audio';
+export interface AudioClip {
+  id: string;
   name: string;
-  sampleId?: number;
   startTime: number;
   duration: number;
-  audioUrl?: string;
+  audioUrl: string;
 }
+
+export interface MidiTrack {
+  id: string;
+  type: 'midi';
+  name: string;
+  instrument: string;
+  clips: MidiClip[];
+  mixer: MixerChannel;
+  isArmed: boolean;
+  color: string;
+}
+
+export interface AudioTrack {
+  id: string;
+  type: 'audio';
+  name: string;
+  clips: AudioClip[];
+  mixer: MixerChannel;
+  isArmed: boolean;
+  color: string;
+}
+
+export type DawTrack = MidiTrack | AudioTrack;
 
 export interface MixerChannel {
   volume: number;
   pan: number;
   isMuted: boolean;
   isSolo: boolean;
-  effects?: string[];
+  effects: string[];
 }
 
 export interface DawProjectData {
   bpm: number;
   keySignature: string;
   timeSignature?: string;
-  tracks: (MidiTrack | AudioTrack)[];
-  mixer: {
-    masterVolume: number;
-    channels: MixerChannel[];
-  };
+  tracks: DawTrack[];
+  masterVolume: number;
 }
 
 export interface DawProject {
@@ -72,6 +90,7 @@ export interface InstrumentData {
   name: string;
   type: string;
   description: string;
+  color?: string;
 }
 
 export interface EffectData {

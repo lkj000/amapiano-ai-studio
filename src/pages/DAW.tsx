@@ -8,11 +8,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
-import type { DawProjectData, DawTrack, MidiNote, DragState } from '@/types/daw';
+import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane } from '@/types/daw';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';
@@ -25,6 +25,9 @@ import { useAudioEngine } from '@/hooks/useAudioEngine';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import UndoRedoControls from '@/components/UndoRedoControls';
 import EffectsPanel from '@/components/EffectsPanel';
+import AutomationLanesPanel from '@/components/AutomationLanesPanel';
+import AudioRecordingPanel from '@/components/AudioRecordingPanel';
+import CommunityPanel from '@/components/CommunityPanel';
 import { supabase } from '@/integrations/supabase/client';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -101,6 +104,9 @@ export default function DawPage() {
   const [showPianoRoll, setShowPianoRoll] = useState(false);
   const [showMixer, setShowMixer] = useState(false);
   const [showEffects, setShowEffects] = useState(false);
+  const [showAutomation, setShowAutomation] = useState(false);
+  const [showAudioRecording, setShowAudioRecording] = useState(false);
+  const [showCommunity, setShowCommunity] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
@@ -453,7 +459,140 @@ export default function DawPage() {
     }
   }, [projectData, setBpm, undoRedoControls]);
 
-  // Clip manipulation functions
+  // Audio Recording and Automation handlers
+  const [trackRecordings, setTrackRecordings] = useState<{ [trackId: string]: AudioRecording[] }>({});
+  
+  const handleUpdateAutomation = useCallback((trackId: string, lanes: AutomationLane[]) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === trackId ? { ...t, automationLanes: lanes } as any : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Updated automation for track`);
+      return newData;
+    });
+    toast.success('Automation updated');
+  }, [undoRedoControls]);
+
+  const handleAddAutomationLane = useCallback((trackId: string, parameterName: string, parameterType: string) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      const track = prev.tracks.find(t => t.id === trackId);
+      if (!track) return prev;
+
+      const newLane: AutomationLane = {
+        id: `lane_${Date.now()}`,
+        parameterName,
+        parameterType,
+        isEnabled: true,
+        points: [],
+        color: '#3b82f6',
+        projectId: '', // Will be set when saved to database
+        trackId
+      };
+
+      const updatedTrack = { 
+        ...track, 
+        automationLanes: [...((track as any).automationLanes || []), newLane]
+      } as any;
+
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => t.id === trackId ? updatedTrack : t)
+      };
+      undoRedoControls.pushState(newData, `Added ${parameterName} automation lane`);
+      return newData;
+    });
+    toast.success(`Added ${parameterName} automation lane`);
+  }, [undoRedoControls]);
+
+  const handleRemoveAutomationLane = useCallback((trackId: string, laneId: string) => {
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === trackId ? { 
+            ...t, 
+            automationLanes: ((t as any).automationLanes || []).filter((lane: any) => lane.id !== laneId)
+          } as any : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Removed automation lane`);
+      return newData;
+    });
+    toast.success('Automation lane removed');
+  }, [undoRedoControls]);
+
+  const handleSaveRecording = useCallback(async (trackId: string, recording: AudioRecording) => {
+    // Save recording to local state
+    setTrackRecordings(prev => ({
+      ...prev,
+      [trackId]: [...(prev[trackId] || []), recording]
+    }));
+
+    // Add recording as an audio clip to the track (only for audio tracks)
+    setProjectData(prev => {
+      if (!prev) return null;
+      
+      const track = prev.tracks.find(t => t.id === trackId);
+      if (!track || track.type !== 'audio') return prev; // Only add to audio tracks
+      
+      const audioClip = {
+        id: recording.id,
+        name: recording.name,
+        startTime: 0, // Place at beginning, user can move it
+        duration: recording.duration,
+        audioUrl: recording.audioUrl,
+        volume: 1,
+        fadeIn: 0,
+        fadeOut: 0
+      };
+
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => 
+          t.id === trackId && t.type === 'audio' ? { ...t, clips: [...t.clips, audioClip] } : t
+        )
+      };
+      undoRedoControls.pushState(newData, `Added recording "${recording.name}"`);
+      return newData;
+    });
+
+    toast.success(`Recording "${recording.name}" added to track`);
+  }, [undoRedoControls]);
+
+  const handleDeleteRecording = useCallback((trackId: string, recordingId: string) => {
+    setTrackRecordings(prev => ({
+      ...prev,
+      [trackId]: (prev[trackId] || []).filter(r => r.id !== recordingId)
+    }));
+    
+    // Also remove the clip from the track if it exists
+    setProjectData(prev => {
+      if (!prev) return null;
+      const newData = {
+        ...prev,
+        tracks: prev.tracks.map(t => {
+          if (t.id === trackId) {
+            return { ...t, clips: t.clips.filter(c => c.id !== recordingId) } as DawTrack;
+          }
+          return t;
+        })
+      };
+      undoRedoControls.pushState(newData, `Removed recording`);
+      return newData;
+    });
+    
+    toast.success('Recording deleted');
+  }, [undoRedoControls]);
+
+  const getTrackRecordings = useCallback((trackId: string): AudioRecording[] => {
+    return trackRecordings[trackId] || [];
+  }, [trackRecordings]);
   const handleClipDuplicate = useCallback((clipId: string) => {
     const track = projectData?.tracks.find(t => t.clips.some(c => c.id === clipId));
     if (!track) return;
@@ -804,6 +943,18 @@ export default function DawPage() {
               <Zap className="w-4 h-4 mr-2" />
               Effects
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAutomation(!showAutomation)} disabled={!selectedTrackId}>
+              <Activity className="w-4 h-4 mr-2" />
+              Automation
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowAudioRecording(!showAudioRecording)} disabled={!selectedTrackId || projectData.tracks.find(t => t.id === selectedTrackId)?.type !== 'audio'}>
+              <Mic className="w-4 h-4 mr-2" />
+              Record
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowCommunity(!showCommunity)}>
+              <Users className="w-4 h-4 mr-2" />
+              Community
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
               <Settings className="w-4 h-4" />
             </Button>
@@ -1004,6 +1155,7 @@ export default function DawPage() {
                           <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
                         </Button>
                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowAutomation(!showAutomation)} title="Automation"><Activity className="w-3 h-3" /></Button>
                       </div>
                       <div className="flex items-center gap-2 text-xs mb-2">
                         <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
@@ -1028,37 +1180,20 @@ export default function DawPage() {
                 </div>
               </div>
 
-              {/* Timeline Grid */}
-              <div className="flex-1 overflow-auto">
-                <div className="h-full relative" style={{ width: `${zoom[0]}%` }}>
-                  <div className="h-8 bg-muted/20 border-b border-border flex items-center px-4 sticky top-0 z-10">
-                    {Array.from({ length: 32 }, (_, i) => (<div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1 text-muted-foreground">{i + 1}</div>))}
-                  </div>
-                  <div className="space-y-1">
-                    {projectData.tracks.map((track, trackIndex) => (
-                      <div key={track.id} className="h-24 border-b border-border/30 relative flex items-center">
-                        {track.clips.map(clip => (
-                          <div 
-                            key={clip.id} 
-                            className={`absolute top-2 bottom-2 ${track.color} rounded opacity-80 flex items-center justify-center cursor-grab hover:opacity-100 select-none group`} 
-                            style={{ left: `${(clip.startTime / 32) * 100}%`, width: `${(clip.duration / 32) * 100}%` }}
-                            onMouseDown={(e) => onClipMouseDown(e, track.id, clip.id, clip)}
-                          >
-                            {/* Resize handles */}
-                            <div className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20" />
-                            <div className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20" />
-                            <span className="text-xs text-white font-medium pointer-events-none">{clip.name}</span>
-                          </div>
-                        ))}
-                        {Array.from({ length: 32 * 4 }, (_, i) => (
-                          <div key={i} className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`} style={{ left: `${(i / (32 * 4)) * 100}%` }} />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="absolute top-0 bottom-0 w-0.5 bg-primary z-20" style={{ left: `${(currentTime / totalDuration) * 100}%` }} />
-                </div>
-              </div>
+              {/* Timeline with Context Menu Integration */}
+              <OptimizedTimeline
+                tracks={projectData.tracks}
+                zoom={zoom[0]}
+                currentTime={currentTime}
+                dragState={dragState}
+                selectedTrackId={selectedTrackId}
+                onTrackSelect={setSelectedTrackId}
+                onClipUpdate={handleUpdateClip}
+                onClipDuplicate={handleClipDuplicate}
+                onClipSplit={handleClipSplit}
+                onClipDelete={handleClipDelete}
+                onDragStart={(e, trackId, clipId) => onClipMouseDown(e, trackId, clipId, {})}
+              />
             </div>
           </div>
         </div>
@@ -1112,6 +1247,36 @@ export default function DawPage() {
             updateEffectParam(selectedTrackId, effectId, paramName, value);
           }}
         />
+      )}
+      
+      {/* Automation Panel */}
+      {showAutomation && selectedTrack && (
+        <AutomationLanesPanel
+          track={selectedTrack as any}
+          currentTime={currentTime}
+          zoom={zoom[0]}
+          onClose={() => setShowAutomation(false)}
+          onUpdateAutomation={handleUpdateAutomation}
+          onAddAutomationLane={handleAddAutomationLane}
+          onRemoveAutomationLane={handleRemoveAutomationLane}
+        />
+      )}
+      
+      {/* Audio Recording Panel */}
+      {showAudioRecording && selectedTrackId && (
+        <AudioRecordingPanel
+          trackId={selectedTrackId}
+          trackName={projectData.tracks.find(t => t.id === selectedTrackId)?.name || 'Unknown Track'}
+          onClose={() => setShowAudioRecording(false)}
+          onSaveRecording={handleSaveRecording}
+          onDeleteRecording={handleDeleteRecording}
+          recordings={getTrackRecordings(selectedTrackId)}
+        />
+      )}
+      
+      {/* Community Panel */}
+      {showCommunity && (
+        <CommunityPanel onClose={() => setShowCommunity(false)} />
       )}
     </div>
   );

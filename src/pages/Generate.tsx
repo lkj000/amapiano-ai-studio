@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio } from "lucide-react";
+import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link } from "lucide-react";
 import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
@@ -24,11 +25,12 @@ const Generate = () => {
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; transcription?: string } | null>(null);
 
   const handleGenerate = async () => {
-    if (!prompt.trim() && !referenceFile && !recordedAudio) {
-      toast.error("Please provide a description, reference file, or recorded audio");
+    if (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio) {
+      toast.error("Please provide a description, reference file/URL, or recorded audio");
       return;
     }
 
@@ -215,33 +217,81 @@ const Generate = () => {
                       Reference-Based Generation
                     </CardTitle>
                     <CardDescription>
-                      Upload a reference audio file to guide the AI generation
+                      Upload a reference audio file or provide a URL to guide the AI generation
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <EnhancedFileUpload 
-                      onFileSelect={handleReferenceFileSelect}
-                      className="border-0 shadow-none p-0"
-                      maxSize={500}
-                    />
-                    {referenceFile && (
-                      <div className="mt-4 p-3 bg-muted rounded-lg">
-                        <h4 className="font-medium text-sm mb-2">Reference Track Selected</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          AI will analyze this track and generate a new amapiano version inspired by its elements
-                        </p>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">File:</span>
-                            <span className="ml-2 font-medium">{referenceFile.name}</span>
+                  <CardContent className="space-y-6">
+                    <Tabs defaultValue="file" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="file">Upload File</TabsTrigger>
+                        <TabsTrigger value="url">From URL</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="file" className="space-y-4">
+                        <EnhancedFileUpload 
+                          onFileSelect={handleReferenceFileSelect}
+                          className="border-0 shadow-none p-0"
+                          maxSize={500}
+                        />
+                        {referenceFile && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <h4 className="font-medium text-sm mb-2">Reference Track Selected</h4>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              AI will analyze this track and generate a new amapiano version inspired by its elements
+                            </p>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">File:</span>
+                                <span className="ml-2 font-medium">{referenceFile.name}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Size:</span>
+                                <span className="ml-2 font-medium">{(referenceFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Size:</span>
-                            <span className="ml-2 font-medium">{(referenceFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="url" className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Reference URL</label>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Paste YouTube, SoundCloud, or direct audio URL..."
+                              value={referenceUrl}
+                              onChange={(e) => setReferenceUrl(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => {
+                                if (referenceUrl.trim()) {
+                                  toast.success("Reference URL added successfully");
+                                } else {
+                                  toast.error("Please enter a valid URL");
+                                }
+                              }}
+                            >
+                              <Link className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                    )}
+                        {referenceUrl.trim() && (
+                          <div className="p-3 bg-muted rounded-lg">
+                            <h4 className="font-medium text-sm mb-2">Reference URL Set</h4>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              AI will download and analyze this track to create a new amapiano version
+                            </p>
+                            <div className="text-sm">
+                              <span className="text-muted-foreground">URL:</span>
+                              <span className="ml-2 font-medium break-all">{referenceUrl}</span>
+                            </div>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               )}
@@ -249,7 +299,7 @@ const Generate = () => {
               {/* Generate Button */}
               <Button 
                 onClick={handleGenerate}
-                disabled={isGenerating || (!prompt.trim() && !referenceFile && !recordedAudio)}
+                disabled={isGenerating || (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio)}
                 className="w-full btn-glow"
                 size="lg"
               >

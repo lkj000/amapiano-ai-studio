@@ -72,6 +72,43 @@ export default function AutomationLanesPanel({
     onUpdateAutomation(track.id, updatedLanes);
   }, [track, onUpdateAutomation]);
 
+  const handleErasePoint = useCallback((laneId: string, pointIndex: number) => {
+    const updatedLanes = (track.automationLanes || []).map(lane => {
+      if (lane.id === laneId) {
+        const updatedPoints = [...lane.points];
+        updatedPoints.splice(pointIndex, 1);
+        return { ...lane, points: updatedPoints };
+      }
+      return lane;
+    });
+
+    onUpdateAutomation(track.id, updatedLanes);
+    setSelectedPoints(prev => prev.filter(id => id !== `${laneId}_${pointIndex}`));
+  }, [track, onUpdateAutomation]);
+
+  const handleDeleteSelectedPoints = useCallback(() => {
+    if (selectedPoints.length === 0) return;
+
+    const updatedLanes = (track.automationLanes || []).map(lane => {
+      const pointsToRemove = selectedPoints
+        .filter(id => id.startsWith(`${lane.id}_`))
+        .map(id => parseInt(id.split('_')[1]))
+        .sort((a, b) => b - a); // Sort in reverse order to remove from end first
+
+      let updatedPoints = [...lane.points];
+      pointsToRemove.forEach(index => {
+        if (index >= 0 && index < updatedPoints.length) {
+          updatedPoints.splice(index, 1);
+        }
+      });
+
+      return { ...lane, points: updatedPoints };
+    });
+
+    onUpdateAutomation(track.id, updatedLanes);
+    setSelectedPoints([]);
+  }, [track, onUpdateAutomation, selectedPoints]);
+
   const handlePointMouseDown = useCallback((e: React.MouseEvent, laneId: string, pointIndex: number) => {
     e.stopPropagation();
     
@@ -138,6 +175,18 @@ export default function AutomationLanesPanel({
       };
     }
   }, [dragState.isDragging, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        handleDeleteSelectedPoints();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleDeleteSelectedPoints]);
 
   const renderAutomationCurve = (lane: AutomationLane) => {
     if (lane.points.length === 0) return null;
@@ -342,6 +391,8 @@ export default function AutomationLanesPanel({
                     onClick={(e) => {
                       if (tool === 'draw') {
                         handleAddPoint(lane.id, e.clientX, e.clientY);
+                      } else if (tool === 'select') {
+                        setSelectedPoints([]);
                       }
                     }}
                   >
@@ -378,7 +429,14 @@ export default function AutomationLanesPanel({
                           left: `${(point.time / 32) * 100}%`,
                           top: `${(1 - point.value) * 100}%`
                         }}
-                        onMouseDown={(e) => handlePointMouseDown(e, lane.id, pointIndex)}
+                        onMouseDown={(e) => {
+                          if (tool === 'erase') {
+                            e.stopPropagation();
+                            handleErasePoint(lane.id, pointIndex);
+                          } else {
+                            handlePointMouseDown(e, lane.id, pointIndex);
+                          }
+                        }}
                       />
                     ))}
 

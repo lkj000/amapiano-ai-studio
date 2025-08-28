@@ -80,7 +80,7 @@ const defaultProjectData: DawProjectData = {
       name: 'Log Drums',
       instrument: 'Signature Log Drum',
       clips: [],
-      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: ['EQ', 'Compressor'] },
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: true,
       color: 'bg-red-500',
     },
@@ -90,7 +90,7 @@ const defaultProjectData: DawProjectData = {
       name: 'Piano Chords',
       instrument: 'Amapiano Piano',
       clips: [],
-      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: ['Reverb'] },
+      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: 'bg-blue-500',
     },
@@ -170,7 +170,10 @@ export default function DawPage() {
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
     queryKey: ['dawProjectsList'],
-    queryFn: () => backend.music.listProjects(),
+    queryFn: () => {
+      console.log('DAW: Fetching projects list...');
+      return backend.music.listProjects();
+    },
   });
 
   // Step 2: Mutation to create a default project if none exist
@@ -188,11 +191,16 @@ export default function DawPage() {
 
   // Step 3: Effect to decide which project to load or create
   useEffect(() => {
+    console.log('DAW: useEffect - projectsList:', projectsList);
+    console.log('DAW: useEffect - isLoadingList:', isLoadingList);
+    console.log('DAW: useEffect - activeProjectId:', activeProjectId);
+    
     if (isLoadingList || createDefaultProjectMutation.isPending) {
       return; // Wait until loading/creation is finished
     }
     if (projectsList) {
-      if (projectsList.projects.length > 0) {
+      console.log('DAW: projectsList.projects:', projectsList.projects);
+      if (projectsList.projects && projectsList.projects.length > 0) {
         if (!activeProjectId) {
           setActiveProjectId(projectsList.projects[0].id);
         }
@@ -205,16 +213,23 @@ export default function DawPage() {
   // Step 4: Query to load the active project's data
   const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
     queryKey: ['dawProject', activeProjectId],
-    queryFn: () => backend.music.loadProject({ projectId: activeProjectId! }),
+    queryFn: () => {
+      console.log('DAW: Loading project with ID:', activeProjectId);
+      return backend.music.loadProject({ projectId: activeProjectId! });
+    },
     enabled: !!activeProjectId,
   });
 
   // Step 5: Sync loaded data into local state for editing
   useEffect(() => {
+    console.log('DAW: loadedProject useEffect - loadedProject:', loadedProject);
     if (loadedProject) {
+      console.log('DAW: loadedProject.projectData:', loadedProject.projectData);
+      console.log('DAW: loadedProject.projectData.tracks:', loadedProject.projectData?.tracks);
+      
       setProjectDataWithHistory(loadedProject.projectData, 'Project loaded');
       setProjectName(loadedProject.name);
-      if (!selectedTrackId && loadedProject.projectData.tracks.length > 0) {
+      if (!selectedTrackId && loadedProject.projectData?.tracks && loadedProject.projectData.tracks.length > 0) {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
     }
@@ -324,6 +339,8 @@ export default function DawPage() {
 
     const isMidiTrack = ['piano', 'synth', 'bass', 'drums'].includes(inst.type);
     
+    console.log('DAW: Adding track with instrument:', inst);
+    
     const newTrack: DawTrack = isMidiTrack ? {
       id: `track_${Date.now()}`,
       type: 'midi' as const,
@@ -342,6 +359,8 @@ export default function DawPage() {
       isArmed: false,
       color: inst.color,
     };
+
+    console.log('DAW: Created new track:', newTrack);
 
     const newData = { ...projectData, tracks: [...projectData.tracks, newTrack] };
     undoRedoControls.pushState(newData, `Added track: ${inst.name}`);
@@ -881,7 +900,7 @@ export default function DawPage() {
     return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={listError as Error} /></div>;
   }
 
-  if (projectsList && projectsList.projects.length === 0) {
+  if (projectsList && projectsList.projects && projectsList.projects.length === 0) {
     return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Creating your first project..." /></div>;
   }
 
@@ -1166,7 +1185,7 @@ export default function DawPage() {
                         <div className="flex-1"><Slider value={[track.mixer.volume * 100]} onValueChange={([v]) => updateMixer(track.id, { volume: v / 100 })} /></div>
                         <span className="text-xs w-8 text-right text-muted-foreground">{Math.round(track.mixer.volume * 100)}</span>
                       </div>
-                      {track.mixer.effects.length > 0 && (
+                      {track.mixer?.effects && track.mixer.effects.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {track.mixer.effects.map((effect) => (
                             <Badge key={effect} variant="outline" className="text-xs px-1 py-0 relative group">

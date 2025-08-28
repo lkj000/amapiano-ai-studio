@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
+import { supabase } from "@/integrations/supabase/client";
 
 const Generate = () => {
   const [prompt, setPrompt] = useState("");
@@ -74,6 +75,9 @@ const Generate = () => {
     const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
     const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);
     
+    // Use Supabase edge function URLs for demo audio files
+    const baseUrl = "https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files";
+    
     setGeneratedTrack({
       id: "enhanced-track-id",
       title: trackTitle,
@@ -81,13 +85,13 @@ const Generate = () => {
       bpm: effectiveBpm,
       genre: effectiveGenre,
       duration: trackDuration,
-      audioUrl: "/api/generated-track.mp3", // Mock URL
+      audioUrl: `${baseUrl}/generated-track`,
       stems: {
-        drums: "/api/stems/drums.wav",
-        bass: "/api/stems/bass.wav", 
-        piano: "/api/stems/piano.wav",
-        vocals: "/api/stems/vocals.wav",
-        other: "/api/stems/other.wav"
+        drums: `${baseUrl}/drums`,
+        bass: `${baseUrl}/bass`, 
+        piano: `${baseUrl}/piano`,
+        vocals: `${baseUrl}/vocals`,
+        other: `${baseUrl}/other`
       }
     });
     setIsGenerating(false);
@@ -479,12 +483,26 @@ const Generate = () => {
                           <Button 
                             variant="secondary" 
                             size="sm"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = generatedTrack.audioUrl;
-                              link.download = `${generatedTrack.title}.mp3`;
-                              link.click();
-                              toast.success("🎵 Download started");
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(generatedTrack.audioUrl);
+                                if (!response.ok) throw new Error('Download failed');
+                                
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = `${generatedTrack.title.replace(/\s+/g, '_')}.wav`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                                
+                                toast.success("🎵 Demo track downloaded successfully!");
+                              } catch (error) {
+                                console.error('Download error:', error);
+                                toast.error("Download failed - this is a demo version");
+                              }
                             }}
                           >
                             <Download className="w-4 h-4 mr-2" />
@@ -502,12 +520,26 @@ const Generate = () => {
                                 variant="outline" 
                                 size="sm" 
                                 className="justify-start"
-                                onClick={() => {
-                                  const link = document.createElement('a');
-                                  link.href = generatedTrack.stems[stem.toLowerCase()];
-                                  link.download = `${generatedTrack.title}_${stem.toLowerCase()}.wav`;
-                                  link.click();
-                                  toast.success(`🎵 ${stem} stem download started`);
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(generatedTrack.stems[stem.toLowerCase()]);
+                                    if (!response.ok) throw new Error('Download failed');
+                                    
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement('a');
+                                    link.href = url;
+                                    link.download = `${generatedTrack.title.replace(/\s+/g, '_')}_${stem.toLowerCase()}.wav`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+                                    
+                                    toast.success(`🎵 ${stem} stem downloaded successfully!`);
+                                  } catch (error) {
+                                    console.error('Download error:', error);
+                                    toast.error(`${stem} stem download failed - this is a demo version`);
+                                  }
                                 }}
                               >
                                 <Download className="w-3 h-3 mr-2" />

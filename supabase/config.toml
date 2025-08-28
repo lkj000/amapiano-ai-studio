@@ -1,1 +1,14 @@
 project_id = "mywijmtszelyutssormy"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[functions.ai-music-generation]
+verify_jwt = false
+
+[functions.demo-audio-files]
+verify_jwt = false

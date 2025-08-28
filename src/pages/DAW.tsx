@@ -917,7 +917,13 @@ export default function DawPage() {
   }
 
   if (!projectData) {
+    console.log('DAW: No project data available, showing loading spinner');
     return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Initializing DAW..." /></div>;
+  }
+
+  if (!projectData.tracks || !Array.isArray(projectData.tracks)) {
+    console.error('DAW: Invalid project data - tracks is not an array:', projectData);
+    return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading project data..." /></div>;
   }
 
   const totalDuration = (32 * 4 / projectData.bpm) * 60;

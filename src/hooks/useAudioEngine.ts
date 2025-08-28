@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { DawProjectData, DawTrack, AudioLevels, MidiNote } from '@/types/daw';
-import { useAudioEffects } from './useAudioEffects';
 
 export interface AudioEngineState {
   isPlaying: boolean;
@@ -34,14 +33,13 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const oscillatorsRef = useRef<Map<string, OscillatorNode>>(new Map());
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const trackAnalyzers = useRef<Map<string, AnalyserNode>>(new Map());
-
-  // Initialize effects system
-  const effects = useAudioEffects(audioContextRef.current);
+  const effectsRef = useRef<any>(null);
 
   // Initialize Web Audio API
   useEffect(() => {
     const initAudioContext = async () => {
       try {
+        console.log('AudioEngine: Initializing AudioContext...');
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         masterGainRef.current = audioContextRef.current.createGain();
         
@@ -55,6 +53,13 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         if (projectData) {
           masterGainRef.current.gain.value = projectData.masterVolume || 0.8;
         }
+        
+        // Initialize effects system with the AudioContext
+        console.log('AudioEngine: Initializing effects system...');
+        const { createAudioEffectsSystem } = await import('./useAudioEffects');
+        effectsRef.current = createAudioEffectsSystem(audioContextRef.current);
+        
+        console.log('AudioEngine: AudioContext initialized successfully');
       } catch (error) {
         console.error('Failed to initialize audio context:', error);
       }
@@ -71,41 +76,70 @@ export function useAudioEngine(projectData: DawProjectData | null) {
 
   // Setup track gains and effects when project data changes
   useEffect(() => {
-    if (!audioContextRef.current || !masterGainRef.current || !projectData) return;
+    if (!audioContextRef.current || !masterGainRef.current || !projectData || !effectsRef.current) {
+      console.log('AudioEngine: Not ready for track setup:', {
+        audioContext: !!audioContextRef.current,
+        masterGain: !!masterGainRef.current,
+        projectData: !!projectData,
+        effects: !!effectsRef.current
+      });
+      return;
+    }
+
+    console.log('AudioEngine: Setting up tracks...', projectData.tracks);
 
     // Clear existing track gains and analyzers
     trackGainsRef.current.clear();
     trackAnalyzers.current.clear();
 
     // Create gain nodes and analyzers for each track
-    projectData.tracks.forEach(async (track) => {
-      const gainNode = audioContextRef.current!.createGain();
-      const analyzer = audioContextRef.current!.createAnalyser();
-      
-      analyzer.fftSize = 256;
-      gainNode.gain.value = track.mixer?.volume || 0.8;
-      
-      // Initialize effects chain for the track
-      const effectsChain = await effects.initializeEffectsChain(
-        track.id, 
-        track.mixer?.effects || [], 
-        gainNode
-      );
-      
-      if (effectsChain) {
-        // Connect effects output to analyzer then master
-        effectsChain.outputGain.connect(analyzer);
-        analyzer.connect(masterGainRef.current!);
-      } else {
-        // Fallback: direct connection
-        gainNode.connect(analyzer);
-        analyzer.connect(masterGainRef.current!);
-      }
-      
-      trackGainsRef.current.set(track.id, gainNode);
-      trackAnalyzers.current.set(track.id, analyzer);
-    });
-  }, [projectData, effects]);
+    if (projectData.tracks && Array.isArray(projectData.tracks)) {
+      projectData.tracks.forEach(async (track, index) => {
+        try {
+          console.log(`AudioEngine: Setting up track ${index}:`, track);
+          
+          const gainNode = audioContextRef.current!.createGain();
+          const analyzer = audioContextRef.current!.createAnalyser();
+          
+          analyzer.fftSize = 256;
+          gainNode.gain.value = track.mixer?.volume || 0.8;
+          
+          // Initialize effects chain for the track
+          const trackEffects = track.mixer?.effects || [];
+          console.log(`AudioEngine: Track ${track.id} effects:`, trackEffects);
+          
+          if (trackEffects.length > 0) {
+            const effectsChain = await effectsRef.current.initializeEffectsChain(
+              track.id, 
+              trackEffects, 
+              gainNode
+            );
+            
+            if (effectsChain) {
+              // Connect effects output to analyzer then master
+              effectsChain.outputGain.connect(analyzer);
+              analyzer.connect(masterGainRef.current!);
+            } else {
+              // Fallback: direct connection
+              gainNode.connect(analyzer);
+              analyzer.connect(masterGainRef.current!);
+            }
+          } else {
+            // Direct connection when no effects
+            gainNode.connect(analyzer);
+            analyzer.connect(masterGainRef.current!);
+          }
+          
+          trackGainsRef.current.set(track.id, gainNode);
+          trackAnalyzers.current.set(track.id, analyzer);
+          
+          console.log(`AudioEngine: Track ${track.id} setup complete`);
+        } catch (error) {
+          console.error(`AudioEngine: Error setting up track ${track.id}:`, error);
+        }
+      });
+    }
+  }, [projectData]);
 
   // Audio level monitoring
   useEffect(() => {
@@ -298,23 +332,39 @@ export function useAudioEngine(projectData: DawProjectData | null) {
 
   const addTrackEffect = useCallback(async (trackId: string, effectType: any) => {
     const trackGain = trackGainsRef.current.get(trackId);
-    if (trackGain) {
-      await effects.addEffect(trackId, effectType, trackGain);
+    if (trackGain && effectsRef.current) {
+      console.log('AudioEngine: Adding effect', effectType, 'to track', trackId);
+      await effectsRef.current.addEffect(trackId, effectType, trackGain);
+    } else {
+      console.warn('AudioEngine: Cannot add effect - missing trackGain or effects system');
     }
-  }, [effects]);
+  }, []);
 
   const removeTrackEffect = useCallback((trackId: string, effectId: string) => {
-    effects.removeEffect(trackId, effectId);
-  }, [effects]);
+    if (effectsRef.current) {
+      console.log('AudioEngine: Removing effect', effectId, 'from track', trackId);
+      effectsRef.current.removeEffect(trackId, effectId);
+    } else {
+      console.warn('AudioEngine: Cannot remove effect - effects system not ready');
+    }
+  }, []);
 
   const updateEffectParam = useCallback((trackId: string, effectId: string, paramName: string, value: any) => {
-    effects.updateEffectParam(trackId, effectId, paramName, value);
-  }, [effects]);
+    if (effectsRef.current) {
+      console.log('AudioEngine: Updating effect param', { trackId, effectId, paramName, value });
+      effectsRef.current.updateEffectParam(trackId, effectId, paramName, value);
+    } else {
+      console.warn('AudioEngine: Cannot update effect param - effects system not ready');
+    }
+  }, []);
 
   const getTrackEffects = useCallback((trackId: string) => {
-    const chain = effects.getEffectsChain(trackId);
-    return chain?.effects || [];
-  }, [effects]);
+    if (effectsRef.current) {
+      const chain = effectsRef.current.getEffectsChain(trackId);
+      return chain?.effects || [];
+    }
+    return [];
+  }, []);
 
   return {
     isPlaying,

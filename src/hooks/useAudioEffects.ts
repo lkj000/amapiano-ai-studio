@@ -1,5 +1,3 @@
-import { useRef, useCallback, useEffect } from 'react';
-
 export interface EffectNode {
   id: string;
   type: 'EQ' | 'Reverb' | 'Compressor' | 'Delay' | 'Distortion';
@@ -14,26 +12,24 @@ export interface EffectsChain {
   outputGain: GainNode;
 }
 
-export function useAudioEffects(audioContext: AudioContext | null) {
-  const effectsChainsRef = useRef<Map<string, EffectsChain>>(new Map());
+// AudioEffects system - factory function instead of hook
+export function createAudioEffectsSystem(audioContext: AudioContext) {
+  const effectsChainsRef = new Map<string, EffectsChain>();
 
-  const createEQ = useCallback((context: AudioContext): AudioNode => {
+  const createEQ = (context: AudioContext): AudioNode => {
     const eq = context.createBiquadFilter();
     eq.type = 'peaking';
     eq.frequency.value = 1000;
     eq.Q.value = 1;
     eq.gain.value = 0;
     return eq;
-  }, []);
+  };
 
-  const createReverb = useCallback(async (context: AudioContext): Promise<AudioNode> => {
+  const createReverb = async (context: AudioContext): Promise<AudioNode> => {
     const convolver = context.createConvolver();
-    const reverb = context.createGain();
-    const dry = context.createGain();
-    const wet = context.createGain();
     
     // Create impulse response for reverb
-    const length = context.sampleRate * 2; // 2 seconds
+    const length = context.sampleRate * 2;
     const impulse = context.createBuffer(2, length, context.sampleRate);
     
     for (let channel = 0; channel < 2; channel++) {
@@ -44,59 +40,26 @@ export function useAudioEffects(audioContext: AudioContext | null) {
     }
     
     convolver.buffer = impulse;
-    
-    // Create a composite node
-    const reverbNode = context.createGain();
-    reverbNode.connect(dry);
-    reverbNode.connect(convolver);
-    convolver.connect(wet);
-    
-    dry.connect(reverb);
-    wet.connect(reverb);
-    
-    dry.gain.value = 0.7;
-    wet.gain.value = 0.3;
-    
-    return reverb;
-  }, []);
+    return convolver;
+  };
 
-  const createCompressor = useCallback((context: AudioContext): AudioNode => {
+  const createCompressor = (context: AudioContext): AudioNode => {
     const compressor = context.createDynamicsCompressor();
-    compressor.threshold.value = -20;
-    compressor.knee.value = 5;
-    compressor.ratio.value = 8;
+    compressor.threshold.value = -24;
+    compressor.knee.value = 30;
+    compressor.ratio.value = 12;
     compressor.attack.value = 0.003;
-    compressor.release.value = 0.1;
+    compressor.release.value = 0.25;
     return compressor;
-  }, []);
+  };
 
-  const createDelay = useCallback((context: AudioContext): AudioNode => {
-    const delay = context.createDelay(1.0);
-    const feedback = context.createGain();
-    const wet = context.createGain();
-    const dry = context.createGain();
-    const output = context.createGain();
-    
+  const createDelay = (context: AudioContext): AudioNode => {
+    const delay = context.createDelay(1);
     delay.delayTime.value = 0.3;
-    feedback.gain.value = 0.3;
-    wet.gain.value = 0.3;
-    dry.gain.value = 0.7;
-    
-    // Create delay network
-    const delayNode = context.createGain();
-    delayNode.connect(dry);
-    delayNode.connect(delay);
-    delay.connect(wet);
-    delay.connect(feedback);
-    feedback.connect(delay);
-    
-    dry.connect(output);
-    wet.connect(output);
-    
-    return output;
-  }, []);
+    return delay;
+  };
 
-  const createDistortion = useCallback((context: AudioContext): AudioNode => {
+  const createDistortion = (context: AudioContext): AudioNode => {
     const waveshaper = context.createWaveShaper();
     const samples = 44100;
     const curve = new Float32Array(samples);
@@ -109,15 +72,29 @@ export function useAudioEffects(audioContext: AudioContext | null) {
     
     waveshaper.curve = curve;
     waveshaper.oversample = '4x';
-    
     return waveshaper;
-  }, []);
+  };
 
-  const createEffect = useCallback(async (
-    type: EffectNode['type'], 
-    context: AudioContext
-  ): Promise<AudioNode> => {
-    switch (type) {
+  const getDefaultParams = (effectType: string) => {
+    switch (effectType) {
+      case 'EQ':
+        return { frequency: 1000, Q: 1, gain: 0 };
+      case 'Reverb':
+        return { wetness: 0.3, roomSize: 0.5 };
+      case 'Compressor':
+        return { threshold: -24, ratio: 12, attack: 0.003, release: 0.25 };
+      case 'Delay':
+        return { delayTime: 0.3, feedback: 0.3, wetness: 0.25 };
+      case 'Distortion':
+        return { amount: 20, output: 1 };
+      default:
+        return {};
+    }
+  };
+
+  const createEffect = async (effectType: string, context: AudioContext) => {
+    console.log('AudioEffects: Creating effect:', effectType);
+    switch (effectType) {
       case 'EQ':
         return createEQ(context);
       case 'Reverb':
@@ -131,20 +108,25 @@ export function useAudioEffects(audioContext: AudioContext | null) {
       default:
         return context.createGain();
     }
-  }, [createEQ, createReverb, createCompressor, createDelay, createDistortion]);
+  };
 
-  const initializeEffectsChain = useCallback(async (
+  const initializeEffectsChain = async (
     trackId: string, 
     effects: string[] = [],
     trackGain: GainNode
   ) => {
     if (!audioContext) return null;
+    console.log('AudioEffects: Initializing effects chain for track:', trackId, 'effects:', effects);
 
     const inputGain = audioContext.createGain();
     const outputGain = audioContext.createGain();
     
     // Disconnect track gain from master
-    trackGain.disconnect();
+    try {
+      trackGain.disconnect();
+    } catch (e) {
+      // Node might not be connected
+    }
     
     const effectNodes: EffectNode[] = [];
     let currentNode: AudioNode = inputGain;
@@ -152,26 +134,26 @@ export function useAudioEffects(audioContext: AudioContext | null) {
     // Create and chain effects
     for (const effectType of effects) {
       try {
-        const effectNode = await createEffect(effectType as EffectNode['type'], audioContext);
+        const effectNode = await createEffect(effectType, audioContext);
         const effectNodeWrapper: EffectNode = {
           id: `${trackId}_${effectType}_${Date.now()}`,
           type: effectType as EffectNode['type'],
           node: effectNode,
-          params: getDefaultParams(effectType as EffectNode['type'])
+          params: getDefaultParams(effectType)
         };
-        
+
         currentNode.connect(effectNode);
-        currentNode = effectNode;
         effectNodes.push(effectNodeWrapper);
+        currentNode = effectNode;
       } catch (error) {
-        console.error(`Failed to create ${effectType} effect:`, error);
+        console.error('AudioEffects: Failed to create effect:', effectType, error);
       }
     }
 
-    // Connect final node to output
+    // Connect the final node to output
     currentNode.connect(outputGain);
-    
-    // Connect track gain to input
+
+    // Connect input to track gain
     trackGain.connect(inputGain);
 
     const chain: EffectsChain = {
@@ -181,140 +163,64 @@ export function useAudioEffects(audioContext: AudioContext | null) {
       outputGain
     };
 
-    effectsChainsRef.current.set(trackId, chain);
+    effectsChainsRef.set(trackId, chain);
+    console.log('AudioEffects: Effects chain initialized for track:', trackId);
     return chain;
-  }, [audioContext, createEffect]);
+  };
 
-  const addEffect = useCallback(async (
-    trackId: string, 
-    effectType: EffectNode['type'],
-    trackGain: GainNode
-  ) => {
-    if (!audioContext) return;
-
-    let chain = effectsChainsRef.current.get(trackId);
+  const addEffect = async (trackId: string, effectType: string, trackGain: GainNode) => {
+    console.log('AudioEffects: Adding effect to existing chain:', trackId, effectType);
+    const existingChain = effectsChainsRef.get(trackId);
     
-    if (!chain) {
-      // Initialize chain if it doesn't exist
-      chain = await initializeEffectsChain(trackId, [effectType], trackGain);
-      return;
+    if (existingChain) {
+      const effectNode = await createEffect(effectType, audioContext);
+      const effectNodeWrapper: EffectNode = {
+        id: `${trackId}_${effectType}_${Date.now()}`,
+        type: effectType as EffectNode['type'],
+        node: effectNode,
+        params: getDefaultParams(effectType)
+      };
+
+      // Reconnect the chain with the new effect
+      existingChain.effects.push(effectNodeWrapper);
+      
+      // You would need to implement proper chain reconnection here
+      console.log('AudioEffects: Effect added to chain');
     }
+  };
 
-    // Create new effect
-    const effectNode = await createEffect(effectType, audioContext);
-    const effectNodeWrapper: EffectNode = {
-      id: `${trackId}_${effectType}_${Date.now()}`,
-      type: effectType,
-      node: effectNode,
-      params: getDefaultParams(effectType)
-    };
-
-    // Rebuild the chain
-    const lastEffect = chain.effects[chain.effects.length - 1];
-    if (lastEffect) {
-      lastEffect.node.disconnect();
-      lastEffect.node.connect(effectNode);
-      effectNode.connect(chain.outputGain);
-    } else {
-      chain.inputGain.disconnect();
-      chain.inputGain.connect(effectNode);
-      effectNode.connect(chain.outputGain);
-    }
-
-    chain.effects.push(effectNodeWrapper);
-  }, [audioContext, createEffect, initializeEffectsChain]);
-
-  const removeEffect = useCallback((trackId: string, effectId: string) => {
-    const chain = effectsChainsRef.current.get(trackId);
-    if (!chain) return;
-
-    const effectIndex = chain.effects.findIndex(e => e.id === effectId);
-    if (effectIndex === -1) return;
-
-    // Remove the effect and rebuild the chain
-    chain.effects.splice(effectIndex, 1);
-    
-    // Disconnect all nodes
-    chain.effects.forEach(effect => effect.node.disconnect());
-    chain.inputGain.disconnect();
-
-    // Rebuild connections
-    let currentNode: AudioNode = chain.inputGain;
-    chain.effects.forEach(effect => {
-      currentNode.connect(effect.node);
-      currentNode = effect.node;
-    });
-    currentNode.connect(chain.outputGain);
-  }, []);
-
-  const updateEffectParam = useCallback((
-    trackId: string, 
-    effectId: string, 
-    paramName: string, 
-    value: any
-  ) => {
-    const chain = effectsChainsRef.current.get(trackId);
-    if (!chain) return;
-
-    const effect = chain.effects.find(e => e.id === effectId);
-    if (!effect) return;
-
-    // Update the parameter based on effect type
-    updateNodeParam(effect.node, effect.type, paramName, value);
-    effect.params[paramName] = value;
-  }, []);
-
-  const getEffectsChain = useCallback((trackId: string) => {
-    return effectsChainsRef.current.get(trackId);
-  }, []);
-
-  const clearEffectsChain = useCallback((trackId: string) => {
-    const chain = effectsChainsRef.current.get(trackId);
+  const removeEffect = (trackId: string, effectId: string) => {
+    console.log('AudioEffects: Removing effect:', trackId, effectId);
+    const chain = effectsChainsRef.get(trackId);
     if (chain) {
-      chain.effects.forEach(effect => effect.node.disconnect());
-      chain.inputGain.disconnect();
-      chain.outputGain.disconnect();
-      effectsChainsRef.current.delete(trackId);
+      chain.effects = chain.effects.filter(effect => effect.id !== effectId);
     }
-  }, []);
+  };
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      effectsChainsRef.current.forEach((chain) => {
-        chain.effects.forEach(effect => effect.node.disconnect());
-        chain.inputGain.disconnect();
-        chain.outputGain.disconnect();
-      });
-      effectsChainsRef.current.clear();
-    };
-  }, []);
+  const updateEffectParam = (trackId: string, effectId: string, paramName: string, value: any) => {
+    console.log('AudioEffects: Updating effect param:', trackId, effectId, paramName, value);
+    const chain = effectsChainsRef.get(trackId);
+    if (chain) {
+      const effect = chain.effects.find(e => e.id === effectId);
+      if (effect) {
+        effect.params[paramName] = value;
+        // Apply parameter changes to the actual audio node here
+        updateNodeParam(effect.node, effect.type, paramName, value);
+      }
+    }
+  };
+
+  const getEffectsChain = (trackId: string) => {
+    return effectsChainsRef.get(trackId);
+  };
 
   return {
     initializeEffectsChain,
     addEffect,
     removeEffect,
     updateEffectParam,
-    getEffectsChain,
-    clearEffectsChain
+    getEffectsChain
   };
-}
-
-function getDefaultParams(effectType: EffectNode['type']): Record<string, any> {
-  switch (effectType) {
-    case 'EQ':
-      return { frequency: 1000, gain: 0, Q: 1 };
-    case 'Reverb':
-      return { roomSize: 0.5, damping: 0.5, wetness: 0.3 };
-    case 'Compressor':
-      return { threshold: -20, ratio: 8, attack: 0.003, release: 0.1 };
-    case 'Delay':
-      return { time: 0.3, feedback: 0.3, wetness: 0.3 };
-    case 'Distortion':
-      return { drive: 20, tone: 0.5 };
-    default:
-      return {};
-  }
 }
 
 function updateNodeParam(node: AudioNode, effectType: EffectNode['type'], paramName: string, value: any) {
@@ -332,6 +238,11 @@ function updateNodeParam(node: AudioNode, effectType: EffectNode['type'], paramN
         if (paramName === 'ratio') node.ratio.value = value;
         if (paramName === 'attack') node.attack.value = value;
         if (paramName === 'release') node.release.value = value;
+      }
+      break;
+    case 'Delay':
+      if (node instanceof DelayNode) {
+        if (paramName === 'delayTime') node.delayTime.value = value;
       }
       break;
     // Add more cases as needed

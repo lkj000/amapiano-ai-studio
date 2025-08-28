@@ -11,8 +11,13 @@ import { toast } from "sonner";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { BatchProcessor } from "@/components/BatchProcessor";
 import { AmapianorizeEngine } from "@/components/AmapianorizeEngine";
+import { User } from '@supabase/supabase-js';
 
-const Analyze = () => {
+interface AnalyzeProps {
+  user: User | null;
+}
+
+const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
   const [url, setUrl] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any>(null);

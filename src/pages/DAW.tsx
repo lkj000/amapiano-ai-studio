@@ -18,6 +18,7 @@ import MultiTrackRoutingPanel from '@/components/MultiTrackRoutingPanel';
 import type { ElasticAudioSettings } from '@/components/ElasticAudioPanel';
 import type { AudioRoutingConfig } from '@/components/MultiTrackRoutingPanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { User } from '@supabase/supabase-js';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';
 import ProjectSettingsModal from '@/components/daw/ProjectSettingsModal';
@@ -104,7 +105,11 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
     masterVolume: 0.8,
   };
 
-export default function DawPage() {
+interface DawPageProps {
+  user: User | null;
+}
+
+export default function DawPage({ user }: DawPageProps) {
   const queryClient = useQueryClient();
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);

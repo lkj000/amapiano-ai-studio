@@ -5,8 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Download, BookOpen, Music, TrendingUp, Heart } from "lucide-react";
+import { User } from '@supabase/supabase-js';
 
-const Patterns = () => {
+interface PatternsProps {
+  user: User | null;
+}
+
+const Patterns: React.FC<PatternsProps> = ({ user }) => {
   const [selectedComplexity, setSelectedComplexity] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");
 

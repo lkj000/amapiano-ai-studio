@@ -14,8 +14,13 @@ import { AIPromptParser } from "@/components/AIPromptParser";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { supabase } from "@/integrations/supabase/client";
+import { User } from '@supabase/supabase-js';
 
-const Generate = () => {
+interface GenerateProps {
+  user: User | null;
+}
+
+const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [prompt, setPrompt] = useState("");
   const [genre, setGenre] = useState("classic");
   const [bpm, setBpm] = useState([118]);

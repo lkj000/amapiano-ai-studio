@@ -6,8 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Play, Download, Heart, Filter, Search, Music, Star } from "lucide-react";
+import { User } from '@supabase/supabase-js';
 
-const Samples = () => {
+interface SamplesProps {
+  user: User | null;
+}
+
+const Samples: React.FC<SamplesProps> = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");

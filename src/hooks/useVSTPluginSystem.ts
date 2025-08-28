@@ -1,31 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
-// Declare Web Audio API types for AudioWorklet
-declare global {
-  interface AudioWorkletProcessor {
-    readonly port: MessagePort;
-    process(
-      inputs: Float32Array[][],
-      outputs: Float32Array[][],
-      parameters: Record<string, Float32Array>
-    ): boolean;
-  }
-
-  const AudioWorkletProcessor: {
-    prototype: AudioWorkletProcessor;
-    new (options?: any): AudioWorkletProcessor;
-  };
-
-  function registerProcessor(
-    name: string,
-    processorCtor: new (options?: any) => AudioWorkletProcessor
-  ): void;
-
-  const currentFrame: number;
-  const sampleRate: number;
-}
-
 export interface VSTPluginManifest {
   id: string;
   name: string;
@@ -82,8 +57,7 @@ export interface VSTPluginInstance {
   isActive: boolean;
   isBypassed: boolean;
   processingLatency: number;
-  audioNode?: AudioNode;
-  processor?: AudioWorkletNode;
+  simulator?: VSTPluginSimulator;
 }
 
 export interface VSTStore {
@@ -246,87 +220,62 @@ const createMockVSTPlugins = (): VSTPluginManifest[] => [
   }
 ];
 
-// Web Audio API VST Plugin Processor
-class VSTPluginProcessor extends AudioWorkletProcessor {
+// VST Plugin simulation using regular Web Audio nodes
+class VSTPluginSimulator {
+  private audioContext: AudioContext;
+  private inputNode: GainNode;
+  private outputNode: GainNode;
   private parameters: Map<string, any> = new Map();
   private manifest: VSTPluginManifest | null = null;
 
-  constructor() {
-    super();
-    this.port.onmessage = this.handleMessage.bind(this);
-  }
-
-  private handleMessage(event: MessageEvent) {
-    const { type, data } = event.data;
+  constructor(audioContext: AudioContext, manifest: VSTPluginManifest) {
+    this.audioContext = audioContext;
+    this.manifest = manifest;
     
-    switch (type) {
-      case 'init':
-        this.manifest = data.manifest;
-        this.initializePlugin();
-        break;
-      case 'updateParameter':
-        this.parameters.set(data.parameterId, data.value);
-        break;
-      case 'loadPreset':
-        this.loadPreset(data.preset);
-        break;
-    }
-  }
-
-  private initializePlugin() {
-    if (!this.manifest) return;
+    // Create basic audio processing chain
+    this.inputNode = audioContext.createGain();
+    this.outputNode = audioContext.createGain();
     
     // Initialize default parameters
-    this.manifest.parameters.forEach(param => {
+    manifest.parameters.forEach(param => {
       this.parameters.set(param.id, param.default);
     });
+    
+    // Connect nodes
+    this.inputNode.connect(this.outputNode);
   }
 
-  private loadPreset(preset: VSTPreset) {
+  updateParameter(parameterId: string, value: any) {
+    this.parameters.set(parameterId, value);
+    
+    // Apply parameter changes to audio nodes
+    if (parameterId === 'band1-gain') {
+      const gainValue = Math.pow(10, value / 20);
+      this.outputNode.gain.value = gainValue;
+    }
+  }
+
+  loadPreset(preset: VSTPreset) {
     Object.entries(preset.parameters).forEach(([paramId, value]) => {
-      this.parameters.set(paramId, value);
+      this.updateParameter(paramId, value);
     });
   }
 
-  process(inputs: Float32Array[][], outputs: Float32Array[][], parameters: Record<string, Float32Array>): boolean {
-    const input = inputs[0];
-    const output = outputs[0];
-    
-    if (!input || !output) return true;
-    
-    // Simple passthrough with basic processing simulation
-    for (let channel = 0; channel < output.length; channel++) {
-      const inputChannel = input[channel];
-      const outputChannel = output[channel];
-      
-      if (inputChannel && outputChannel) {
-        for (let i = 0; i < outputChannel.length; i++) {
-          // Apply basic processing based on plugin type
-          let sample = inputChannel[i];
-          
-          if (this.manifest?.format === 'effect') {
-            // Basic EQ simulation
-            const gain = this.parameters.get('band1-gain') || 0;
-            sample *= Math.pow(10, gain / 20);
-          } else if (this.manifest?.format === 'instrument') {
-            // Basic oscillator simulation for instruments
-            const freq = this.parameters.get('filter-cutoff') || 440;
-            const time = (typeof currentFrame !== 'undefined' ? currentFrame : 0) / (typeof sampleRate !== 'undefined' ? sampleRate : 44100);
-            sample = Math.sin(2 * Math.PI * freq * time) * 0.1;
-          }
-          
-          outputChannel[i] = sample;
-        }
-      }
-    }
-    
-    return true;
+  connect(destination: AudioNode) {
+    this.outputNode.connect(destination);
   }
-}
 
-// Register the processor
-if (typeof AudioWorkletProcessor !== 'undefined') {
-  registerProcessor('vst-plugin-processor', VSTPluginProcessor);
+  disconnect() {
+    this.outputNode.disconnect();
+  }
+
+  getInputNode(): AudioNode {
+    return this.inputNode;
+  }
+
+  getOutputNode(): AudioNode {
+    return this.outputNode;
+  }
 }
 
 export function useVSTPluginSystem(audioContext: AudioContext | null) {
@@ -336,7 +285,7 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [store, setStore] = useState<VSTStore | null>(null);
   
-  const processorNodesRef = useRef<Map<string, AudioWorkletNode>>(new Map());
+  const simulatorsRef = useRef<Map<string, VSTPluginSimulator>>(new Map());
 
   // Initialize VST system
   useEffect(() => {
@@ -355,15 +304,6 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
           categories: ['Synthesizer', 'EQ', 'Compressor', 'Reverb', 'Delay'],
           vendors: ['Xfer Records', 'FabFilter', 'Native Instruments', 'Waves', 'Plugin Alliance']
         });
-        
-        // Load AudioWorklet processor if available
-        if (audioContext && audioContext.state !== 'closed') {
-          try {
-            await audioContext.audioWorklet.addModule('/vst-plugin-processor.js');
-          } catch (error) {
-            console.warn('Failed to load VST processor worklet:', error);
-          }
-        }
         
       } catch (error) {
         console.error('Failed to initialize VST system:', error);
@@ -419,28 +359,18 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
     try {
       const instanceId = `vst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create processor node
-      let processor: AudioWorkletNode | null = null;
+      // Create plugin simulator
+      let simulator: VSTPluginSimulator | null = null;
       
       if (plugin.supportsWebAudio) {
-        try {
-          processor = new AudioWorkletNode(audioContext, 'vst-plugin-processor');
-          
-          // Initialize the processor
-          processor.port.postMessage({
-            type: 'init',
-            data: { manifest: plugin }
-          });
-          
-          // Connect to input if provided
-          if (inputGain) {
-            inputGain.connect(processor);
-          }
-          
-          processorNodesRef.current.set(instanceId, processor);
-        } catch (error) {
-          console.warn('Failed to create AudioWorklet processor, using fallback:', error);
+        simulator = new VSTPluginSimulator(audioContext, plugin);
+        
+        // Connect to input if provided
+        if (inputGain) {
+          inputGain.connect(simulator.getInputNode());
         }
+        
+        simulatorsRef.current.set(instanceId, simulator);
       }
       
       // Create instance
@@ -456,8 +386,7 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
         isActive: true,
         isBypassed: false,
         processingLatency: plugin.latency,
-        audioNode: processor || undefined,
-        processor: processor || undefined
+        simulator: simulator || undefined
       };
       
       // Add to instances
@@ -479,11 +408,11 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
 
   const removeVSTInstance = useCallback((instanceId: string): boolean => {
     try {
-      // Clean up audio nodes
-      const processor = processorNodesRef.current.get(instanceId);
-      if (processor) {
-        processor.disconnect();
-        processorNodesRef.current.delete(instanceId);
+      // Clean up simulators
+      const simulator = simulatorsRef.current.get(instanceId);
+      if (simulator) {
+        simulator.disconnect();
+        simulatorsRef.current.delete(instanceId);
       }
       
       // Remove from instances
@@ -509,13 +438,10 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
 
   const updateVSTParameter = useCallback((instanceId: string, parameterId: string, value: any): boolean => {
     try {
-      // Update processor
-      const processor = processorNodesRef.current.get(instanceId);
-      if (processor) {
-        processor.port.postMessage({
-          type: 'updateParameter',
-          data: { parameterId, value }
-        });
+      // Update simulator
+      const simulator = simulatorsRef.current.get(instanceId);
+      if (simulator) {
+        simulator.updateParameter(parameterId, value);
       }
       
       // Update local state
@@ -541,13 +467,10 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
 
   const loadVSTPreset = useCallback((instanceId: string, preset: VSTPreset): boolean => {
     try {
-      // Update processor
-      const processor = processorNodesRef.current.get(instanceId);
-      if (processor) {
-        processor.port.postMessage({
-          type: 'loadPreset',
-          data: { preset }
-        });
+      // Update simulator
+      const simulator = simulatorsRef.current.get(instanceId);
+      if (simulator) {
+        simulator.loadPreset(preset);
       }
       
       // Update local state

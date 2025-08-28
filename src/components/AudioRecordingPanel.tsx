@@ -1,529 +1,422 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Mic, Square, Play, Pause, Save, Trash2, Volume2, AlertCircle, 
-  X, Download, Upload, Activity, Clock, HardDrive 
-} from 'lucide-react';
+import { Mic, Square, Play, Pause, Save, Trash2, Settings } from 'lucide-react';
 import { toast } from 'sonner';
-import type { AudioRecording, RecordingState, WaveformData } from '@/types/daw';
+import { Track } from '@/types/daw';
 
 interface AudioRecordingPanelProps {
-  trackId: string;
-  trackName: string;
-  onClose: () => void;
-  onSaveRecording: (trackId: string, recording: AudioRecording) => Promise<void>;
-  onDeleteRecording: (trackId: string, recordingId: string) => void;
-  recordings: AudioRecording[];
+  tracks: Track[];
+  selectedTrackId?: string;
+  onTrackSelect?: (trackId: string) => void;
+  onRecordingComplete?: (audioData: Blob, trackId: string) => void;
 }
 
 export default function AudioRecordingPanel({ 
-  trackId, 
-  trackName, 
-  onClose, 
-  onSaveRecording, 
-  onDeleteRecording,
-  recordings 
+  tracks, 
+  selectedTrackId, 
+  onTrackSelect, 
+  onRecordingComplete 
 }: AudioRecordingPanelProps) {
-  const [recordingState, setRecordingState] = useState<RecordingState>({
-    isRecording: false,
-    isPaused: false,
-    currentTime: 0,
-    inputLevel: 0,
-    recordedChunks: []
-  });
-  
-  const [selectedRecording, setSelectedRecording] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackTime, setPlaybackTime] = useState(0);
-  const [inputGain, setInputGain] = useState(1);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [waveformData, setWaveformData] = useState<WaveformData | null>(null);
-
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const [isCountingIn, setIsCountingIn] = useState(false);
+  const [countInValue, setCountInValue] = useState(0);
+  const [inputGain, setInputGain] = useState([75]);
+  const [monitorLevel, setMonitorLevel] = useState([50]);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyzerRef = useRef<AnalyserNode | null>(null);
-  const microphoneStreamRef = useRef<MediaStream | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recordingIntervalRef = useRef<number | null>(null);
-  const levelMonitorRef = useRef<number | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countInTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
 
-  // Initialize audio recording
+  // Find armed track or use selected track
+  const targetTrack = tracks.find(track => track.isArmed) || 
+                     tracks.find(track => track.id === selectedTrackId) ||
+                     tracks[0];
+
   useEffect(() => {
-    const initializeAudio = async () => {
-      try {
-        // Request microphone permission
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          audio: { 
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: false
-          } 
-        });
-        
-        setHasPermission(true);
-        microphoneStreamRef.current = stream;
-
-        // Set up audio context and analyzer
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        analyzerRef.current = audioContextRef.current.createAnalyser();
-        analyzerRef.current.fftSize = 256;
-
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        const gainNode = audioContextRef.current.createGain();
-        gainNode.gain.value = inputGain;
-        
-        source.connect(gainNode);
-        gainNode.connect(analyzerRef.current);
-
-        // Set up media recorder
-        mediaRecorderRef.current = new MediaRecorder(stream, {
-          mimeType: 'audio/webm;codecs=opus'
-        });
-
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            setRecordingState(prev => ({
-              ...prev,
-              recordedChunks: [...prev.recordedChunks, event.data]
-            }));
-          }
-        };
-
-        mediaRecorderRef.current.onstop = handleRecordingComplete;
-
-        // Start level monitoring
-        startLevelMonitoring();
-
-      } catch (error) {
-        console.error('Failed to initialize audio:', error);
-        setHasPermission(false);
-        toast.error('Microphone access denied. Please enable microphone permissions.');
-      }
-    };
-
-    initializeAudio();
-
     return () => {
-      stopRecording();
-      if (microphoneStreamRef.current) {
-        microphoneStreamRef.current.getTracks().forEach(track => track.stop());
+      // Cleanup on unmount
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
       }
-      if (levelMonitorRef.current) {
-        clearInterval(levelMonitorRef.current);
+      if (countInTimerRef.current) {
+        clearTimeout(countInTimerRef.current);
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
       }
     };
-  }, [inputGain]);
-
-  const startLevelMonitoring = useCallback(() => {
-    if (!analyzerRef.current) return;
-
-    levelMonitorRef.current = window.setInterval(() => {
-      if (!analyzerRef.current) return;
-
-      const bufferLength = analyzerRef.current.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      analyzerRef.current.getByteFrequencyData(dataArray);
-
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
-      const level = (average / 255) * 100;
-
-      setRecordingState(prev => ({ ...prev, inputLevel: level }));
-    }, 50);
   }, []);
 
-  const startRecording = useCallback(() => {
-    if (!mediaRecorderRef.current || !hasPermission) return;
-
+  const initializeAudio = async () => {
     try {
-      setRecordingState(prev => ({
-        ...prev,
-        isRecording: true,
-        isPaused: false,
-        currentTime: 0,
-        recordedChunks: []
-      }));
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        } 
+      });
+      streamRef.current = stream;
 
-      mediaRecorderRef.current.start(100); // Collect data every 100ms
+      // Set up audio analysis
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      source.connect(analyserRef.current);
 
+      // Start level monitoring
+      monitorAudioLevel();
+
+      return stream;
+    } catch (error) {
+      console.error('Failed to initialize audio:', error);
+      toast.error('Failed to access microphone');
+      throw error;
+    }
+  };
+
+  const monitorAudioLevel = () => {
+    if (!analyserRef.current) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    
+    const updateLevel = () => {
+      if (!analyserRef.current) return;
+      
+      analyserRef.current.getByteFrequencyData(dataArray);
+      const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+      setAudioLevel(Math.min(100, (average / 128) * 100));
+      
+      if (streamRef.current && streamRef.current.active) {
+        requestAnimationFrame(updateLevel);
+      }
+    };
+    
+    updateLevel();
+  };
+
+  const startCountIn = () => {
+    setIsCountingIn(true);
+    setCountInValue(4);
+    
+    const countdown = () => {
+      setCountInValue(prev => {
+        if (prev <= 1) {
+          setIsCountingIn(false);
+          startActualRecording();
+          return 0;
+        }
+        
+        countInTimerRef.current = setTimeout(countdown, 1000);
+        return prev - 1;
+      });
+    };
+    
+    countInTimerRef.current = setTimeout(countdown, 1000);
+  };
+
+  const startActualRecording = async () => {
+    try {
+      const stream = streamRef.current || await initializeAudio();
+      
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      
+      const chunks: BlobPart[] = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        setRecordedAudio(audioBlob);
+        
+        if (onRecordingComplete && targetTrack) {
+          onRecordingComplete(audioBlob, targetTrack.id);
+        }
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
       // Start timer
-      recordingIntervalRef.current = window.setInterval(() => {
-        setRecordingState(prev => ({
-          ...prev,
-          currentTime: prev.currentTime + 0.1
-        }));
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 0.1);
       }, 100);
-
+      
       toast.success('Recording started');
     } catch (error) {
       console.error('Failed to start recording:', error);
       toast.error('Failed to start recording');
     }
-  }, [hasPermission]);
+  };
 
-  const pauseRecording = useCallback(() => {
-    if (!mediaRecorderRef.current) return;
-
-    if (recordingState.isPaused) {
-      // Resume
-      mediaRecorderRef.current.resume();
-      setRecordingState(prev => ({ ...prev, isPaused: false }));
-      toast.success('Recording resumed');
-    } else {
-      // Pause
-      mediaRecorderRef.current.pause();
-      setRecordingState(prev => ({ ...prev, isPaused: true }));
-      toast.success('Recording paused');
+  const startRecording = async () => {
+    if (!targetTrack) {
+      toast.error('Please select a track to record to');
+      return;
     }
-  }, [recordingState.isPaused]);
-
-  const stopRecording = useCallback(() => {
-    if (!mediaRecorderRef.current || !recordingState.isRecording) return;
-
-    mediaRecorderRef.current.stop();
-    
-    if (recordingIntervalRef.current) {
-      clearInterval(recordingIntervalRef.current);
-      recordingIntervalRef.current = null;
-    }
-
-    setRecordingState(prev => ({
-      ...prev,
-      isRecording: false,
-      isPaused: false
-    }));
-
-    toast.success('Recording stopped');
-  }, [recordingState.isRecording]);
-
-  const handleRecordingComplete = useCallback(async () => {
-    if (recordingState.recordedChunks.length === 0) return;
 
     try {
-      // Create audio blob
-      const audioBlob = new Blob(recordingState.recordedChunks, { type: 'audio/webm' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // Generate waveform data
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const audioContext = new AudioContext();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      const channelData = audioBuffer.getChannelData(0);
-      
-      // Downsample for visualization
-      const samples = 1000;
-      const blockSize = Math.floor(channelData.length / samples);
-      const peaks: number[] = [];
-      
-      for (let i = 0; i < samples; i++) {
-        const start = i * blockSize;
-        const end = start + blockSize;
-        let max = 0;
-        
-        for (let j = start; j < end; j++) {
-          const sample = Math.abs(channelData[j]);
-          if (sample > max) max = sample;
-        }
-        
-        peaks.push(max);
+      if (!streamRef.current) {
+        await initializeAudio();
       }
-
-      // Create recording object
-      const recording: AudioRecording = {
-        id: `recording_${Date.now()}`,
-        name: `Recording ${new Date().toLocaleTimeString()}`,
-        audioUrl,
-        duration: recordingState.currentTime,
-        waveformData: peaks,
-        recordedAt: new Date().toISOString()
-      };
-
-      await onSaveRecording(trackId, recording);
-      
-      setRecordingState(prev => ({
-        ...prev,
-        recordedChunks: []
-      }));
-
-      toast.success('Recording saved successfully');
+      startCountIn();
     } catch (error) {
-      console.error('Failed to save recording:', error);
-      toast.error('Failed to save recording');
+      console.error('Failed to start recording:', error);
     }
-  }, [recordingState.recordedChunks, recordingState.currentTime, trackId, onSaveRecording]);
+  };
 
-  const playRecording = useCallback((recording: AudioRecording) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    audioRef.current = new Audio(recording.audioUrl);
-    audioRef.current.currentTime = 0;
-    
-    audioRef.current.ontimeupdate = () => {
-      if (audioRef.current) {
-        setPlaybackTime(audioRef.current.currentTime);
+  const stopRecording = () => {
+    if (isCountingIn) {
+      setIsCountingIn(false);
+      if (countInTimerRef.current) {
+        clearTimeout(countInTimerRef.current);
       }
-    };
-
-    audioRef.current.onended = () => {
-      setIsPlaying(false);
-      setPlaybackTime(0);
-      setSelectedRecording(null);
-    };
-
-    audioRef.current.play();
-    setIsPlaying(true);
-    setSelectedRecording(recording.id);
-  }, []);
-
-  const stopPlayback = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      return;
     }
-    setIsPlaying(false);
-    setPlaybackTime(0);
-    setSelectedRecording(null);
-  }, []);
+
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      
+      toast.success('Recording stopped');
+    }
+  };
+
+  const playRecording = async () => {
+    if (!recordedAudio) return;
+    
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+    }
+    
+    audioUrlRef.current = URL.createObjectURL(recordedAudio);
+    const audio = new Audio(audioUrlRef.current);
+    
+    audio.onended = () => setIsPlaying(false);
+    
+    try {
+      await audio.play();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error('Failed to play recording:', error);
+      toast.error('Failed to play recording');
+    }
+  };
+
+  const deleteRecording = () => {
+    setRecordedAudio(null);
+    setRecordingTime(0);
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    toast.success('Recording deleted');
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const centisecs = Math.floor((seconds % 1) * 10);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${centisecs}`;
   };
-
-  const renderWaveform = (recording: AudioRecording) => {
-    if (!recording.waveformData) return null;
-
-    return (
-      <div className="h-16 bg-muted/20 rounded flex items-end justify-center gap-px p-2">
-        {recording.waveformData.map((peak, index) => (
-          <div
-            key={index}
-            className="bg-primary/70 flex-1 max-w-px"
-            style={{ height: `${Math.max(2, peak * 100)}%` }}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  if (hasPermission === false) {
-    return (
-      <Card className="fixed inset-4 z-50 bg-background">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Audio Recording</CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Microphone access is required for audio recording. Please enable microphone permissions and refresh the page.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
-    <Card className="fixed inset-4 z-50 bg-background flex flex-col">
-      <CardHeader className="pb-3 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-lg">Audio Recording - {trackName}</CardTitle>
-            <Badge variant="outline" className="bg-gradient-to-r from-red-500/20 to-orange-500/20">
-              Version 2.0
-            </Badge>
+    <div className="h-full bg-background border-l border-border overflow-hidden">
+      <Card className="h-full rounded-none border-0">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <Mic className="w-5 h-5" />
+            Audio Recording
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {/* Track Selection */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Record to Track</label>
+            <Select 
+              value={targetTrack?.id || ''} 
+              onValueChange={onTrackSelect}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select track" />
+              </SelectTrigger>
+              <SelectContent>
+                {tracks.map((track) => (
+                  <SelectItem key={track.id} value={track.id}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded ${track.color}`} />
+                      {track.name}
+                      {track.isArmed && <span className="text-red-500">●</span>}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
-      </CardHeader>
 
-      <CardContent className="flex-1 space-y-6 overflow-y-auto p-6">
-        {/* Recording Controls */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              Recording Controls
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Input Level Meter */}
+          {/* Input Controls */}
+          <div className="space-y-3">
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Input Level</span>
-                <span>{Math.round(recordingState.inputLevel)}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Progress 
-                  value={recordingState.inputLevel} 
-                  className="flex-1 h-3"
-                />
-                <div className={`w-3 h-3 rounded-full ${
-                  recordingState.inputLevel > 80 ? 'bg-red-500' :
-                  recordingState.inputLevel > 60 ? 'bg-yellow-500' :
-                  recordingState.inputLevel > 20 ? 'bg-green-500' :
-                  'bg-gray-400'
-                }`} />
-              </div>
-            </div>
-
-            {/* Input Gain */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Input Gain</span>
-                <span>{Math.round(inputGain * 100)}%</span>
-              </div>
+              <label className="text-sm font-medium">Input Gain</label>
               <Slider
-                value={[inputGain]}
-                onValueChange={([value]) => setInputGain(value)}
-                min={0.1}
-                max={2}
-                step={0.1}
+                value={inputGain}
+                onValueChange={setInputGain}
+                max={100}
+                step={1}
                 className="w-full"
               />
-            </div>
-
-            {/* Recording Timer */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4" />
-                <span>{formatTime(recordingState.currentTime)}</span>
-                {recordingState.isRecording && (
-                  <div className={`w-2 h-2 rounded-full ${
-                    recordingState.isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'
-                  }`} />
-                )}
+              <div className="text-xs text-muted-foreground text-right">
+                {inputGain[0]}%
               </div>
             </div>
 
-            {/* Control Buttons */}
-            <div className="flex gap-2">
-              <Button
-                onClick={startRecording}
-                disabled={recordingState.isRecording}
-                variant={recordingState.isRecording ? 'secondary' : 'default'}
-                className="flex-1"
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                Start Recording
-              </Button>
-              
-              {recordingState.isRecording && (
-                <>
-                  <Button
-                    onClick={pauseRecording}
-                    variant="outline"
-                  >
-                    {recordingState.isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                  </Button>
-                  
-                  <Button
-                    onClick={stopRecording}
-                    variant="destructive"
-                  >
-                    <Square className="w-4 h-4" />
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recordings List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <HardDrive className="w-4 h-4" />
-              Saved Recordings ({recordings.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recordings.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No recordings yet</p>
-                <p className="text-xs">Start recording to create audio clips</p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Monitor Level</label>
+              <Slider
+                value={monitorLevel}
+                onValueChange={setMonitorLevel}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {monitorLevel[0]}%
               </div>
-            ) : (
-              <div className="space-y-4">
-                {recordings.map((recording) => (
-                  <Card key={recording.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium">{recording.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {formatTime(recording.duration)} • {new Date(recording.recordedAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (selectedRecording === recording.id && isPlaying) {
-                                stopPlayback();
-                              } else {
-                                playRecording(recording);
-                              }
-                            }}
-                          >
-                            {selectedRecording === recording.id && isPlaying ? 
-                              <Square className="w-4 h-4" /> : 
-                              <Play className="w-4 h-4" />
-                            }
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onDeleteRecording(trackId, recording.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+            </div>
+          </div>
 
-                      {/* Waveform */}
-                      {renderWaveform(recording)}
+          {/* Audio Level Meter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Input Level</label>
+            <div className="relative">
+              <Progress value={audioLevel} className="w-full h-3" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-medium">
+                  {Math.round(audioLevel)}%
+                </span>
+              </div>
+            </div>
+          </div>
 
-                      {/* Playback Progress */}
-                      {selectedRecording === recording.id && (
-                        <div className="mt-2">
-                          <Progress 
-                            value={(playbackTime / recording.duration) * 100} 
-                            className="h-2"
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+          {/* Recording Controls */}
+          <div className="space-y-3">
+            {isCountingIn && (
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-500">
+                  {countInValue}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Get ready...
+                </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </CardContent>
-    </Card>
+
+            <div className="flex items-center justify-center gap-2">
+              {!isRecording && !isCountingIn ? (
+                <Button 
+                  onClick={startRecording}
+                  disabled={!targetTrack}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  <Mic className="w-4 h-4 mr-2" />
+                  Record
+                </Button>
+              ) : (
+                <Button 
+                  onClick={stopRecording}
+                  variant="destructive"
+                  className="flex-1"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+              )}
+            </div>
+
+            {/* Recording Time */}
+            {(isRecording || recordingTime > 0) && (
+              <div className="text-center">
+                <div className="text-lg font-mono">
+                  {formatTime(recordingTime)}
+                </div>
+                {isRecording && (
+                  <div className="text-sm text-red-500 animate-pulse">
+                    ● Recording
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Playback Controls */}
+          {recordedAudio && (
+            <div className="space-y-3 border-t pt-3">
+              <label className="text-sm font-medium">Recorded Audio</label>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={playRecording}
+                  disabled={isPlaying}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Play className="w-4 h-4" />
+                </Button>
+                
+                <Button
+                  onClick={deleteRecording}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                
+                <div className="text-sm text-muted-foreground">
+                  {formatTime(recordingTime)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Help Text */}
+          {!targetTrack && (
+            <div className="text-center text-muted-foreground text-sm py-4">
+              Select a track above to start recording
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

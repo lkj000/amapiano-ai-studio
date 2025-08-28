@@ -30,6 +30,8 @@ const Generate = () => {
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referenceUrl, setReferenceUrl] = useState("");
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; transcription?: string } | null>(null);
+  const [referenceAnalysis, setReferenceAnalysis] = useState<any>(null);
+  const [selectedArtistStyle, setSelectedArtistStyle] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     if (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio) {
@@ -106,9 +108,32 @@ const Generate = () => {
     }
   };
 
-  const handleReferenceFileSelect = (file: File) => {
+  const handleReferenceFileSelect = async (file: File) => {
     setReferenceFile(file);
     toast.success(`Reference file "${file.name}" selected`);
+    
+    // Simulate reference analysis
+    toast.info("Analyzing reference track...");
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    setReferenceAnalysis({
+      bpm: 115,
+      key: "C minor",
+      mood: "Melancholic",
+      energy: 0.7,
+      instruments: ["Piano", "Bass", "Drums", "Strings"],
+      genre: "Deep Amapiano",
+      duration: 245,
+      structure: {
+        intro: 16,
+        verse: 32,
+        chorus: 24,
+        bridge: 16,
+        outro: 12
+      }
+    });
+    
+    toast.success("Reference track analyzed successfully!");
   };
 
   const artistStyles = [
@@ -255,7 +280,12 @@ const Generate = () => {
                       <label className="text-sm font-medium">Artist Style Inspiration (Optional)</label>
                       <div className="flex flex-wrap gap-2">
                         {artistStyles.map((artist) => (
-                          <Badge key={artist} variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+                          <Badge 
+                            key={artist} 
+                            variant={selectedArtistStyle === artist ? "default" : "outline"} 
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                            onClick={() => setSelectedArtistStyle(selectedArtistStyle === artist ? null : artist)}
+                          >
                             {artist}
                           </Badge>
                         ))}
@@ -288,21 +318,94 @@ const Generate = () => {
                           maxSize={500}
                         />
                         {referenceFile && (
-                          <div className="p-3 bg-muted rounded-lg">
-                            <h4 className="font-medium text-sm mb-2">Reference Track Selected</h4>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              AI will analyze this track and generate a new amapiano version inspired by its elements
-                            </p>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">File:</span>
-                                <span className="ml-2 font-medium">{referenceFile.name}</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Size:</span>
-                                <span className="ml-2 font-medium">{(referenceFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                          <div className="space-y-4">
+                            <div className="p-3 bg-muted rounded-lg">
+                              <h4 className="font-medium text-sm mb-2">Reference Track Selected</h4>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">File:</span>
+                                  <span className="ml-2 font-medium">{referenceFile.name}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Size:</span>
+                                  <span className="ml-2 font-medium">{(referenceFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                                </div>
                               </div>
                             </div>
+
+                            {referenceAnalysis && (
+                              <div className="p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border">
+                                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                  <Music className="w-4 h-4 text-primary" />
+                                  Reference Track Analysis
+                                </h4>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">BPM</span>
+                                      <span className="text-sm font-medium">{referenceAnalysis.bpm}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Key</span>
+                                      <span className="text-sm font-medium">{referenceAnalysis.key}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Genre</span>
+                                      <span className="text-sm font-medium">{referenceAnalysis.genre}</span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Mood</span>
+                                      <span className="text-sm font-medium">{referenceAnalysis.mood}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Energy</span>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                          <div 
+                                            className="h-full bg-primary rounded-full transition-all duration-300"
+                                            style={{ width: `${referenceAnalysis.energy * 100}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-sm font-medium">{Math.round(referenceAnalysis.energy * 100)}%</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-muted-foreground">Duration</span>
+                                      <span className="text-sm font-medium">
+                                        {Math.floor(referenceAnalysis.duration / 60)}:{String(referenceAnalysis.duration % 60).padStart(2, '0')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mb-3">
+                                  <span className="text-sm text-muted-foreground block mb-2">Detected Instruments</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {referenceAnalysis.instruments.map((instrument: string) => (
+                                      <Badge key={instrument} variant="secondary" className="text-xs">
+                                        {instrument}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <span className="text-sm text-muted-foreground block mb-2">Song Structure</span>
+                                  <div className="flex gap-1 text-xs">
+                                    {Object.entries(referenceAnalysis.structure).map(([part, bars]) => (
+                                      <div key={part} className="bg-primary/20 px-2 py-1 rounded text-center min-w-12">
+                                        <div className="font-medium capitalize">{part}</div>
+                                        <div className="text-muted-foreground">{bars as number} bars</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </TabsContent>

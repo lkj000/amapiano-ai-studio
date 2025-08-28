@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
-import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane } from '@/types/daw';
+import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane, DawTrackV2 } from '@/types/daw';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';
@@ -70,33 +70,35 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
   );
 };
 
-const defaultProjectData: DawProjectData = {
-  bpm: 118,
-  keySignature: 'F#m',
-  tracks: [
-    {
-      id: `track_${Date.now()}_1`,
-      type: 'midi',
-      name: 'Log Drums',
-      instrument: 'Signature Log Drum',
-      clips: [],
-      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
-      isArmed: true,
-      color: 'bg-red-500',
-    },
-    {
-      id: `track_${Date.now()}_2`,
-      type: 'midi',
-      name: 'Piano Chords',
-      instrument: 'Amapiano Piano',
-      clips: [],
-      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
-      isArmed: false,
-      color: 'bg-blue-500',
-    },
-  ],
-  masterVolume: 0.8,
-};
+  const defaultProjectData: DawProjectData = {
+    bpm: 118,
+    keySignature: 'F#m',
+    tracks: [
+      {
+        id: `track_${Date.now()}_1`,
+        type: 'midi',
+        name: 'Log Drums',
+        instrument: 'Signature Log Drum',
+        clips: [],
+        mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+        isArmed: true,
+        color: 'bg-red-500',
+        automationLanes: [],
+      } as DawTrackV2,
+      {
+        id: `track_${Date.now()}_2`,
+        type: 'midi',
+        name: 'Piano Chords',
+        instrument: 'Amapiano Piano',
+        clips: [],
+        mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
+        isArmed: false,
+        color: 'bg-blue-500',
+        automationLanes: [],
+      } as DawTrackV2,
+    ],
+    masterVolume: 0.8,
+  };
 
 export default function DawPage() {
   const queryClient = useQueryClient();
@@ -299,7 +301,7 @@ export default function DawPage() {
       if (!prev) return null;
       const newData = {
         ...prev,
-        tracks: prev.tracks.map(t => t.id === trackId ? { ...t, ...updates } : t)
+        tracks: prev.tracks.map(t => t.id === trackId ? { ...t, ...updates } as DawTrackV2 : t)
       };
       if (updates.name) {
         undoRedoControls.pushState(newData, `Renamed track to "${updates.name}"`);
@@ -311,7 +313,7 @@ export default function DawPage() {
   const updateMixer = useCallback((trackId: string, updates: Partial<DawTrack['mixer']>) => {
     setProjectData(prev => {
       if (!prev) return null;
-      const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } : t);
+      const newTracks = prev.tracks.map(t => t.id === trackId ? { ...t, mixer: { ...t.mixer, ...updates } } as DawTrackV2 : t);
       
       // Update audio engine volume in real-time
       if (updates.volume !== undefined) {
@@ -341,7 +343,7 @@ export default function DawPage() {
     
     console.log('DAW: Adding track with instrument:', inst);
     
-    const newTrack: DawTrack = isMidiTrack ? {
+    const newTrack: DawTrackV2 = isMidiTrack ? {
       id: `track_${Date.now()}`,
       type: 'midi' as const,
       name: inst.name,
@@ -350,7 +352,8 @@ export default function DawPage() {
       mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: inst.color,
-    } : {
+      automationLanes: [],
+    } as DawTrackV2 : {
       id: `track_${Date.now()}`,
       type: 'audio' as const,
       name: inst.name,
@@ -358,7 +361,9 @@ export default function DawPage() {
       mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: inst.color,
-    };
+      automationLanes: [],
+      recordings: [],
+    } as DawTrackV2;
 
     console.log('DAW: Created new track:', newTrack);
 
@@ -927,7 +932,7 @@ export default function DawPage() {
   }
 
   const totalDuration = (32 * 4 / projectData.bpm) * 60;
-  const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) || null;
+  const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) as DawTrackV2 || null;
 
   return (
     <div className="h-full flex flex-col text-foreground">
@@ -1112,7 +1117,19 @@ export default function DawPage() {
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </Button>
                   <Button variant="outline" size="sm" onClick={stop}><Square className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" className={isRecording ? "bg-destructive text-destructive-foreground" : ""} onClick={() => setIsRecording(!isRecording)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className={isRecording ? "bg-destructive text-destructive-foreground" : ""} 
+                    onClick={() => {
+                      if (selectedTrackId) {
+                        setShowAudioRecording(true);
+                      } else {
+                        toast.error("Select a track first");
+                      }
+                    }}
+                    disabled={!selectedTrackId || projectData.tracks.find(t => t.id === selectedTrackId)?.type !== 'audio'}
+                  >
                     <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setCurrentTime(t => Math.max(0, t - 5))}><SkipBack className="w-4 h-4" /></Button>
@@ -1280,7 +1297,7 @@ export default function DawPage() {
       {/* Automation Panel */}
       {showAutomation && selectedTrack && (
         <AutomationLanesPanel
-          track={selectedTrack as any}
+          track={selectedTrack}
           currentTime={currentTime}
           zoom={zoom[0]}
           onClose={() => setShowAutomation(false)}

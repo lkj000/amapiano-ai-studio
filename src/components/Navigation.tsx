@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { 
   Music, 
   Search, 
@@ -10,12 +16,26 @@ import {
   Volume2,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Crown,
+  ShoppingCart,
+  LogOut,
+  Settings,
+  User as UserIcon
 } from "lucide-react";
 
-const Navigation = () => {
+interface NavigationProps {
+  user: User | null;
+}
+
+const Navigation: React.FC<NavigationProps> = ({ user }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { subscription_tier, openCustomerPortal } = useSubscription(user);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
@@ -67,11 +87,63 @@ const Navigation = () => {
             })}
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden md:block">
-            <Button variant="outline" className="btn-glow">
-              Get Started
-            </Button>
+          {/* Auth/User Section */}
+          <div className="hidden md:flex items-center gap-3">
+            {user ? (
+              <>
+                <SubscriptionBadge tier={subscription_tier} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {user.email?.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <div className="flex flex-col space-y-1 leading-none">
+                        <p className="font-medium">{user.email}</p>
+                        <SubscriptionBadge tier={subscription_tier} className="w-fit" />
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/subscription" className="flex items-center">
+                        <Crown className="mr-2 h-4 w-4" />
+                        Manage Subscription
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/marketplace" className="flex items-center">
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                        Marketplace
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openCustomerPortal()}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Billing Portal
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" asChild>
+                  <Link to="/auth">Sign In</Link>
+                </Button>
+                <Button asChild className="btn-glow">
+                  <Link to="/auth">Get Started</Link>
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -112,10 +184,45 @@ const Navigation = () => {
                   </Link>
                 );
               })}
-              <div className="pt-4">
-                <Button className="w-full btn-glow">
-                  Get Started
-                </Button>
+              <div className="pt-4 space-y-2">
+                {user ? (
+                  <>
+                    <div className="px-4 py-2 text-sm text-muted-foreground border-b border-border">
+                      Signed in as {user.email}
+                    </div>
+                    <Link
+                      to="/subscription"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+                    >
+                      <Crown className="w-5 h-5" />
+                      Subscription
+                    </Link>
+                    <Link
+                      to="/marketplace"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      Marketplace
+                    </Link>
+                    <Button
+                      onClick={handleSignOut}
+                      variant="ghost"
+                      className="w-full justify-start gap-3 text-left"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <Link to="/auth" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button className="w-full btn-glow">
+                      <UserIcon className="w-4 w-4 mr-2" />
+                      Get Started
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>

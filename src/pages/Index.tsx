@@ -1,10 +1,25 @@
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Music, Search, Headphones, Grid3X3, Volume2, Sparkles, Users, BookOpen, Zap } from "lucide-react";
+import { ArrowRight, Music, Search, Headphones, Grid3X3, Volume2, Sparkles, Users, BookOpen, Zap, Crown, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
+import { User } from '@supabase/supabase-js';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionModal } from '@/components/SubscriptionModal';
+import { MarketplaceModal } from '@/components/MarketplaceModal';
+import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 
-const Index = () => {
+interface IndexProps {
+  user: User | null;
+  showSubscription?: boolean;
+  showMarketplace?: boolean;
+}
+
+const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarketplace = false }) => {
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(showSubscription);
+  const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(showMarketplace);
+  const { subscription_tier, hasFeature } = useSubscription(user);
   const features = [
     {
       icon: Music,
@@ -73,19 +88,45 @@ const Index = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link to="/generate">
-                <Button size="lg" className="btn-glow text-lg px-8 py-6">
-                  <Music className="w-5 h-5 mr-2" />
-                  Start Creating
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-              <Link to="/samples">
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-                  <Headphones className="w-5 h-5 mr-2" />
-                  Explore Samples
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/generate">
+                    <Button size="lg" className="btn-glow text-lg px-8 py-6">
+                      <Music className="w-5 h-5 mr-2" />
+                      Start Creating
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="text-lg px-8 py-6"
+                    onClick={() => setMarketplaceModalOpen(true)}
+                  >
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    Explore Marketplace
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth">
+                    <Button size="lg" className="btn-glow text-lg px-8 py-6">
+                      <Music className="w-5 h-5 mr-2" />
+                      Get Started Free
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="text-lg px-8 py-6"
+                    onClick={() => setSubscriptionModalOpen(true)}
+                  >
+                    <Crown className="w-5 h-5 mr-2" />
+                    View Plans
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Stats */}
@@ -243,6 +284,18 @@ const Index = () => {
           </div>
         </div>
       </section>
+      
+      <SubscriptionModal 
+        open={subscriptionModalOpen}
+        onOpenChange={setSubscriptionModalOpen}
+        user={user}
+      />
+      
+      <MarketplaceModal
+        open={marketplaceModalOpen}
+        onOpenChange={setMarketplaceModalOpen}
+        user={user}
+      />
     </div>
   );
 };

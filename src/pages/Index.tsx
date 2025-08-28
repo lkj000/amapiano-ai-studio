@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { User } from '@supabase/supabase-js';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionModal } from '@/components/SubscriptionModal';
+import { SubscriptionManagement } from '@/components/SubscriptionManagement';
 import { MarketplaceModal } from '@/components/MarketplaceModal';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 
@@ -17,7 +18,11 @@ interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarketplace = false }) => {
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(showSubscription);
+  const { subscribed } = useSubscription(user);
+  
+  // Show subscription management for existing subscribers, subscription modal for new users
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(showSubscription && !subscribed);
+  const [subscriptionManagementOpen, setSubscriptionManagementOpen] = useState(showSubscription && subscribed);
   const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(showMarketplace);
   const { subscription_tier, hasFeature } = useSubscription(user);
   const features = [
@@ -288,6 +293,12 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
       <SubscriptionModal 
         open={subscriptionModalOpen}
         onOpenChange={setSubscriptionModalOpen}
+        user={user}
+      />
+      
+      <SubscriptionManagement
+        open={subscriptionManagementOpen}
+        onOpenChange={setSubscriptionManagementOpen}
         user={user}
       />
       

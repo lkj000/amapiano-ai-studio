@@ -454,6 +454,89 @@ const Generate = () => {
                         )}
                       </TabsContent>
                     </Tabs>
+
+                    {/* Generation Options for Reference */}
+                    <div className="space-y-6 pt-6 border-t">
+                      <h3 className="font-medium text-sm">Generation Options</h3>
+                      
+                      {/* Track Type Selection */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Generation Type</label>
+                        <Select value={trackType} onValueChange={(value) => setTrackType(value as "full" | "loop")}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="full">Complete Track (Full Song)</SelectItem>
+                            <SelectItem value="loop">Loop/Pattern (Short Segment)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Manual Controls */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Amapiano Style</label>
+                          <Select value={genre} onValueChange={setGenre}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="classic">Classic Amapiano</SelectItem>
+                              <SelectItem value="private-school">Private School Amapiano</SelectItem>
+                              <SelectItem value="vocal">Vocal Amapiano</SelectItem>
+                              <SelectItem value="deep">Deep Amapiano</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <label className="text-sm font-medium">BPM</label>
+                            <span className="text-sm text-muted-foreground">{bpm[0]}</span>
+                          </div>
+                          <Slider
+                            value={bpm}
+                            onValueChange={setBpm}
+                            min={80}
+                            max={160}
+                            step={1}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <label className="text-sm font-medium">Duration</label>
+                          <span className="text-sm text-muted-foreground">{Math.floor(duration[0] / 60)}:{String(duration[0] % 60).padStart(2, '0')}</span>
+                        </div>
+                        <Slider
+                          value={duration}
+                          onValueChange={setDuration}
+                          min={trackType === "loop" ? 15 : 30}
+                          max={trackType === "loop" ? 120 : 600}
+                          step={trackType === "loop" ? 15 : 30}
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Artist Style Inspiration (Optional)</label>
+                        <div className="flex flex-wrap gap-2">
+                          {artistStyles.map((artist) => (
+                            <Badge 
+                              key={artist} 
+                              variant={selectedArtistStyle === artist ? "default" : "outline"} 
+                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                              onClick={() => setSelectedArtistStyle(selectedArtistStyle === artist ? null : artist)}
+                            >
+                              {artist}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}

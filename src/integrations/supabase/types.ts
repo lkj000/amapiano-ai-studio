@@ -191,6 +191,141 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_items: {
+        Row: {
+          active: boolean | null
+          category: string
+          created_at: string
+          currency: string | null
+          description: string | null
+          download_url: string | null
+          downloads: number | null
+          featured: boolean | null
+          id: string
+          image_url: string | null
+          name: string
+          preview_url: string | null
+          price_cents: number
+          rating: number | null
+          seller_id: string | null
+          subcategory: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          category: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          download_url?: string | null
+          downloads?: number | null
+          featured?: boolean | null
+          id?: string
+          image_url?: string | null
+          name: string
+          preview_url?: string | null
+          price_cents: number
+          rating?: number | null
+          seller_id?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          category?: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          download_url?: string | null
+          downloads?: number | null
+          featured?: boolean | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          preview_url?: string | null
+          price_cents?: number
+          rating?: number | null
+          seller_id?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          amount: number | null
+          created_at: string
+          currency: string | null
+          id: string
+          product_id: string | null
+          product_type: string | null
+          status: string | null
+          stripe_session_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          product_id?: string | null
+          product_type?: string | null
+          status?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          product_id?: string | null
+          product_type?: string | null
+          status?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_seller: boolean | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_seller?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_seller?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       project_changes: {
         Row: {
           change_data: Json
@@ -280,6 +415,87 @@ export type Database = {
         }
         Relationships: []
       }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          stripe_customer_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_tier:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          stripe_customer_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_purchases: {
+        Row: {
+          id: string
+          marketplace_item_id: string | null
+          order_id: string | null
+          purchased_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          marketplace_item_id?: string | null
+          order_id?: string | null
+          purchased_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          marketplace_item_id?: string | null
+          order_id?: string | null
+          purchased_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_purchases_marketplace_item_id_fkey"
+            columns: ["marketplace_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_purchases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -288,7 +504,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      subscription_tier: "free" | "producer" | "professional" | "enterprise"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -415,6 +631,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      subscription_tier: ["free", "producer", "professional", "enterprise"],
+    },
   },
 } as const

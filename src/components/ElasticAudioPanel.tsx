@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Waveform, Clock, Music, RotateCcw, Play, Pause, 
-  Volume2, Settings, Zap, X, ArrowUpDown, Timer
+  Activity, Clock, Sliders, Volume2, Zap, Settings,
+  X, RotateCcw, Music, AudioWaveform, Timer, Play, Pause
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AudioClip } from '@/types/daw';
@@ -150,7 +150,7 @@ export default function ElasticAudioPanel({
       <Card className="w-full h-full">
         <CardContent className="flex items-center justify-center h-full">
           <div className="text-center">
-            <Waveform className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <AudioWaveform className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-semibold mb-2">No Audio Clip Selected</h3>
             <p className="text-muted-foreground">
               Select an audio clip to use elastic audio features
@@ -167,7 +167,7 @@ export default function ElasticAudioPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Waveform className="h-5 w-5" />
+              <AudioWaveform className="h-5 w-5" />
               Elastic Audio
             </CardTitle>
             <Badge variant="outline" className="bg-gradient-to-r from-blue-500/20 to-purple-500/20">

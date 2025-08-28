@@ -312,7 +312,7 @@ export default function MultiTrackRoutingPanel({
                               {input.name} ({input.channels}ch)
                             </div>
                           </SelectItem>
-                        ))
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -344,7 +344,7 @@ export default function MultiTrackRoutingPanel({
                               {output.name} ({output.channels}ch)
                             </div>
                           </SelectItem>
-                        ))
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -403,7 +403,6 @@ export default function MultiTrackRoutingPanel({
                                   <Switch
                                     checked={send.isActive}
                                     onCheckedChange={(checked) => updateSend(send.id, { isActive: checked })}
-                                    size="sm"
                                   />
                                 </div>
                                 <Button
@@ -435,7 +434,6 @@ export default function MultiTrackRoutingPanel({
                                 <Switch
                                   checked={send.preFader}
                                   onCheckedChange={(checked) => updateSend(send.id, { preFader: checked })}
-                                  size="sm"
                                 />
                               </div>
                             </div>
@@ -517,7 +515,6 @@ export default function MultiTrackRoutingPanel({
                                 <Switch
                                   checked={send.isActive}
                                   onCheckedChange={(checked) => updateSend(send.id, { isActive: checked })}
-                                  size="sm"
                                 />
                                 <span className="text-sm">Active</span>
                               </div>
@@ -526,7 +523,6 @@ export default function MultiTrackRoutingPanel({
                                 <Switch
                                   checked={send.preFader}
                                   onCheckedChange={(checked) => updateSend(send.id, { preFader: checked })}
-                                  size="sm"
                                 />
                                 <span className="text-sm">Pre-fader</span>
                               </div>
@@ -582,7 +578,6 @@ export default function MultiTrackRoutingPanel({
                                 )
                               }));
                             }}
-                            size="sm"
                           />
                         </div>
                       ))}
@@ -622,7 +617,6 @@ export default function MultiTrackRoutingPanel({
                                 )
                               }));
                             }}
-                            size="sm"
                           />
                         </div>
                       ))}

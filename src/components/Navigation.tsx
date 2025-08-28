@@ -8,6 +8,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
+import { toast } from "sonner";
 import { 
   Music, 
   Search, 
@@ -35,6 +36,15 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleBillingPortal = async () => {
+    try {
+      await openCustomerPortal();
+    } catch (error) {
+      console.error('Failed to open billing portal:', error);
+      toast.error('You need to have an active subscription to access the billing portal. Please subscribe first.');
+    }
   };
 
   const navItems = [
@@ -122,7 +132,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
                         Marketplace
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openCustomerPortal()}>
+                    <DropdownMenuItem onClick={handleBillingPortal}>
                       <Settings className="mr-2 h-4 w-4" />
                       Billing Portal
                     </DropdownMenuItem>
@@ -206,6 +216,14 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
                       <ShoppingCart className="w-5 h-5" />
                       Marketplace
                     </Link>
+                    <Button
+                      onClick={handleBillingPortal}
+                      variant="ghost"
+                      className="w-full justify-start gap-3 text-left text-muted-foreground hover:text-foreground hover:bg-muted"
+                    >
+                      <Settings className="w-5 h-5" />
+                      Billing Portal
+                    </Button>
                     <Button
                       onClick={handleSignOut}
                       variant="ghost"

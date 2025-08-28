@@ -54,7 +54,7 @@ export default function AutomationLanesPanel({
     const time = ((x - rect.left) / rect.width) * 32; // 32 beats visible
     const value = 1 - ((y - rect.top) / rect.height); // Invert Y axis
     
-    const lane = track.automationLanes.find(l => l.id === laneId);
+    const lane = (track.automationLanes || []).find(l => l.id === laneId);
     if (!lane) return;
 
     const newPoint: AutomationPoint = {
@@ -63,7 +63,7 @@ export default function AutomationLanesPanel({
       curve: 'linear'
     };
 
-    const updatedLanes = track.automationLanes.map(l => 
+    const updatedLanes = (track.automationLanes || []).map(l => 
       l.id === laneId 
         ? { ...l, points: [...l.points, newPoint].sort((a, b) => a.time - b.time) }
         : l
@@ -105,7 +105,7 @@ export default function AutomationLanesPanel({
     const [laneId, pointIndexStr] = dragState.pointId.split('_');
     const pointIndex = parseInt(pointIndexStr);
     
-    const updatedLanes = track.automationLanes.map(lane => {
+    const updatedLanes = (track.automationLanes || []).map(lane => {
       if (lane.id === laneId) {
         const updatedPoints = [...lane.points];
         const point = updatedPoints[pointIndex];
@@ -245,14 +245,14 @@ export default function AutomationLanesPanel({
           {/* Lane Controls */}
           <div className="w-64 border-r bg-muted/10 overflow-y-auto">
             <div className="p-4 space-y-4">
-              {track.automationLanes.length === 0 ? (
+              {(!track.automationLanes || track.automationLanes.length === 0) ? (
                 <div className="text-center text-muted-foreground py-8">
                   <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No automation lanes</p>
                   <p className="text-xs text-muted-foreground/70">Add lanes to automate parameters</p>
                 </div>
               ) : (
-                track.automationLanes.map((lane) => {
+                (track.automationLanes || []).map((lane) => {
                   const param = automationParameters.find(p => p.type === lane.parameterType);
                   const Icon = param?.icon || Activity;
                   
@@ -275,9 +275,9 @@ export default function AutomationLanesPanel({
                             <Switch
                               checked={lane.isEnabled}
                               onCheckedChange={(enabled) => {
-                                const updatedLanes = track.automationLanes.map(l =>
-                                  l.id === lane.id ? { ...l, isEnabled: enabled } : l
-                                );
+                const updatedLanes = (track.automationLanes || []).map(l =>
+                  l.id === lane.id ? { ...l, isEnabled: enabled } : l
+                );
                                 onUpdateAutomation(track.id, updatedLanes);
                               }}
                             />
@@ -333,7 +333,7 @@ export default function AutomationLanesPanel({
 
               {/* Automation Lanes */}
               <div className="space-y-2 p-2">
-                {track.automationLanes.map((lane) => (
+                {(track.automationLanes || []).map((lane) => (
                   <div 
                     key={lane.id}
                     className={`relative h-24 bg-background border rounded cursor-pointer ${

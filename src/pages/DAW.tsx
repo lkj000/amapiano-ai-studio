@@ -229,7 +229,17 @@ export default function DawPage() {
       console.log('DAW: loadedProject.projectData:', loadedProject.projectData);
       console.log('DAW: loadedProject.projectData.tracks:', loadedProject.projectData?.tracks);
       
-      setProjectDataWithHistory(loadedProject.projectData, 'Project loaded');
+      // Migrate old track data to V2 format with automationLanes
+      const migratedProjectData = {
+        ...loadedProject.projectData,
+        tracks: loadedProject.projectData.tracks.map(track => ({
+          ...track,
+          automationLanes: (track as any).automationLanes || [],
+          ...((track as any).type === 'audio' && { recordings: (track as any).recordings || [] })
+        } as DawTrackV2))
+      };
+      
+      setProjectDataWithHistory(migratedProjectData, 'Project loaded');
       setProjectName(loadedProject.name);
       if (!selectedTrackId && loadedProject.projectData?.tracks && loadedProject.projectData.tracks.length > 0) {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
@@ -980,7 +990,7 @@ export default function DawPage() {
               <Activity className="w-4 h-4 mr-2" />
               Automation
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowAudioRecording(!showAudioRecording)} disabled={!selectedTrackId || projectData.tracks.find(t => t.id === selectedTrackId)?.type !== 'audio'}>
+            <Button variant="outline" size="sm" onClick={() => setShowAudioRecording(!showAudioRecording)} disabled={!selectedTrackId}>
               <Mic className="w-4 h-4 mr-2" />
               Record
             </Button>
@@ -1128,7 +1138,7 @@ export default function DawPage() {
                         toast.error("Select a track first");
                       }
                     }}
-                    disabled={!selectedTrackId || projectData.tracks.find(t => t.id === selectedTrackId)?.type !== 'audio'}
+                    disabled={!selectedTrackId}
                   >
                     <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
                   </Button>

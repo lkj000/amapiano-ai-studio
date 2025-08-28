@@ -455,6 +455,27 @@ const Generate = () => {
                       </TabsContent>
                     </Tabs>
 
+                    {/* Additional Description for Reference */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Track Description (Optional)</label>
+                        <Textarea
+                          placeholder="Describe your amapiano track... e.g., 'A soulful private school amapiano track with jazzy piano chords, subtle log drums, and deep bass'"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          className="min-h-[120px] resize-none"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium">AI Prompt Parsing</label>
+                        <Switch
+                          checked={useAIParsing}
+                          onCheckedChange={setUseAIParsing}
+                        />
+                      </div>
+                    </div>
+
                     {/* Generation Options for Reference */}
                     <div className="space-y-6 pt-6 border-t">
                       <h3 className="font-medium text-sm">Generation Options</h3>

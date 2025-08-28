@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
@@ -28,6 +28,7 @@ import EffectsPanel from '@/components/EffectsPanel';
 import AutomationLanesPanel from '@/components/AutomationLanesPanel';
 import AudioRecordingPanel from '@/components/AudioRecordingPanel';
 import CommunityPanel from '@/components/CommunityPanel';
+import VSTPluginPanel from '@/components/VSTPluginPanel';
 import { supabase } from '@/integrations/supabase/client';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -107,6 +108,8 @@ export default function DawPage() {
   const [showAutomation, setShowAutomation] = useState(false);
   const [showAudioRecording, setShowAudioRecording] = useState(false);
   const [showCommunity, setShowCommunity] = useState(false);
+  const [showVSTPlugins, setShowVSTPlugins] = useState(false);
+  const [showMIDIController, setShowMIDIController] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [zoom, setZoom] = useState([100]);
@@ -1274,10 +1277,47 @@ export default function DawPage() {
         />
       )}
       
-      {/* Community Panel */}
-      {showCommunity && (
-        <CommunityPanel onClose={() => setShowCommunity(false)} />
-      )}
+        {/* VST Plugin Panel */}
+        {showVSTPlugins && (
+          <VSTPluginPanel
+            audioContext={getAudioContext()}
+            trackId={selectedTrackId || undefined}
+            onClose={() => setShowVSTPlugins(false)}
+          />
+        )}
+        
+        {/* MIDI Controller Panel */}
+        {showMIDIController && (
+          <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-semibold">MIDI Controller Setup</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowMIDIController(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex-1 p-6 flex items-center justify-center">
+              <div className="text-center space-y-4">
+                <Gamepad2 className="w-16 h-16 mx-auto text-muted-foreground" />
+                <h4 className="text-xl font-medium">MIDI Controller Integration</h4>
+                <p className="text-muted-foreground max-w-md">
+                  Connect your MIDI controllers for hands-on control of your DAW. 
+                  Support for popular controllers like Akai MPK, Novation Launchkey, and more.
+                </p>
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="p-4 border rounded-lg">
+                    <h5 className="font-medium mb-2">Auto-Detection</h5>
+                    <p className="text-sm text-muted-foreground">Automatically detects connected MIDI devices</p>
+                  </div>
+                  <div className="p-4 border rounded-lg">
+                    <h5 className="font-medium mb-2">Custom Mapping</h5>
+                    <p className="text-sm text-muted-foreground">Map controls to any DAW parameter</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

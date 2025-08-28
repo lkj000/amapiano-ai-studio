@@ -23,6 +23,7 @@ const Generate = () => {
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [generationType, setGenerationType] = useState<"prompt" | "reference">("prompt");
+  const [trackType, setTrackType] = useState<"full" | "loop">("full");
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -47,17 +48,19 @@ const Generate = () => {
 
     setIsGenerating(true);
     
+    const trackTypeLabel = trackType === "full" ? "complete track" : "loop/pattern";
+    
     if (generationType === "prompt") {
       if (recordedAudio?.transcription) {
-        toast.info(`🎵 Generating track from voice input: "${recordedAudio.transcription}"`);
+        toast.info(`🎵 Generating ${trackTypeLabel} from voice input: "${recordedAudio.transcription}"`);
       } else {
-        toast.info("🎵 Generating your amapiano track...");
+        toast.info(`🎵 Generating your amapiano ${trackTypeLabel}...`);
       }
     } else {
       if (referenceUrl.trim()) {
-        toast.info("🎵 Analyzing reference URL and generating track...");
+        toast.info(`🎵 Analyzing reference URL and generating ${trackTypeLabel}...`);
       } else {
-        toast.info("🎵 Generating track from reference audio...");
+        toast.info(`🎵 Generating ${trackTypeLabel} from reference audio...`);
       }
     }
 
@@ -68,12 +71,16 @@ const Generate = () => {
     // Simulate AI generation with enhanced parameters
     await new Promise(resolve => setTimeout(resolve, 4000));
 
+    const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
+    const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);
+    
     setGeneratedTrack({
       id: "enhanced-track-id",
-      title: "Enhanced Amapiano Creation",
+      title: trackTitle,
+      type: trackType,
       bpm: effectiveBpm,
       genre: effectiveGenre,
-      duration: duration[0],
+      duration: trackDuration,
       audioUrl: "/api/generated-track.mp3", // Mock URL
       stems: {
         drums: "/api/stems/drums.wav",
@@ -84,7 +91,7 @@ const Generate = () => {
       }
     });
     setIsGenerating(false);
-    toast.success("🎉 Enhanced track generated successfully!");
+    toast.success(`🎉 Enhanced ${trackTypeLabel} generated successfully!`);
   };
 
   const handleRecordingComplete = (audioBlob: Blob, transcription?: string) => {
@@ -178,6 +185,20 @@ const Generate = () => {
                       </TabsContent>
                     </Tabs>
 
+                    {/* Track Type Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Generation Type</label>
+                      <Select value={trackType} onValueChange={(value) => setTrackType(value as "full" | "loop")}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="full">Complete Track (Full Song)</SelectItem>
+                          <SelectItem value="loop">Loop/Pattern (Short Segment)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {/* Manual Controls */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -219,9 +240,9 @@ const Generate = () => {
                       <Slider
                         value={duration}
                         onValueChange={setDuration}
-                        min={30}
-                        max={600}
-                        step={30}
+                        min={trackType === "loop" ? 15 : 30}
+                        max={trackType === "loop" ? 120 : 600}
+                        step={trackType === "loop" ? 15 : 30}
                         className="w-full"
                       />
                     </div>
@@ -353,6 +374,36 @@ const Generate = () => {
 
             {/* Right Column */}
             <div className="space-y-6">
+              {/* Generation Tips */}
+              <Card className="card-glow">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    💡 Generation Tips
+                  </CardTitle>
+                  <CardDescription>
+                    For Better Results
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-sm space-y-2">
+                    <p className="font-medium text-foreground">• Be specific about the mood and style you want</p>
+                    <p className="font-medium text-foreground">• Mention specific instruments (log drums, piano, saxophone)</p>
+                    <p className="font-medium text-foreground">• Include tempo descriptions (slow, groovy, energetic)</p>
+                    <p className="font-medium text-foreground">• Reference time of day or setting (late night, club, chill)</p>
+                  </div>
+                  
+                  <div className="pt-3 border-t">
+                    <p className="text-sm font-medium mb-2">Example Prompts:</p>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p>• "Deep log drums with soulful piano for late night vibes"</p>
+                      <p>• "Jazzy private school amapiano with saxophone melody"</p>
+                      <p>• "Energetic classic amapiano with heavy percussion"</p>
+                      <p>• "Mellow track with complex chords and smooth bassline"</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* AI Prompt Analysis */}
               {generationType === "prompt" && useAIParsing && (
                 <AIPromptParser
@@ -378,8 +429,10 @@ const Generate = () => {
                   {generatedTrack ? (
                     <div className="space-y-4">
                       <div className="p-4 bg-muted rounded-lg">
-                        <h3 className="font-semibold mb-2">Enhanced Amapiano Creation</h3>
+                        <h3 className="font-semibold mb-2">{generatedTrack.title}</h3>
                         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                          <span>Type: {generatedTrack.type === "full" ? "Complete Track" : "Loop/Pattern"}</span>
+                          <span>•</span>
                           <span>Style: {generatedTrack.genre}</span>
                           <span>•</span>
                           <span>BPM: {generatedTrack.bpm}</span>

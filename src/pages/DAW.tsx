@@ -8,11 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, Waveform, Cable
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
-import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane, DawTrackV2 } from '@/types/daw';
+import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane, DawTrackV2, AudioClip, AudioTrack } from '@/types/daw';
+import ElasticAudioPanel from '@/components/ElasticAudioPanel';
+import MultiTrackRoutingPanel from '@/components/MultiTrackRoutingPanel';
+import type { ElasticAudioSettings } from '@/components/ElasticAudioPanel';
+import type { AudioRoutingConfig } from '@/components/MultiTrackRoutingPanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import OpenProjectModal from '@/components/daw/OpenProjectModal';

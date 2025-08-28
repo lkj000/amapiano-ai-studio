@@ -2,6 +2,10 @@
 
 The ultimate AI-powered platform for creating, analyzing, and exploring amapiano music. Generate authentic South African amapiano tracks, analyze existing music, and produce professional-quality music from start to finish with our integrated Digital Audio Workstation (DAW).
 
+> **🎵 Live Demo:** [https://amapiano-ai.lovable.app](https://amapiano-ai.lovable.app)  
+> **📚 Documentation:** [https://github.com/your-username/amapiano-ai/tree/main/docs](./docs/)  
+> **🎯 Current Status:** Comprehensive Demo with Full UI Implementation
+
 ## Table of Contents
 
 - [Features](#features)
@@ -141,26 +145,38 @@ In summary, Amapiano AI is not just a music generator or a standard DAW; it's a 
 
 ## Technology Stack
 
-### Backend (Encore.ts)
-- **Framework**: Encore.ts with TypeScript for type-safe backend development
-- **Database**: PostgreSQL with comprehensive schema and indexing
-- **Storage**: Object storage buckets for audio files with CDN distribution
-- **API**: RESTful endpoints with full type safety and validation
-- **Infrastructure**: Built-in support for databases, storage, and deployment
+### Backend (Supabase)
+- **Platform**: Supabase with PostgreSQL database
+- **Authentication**: Supabase Auth with Row Level Security (RLS)
+- **Database**: PostgreSQL with comprehensive schema and RLS policies
+- **Storage**: Supabase Storage buckets for audio files
+- **Edge Functions**: Deno-based serverless functions for AI processing
+- **Real-time**: Supabase Realtime for collaborative features
 
-### Frontend (React)
+### Frontend (React + Vite)
 - **Framework**: React 18 with TypeScript for type safety
 - **Build Tool**: Vite for fast development and optimized builds
-- **Styling**: Tailwind CSS v4 for modern, responsive design
-- **UI Components**: shadcn/ui for consistent, accessible components
-- **State Management**: TanStack Query for server state and caching
-- **DAW Engine**: Web Audio API, WebAssembly for real-time audio processing
+- **Styling**: Tailwind CSS with custom design system
+- **UI Components**: shadcn/ui + Radix UI for consistent, accessible components
+- **State Management**: TanStack Query for server state and React Context
+- **DAW Engine**: Web Audio API with WebAssembly for real-time audio processing
 - **Routing**: React Router v6 for client-side navigation
 - **Icons**: Lucide React for consistent iconography
 
+### Audio Processing
+- **Engine**: Web Audio API for real-time audio manipulation
+- **Processing**: WebAssembly modules for intensive audio calculations
+- **Formats**: Support for MP3, WAV, FLAC, MP4, MOV (up to 500MB)
+- **Quality**: 44.1kHz/24-bit output with professional-grade processing
+
+### Payments & Subscriptions
+- **Provider**: Stripe for payment processing and subscriptions
+- **Tiers**: Free, Basic ($9.99), Premium ($29.99), Enterprise ($99.99)
+- **Features**: Tiered access control with feature gating
+
 ### Development Tools
-- **Type Safety**: Full TypeScript coverage from database to UI
-- **Testing**: Vitest for both frontend and backend testing
+- **Type Safety**: Full TypeScript coverage with Supabase type generation
+- **Testing**: Vitest for frontend and edge function testing
 - **Code Quality**: ESLint and Prettier for code consistency
 - **Version Control**: Git with conventional commits
 
@@ -168,71 +184,123 @@ In summary, Amapiano AI is not just a music generator or a standard DAW; it's a 
 
 ### Prerequisites
 - Node.js 18 or later
-- Encore CLI (automatically installed)
+- npm or yarn package manager
+- Git for version control
 
-### Installation
+### Quick Start
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/your-username/amapiano-ai.git
    cd amapiano-ai
    ```
 
-2. **Start the development server**:
+2. **Install dependencies**:
    ```bash
-   encore run
+   npm install
    ```
 
-The application will be available at `http://localhost:4000` with:
-- Automatic database setup and migrations
-- Hot reloading for both frontend and backend
-- Type-safe API client generation
-- Built-in development tools
+3. **Set up environment variables**:
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your Supabase credentials
+   ```
+
+4. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:8080` with:
+- Hot module replacement for instant updates
+- Type-safe Supabase integration
+- Responsive design with Tailwind CSS
+- Professional audio processing capabilities
 
 ### Development Workflow
 
-1. **Backend Development**: Add endpoints in `backend/music/` with automatic type generation
-2. **Frontend Development**: Use the auto-generated backend client for type-safe API calls
-3. **Database Changes**: Add migration files in `backend/music/migrations/`
-4. **Testing**: Run tests with `encore test` for comprehensive coverage
+1. **Frontend Development**: React components with TypeScript and Tailwind CSS
+2. **Backend Logic**: Supabase Edge Functions for AI processing and integrations
+3. **Database Changes**: Use Supabase migrations for schema updates
+4. **Testing**: Run tests with `npm test` using Vitest
+5. **Deployment**: Automatic deployment via Vercel/Netlify integration
+
+### Environment Setup
+
+```bash
+# Required environment variables
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional for development
+NODE_ENV=development
+VITE_APP_ENV=development
+```
 
 ## Project Structure
 
 ```
 amapiano-ai/
-├── backend/                  # Encore.ts backend service
-│   └── music/               # Music service
-│       ├── encore.service.ts     # Service definition
-│       ├── db.ts                 # Database configuration
-│       ├── storage.ts            # Object storage buckets
-│       ├── types.ts              # TypeScript type definitions
-│       ├── generate.ts           # Music generation endpoints
-│       ├── analyze.ts            # Audio analysis endpoints
-│       ├── samples.ts            # Sample management endpoints
-│       ├── patterns.ts           # Pattern management endpoints
-│       └── migrations/           # Database migrations
-│           ├── 1_create_tables.up.sql
-│           └── 2_seed_data.up.sql
-├── frontend/                # React frontend
-│   ├── App.tsx                   # Main application component
-│   ├── components/               # Reusable components
-│   │   ├── Header.tsx
-│   │   ├── LoadingSpinner.tsx
-│   │   └── ErrorMessage.tsx
-│   └── pages/                    # Page components
-│       ├── HomePage.tsx          # Landing page
-│       ├── GeneratePage.tsx      # Music generation interface
-│       ├── AnalyzePage.tsx       # Audio analysis interface
-│       ├── SamplesPage.tsx       # Sample library browser
-│       ├── PatternsPage.tsx      # Pattern library browser
-│       └── DawPage.tsx           # Professional Amapiano DAW
-├── docs/                    # Comprehensive documentation
-│   ├── API.md                    # Complete API reference
-│   ├── ARCHITECTURE.md           # System architecture guide
-│   ├── DEVELOPMENT.md            # Development guide
-│   ├── APP_OVERVIEW.md           # Detailed app overview
-│   └── PRP.md                    # Product roadmap and planning
-└── README.md                # This file
+├── public/                       # Static assets
+│   ├── favicon.ico
+│   └── robots.txt
+├── src/                         # Source code
+│   ├── components/              # React components
+│   │   ├── ui/                 # shadcn/ui components
+│   │   ├── daw/                # DAW-specific components
+│   │   ├── Navigation.tsx      # Main navigation
+│   │   ├── OptimizedTimeline.tsx
+│   │   ├── OptimizedMixer.tsx
+│   │   ├── AudioRecordingPanel.tsx
+│   │   ├── EnhancedFileUpload.tsx
+│   │   ├── MarketplaceModal.tsx
+│   │   ├── SubscriptionModal.tsx
+│   │   └── FeatureGate.tsx
+│   ├── pages/                  # Page components
+│   │   ├── Index.tsx           # Landing page with subscriptions
+│   │   ├── Auth.tsx            # Authentication page
+│   │   ├── Generate.tsx        # Music generation interface
+│   │   ├── Analyze.tsx         # Audio analysis interface
+│   │   ├── Samples.tsx         # Sample library browser
+│   │   ├── Patterns.tsx        # Pattern library browser
+│   │   ├── DAW.tsx            # Professional Amapiano DAW
+│   │   └── NotFound.tsx        # 404 page
+│   ├── hooks/                  # Custom React hooks
+│   │   ├── useAudioEngine.ts
+│   │   ├── useSubscription.ts
+│   │   ├── useDawProjects.ts
+│   │   └── useRealtimeCollaboration.ts
+│   ├── integrations/           # External integrations
+│   │   └── supabase/
+│   │       ├── client.ts       # Supabase client setup
+│   │       └── types.ts        # Database type definitions
+│   ├── types/                  # TypeScript definitions
+│   │   └── daw.ts             # DAW-specific types
+│   ├── lib/                    # Utility functions
+│   │   └── utils.ts
+│   ├── App.tsx                 # Main app component
+│   ├── main.tsx               # App entry point
+│   └── index.css              # Global styles & design system
+├── supabase/                   # Supabase configuration
+│   ├── functions/              # Edge functions
+│   │   ├── ai-music-generation/
+│   │   ├── check-subscription/
+│   │   ├── create-purchase/
+│   │   ├── create-subscription/
+│   │   ├── customer-portal/
+│   │   └── demo-audio-files/
+│   └── config.toml            # Supabase configuration
+├── docs/                       # Comprehensive documentation
+│   ├── APP_OVERVIEW.md         # Detailed app overview
+│   ├── ARCHITECTURE.md         # System architecture guide
+│   ├── API.md                  # Complete API reference
+│   ├── DEVELOPMENT.md          # Development guide
+│   ├── PRD.md                  # Product Requirements Document
+│   └── PRP.md                  # Product Roadmap and Planning
+├── package.json                # Dependencies and scripts
+├── tailwind.config.ts          # Tailwind CSS configuration
+├── vite.config.ts             # Vite build configuration
+└── README.md                   # This file
 ```
 
 ## Documentation

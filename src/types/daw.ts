@@ -47,6 +47,9 @@ export interface AudioTrack {
 
 export type DawTrack = MidiTrack | AudioTrack;
 
+// Alias for backward compatibility
+export type Track = DawTrack;
+
 export interface MixerChannel {
   volume: number;
   pan: number;

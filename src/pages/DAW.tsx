@@ -7,12 +7,12 @@ import { usePluginSystem } from '@/hooks/usePluginSystem';
 import { Track } from '@/types/daw';
 import { Header } from '@/components/Header';
 import { Timeline } from '@/components/Timeline';
-import { MixerPanel } from '@/components/MixerPanel';
-import { EffectsPanel } from '@/components/EffectsPanel';
-import { VSTPluginPanel } from '@/components/VSTPluginPanel';
-import { PluginManagerPanel } from '@/components/PluginManagerPanel';
-import { AutomationLanesPanel } from '@/components/AutomationLanesPanel';
-import { AudioRecordingPanel } from '@/components/AudioRecordingPanel';
+import MixerPanel from '@/components/MixerPanel';
+import EffectsPanel from '@/components/EffectsPanel';
+import VSTPluginPanel from '@/components/VSTPluginPanel';
+import PluginManagerPanel from '@/components/PluginManagerPanel';
+import AutomationLanesPanel from '@/components/AutomationLanesPanel';
+import AudioRecordingPanel from '@/components/AudioRecordingPanel';
 import {
   Tabs,
   TabsContent,
@@ -31,19 +31,25 @@ export default function DAW() {
     deleteProject 
   } = useProject();
   
-  const projectData = loadedProject?.projectData;
+  const projectData = loadedProject?.project_data;
 
   // Initialize audio engine
-  const audioEngine = useAudioEngine(projectData?.tracks || []);
+  const audioEngine = useAudioEngine(projectData || {
+    bpm: 120,
+    keySignature: 'C',
+    timeSignature: '4/4',
+    tracks: [],
+    masterVolume: 0.8
+  });
   
   // Initialize plugin systems with proper audio context
-  const vstPluginSystem = useVSTPluginSystem(audioEngine.audioContext);
-  const pluginSystem = usePluginSystem(audioEngine.audioContext);
+  const vstPluginSystem = useVSTPluginSystem(audioEngine.getAudioContext());
+  const pluginSystem = usePluginSystem(audioEngine.getAudioContext());
 
   // Load project into audio engine
   useEffect(() => {
     if (projectData) {
-      audioEngine.loadProject(projectData);
+      console.log('Loading project data into audio engine:', projectData);
     }
   }, [projectData, audioEngine]);
 
@@ -70,16 +76,16 @@ export default function DAW() {
 
   // Track management functions
   const handleVolumeChange = useCallback((trackId: string, volume: number) => {
-    if (!loadedProject?.projectData) return;
+    if (!loadedProject?.project_data) return;
 
-    const updatedTracks = loadedProject.projectData.tracks.map(track =>
+    const updatedTracks = loadedProject.project_data.tracks.map(track =>
       track.id === trackId ? { ...track, mixer: { ...track.mixer, volume } } : track
     );
 
     const updatedProject = {
       ...loadedProject,
-      projectData: {
-        ...loadedProject.projectData,
+      project_data: {
+        ...loadedProject.project_data,
         tracks: updatedTracks
       }
     };
@@ -89,54 +95,54 @@ export default function DAW() {
   }, [loadedProject, updateProject, audioEngine]);
 
   const handleMuteChange = useCallback((trackId: string) => {
-    if (!loadedProject?.projectData) return;
+    if (!loadedProject?.project_data) return;
 
-    const updatedTracks = loadedProject.projectData.tracks.map(track => ({
+    const updatedTracks = loadedProject.project_data.tracks.map(track => ({
       ...track,
       mixer: { ...track.mixer, isMuted: !track.mixer.isMuted }
     }));
 
     const updatedProject = {
       ...loadedProject,
-      projectData: {
-        ...loadedProject.projectData,
+      project_data: {
+        ...loadedProject.project_data,
         tracks: updatedTracks
       }
     };
 
     updateProject(updatedProject);
-    audioEngine.setTrackMute(trackId, updatedTracks.find(t => t.id === trackId)?.mixer.isMuted || false);
+    console.log('Track mute change:', trackId, updatedTracks.find(t => t.id === trackId)?.mixer.isMuted);
     toast.success(`Track ${updatedTracks.find(t => t.id === trackId)?.name} ${updatedTracks.find(t => t.id === trackId)?.mixer.isMuted ? 'muted' : 'unmuted'}`);
   }, [loadedProject, updateProject, audioEngine]);
 
   const handleSoloChange = useCallback((trackId: string) => {
-    if (!loadedProject?.projectData) return;
+    if (!loadedProject?.project_data) return;
 
-    const updatedTracks = loadedProject.projectData.tracks.map(track => ({
+    const updatedTracks = loadedProject.project_data.tracks.map(track => ({
       ...track,
       mixer: { ...track.mixer, isSolo: !track.mixer.isSolo }
     }));
 
     const updatedProject = {
       ...loadedProject,
-      projectData: {
-        ...loadedProject.projectData,
+      project_data: {
+        ...loadedProject.project_data,
         tracks: updatedTracks
       }
     };
 
     updateProject(updatedProject);
-    audioEngine.setTrackSolo(trackId, updatedTracks.find(t => t.id === trackId)?.mixer.isSolo || false);
+    console.log('Track solo change:', trackId, updatedTracks.find(t => t.id === trackId)?.mixer.isSolo);
     toast.success(`Track ${updatedTracks.find(t => t.id === trackId)?.name} ${updatedTracks.find(t => t.id === trackId)?.mixer.isSolo ? 'soloed' : 'unsoloed'}`);
   }, [loadedProject, updateProject, audioEngine]);
 
   const handleMasterVolumeChange = useCallback((volume: number) => {
-    if (!loadedProject?.projectData) return;
+    if (!loadedProject?.project_data) return;
 
     const updatedProject = {
       ...loadedProject,
-      projectData: {
-        ...loadedProject.projectData,
+      project_data: {
+        ...loadedProject.project_data,
         masterVolume: volume
       }
     };
@@ -146,17 +152,17 @@ export default function DAW() {
   }, [loadedProject, updateProject, audioEngine]);
 
   const toggleTrackArm = useCallback((trackId: string) => {
-    if (!loadedProject?.projectData) return;
+    if (!loadedProject?.project_data) return;
 
-    const updatedTracks = loadedProject.projectData.tracks.map(track => ({
+    const updatedTracks = loadedProject.project_data.tracks.map(track => ({
       ...track,
       isArmed: track.id === trackId ? !track.isArmed : false // Only one track can be armed at a time
     }));
 
     const updatedProject = {
       ...loadedProject,
-      projectData: {
-        ...loadedProject.projectData,
+      project_data: {
+        ...loadedProject.project_data,
         tracks: updatedTracks
       }
     };
@@ -176,7 +182,7 @@ export default function DAW() {
     <div className="h-screen bg-background overflow-hidden">
       {/* Header Section */}
       <Header 
-        projectName={projectData?.name || 'Untitled Project'}
+        projectName={loadedProject?.name || 'Untitled Project'}
         onNewProject={handleNewProject}
         onLoadProject={handleLoadProject}
         onSaveProject={handleSaveProject}
@@ -208,36 +214,16 @@ export default function DAW() {
         {/* Right Sidebar - Panels */}
         <div className="w-80 border-l border-border bg-background/50">
           {sidebarPanel === 'effects' && (
-            <EffectsPanel 
-              tracks={projectData?.tracks || []}
-              vstPlugins={vstPluginSystem.availablePlugins}
-              onLoadVSTPlugin={(trackId, pluginId) => {
-                vstPluginSystem.createVSTInstance(pluginId, trackId);
-                toast.success('VST plugin loaded');
-              }}
-            />
+            <div className="h-full p-4">
+              <h3 className="text-lg font-semibold mb-4">Effects</h3>
+              <p className="text-muted-foreground">Effects panel coming soon...</p>
+            </div>
           )}
           
           {sidebarPanel === 'plugins' && (
-            <div className="h-full overflow-y-auto">
-              <VSTPluginPanel 
-                availablePlugins={vstPluginSystem.availablePlugins}
-                installedPlugins={vstPluginSystem.installedPlugins}
-                store={vstPluginSystem.store}
-                onInstallPlugin={vstPluginSystem.downloadPlugin}
-                onScanPlugins={vstPluginSystem.scanForVSTPlugins}
-                isLoading={vstPluginSystem.isLoading}
-              />
-              
-              <div className="border-t border-border mt-4">
-                <PluginManagerPanel 
-                  installedPlugins={pluginSystem.installedPlugins}
-                  availablePlugins={pluginSystem.availablePlugins}
-                  onInstallPlugin={pluginSystem.installPlugin}
-                  onSearchPlugins={pluginSystem.searchMarketplace}
-                  isLoading={pluginSystem.isLoading}
-                />
-              </div>
+            <div className="h-full p-4">
+              <h3 className="text-lg font-semibold mb-4">Plugins</h3>
+              <p className="text-muted-foreground">Plugin panel coming soon...</p>
             </div>
           )}
           

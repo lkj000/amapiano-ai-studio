@@ -368,9 +368,11 @@ const Generate = () => {
                     <Music className="w-5 h-5 text-primary" />
                     Generated Track
                   </CardTitle>
-                  <CardDescription>
-                    Your AI-generated amapiano track will appear here
-                  </CardDescription>
+                  {!generatedTrack && (
+                    <CardDescription>
+                      {isGenerating ? "AI is creating your track..." : "Generate a track to see results here"}
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
                   {generatedTrack ? (

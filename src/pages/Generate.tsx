@@ -20,7 +20,8 @@ const Generate = () => {
   const [bpm, setBpm] = useState([118]);
   const [duration, setDuration] = useState([180]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedTrack, setGeneratedTrack] = useState<string | null>(null);
+  const [generatedTrack, setGeneratedTrack] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [generationType, setGenerationType] = useState<"prompt" | "reference">("prompt");
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
@@ -34,6 +35,16 @@ const Generate = () => {
       return;
     }
 
+    // Validate URL if provided
+    if (generationType === "reference" && referenceUrl.trim()) {
+      try {
+        new URL(referenceUrl);
+      } catch {
+        toast.error("Please enter a valid URL");
+        return;
+      }
+    }
+
     setIsGenerating(true);
     
     if (generationType === "prompt") {
@@ -43,7 +54,11 @@ const Generate = () => {
         toast.info("🎵 Generating your amapiano track...");
       }
     } else {
-      toast.info("🎵 Generating track from reference audio...");
+      if (referenceUrl.trim()) {
+        toast.info("🎵 Analyzing reference URL and generating track...");
+      } else {
+        toast.info("🎵 Generating track from reference audio...");
+      }
     }
 
     // Use AI-parsed parameters if available
@@ -53,7 +68,21 @@ const Generate = () => {
     // Simulate AI generation with enhanced parameters
     await new Promise(resolve => setTimeout(resolve, 4000));
 
-    setGeneratedTrack("enhanced-track-id");
+    setGeneratedTrack({
+      id: "enhanced-track-id",
+      title: "Enhanced Amapiano Creation",
+      bpm: effectiveBpm,
+      genre: effectiveGenre,
+      duration: duration[0],
+      audioUrl: "/api/generated-track.mp3", // Mock URL
+      stems: {
+        drums: "/api/stems/drums.wav",
+        bass: "/api/stems/bass.wav", 
+        piano: "/api/stems/piano.wav",
+        vocals: "/api/stems/vocals.wav",
+        other: "/api/stems/other.wav"
+      }
+    });
     setIsGenerating(false);
     toast.success("🎉 Enhanced track generated successfully!");
   };
@@ -268,7 +297,12 @@ const Generate = () => {
                               size="icon"
                               onClick={() => {
                                 if (referenceUrl.trim()) {
-                                  toast.success("Reference URL added successfully");
+                                  try {
+                                    new URL(referenceUrl);
+                                    toast.success("Reference URL validated and ready");
+                                  } catch {
+                                    toast.error("Please enter a valid URL");
+                                  }
                                 } else {
                                   toast.error("Please enter a valid URL");
                                 }
@@ -344,11 +378,11 @@ const Generate = () => {
                       <div className="p-4 bg-muted rounded-lg">
                         <h3 className="font-semibold mb-2">Enhanced Amapiano Creation</h3>
                         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                          <span>Style: {parsedPrompt?.genre || (genre === "classic" ? "Classic Amapiano" : "Private School Amapiano")}</span>
+                          <span>Style: {generatedTrack.genre}</span>
                           <span>•</span>
-                          <span>BPM: {parsedPrompt?.bpm || bpm[0]}</span>
+                          <span>BPM: {generatedTrack.bpm}</span>
                           <span>•</span>
-                          <span>Duration: {Math.floor(duration[0] / 60)}:{String(duration[0] % 60).padStart(2, '0')}</span>
+                          <span>Duration: {Math.floor(generatedTrack.duration / 60)}:{String(generatedTrack.duration % 60).padStart(2, '0')}</span>
                           {parsedPrompt?.key && (
                             <>
                               <span>•</span>
@@ -364,28 +398,69 @@ const Generate = () => {
                         </div>
                         <p className="text-primary-foreground/80 mb-4">Professional Audio Player</p>
                         <div className="flex gap-2 justify-center">
-                          <Button variant="secondary" size="sm">
-                            <Play className="w-4 h-4 mr-2" />
-                            Play
+                          <Button 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => {
+                              setIsPlaying(!isPlaying);
+                              toast.success(isPlaying ? "⏸️ Paused" : "▶️ Playing");
+                            }}
+                          >
+                            {isPlaying ? (
+                              <>
+                                <div className="w-4 h-4 mr-2 flex gap-1">
+                                  <div className="w-1.5 h-4 bg-current"></div>
+                                  <div className="w-1.5 h-4 bg-current"></div>
+                                </div>
+                                Pause
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-4 h-4 mr-2" />
+                                Play
+                              </>
+                            )}
                           </Button>
-                          <Button variant="secondary" size="sm">
+                          <Button 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = generatedTrack.audioUrl;
+                              link.download = `${generatedTrack.title}.mp3`;
+                              link.click();
+                              toast.success("🎵 Download started");
+                            }}
+                          >
                             <Download className="w-4 h-4 mr-2" />
                             Download
                           </Button>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Professional Stems</h4>
-                        <div className="grid grid-cols-2 gap-2">
-                          {["Drums", "Bass", "Piano", "Vocals", "Other"].map((stem) => (
-                            <Button key={stem} variant="outline" size="sm" className="justify-start">
-                              <Download className="w-3 h-3 mr-2" />
-                              {stem}
-                            </Button>
-                          ))}
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Professional Stems</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {["Drums", "Bass", "Piano", "Vocals", "Other"].map((stem) => (
+                              <Button 
+                                key={stem} 
+                                variant="outline" 
+                                size="sm" 
+                                className="justify-start"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = generatedTrack.stems[stem.toLowerCase()];
+                                  link.download = `${generatedTrack.title}_${stem.toLowerCase()}.wav`;
+                                  link.click();
+                                  toast.success(`🎵 ${stem} stem download started`);
+                                }}
+                              >
+                                <Download className="w-3 h-3 mr-2" />
+                                {stem}
+                              </Button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
 
                       {parsedPrompt?.instrumentation && (
                         <div className="space-y-2">

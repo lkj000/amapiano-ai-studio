@@ -358,7 +358,8 @@ export default function DawPage({ user }: DawPageProps) {
     const defaultInstrument = { name: "New Audio Track", type: "audio", color: "bg-gray-500" };
     const inst = instrument || defaultInstrument;
 
-    const isMidiTrack = ['piano', 'synth', 'bass', 'drums'].includes(inst.type);
+    // All instruments can be MIDI tracks in Amapiano production
+    const isMidiTrack = true;
     
     console.log('DAW: Adding track with instrument:', inst);
     

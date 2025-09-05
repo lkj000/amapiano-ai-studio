@@ -79,6 +79,28 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     sampleRate: 44100,
     channels: 'stereo'
   },
+  {
+    id: 'congas',
+    name: 'Congas (African Rhythms)',
+    category: 'core',
+    icon: <Drum className="w-4 h-4" />,
+    description: 'Traditional conga drums adding authentic African percussion patterns',
+    recordingType: 'audio',
+    neuralModel: 'lstm_congas',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'bongos',
+    name: 'Bongos (High Percussion)',
+    category: 'core',
+    icon: <Activity className="w-4 h-4" />,
+    description: 'High-pitched bongo patterns for rhythmic accents and fills',
+    recordingType: 'audio',
+    neuralModel: 'gan_bongos',
+    sampleRate: 44100,
+    channels: 'stereo'
+  },
   
   // Private School Amapiano (Soulful & Live)
   {
@@ -100,6 +122,17 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     description: 'Warm, human element with live fingerpicking and strumming',
     recordingType: 'audio',
     neuralModel: 'gan_acoustic_guitar',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'electric_guitar',
+    name: 'Electric Guitar (Jazz Fusion)',
+    category: 'private_school',
+    icon: <Guitar className="w-4 h-4" />,
+    description: 'Jazz-fusion guitar licks and smooth melodic lines',
+    recordingType: 'audio',
+    neuralModel: 'transformer_electric_guitar',
     sampleRate: 48000,
     channels: 'stereo'
   },
@@ -137,6 +170,17 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     channels: 'mono'
   },
   {
+    id: 'trombone',
+    name: 'Trombone (Deep Brass)',
+    category: 'private_school',
+    icon: <Volume2 className="w-4 h-4" />,
+    description: 'Deep brass tones for harmonic support and melodic lines',
+    recordingType: 'audio',
+    neuralModel: 'rnn_trombone',
+    sampleRate: 48000,
+    channels: 'mono'
+  },
+  {
     id: 'vocals',
     name: 'Vocals (Soulful Singing)',
     category: 'private_school',
@@ -146,6 +190,61 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     neuralModel: 'vae_vocals',
     sampleRate: 96000,
     channels: 'stereo'
+  },
+  {
+    id: 'cello',
+    name: 'Cello (String Bass)',
+    category: 'private_school',
+    icon: <Music className="w-4 h-4" />,
+    description: 'Deep string tones for harmonic foundation and melodic expression',
+    recordingType: 'audio',
+    neuralModel: 'transformer_cello',
+    sampleRate: 96000,
+    channels: 'stereo'
+  },
+  {
+    id: 'viola',
+    name: 'Viola (Mid Strings)',
+    category: 'private_school',
+    icon: <Music className="w-4 h-4" />,
+    description: 'Rich mid-range string tones for harmonic filling',
+    recordingType: 'audio',
+    neuralModel: 'transformer_viola',
+    sampleRate: 96000,
+    channels: 'stereo'
+  },
+  {
+    id: 'double_bass',
+    name: 'Double Bass (Acoustic Bass)',
+    category: 'private_school',
+    icon: <Waves className="w-4 h-4" />,
+    description: 'Deep acoustic bass lines with natural warmth',
+    recordingType: 'audio',
+    neuralModel: 'lstm_double_bass',
+    sampleRate: 48000,
+    channels: 'mono'
+  },
+  {
+    id: 'clarinet',
+    name: 'Clarinet (Woodwind)',
+    category: 'private_school',
+    icon: <Headphones className="w-4 h-4" />,
+    description: 'Smooth woodwind melodies and harmonic support',
+    recordingType: 'audio',
+    neuralModel: 'lstm_clarinet',
+    sampleRate: 48000,
+    channels: 'mono'
+  },
+  {
+    id: 'oboe',
+    name: 'Oboe (Expressive Woodwind)',
+    category: 'private_school',
+    icon: <Headphones className="w-4 h-4" />,
+    description: 'Expressive woodwind for emotional melodic lines',
+    recordingType: 'audio',
+    neuralModel: 'transformer_oboe',
+    sampleRate: 48000,
+    channels: 'mono'
   },
   
   // Synthesized & Production Elements
@@ -172,6 +271,39 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     channels: 'stereo'
   },
   {
+    id: 'synth_bass',
+    name: 'Synth Bass',
+    category: 'synthesized',
+    icon: <Waves className="w-4 h-4" />,
+    description: 'Electronic bass synthesizers with various timbres',
+    recordingType: 'midi',
+    neuralModel: 'gan_synth_bass',
+    sampleRate: 48000,
+    channels: 'mono'
+  },
+  {
+    id: 'arp_synth',
+    name: 'Arp Synthesizer',
+    category: 'synthesized',
+    icon: <Zap className="w-4 h-4" />,
+    description: 'Arpeggiated synth patterns for rhythmic melodies',
+    recordingType: 'midi',
+    neuralModel: 'lstm_arp_synth',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'fm_synth',
+    name: 'FM Synthesizer',
+    category: 'synthesized',
+    icon: <Zap className="w-4 h-4" />,
+    description: 'Frequency modulation synthesis for unique timbres',
+    recordingType: 'midi',
+    neuralModel: 'gan_fm_synth',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
     id: 'whistles',
     name: 'Whistles & Bird Sounds',
     category: 'synthesized',
@@ -192,6 +324,96 @@ const AMAPIANO_INSTRUMENT_CONFIGS: InstrumentConfig[] = [
     neuralModel: 'vae_vocal_chops',
     sampleRate: 48000,
     channels: 'stereo'
+  },
+  
+  // Advanced Production Tools
+  {
+    id: 'marimba',
+    name: 'Marimba (Mallet Percussion)',
+    category: 'advanced',
+    icon: <Activity className="w-4 h-4" />,
+    description: 'Warm wooden mallet percussion for melodic accents',
+    recordingType: 'audio',
+    neuralModel: 'transformer_marimba',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'vibraphone',
+    name: 'Vibraphone (Metal Mallet)',
+    category: 'advanced',
+    icon: <Activity className="w-4 h-4" />,
+    description: 'Metallic mallet percussion with shimmer and sustain',
+    recordingType: 'audio',
+    neuralModel: 'transformer_vibraphone',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'harp',
+    name: 'Harp (Ethereal Strings)',
+    category: 'advanced',
+    icon: <Music className="w-4 h-4" />,
+    description: 'Ethereal harp glissandos and arpeggios',
+    recordingType: 'audio',
+    neuralModel: 'lstm_harp',
+    sampleRate: 96000,
+    channels: 'stereo'
+  },
+  {
+    id: 'djembe',
+    name: 'Djembe (African Drum)',
+    category: 'advanced',
+    icon: <Drum className="w-4 h-4" />,
+    description: 'Traditional West African djembe rhythms and patterns',
+    recordingType: 'audio',
+    neuralModel: 'gan_djembe',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'tabla',
+    name: 'Tabla (Indian Percussion)',
+    category: 'advanced',
+    icon: <Drum className="w-4 h-4" />,
+    description: 'Complex Indian tabla rhythms and techniques',
+    recordingType: 'audio',
+    neuralModel: 'transformer_tabla',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'kalimba',
+    name: 'Kalimba (Thumb Piano)',
+    category: 'advanced',
+    icon: <Piano className="w-4 h-4" />,
+    description: 'African thumb piano for delicate melodic textures',
+    recordingType: 'audio',
+    neuralModel: 'lstm_kalimba',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'mbira',
+    name: 'Mbira (African Plucked)',
+    category: 'advanced',
+    icon: <Music className="w-4 h-4" />,
+    description: 'Traditional Zimbabwean mbira patterns and tones',
+    recordingType: 'audio',
+    neuralModel: 'transformer_mbira',
+    sampleRate: 48000,
+    channels: 'stereo'
+  },
+  {
+    id: 'harmonica',
+    name: 'Harmonica (Blues Harp)',
+    category: 'advanced',
+    icon: <Headphones className="w-4 h-4" />,
+    description: 'Expressive harmonica for blues and folk influences',
+    recordingType: 'audio',
+    neuralModel: 'lstm_harmonica',
+    sampleRate: 48000,
+    channels: 'mono'
   }
 ];
 

@@ -1,3 +1,9 @@
+// Comprehensive Amapiano Neural Music Generation Engine V2.0
+// Handles ALL Amapiano instruments based on Wikipedia analysis and genre research
+// Core: piano, log drums, deep bass, percussion, shakers
+// Private School: violin/strings, acoustic guitar, flute, saxophone, trumpet, vocals
+// Synthesized: synth leads, pads, whistles, vocal chops
+// Advanced: harmony, arrangement patterns
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';

@@ -347,9 +347,9 @@ export default function AudioRecordingPanel({
       <CardHeader className="pb-3 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CardTitle className="text-lg">Audio Recording - {trackName}</CardTitle>
+            <CardTitle className="text-lg">Amapiano Multi-Instrument Recording - {trackName}</CardTitle>
             <Badge variant="outline" className="bg-gradient-to-r from-red-500/20 to-orange-500/20">
-              Version 2.0
+              Neural Enhanced v2.0
             </Badge>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>

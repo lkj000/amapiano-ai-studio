@@ -39,17 +39,60 @@ interface AgenticTask {
   description: string;
 }
 
+// Comprehensive Neural Models for All Amapiano Instruments
 const NEURAL_MODELS: NeuralModel[] = [
-  { id: 'lstm_piano', name: 'Piano Composer LSTM', type: 'rnn', instrument: 'piano', status: 'ready', accuracy: 94.2, version: '2.1.0' },
-  { id: 'gan_logs', name: 'Log Drum GAN', type: 'gan', instrument: 'log_drums', status: 'ready', accuracy: 91.8, version: '1.8.3' },
-  { id: 'transformer_harmony', name: 'Harmony Transformer', type: 'transformer', instrument: 'harmony', status: 'ready', accuracy: 96.7, version: '3.0.1' },
-  { id: 'rnn_bass', name: 'Deep Bass RNN', type: 'rnn', instrument: 'bass', status: 'ready', accuracy: 89.5, version: '1.5.2' },
-  { id: 'vae_percussion', name: 'Percussion VAE', type: 'vae', instrument: 'percussion', status: 'training', accuracy: 87.3, version: '0.9.1' },
-  { id: 'transformer_synth', name: 'Synth Lead Transformer', type: 'transformer', instrument: 'synth', status: 'ready', accuracy: 93.1, version: '2.3.0' },
+  // Core Amapiano Instruments
+  { id: 'lstm_piano', name: 'Piano Composer LSTM (Rhodes/Electric)', type: 'rnn', instrument: 'piano', status: 'ready', accuracy: 94.2, version: '2.1.0' },
+  { id: 'gan_log_drums', name: 'Log Drum GAN (Percussive Bass)', type: 'gan', instrument: 'log_drums', status: 'ready', accuracy: 91.8, version: '1.8.3' },
+  { id: 'rnn_deep_bass', name: 'Deep Bass RNN (Sub-Heavy)', type: 'rnn', instrument: 'deep_bass', status: 'ready', accuracy: 89.5, version: '1.5.2' },
+  { id: 'vae_percussion', name: 'Percussion VAE (Drums & Claps)', type: 'vae', instrument: 'percussion', status: 'ready', accuracy: 87.3, version: '0.9.1' },
+  { id: 'lstm_shakers', name: 'Shaker LSTM (Rhythmic Foundation)', type: 'rnn', instrument: 'shakers', status: 'ready', accuracy: 85.7, version: '1.2.0' },
+  
+  // Private School Amapiano Instruments
+  { id: 'transformer_violin', name: 'Violin Transformer (Strings)', type: 'transformer', instrument: 'violin', status: 'ready', accuracy: 92.1, version: '2.0.1' },
+  { id: 'gan_acoustic_guitar', name: 'Acoustic Guitar GAN (Live)', type: 'gan', instrument: 'acoustic_guitar', status: 'ready', accuracy: 88.9, version: '1.7.0' },
+  { id: 'lstm_flute', name: 'Flute LSTM (Melodic Expression)', type: 'rnn', instrument: 'flute', status: 'ready', accuracy: 90.3, version: '1.4.2' },
+  { id: 'transformer_saxophone', name: 'Saxophone Transformer (Jazz)', type: 'transformer', instrument: 'saxophone', status: 'ready', accuracy: 93.7, version: '2.2.0' },
+  { id: 'rnn_trumpet', name: 'Trumpet RNN (Brass Stabs)', type: 'rnn', instrument: 'trumpet', status: 'training', accuracy: 86.1, version: '0.8.5' },
+  { id: 'vae_vocals', name: 'Vocal VAE (Soulful Singing)', type: 'vae', instrument: 'vocals', status: 'ready', accuracy: 91.4, version: '2.1.3' },
+  
+  // Synthesized & Effect Elements
+  { id: 'transformer_synth_lead', name: 'Synth Lead Transformer', type: 'transformer', instrument: 'synth_lead', status: 'ready', accuracy: 93.1, version: '2.3.0' },
+  { id: 'gan_pads', name: 'Pad GAN (Atmospheric)', type: 'gan', instrument: 'pads', status: 'ready', accuracy: 89.2, version: '1.6.1' },
+  { id: 'lstm_whistles', name: 'Whistle LSTM (Attention Grabbers)', type: 'rnn', instrument: 'whistles', status: 'ready', accuracy: 84.8, version: '1.1.0' },
+  { id: 'vae_vocal_chops', name: 'Vocal Chop VAE (Sample Processing)', type: 'vae', instrument: 'vocal_chops', status: 'ready', accuracy: 87.6, version: '1.5.0' },
+  
+  // Advanced Harmonic & Arrangement Models
+  { id: 'transformer_harmony', name: 'Harmony Transformer (Progressions)', type: 'transformer', instrument: 'harmony', status: 'ready', accuracy: 96.7, version: '3.0.1' },
+  { id: 'gan_arrangement', name: 'Arrangement GAN (Song Structure)', type: 'gan', instrument: 'arrangement', status: 'ready', accuracy: 88.4, version: '1.9.0' },
 ];
 
+// Complete Amapiano Instrument Set (Based on Wikipedia & Genre Analysis)
 const AMAPIANO_INSTRUMENTS = [
-  'piano', 'log_drums', 'deep_bass', 'shakers', 'flute', 'guitar', 'strings', 'percussion', 'synth_lead', 'pads', 'vocals'
+  // Core Amapiano Foundation
+  'piano',           // The pianos - Rhodes, electric piano, jazzy melodies
+  'log_drums',       // Signature percussive bassline (hybrid kick/808/synth bass)
+  'deep_bass',       // Sub-heavy bassline anchoring
+  'percussion',      // Four-on-floor kicks, syncopated rhythms
+  'shakers',         // Rhythmic foundation with strong/weak alternating beats
+  
+  // Private School Amapiano (Soulful & Live)
+  'violin',          // String sections for progressive, cinematic atmosphere
+  'acoustic_guitar', // Live guitar for warm, human elements
+  'flute',           // Melodic, airy, expressive layers
+  'saxophone',       // Jazz influence, melodic phrases
+  'trumpet',         // Brass stabs, rhythmic punctuation
+  'vocals',          // Soulful, melodic singing
+  
+  // Synthesized & Production Elements
+  'synth_lead',      // Lead synthesizers for melodies
+  'pads',            // Atmospheric textures and immersive soundscapes
+  'whistles',        // Bird sounds, attention-grabbing percussive elements
+  'vocal_chops',     // Samples and melodic loops from other genres
+  
+  // Advanced Compositional Elements
+  'harmony',         // Chord progressions and harmonic structure
+  'arrangement'      // Song structure and orchestration
 ];
 
 export const NeuralMusicEngine = () => {

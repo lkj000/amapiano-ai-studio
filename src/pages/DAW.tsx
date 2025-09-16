@@ -1167,6 +1167,30 @@ export default function DawPage({ user }: DawPageProps) {
 
                 <AIPromptParser prompt={aiPrompt} className="mb-4" />
 
+                {/* Voice-to-Music Engine */}
+                <Card className="p-3 mb-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <AudioWaveform className="w-4 h-4 text-purple-500" />
+                      <h4 className="text-sm font-medium">Voice-to-Music Engine</h4>
+                      <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-600 border-purple-500/30">
+                        New
+                      </Badge>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Hum melodies, beatbox rhythms, or give voice commands to generate amapiano tracks instantly
+                  </p>
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0" 
+                    onClick={() => setShowVoiceToMusic(true)}
+                  >
+                    <Mic className="w-3 h-3 mr-2" />
+                    Open Voice Engine ⚡
+                  </Button>
+                </Card>
+
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-muted-foreground">Quick Actions</h4>
                   {aiSuggestions.map((suggestion, index) => (

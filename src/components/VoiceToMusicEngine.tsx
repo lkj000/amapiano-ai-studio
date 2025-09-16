@@ -177,22 +177,56 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && session.isRecording) {
-      mediaRecorderRef.current.stop();
+    console.log('stopRecording called - current state:', {
+      isRecording: session.isRecording,
+      mediaRecorder: !!mediaRecorderRef.current,
+      stream: !!streamRef.current
+    });
+
+    try {
+      if (mediaRecorderRef.current && session.isRecording) {
+        console.log('Stopping MediaRecorder...');
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+      }
+
+      if (streamRef.current) {
+        console.log('Stopping media stream tracks...');
+        streamRef.current.getTracks().forEach(track => {
+          console.log('Stopping track:', track.label);
+          track.stop();
+        });
+        streamRef.current = null;
+      }
+
+      // Clear timer immediately
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      console.log('Updating session state...');
+      setSession(prev => ({
+        ...prev,
+        isRecording: false,
+        isPaused: false
+      }));
+
+      stopVisualization();
+      console.log('Recording stopped successfully');
+      toast.success("Recording stopped");
+
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      toast.error("Error stopping recording");
+      
+      // Force reset the state even if there was an error
+      setSession(prev => ({
+        ...prev,
+        isRecording: false,
+        isPaused: false
+      }));
     }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    setSession(prev => ({
-      ...prev,
-      isRecording: false,
-      isPaused: false
-    }));
-
-    stopVisualization();
   };
 
   const pauseRecording = () => {

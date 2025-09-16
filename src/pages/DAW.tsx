@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, AudioWaveform, Cable
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, AudioWaveform, Cable, BookOpen, Palette
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
@@ -35,6 +35,10 @@ import AudioRecordingPanel from '@/components/AudioRecordingPanel';
 import CommunityPanel from '@/components/CommunityPanel';
 import VSTPluginPanel from '@/components/VSTPluginPanel';
 import { supabase } from '@/integrations/supabase/client';
+import { AIAssistantSidebar } from '@/components/AIAssistantSidebar';
+import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
+import { AdvancedPatternLibrary } from '@/components/AdvancedPatternLibrary';
+import { ArtistStyleTransfer } from '@/components/ArtistStyleTransfer';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -123,6 +127,9 @@ export default function DawPage({ user }: DawPageProps) {
   const [showMIDIController, setShowMIDIController] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
+  const [showVoiceToMusic, setShowVoiceToMusic] = useState(false);
+  const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false);
+  const [showArtistStyleTransfer, setShowArtistStyleTransfer] = useState(false);
   const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,

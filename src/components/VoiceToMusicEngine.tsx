@@ -272,9 +272,25 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
     setProcessingProgress(0);
 
     try {
-      // Convert audio blob to base64
+      console.log('Converting audio blob to base64...');
+      
+      // Convert audio blob to base64 safely (avoiding stack overflow)
       const arrayBuffer = await session.audioBlob.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      console.log('Audio data size:', uint8Array.length, 'bytes');
+      
+      // Convert to base64 in chunks to avoid stack overflow
+      let base64Audio = '';
+      const chunkSize = 32768; // 32KB chunks
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
+        base64Audio += btoa(chunkString);
+      }
+      
+      console.log('Base64 conversion completed, length:', base64Audio.length);
 
       const steps = [
         { progress: 20, step: "Analyzing audio input..." },

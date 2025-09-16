@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface VoiceToMusicEngineProps {
   onTrackGenerated: (trackData: any) => void;
   className?: string;
+  initialAudioUrl?: string;
 }
 
 interface RecordingSession {
@@ -48,7 +49,8 @@ interface GenerationResult {
 
 export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
   onTrackGenerated,
-  className
+  className,
+  initialAudioUrl
 }) => {
   const [session, setSession] = useState<RecordingSession>({
     isRecording: false,
@@ -93,6 +95,23 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       }
     };
   }, []);
+
+  // Import initial audio from a DAW track
+  useEffect(() => {
+    const importFromUrl = async () => {
+      if (!initialAudioUrl) return;
+      try {
+        const resp = await fetch(initialAudioUrl);
+        const blob = await resp.blob();
+        setSession(prev => ({ ...prev, audioBlob: blob, isRecording: false, isPaused: false, duration: 0 }));
+        toast.success("Imported track audio into Voice Engine");
+      } catch (e: any) {
+        console.error('Failed to import audio from URL', e);
+        toast.error("Couldn't import audio from track");
+      }
+    };
+    importFromUrl();
+  }, [initialAudioUrl]);
 
   // Recording timer
   useEffect(() => {

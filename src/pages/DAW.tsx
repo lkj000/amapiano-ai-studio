@@ -136,6 +136,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [showAIAssistant, setShowAIAssistant] = useState(true);
   const [showVoiceToMusic, setShowVoiceToMusic] = useState(false);
+  const [importAudioUrl, setImportAudioUrl] = useState<string | null>(null);
   const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false);
   const [showArtistStyleTransfer, setShowArtistStyleTransfer] = useState(false);
   const [showVirtualInstruments, setShowVirtualInstruments] = useState(false);
@@ -1328,6 +1329,26 @@ export default function DawPage({ user }: DawPageProps) {
                           ))}
                         </div>
                       )}
+                      {track.type === 'audio' && (
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = (track as any).clips?.find((c: any) => c.audioUrl)?.audioUrl || null;
+                              if (!url) {
+                                toast.error("No audio clip found on this track.");
+                                return;
+                              }
+                              setImportAudioUrl(url);
+                              setShowVoiceToMusic(true);
+                            }}
+                          >
+                            Generate Amapiano Track
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1469,7 +1490,7 @@ export default function DawPage({ user }: DawPageProps) {
                 AI-Powered
               </Badge>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setShowVoiceToMusic(false)}>
+            <Button variant="ghost" size="sm" onClick={() => { setShowVoiceToMusic(false); setImportAudioUrl(null); }}>
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -1477,6 +1498,7 @@ export default function DawPage({ user }: DawPageProps) {
             <VoiceToMusicEngine
               onTrackGenerated={handleTrackGenerated}
               className="max-w-4xl mx-auto"
+              initialAudioUrl={importAudioUrl ?? undefined}
             />
           </div>
         </div>

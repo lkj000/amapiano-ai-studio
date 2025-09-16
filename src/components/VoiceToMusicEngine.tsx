@@ -316,20 +316,36 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
         amapiano_style: 'adaptive'
       });
 
-      const { data, error } = await supabase.functions.invoke('neural-music-generation', {
-        body: {
-          type: 'voice_to_music',
-          audioData: base64Audio,
-          mode: selectedMode,
-          customInstructions: customInstructions || undefined,
-          outputFormat: 'full_track_with_stems',
-          amapiano_style: 'adaptive' // Let AI determine best style
-        }
-      });
+      let functionResult;
+      try {
+        functionResult = await supabase.functions.invoke('neural-music-generation', {
+          body: {
+            type: 'voice_to_music',
+            audioData: base64Audio,
+            mode: selectedMode,
+            customInstructions: customInstructions || undefined,
+            outputFormat: 'full_track_with_stems',
+            amapiano_style: 'adaptive'
+          }
+        });
+        
+        console.log('Function response received:', functionResult);
+      } catch (functionError) {
+        console.error('Supabase function call failed:', functionError);
+        throw new Error(`Function call failed: ${functionError.message}`);
+      }
+      
+      const { data, error } = functionResult;
 
-      console.log('Function response received:', { data, error });
-
-      if (error) throw error;
+      if (error) {
+        console.error('Function returned error:', error);
+        throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (!data) {
+        console.error('Function returned no data');
+        throw new Error('No data returned from function');
+      }
 
       // Create result object
       const result: GenerationResult = {

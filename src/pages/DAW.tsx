@@ -1202,9 +1202,12 @@ export default function DawPage({ user }: DawPageProps) {
               <div className="w-80 border-r border-border bg-muted/10 overflow-y-auto">
                 <div className="p-3 border-b border-border">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Tracks</h3>
+                    <h3 className="font-semibold">Tracks ({projectData?.tracks.length || 0})</h3>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => handleAddTrack()}><Plus className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={() => handleAddTrack()} title={`Add Track (${projectData?.tracks.length || 0} tracks currently)`}>
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add ({projectData?.tracks.length || 0})
+                      </Button>
                       <Button size="sm" variant="outline" onClick={handleUploadAudio}><Upload className="w-3 h-3" /></Button>
                     </div>
                   </div>

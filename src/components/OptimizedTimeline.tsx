@@ -153,11 +153,11 @@ const VirtualizedTrackList = memo<{
     );
   }, [tracks, selectedTrackId, zoom, onTrackSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart]);
 
-  // Only use virtualization for large track counts
-  if (tracks.length > 20) {
+  // Use virtualization for performance with unlimited tracks
+  if (tracks.length > 10) {
     return (
       <List
-        height={400}
+        height={Math.min(tracks.length * 64, 600)}
         itemCount={tracks.length}
         itemSize={64}
         width="100%"
@@ -206,7 +206,7 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="overflow-auto max-h-96">
+      <div className="overflow-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
         <VirtualizedTrackList
           tracks={tracks}
           selectedTrackId={selectedTrackId}

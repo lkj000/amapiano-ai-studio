@@ -94,16 +94,31 @@ export const MicrophoneInput = ({ onRecordingComplete, className }: MicrophoneIn
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    console.log("MicrophoneInput.stopRecording called", { isRecording });
+    try {
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
       setIsRecording(false);
       setAudioLevel(0);
-      
+
       if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        clearInterval(intervalRef.current as unknown as number);
+        intervalRef.current = null;
       }
-      
-      toast.success("Recording completed");
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+
+      toast.success("Recording stopped");
+    } catch (err) {
+      console.error("Error stopping recording:", err);
+      toast.error("Couldn't stop recording. Forcing cleanup.");
+      setIsRecording(false);
     }
   };
 
@@ -187,8 +202,8 @@ export const MicrophoneInput = ({ onRecordingComplete, className }: MicrophoneIn
                       className="w-16 h-16 rounded-full"
                     >
                       <Square className="w-6 h-6" />
-                    </Button>
-                    <div className="absolute inset-0 rounded-full border-2 border-destructive animate-pulse" />
+                      </Button>
+                      <div className="absolute inset-0 rounded-full border-2 border-destructive animate-pulse pointer-events-none" />
                   </div>
                   
                   <div className="space-y-2">

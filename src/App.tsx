@@ -15,6 +15,7 @@ import Patterns from "./pages/Patterns";
 import DAW from "./pages/DAW";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
+import AuraPlatform from "./pages/AuraPlatform";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,7 @@ const App = () => {
               <Route path="/samples" element={<Samples user={user} />} />
               <Route path="/patterns" element={<Patterns user={user} />} />
               <Route path="/daw" element={<DAW user={user} />} />
+              <Route path="/aura" element={<AuraPlatform user={user} />} />
               <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
               <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
               <Route path="/subscription-success" element={<Index user={user} />} />

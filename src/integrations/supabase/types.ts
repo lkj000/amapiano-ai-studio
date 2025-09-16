@@ -14,6 +14,247 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_courses: {
+        Row: {
+          category: string
+          course_data: Json
+          created_at: string
+          description: string | null
+          difficulty_level: string | null
+          enrollment_count: number | null
+          id: string
+          instructor_id: string
+          is_published: boolean | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          course_data?: Json
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          enrollment_count?: number | null
+          id?: string
+          instructor_id: string
+          is_published?: boolean | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          course_data?: Json
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          enrollment_count?: number | null
+          id?: string
+          instructor_id?: string
+          is_published?: boolean | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      academy_enrollments: {
+        Row: {
+          completed_at: string | null
+          completion_percentage: number | null
+          course_id: string | null
+          enrolled_at: string
+          id: string
+          progress_data: Json
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_percentage?: number | null
+          course_id?: string | null
+          enrolled_at?: string
+          id?: string
+          progress_data?: Json
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_percentage?: number | null
+          course_id?: string | null
+          enrolled_at?: string
+          id?: string
+          progress_data?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_lessons: {
+        Row: {
+          content_data: Json
+          content_type: string | null
+          course_id: string | null
+          created_at: string
+          duration_minutes: number | null
+          id: string
+          is_published: boolean | null
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_data?: Json
+          content_type?: string | null
+          course_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          is_published?: boolean | null
+          order_index: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_data?: Json
+          content_type?: string | null
+          course_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          id?: string
+          is_published?: boolean | null
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_lessons_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_context_memory: {
+        Row: {
+          access_count: number | null
+          context_data: Json
+          context_key: string
+          context_type: string | null
+          created_at: string
+          id: string
+          importance_score: number | null
+          last_accessed: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          context_data?: Json
+          context_key: string
+          context_type?: string | null
+          created_at?: string
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number | null
+          context_data?: Json
+          context_key?: string
+          context_type?: string | null
+          created_at?: string
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      artist_licenses: {
+        Row: {
+          artist_id: string
+          compensation_rate: number | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          license_type: string | null
+          terms_data: Json
+          updated_at: string
+        }
+        Insert: {
+          artist_id: string
+          compensation_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          license_type?: string | null
+          terms_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          artist_id?: string
+          compensation_rate?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          license_type?: string | null
+          terms_data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      aura_conductor_sessions: {
+        Row: {
+          created_at: string
+          current_task: string | null
+          execution_log: Json
+          id: string
+          is_active: boolean | null
+          orchestration_config: Json
+          session_name: string
+          task_queue: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_task?: string | null
+          execution_log?: Json
+          id?: string
+          is_active?: boolean | null
+          orchestration_config?: Json
+          session_name: string
+          task_queue?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_task?: string | null
+          execution_log?: Json
+          id?: string
+          is_active?: boolean | null
+          orchestration_config?: Json
+          session_name?: string
+          task_queue?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       automation_lanes: {
         Row: {
           automation_points: Json
@@ -152,6 +393,99 @@ export type Database = {
           },
         ]
       }
+      community_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          parent_comment_id: string | null
+          post_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "community_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_posts: {
+        Row: {
+          author_id: string
+          comment_count: number | null
+          content: string | null
+          created_at: string
+          id: string
+          is_featured: boolean | null
+          like_count: number | null
+          media_urls: string[] | null
+          post_type: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_featured?: boolean | null
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_type?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          comment_count?: number | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_featured?: boolean | null
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_type?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daw_projects: {
         Row: {
           bpm: number
@@ -190,6 +524,44 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      licensed_content: {
+        Row: {
+          content_type: string | null
+          content_url: string
+          created_at: string
+          id: string
+          license_id: string | null
+          metadata: Json
+          usage_count: number | null
+        }
+        Insert: {
+          content_type?: string | null
+          content_url: string
+          created_at?: string
+          id?: string
+          license_id?: string | null
+          metadata?: Json
+          usage_count?: number | null
+        }
+        Update: {
+          content_type?: string | null
+          content_url?: string
+          created_at?: string
+          id?: string
+          license_id?: string | null
+          metadata?: Json
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licensed_content_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "artist_licenses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       marketplace_items: {
         Row: {
@@ -326,6 +698,39 @@ export type Database = {
         }
         Relationships: []
       }
+      project_analytics: {
+        Row: {
+          actions_performed: Json
+          ai_interactions: number | null
+          analytics_data: Json
+          created_at: string
+          id: string
+          project_id: string
+          session_duration: number | null
+          user_id: string
+        }
+        Insert: {
+          actions_performed?: Json
+          ai_interactions?: number | null
+          analytics_data?: Json
+          created_at?: string
+          id?: string
+          project_id: string
+          session_duration?: number | null
+          user_id: string
+        }
+        Update: {
+          actions_performed?: Json
+          ai_interactions?: number | null
+          analytics_data?: Json
+          created_at?: string
+          id?: string
+          project_id?: string
+          session_duration?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_changes: {
         Row: {
           change_data: Json
@@ -415,6 +820,54 @@ export type Database = {
         }
         Relationships: []
       }
+      style_profiles: {
+        Row: {
+          created_at: string
+          creator_id: string
+          description: string | null
+          download_count: number | null
+          genre_tags: string[] | null
+          id: string
+          is_public: boolean | null
+          name: string
+          preview_url: string | null
+          price_cents: number | null
+          rating: number | null
+          style_data: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          download_count?: number | null
+          genre_tags?: string[] | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          preview_url?: string | null
+          price_cents?: number | null
+          rating?: number | null
+          style_data: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          download_count?: number | null
+          genre_tags?: string[] | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          preview_url?: string | null
+          price_cents?: number | null
+          rating?: number | null
+          style_data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           created_at: string
@@ -457,6 +910,41 @@ export type Database = {
         }
         Relationships: []
       }
+      user_plugin_installations: {
+        Row: {
+          id: string
+          installation_config: Json
+          installed_at: string
+          is_active: boolean | null
+          plugin_id: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          installation_config?: Json
+          installed_at?: string
+          is_active?: boolean | null
+          plugin_id?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          installation_config?: Json
+          installed_at?: string
+          is_active?: boolean | null
+          plugin_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_plugin_installations_plugin_id_fkey"
+            columns: ["plugin_id"]
+            isOneToOne: false
+            referencedRelation: "web_plugins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_purchases: {
         Row: {
           id: string
@@ -495,6 +983,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      web_plugins: {
+        Row: {
+          created_at: string
+          developer_id: string
+          download_count: number | null
+          id: string
+          is_approved: boolean | null
+          manifest_data: Json
+          name: string
+          plugin_code: string
+          plugin_type: string | null
+          rating: number | null
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          developer_id: string
+          download_count?: number | null
+          id?: string
+          is_approved?: boolean | null
+          manifest_data?: Json
+          name: string
+          plugin_code: string
+          plugin_type?: string | null
+          rating?: number | null
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          created_at?: string
+          developer_id?: string
+          download_count?: number | null
+          id?: string
+          is_approved?: boolean | null
+          manifest_data?: Json
+          name?: string
+          plugin_code?: string
+          plugin_type?: string | null
+          rating?: number | null
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
       }
     }
     Views: {

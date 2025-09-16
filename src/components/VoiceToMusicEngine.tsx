@@ -258,11 +258,16 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
   };
 
   const processRecording = async () => {
+    console.log('processRecording called');
+    console.log('session.audioBlob:', session.audioBlob);
+    
     if (!session.audioBlob) {
+      console.error('No audio blob to process');
       toast.error("No recording to process");
       return;
     }
 
+    console.log('Starting recording processing...');
     setIsProcessing(true);
     setProcessingProgress(0);
 
@@ -344,9 +349,15 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       toast.success(`✨ Successfully generated ${selectedMode} track!`);
 
     } catch (error) {
-      console.error('Processing failed:', error);
-      toast.error("Failed to process recording. Please try again.");
+      console.error('Processing failed with error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      toast.error(`Failed to process recording: ${error.message || 'Unknown error'}`);
     } finally {
+      console.log('Processing finished, cleaning up...');
       setIsProcessing(false);
       setProcessingProgress(0);
       setProcessingStep('');

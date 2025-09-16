@@ -9,30 +9,62 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('Neural Music Generation function called with method:', req.method);
+  console.log('=== Neural Music Generation Function Started ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
   
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request');
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Add a simple test endpoint
+  if (req.url.includes('?test=true')) {
+    console.log('Test endpoint called');
+    return new Response(JSON.stringify({ 
+      status: 'ok', 
+      message: 'Neural music generation function is working',
+      timestamp: new Date().toISOString(),
+      openAIConfigured: !!openAIApiKey
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     console.log('Processing POST request for neural music generation');
     
     if (!openAIApiKey) {
-      console.error('OPENAI_API_KEY is not set');
-      throw new Error('OpenAI API key is not configured');
+      console.error('CRITICAL: OPENAI_API_KEY is not set');
+      return new Response(JSON.stringify({
+        error: 'OpenAI API key is not configured',
+        details: 'The OPENAI_API_KEY environment variable is missing'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     console.log('OpenAI API key is available');
     
     let requestBody;
     try {
-      requestBody = await req.json();
-      console.log('Request body parsed successfully:', JSON.stringify(requestBody, null, 2));
+      const rawBody = await req.text();
+      console.log('Raw request body length:', rawBody.length);
+      console.log('Raw request body preview:', rawBody.substring(0, 200) + '...');
+      
+      requestBody = JSON.parse(rawBody);
+      console.log('Request body parsed successfully');
+      console.log('Request keys:', Object.keys(requestBody));
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
-      throw new Error('Invalid JSON in request body');
+      return new Response(JSON.stringify({
+        error: 'Invalid JSON in request body',
+        details: parseError.message
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     const { type, audioData, mode, customInstructions, outputFormat, amapiano_style } = requestBody;

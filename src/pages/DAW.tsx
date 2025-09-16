@@ -39,6 +39,7 @@ import { AIAssistantSidebar } from '@/components/AIAssistantSidebar';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
 import { AdvancedPatternLibrary } from '@/components/AdvancedPatternLibrary';
 import { ArtistStyleTransfer } from '@/components/ArtistStyleTransfer';
+import { VirtualInstruments } from '@/components/VirtualInstruments';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -130,6 +131,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [showVoiceToMusic, setShowVoiceToMusic] = useState(false);
   const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false);
   const [showArtistStyleTransfer, setShowArtistStyleTransfer] = useState(false);
+  const [showVirtualInstruments, setShowVirtualInstruments] = useState(false);
   const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -1360,6 +1362,23 @@ export default function DawPage({ user }: DawPageProps) {
           audioContext={getAudioContext()}
           trackId={selectedTrackId || undefined}
           onClose={() => setShowVSTPlugins(false)}
+        />
+      )}
+      
+      {/* Virtual Instruments Panel */}
+      {showVirtualInstruments && (
+        <VirtualInstruments
+          selectedInstrument={selectedTrackId ? (projectData?.tracks.find(t => t.id === selectedTrackId) as any)?.instrument : undefined}
+          onInstrumentChange={(instrument) => {
+            if (selectedTrackId) {
+              updateTrack(selectedTrackId, { name: instrument });
+            }
+          }}
+          onNotePlay={(note: string, velocity: number) => {
+            const pitch = note === 'C4' ? 60 : 60; // Convert note to MIDI pitch
+            playNote(pitch, velocity);
+          }}
+          className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg"
         />
       )}
       

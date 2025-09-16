@@ -221,7 +221,19 @@ export const MicrophoneInput = ({ onRecordingComplete, className }: MicrophoneIn
                   </div>
 
                   <div className="flex gap-2 justify-center">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        if (recordedBlob) {
+                          const audio = new Audio(URL.createObjectURL(recordedBlob));
+                          audio.play().catch(error => {
+                            console.error('Audio playback failed:', error);
+                            toast.error("Playback failed - browser may have blocked autoplay");
+                          });
+                        }
+                      }}
+                    >
                       <Play className="w-3 h-3 mr-1" />
                       Preview
                     </Button>

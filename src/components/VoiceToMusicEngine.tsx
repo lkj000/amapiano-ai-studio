@@ -345,7 +345,10 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
   const playRecording = () => {
     if (session.audioBlob) {
       const audio = new Audio(URL.createObjectURL(session.audioBlob));
-      audio.play();
+      audio.play().catch(error => {
+        console.error('Audio playback failed:', error);
+        toast.error("Playback failed - browser may have blocked autoplay");
+      });
     }
   };
 

@@ -206,7 +206,14 @@ export const VoiceAIGuide: React.FC<VoiceAIGuideProps> = ({
           toast.error("Audio playback failed");
         };
 
-        await audio.play();
+        try {
+          await audio.play();
+        } catch (playbackError) {
+          console.error('Audio playback failed:', playbackError);
+          setIsPlaying(false);
+          setCurrentAudio(null);
+          toast.error("Playback blocked by browser - click to enable audio");
+        }
         
       } else {
         throw new Error('No audio content received');

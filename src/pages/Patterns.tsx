@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play, Download, BookOpen, Music, TrendingUp, Heart } from "lucide-react";
+import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 
 interface PatternsProps {
@@ -277,7 +278,26 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                             <Download className="w-3 h-3 mr-1" />
                             MIDI
                           </Button>
-                          <Button size="sm" variant="secondary" className="flex-1">
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            className="flex-1" 
+                            onClick={() => {
+                              const trackData = {
+                                name: `Pattern: ${pattern.name}`,
+                                audioUrl: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/pattern-${pattern.id}`,
+                                type: 'audio',
+                                metadata: {
+                                  bpm: 118, // Default BPM for patterns
+                                  genre: 'Amapiano Pattern',
+                                  duration: 30
+                                }
+                              };
+                              localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+                              window.open('/daw', '_blank');
+                              toast.success(`🎵 "${pattern.name}" sent to DAW!`);
+                            }}
+                          >
                             <Music className="w-3 h-3 mr-1" />
                             Add to DAW
                           </Button>
@@ -387,7 +407,26 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                             <Download className="w-3 h-3 mr-1" />
                             Export
                           </Button>
-                          <Button size="sm" variant="secondary" className="flex-1">
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            className="flex-1" 
+                            onClick={() => {
+                              const trackData = {
+                                name: `Advanced Pattern: ${pattern.name}`,
+                                audioUrl: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/advanced-${pattern.id}`,
+                                type: 'audio',
+                                metadata: {
+                                  bpm: 118, // Default BPM for advanced patterns
+                                  genre: 'Advanced Amapiano',
+                                  duration: 45
+                                }
+                              };
+                              localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+                              window.open('/daw', '_blank');
+                              toast.success(`🎵 "${pattern.name}" sent to DAW!`);
+                            }}
+                          >
                             <Music className="w-3 h-3 mr-1" />
                             Add to DAW
                           </Button>

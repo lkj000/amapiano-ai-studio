@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Play, Download, Heart, Filter, Search, Music, Star } from "lucide-react";
+import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 
 interface SamplesProps {
@@ -267,7 +268,25 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             <Download className="w-3 h-3 mr-1" />
                             Download
                           </Button>
-                          <Button size="sm" className="flex-1">
+                          <Button 
+                            size="sm" 
+                            className="flex-1" 
+                            onClick={() => {
+                              const trackData = {
+                                name: `Sample: ${sample.name}`,
+                                audioUrl: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sample.id}`,
+                                type: 'audio',
+                                metadata: {
+                                  bpm: sample.bpm,
+                                  genre: sample.category,
+                                  duration: parseInt(sample.duration) || 30
+                                }
+                              };
+                              localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+                              window.open('/daw', '_blank');
+                              toast.success(`🎵 "${sample.name}" sent to DAW!`);
+                            }}
+                          >
                             <Music className="w-3 h-3 mr-1" />
                             Add to DAW
                           </Button>

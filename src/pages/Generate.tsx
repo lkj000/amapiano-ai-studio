@@ -668,59 +668,82 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                           <Play className="w-8 h-8 text-primary-foreground" />
                         </div>
                         <p className="text-primary-foreground/80 mb-4">Professional Audio Player</p>
-                        <div className="flex gap-2 justify-center">
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => {
-                              setIsPlaying(!isPlaying);
-                              toast.success(isPlaying ? "⏸️ Paused" : "▶️ Playing");
-                            }}
-                          >
-                            {isPlaying ? (
-                              <>
-                                <div className="w-4 h-4 mr-2 flex gap-1">
-                                  <div className="w-1.5 h-4 bg-current"></div>
-                                  <div className="w-1.5 h-4 bg-current"></div>
-                                </div>
-                                Pause
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-4 h-4 mr-2" />
-                                Play
-                              </>
-                            )}
-                          </Button>
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(generatedTrack.audioUrl);
-                                if (!response.ok) throw new Error('Download failed');
-                                
-                                const blob = await response.blob();
-                                const url = window.URL.createObjectURL(blob);
-                                const link = document.createElement('a');
-                                link.href = url;
-                                link.download = `${generatedTrack.title.replace(/\s+/g, '_')}.wav`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                window.URL.revokeObjectURL(url);
-                                
-                                toast.success("🎵 Demo track downloaded successfully!");
-                              } catch (error) {
-                                console.error('Download error:', error);
-                                toast.error("Download failed - this is a demo version");
-                              }
-                            }}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
-                        </div>
+                         <div className="flex gap-2 justify-center">
+                           <Button 
+                             variant="secondary" 
+                             size="sm"
+                             onClick={() => {
+                               setIsPlaying(!isPlaying);
+                               toast.success(isPlaying ? "⏸️ Paused" : "▶️ Playing");
+                             }}
+                           >
+                             {isPlaying ? (
+                               <>
+                                 <div className="w-4 h-4 mr-2 flex gap-1">
+                                   <div className="w-1.5 h-4 bg-current"></div>
+                                   <div className="w-1.5 h-4 bg-current"></div>
+                                 </div>
+                                 Pause
+                               </>
+                             ) : (
+                               <>
+                                 <Play className="w-4 h-4 mr-2" />
+                                 Play
+                               </>
+                             )}
+                           </Button>
+                           <Button 
+                             variant="outline" 
+                             size="sm"
+                             onClick={() => {
+                               // Store in localStorage for DAW to pick up
+                               const trackData = {
+                                 name: generatedTrack.title,
+                                 audioUrl: generatedTrack.audioUrl,
+                                 type: 'audio',
+                                 metadata: {
+                                   bpm: generatedTrack.bpm,
+                                   genre: generatedTrack.genre,
+                                   duration: generatedTrack.duration
+                                 }
+                               };
+                               localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+                               window.open('/daw', '_blank');
+                               toast.success("🎵 Track sent to DAW! Opening DAW in new tab...");
+                             }}
+                           >
+                             <Music className="w-4 h-4 mr-2" />
+                             Add to DAW
+                           </Button>
+                           <Button 
+                             variant="secondary" 
+                             size="sm"
+                             onClick={async () => {
+                               try {
+                                 const response = await fetch(generatedTrack.audioUrl);
+                                 if (!response.ok) throw new Error('Download failed');
+                                 
+                                 const blob = await response.blob();
+                                 const url = window.URL.createObjectURL(blob);
+                                 const link = document.createElement('a');
+                                 link.href = url;
+                                 link.download = `${generatedTrack.title.replace(/\s+/g, '_')}.wav`;
+                                 document.body.appendChild(link);
+                                 link.click();
+                                 document.body.removeChild(link);
+                                 window.URL.revokeObjectURL(url);
+                                 
+                                 toast.success("🎵 Demo track downloaded successfully!");
+                               } catch (error) {
+                                 console.error('Download error:', error);
+                                 toast.error("Download failed - this is a demo version");
+                               }
+                             }}
+                           >
+                             <Download className="w-4 h-4 mr-2" />
+                             Download
+                           </Button>
+                         </div>
                       </div>
 
                         <div className="space-y-2">

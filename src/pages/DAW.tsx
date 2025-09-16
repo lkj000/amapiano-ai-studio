@@ -368,6 +368,29 @@ export default function DawPage({ user }: DawPageProps) {
     });
   }, [projectData, undoRedoControls]);
 
+  // Check for pending generated tracks on mount
+  useEffect(() => {
+    const checkPendingTrack = () => {
+      const pendingTrack = localStorage.getItem('pendingGeneratedTrack');
+      if (pendingTrack && projectData) {
+        try {
+          const trackData = JSON.parse(pendingTrack);
+          localStorage.removeItem('pendingGeneratedTrack');
+          
+          // Add the track to the current project
+          handleTrackGenerated(trackData);
+          toast.success(`🎵 Imported "${trackData.name}" from Generator!`);
+        } catch (error) {
+          console.error('Failed to import pending track:', error);
+          localStorage.removeItem('pendingGeneratedTrack');
+        }
+      }
+    };
+    
+    // Check on mount and when project data changes
+    checkPendingTrack();
+  }, [projectData, handleTrackGenerated]);
+
   const handleAIGenerate = (prompt: string) => {
     if (!prompt.trim()) {
       toast.error("Please enter a prompt for the AI assistant.");

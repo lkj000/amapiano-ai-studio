@@ -12,3 +12,9 @@ verify_jwt = false
 
 [functions.demo-audio-files]
 verify_jwt = false
+
+[functions.neural-music-generation]
+verify_jwt = false
+
+[functions.rag-knowledge-search]
+verify_jwt = false

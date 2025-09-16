@@ -286,6 +286,15 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       }
 
       // Call the neural music generation function
+      console.log('Calling neural-music-generation function with payload:', {
+        type: 'voice_to_music',
+        audioDataLength: base64Audio.length,
+        mode: selectedMode,
+        customInstructions: customInstructions || undefined,
+        outputFormat: 'full_track_with_stems',
+        amapiano_style: 'adaptive'
+      });
+
       const { data, error } = await supabase.functions.invoke('neural-music-generation', {
         body: {
           type: 'voice_to_music',
@@ -296,6 +305,8 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
           amapiano_style: 'adaptive' // Let AI determine best style
         }
       });
+
+      console.log('Function response received:', { data, error });
 
       if (error) throw error;
 

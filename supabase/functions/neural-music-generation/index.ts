@@ -9,13 +9,33 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('Neural Music Generation function called with method:', req.method);
+  
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Neural Music Generation request received');
-    const { type, audioData, mode, customInstructions, outputFormat, amapiano_style } = await req.json();
+    console.log('Processing POST request for neural music generation');
+    
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY is not set');
+      throw new Error('OpenAI API key is not configured');
+    }
+    
+    console.log('OpenAI API key is available');
+    
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('Request body parsed successfully:', JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      throw new Error('Invalid JSON in request body');
+    }
+    
+    const { type, audioData, mode, customInstructions, outputFormat, amapiano_style } = requestBody;
 
     if (type !== 'voice_to_music' || !audioData) {
       throw new Error('Invalid request: type must be voice_to_music and audioData is required');
@@ -168,12 +188,15 @@ Create multiple tracks (piano, bass, drums, pads) with authentic amapiano patter
 
   } catch (error) {
     console.error('Error in neural-music-generation function:', error);
+    console.error('Error stack:', error.stack);
     
     // Return fallback music data
     const fallbackData = generateFallbackMusic('melody', 'fallback generation');
     
     return new Response(JSON.stringify({
       error: error.message,
+      errorType: error.name,
+      timestamp: new Date().toISOString(),
       ...fallbackData
     }), {
       status: 500,

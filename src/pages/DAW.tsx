@@ -329,6 +329,44 @@ export default function DawPage({ user }: DawPageProps) {
     });
   };
 
+  // Track Generation Handler
+  const handleTrackGenerated = useCallback((trackData: any) => {
+    console.log('Track generated in DAW:', trackData);
+    
+    if (!projectData) {
+      toast.error("No project loaded", { description: "Create or load a project first." });
+      return;
+    }
+
+    // Create a new track from the generated data
+    const newTrack: DawTrackV2 = {
+      id: `track_${Date.now()}`,
+      type: 'audio' as const, // Voice-generated tracks are audio
+      name: trackData.name || 'AI Generated Track',
+      clips: trackData.audioUrl ? [{
+        id: `clip_${Date.now()}`,
+        startTime: 0,
+        duration: 4, // Default duration, will be updated when audio loads
+        audioUrl: trackData.audioUrl,
+        name: trackData.name || 'Generated Audio'
+      }] : [],
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: false,
+      color: trackData.metadata?.genre === 'Amapiano' ? 'bg-purple-500' : 'bg-green-500',
+      automationLanes: [],
+      recordings: [],
+      metadata: trackData.metadata // Store BPM, key, etc.
+    } as DawTrackV2;
+
+    const newData = { ...projectData, tracks: [...projectData.tracks, newTrack] };
+    undoRedoControls.pushState(newData, `AI Generated: ${newTrack.name}`);
+    setProjectData(newData);
+    
+    toast.success(`🎵 Track "${newTrack.name}" added to project!`, {
+      description: `${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'}`
+    });
+  }, [projectData, undoRedoControls]);
+
   const handleAIGenerate = (prompt: string) => {
     if (!prompt.trim()) {
       toast.error("Please enter a prompt for the AI assistant.");
@@ -1045,7 +1083,7 @@ export default function DawPage({ user }: DawPageProps) {
             <TabsList className="grid w-full grid-cols-3 m-2 bg-muted/20">
               <TabsTrigger value="instruments" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Instruments</TabsTrigger>
               <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Effects</TabsTrigger>
-              <TabsTrigger value="ai-assistant" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">AI</TabsTrigger>
+              <TabsTrigger value="ai-assistant" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">AI Tools</TabsTrigger>
             </TabsList>
 
             <TabsContent value="instruments" className="p-4 space-y-4">
@@ -1396,6 +1434,30 @@ export default function DawPage({ user }: DawPageProps) {
         />
       )}
       
+      {/* Voice-to-Music Engine Modal */}
+      {showVoiceToMusic && (
+        <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-purple-500" />
+              <h3 className="text-lg font-semibold">Voice-to-Music Engine</h3>
+              <Badge variant="outline" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20">
+                AI-Powered
+              </Badge>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowVoiceToMusic(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto">
+            <VoiceToMusicEngine
+              onTrackGenerated={handleTrackGenerated}
+              className="max-w-4xl mx-auto"
+            />
+          </div>
+        </div>
+      )}
+
       {/* MIDI Controller Panel */}
       {showMIDIController && (
         <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">

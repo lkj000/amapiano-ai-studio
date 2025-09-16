@@ -88,7 +88,7 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({ user }) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPosts(data || []);
+      setPosts((data || []) as CommunityPost[]);
     } catch (error) {
       console.error('Error fetching posts:', error);
     }

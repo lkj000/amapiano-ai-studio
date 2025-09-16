@@ -111,7 +111,7 @@ window.AuraPluginExports = { AuraPlugin };`
         .order('download_count', { ascending: false });
 
       if (error) throw error;
-      setPlugins(data || []);
+      setPlugins((data || []) as WebPlugin[]);
     } catch (error) {
       console.error('Error fetching plugins:', error);
     }

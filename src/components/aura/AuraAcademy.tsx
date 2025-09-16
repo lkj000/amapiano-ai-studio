@@ -88,7 +88,7 @@ export const AuraAcademy: React.FC<AuraAcademyProps> = ({ user }) => {
         .order('enrollment_count', { ascending: false });
 
       if (error) throw error;
-      setCourses(data || []);
+      setCourses((data || []) as Course[]);
     } catch (error) {
       console.error('Error fetching courses:', error);
     }
@@ -118,7 +118,7 @@ export const AuraAcademy: React.FC<AuraAcademyProps> = ({ user }) => {
         .order('order_index', { ascending: true });
 
       if (error) throw error;
-      setLessons(data || []);
+      setLessons((data || []) as Lesson[]);
     } catch (error) {
       console.error('Error fetching lessons:', error);
     }

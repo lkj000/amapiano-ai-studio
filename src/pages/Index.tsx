@@ -9,6 +9,9 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionModal } from '@/components/SubscriptionModal';
 import { SubscriptionManagement } from '@/components/SubscriptionManagement';
 import { MarketplaceModal } from '@/components/MarketplaceModal';
+import { AIModelMarketplace } from '@/components/AIModelMarketplace';
+import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
+import { toast } from 'sonner';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 
 interface IndexProps {
@@ -289,8 +292,39 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
           </div>
         </div>
       </section>
+
+      {/* AI Features Preview for Logged In Users */}
+      {user && (
+        <section className="py-20 bg-muted/10">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  Advanced AI Features
+                </h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Unlock the power of AI with our advanced features designed specifically for amapiano production.
+                </p>
+              </div>
+
+              <div className="grid lg:grid-cols-2 gap-8">
+                <AIModelMarketplace />
+                
+                <RealTimeCollaboration
+                  projectId="demo"
+                  currentUser={user}
+                  projectData={null}
+                  onProjectUpdate={(update) => {
+                    console.log('Project update:', update);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       
-      <SubscriptionModal 
+      <SubscriptionModal
         open={subscriptionModalOpen}
         onOpenChange={setSubscriptionModalOpen}
         user={user}

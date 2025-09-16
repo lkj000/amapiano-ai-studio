@@ -40,6 +40,13 @@ import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
 import { AdvancedPatternLibrary } from '@/components/AdvancedPatternLibrary';
 import { ArtistStyleTransfer } from '@/components/ArtistStyleTransfer';
 import { VirtualInstruments } from '@/components/VirtualInstruments';
+import { RealtimeAIAssistant } from '@/components/RealtimeAIAssistant';
+import { AIModelRouter } from '@/components/AIModelRouter';
+import { VoiceAIGuide } from '@/components/VoiceAIGuide';
+import { RAGKnowledgeBase } from '@/components/RAGKnowledgeBase';
+import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
+import { AIModelMarketplace } from '@/components/AIModelMarketplace';
+import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -132,6 +139,13 @@ export default function DawPage({ user }: DawPageProps) {
   const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false);
   const [showArtistStyleTransfer, setShowArtistStyleTransfer] = useState(false);
   const [showVirtualInstruments, setShowVirtualInstruments] = useState(false);
+  const [showRealtimeAI, setShowRealtimeAI] = useState(false);
+  const [showAIModelRouter, setShowAIModelRouter] = useState(false);
+  const [showVoiceAIGuide, setShowVoiceAIGuide] = useState(false);
+  const [showRAGKnowledge, setShowRAGKnowledge] = useState(false);
+  const [showRealTimeCollab, setShowRealTimeCollab] = useState(false);
+  const [showAIMarketplace, setShowAIMarketplace] = useState(false);
+  const [showMusicAnalysis, setShowMusicAnalysis] = useState(false);
   const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,

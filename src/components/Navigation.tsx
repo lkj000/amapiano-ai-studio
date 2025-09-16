@@ -22,7 +22,8 @@ import {
   ShoppingCart,
   LogOut,
   Settings,
-  User as UserIcon
+  User as UserIcon,
+  Brain
 } from "lucide-react";
 
 interface NavigationProps {
@@ -47,13 +48,14 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     }
   };
 
-  const navItems = [
+const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
     { path: "/analyze", label: "Analyze", icon: Search },
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },
     { path: "/daw", label: "DAW", icon: Volume2 },
+    { path: "/ai-hub", label: "AI Hub", icon: Brain },
   ];
 
   const isActive = (path: string) => {

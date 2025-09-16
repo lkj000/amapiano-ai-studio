@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { BatchProcessor } from "@/components/BatchProcessor";
 import { AmapianorizeEngine } from "@/components/AmapianorizeEngine";
+import { MusicAnalysisTools } from "@/components/MusicAnalysisTools";
+import { RAGKnowledgeBase } from "@/components/RAGKnowledgeBase";
 import { User } from '@supabase/supabase-js';
 
 interface AnalyzeProps {
@@ -417,6 +419,20 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Advanced Music Analysis Tools */}
+      <div className="mt-8">
+        <MusicAnalysisTools
+          projectData={null}
+        />
+      </div>
+
+      {/* RAG Knowledge Base */}
+      <div className="mt-8">
+        <RAGKnowledgeBase
+          currentContext="Analyze Page - Upload audio files for analysis"
+        />
       </div>
     </div>
   );

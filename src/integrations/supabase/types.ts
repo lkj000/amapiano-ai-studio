@@ -228,6 +228,90 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_usage: {
+        Row: {
+          cost_cents: number | null
+          created_at: string
+          error_message: string | null
+          generation_time_ms: number | null
+          id: string
+          model_id: string | null
+          model_name: string
+          parameters_used: Json | null
+          success: boolean | null
+          usage_type: string | null
+          user_id: string
+        }
+        Insert: {
+          cost_cents?: number | null
+          created_at?: string
+          error_message?: string | null
+          generation_time_ms?: number | null
+          id?: string
+          model_id?: string | null
+          model_name: string
+          parameters_used?: Json | null
+          success?: boolean | null
+          usage_type?: string | null
+          user_id: string
+        }
+        Update: {
+          cost_cents?: number | null
+          created_at?: string
+          error_message?: string | null
+          generation_time_ms?: number | null
+          id?: string
+          model_id?: string | null
+          model_name?: string
+          parameters_used?: Json | null
+          success?: boolean | null
+          usage_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          event_data: Json
+          event_type: string
+          id: string
+          ip_address: string | null
+          page_path: string | null
+          post_id: string | null
+          session_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          event_data?: Json
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          page_path?: string | null
+          post_id?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          event_data?: Json
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          page_path?: string | null
+          post_id?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       artist_licenses: {
         Row: {
           artist_id: string
@@ -397,6 +481,45 @@ export type Database = {
           },
         ]
       }
+      collaboration_rooms: {
+        Row: {
+          created_at: string
+          current_project_data: Json | null
+          host_user_id: string
+          id: string
+          is_active: boolean | null
+          max_participants: number | null
+          room_code: string
+          room_name: string
+          settings: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_project_data?: Json | null
+          host_user_id: string
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          room_code: string
+          room_name: string
+          settings?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_project_data?: Json | null
+          host_user_id?: string
+          id?: string
+          is_active?: boolean | null
+          max_participants?: number | null
+          room_code?: string
+          room_name?: string
+          settings?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       collaboration_sessions: {
         Row: {
           created_at: string
@@ -527,6 +650,42 @@ export type Database = {
           post_type?: string | null
           tags?: string[] | null
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      creator_analytics: {
+        Row: {
+          audience_demographics: Json | null
+          created_at: string
+          creator_id: string
+          date_period: string
+          id: string
+          metrics: Json
+          period_type: string | null
+          top_posts: Json | null
+          updated_at: string
+        }
+        Insert: {
+          audience_demographics?: Json | null
+          created_at?: string
+          creator_id: string
+          date_period: string
+          id?: string
+          metrics?: Json
+          period_type?: string | null
+          top_posts?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          audience_demographics?: Json | null
+          created_at?: string
+          creator_id?: string
+          date_period?: string
+          id?: string
+          metrics?: Json
+          period_type?: string | null
+          top_posts?: Json | null
           updated_at?: string
         }
         Relationships: []
@@ -1061,6 +1220,45 @@ export type Database = {
         }
         Relationships: []
       }
+      room_participants: {
+        Row: {
+          current_activity: Json | null
+          cursor_position: Json | null
+          id: string
+          is_guest: boolean | null
+          joined_at: string
+          last_active: string
+          participant_name: string
+          role: string | null
+          room_id: string
+          user_id: string | null
+        }
+        Insert: {
+          current_activity?: Json | null
+          cursor_position?: Json | null
+          id?: string
+          is_guest?: boolean | null
+          joined_at?: string
+          last_active?: string
+          participant_name: string
+          role?: string | null
+          room_id: string
+          user_id?: string | null
+        }
+        Update: {
+          current_activity?: Json | null
+          cursor_position?: Json | null
+          id?: string
+          is_guest?: boolean | null
+          joined_at?: string
+          last_active?: string
+          participant_name?: string
+          role?: string | null
+          room_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       samples: {
         Row: {
           bpm: number | null
@@ -1580,6 +1778,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_room_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_personalized_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {
@@ -1609,6 +1811,14 @@ export type Database = {
           visibility: string
         }[]
       }
+      join_room_by_code: {
+        Args: {
+          p_participant_name: string
+          p_room_code: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
       process_micro_royalty: {
         Args: { p_play_value_cents?: number; p_post_id: string }
         Returns: undefined
@@ -1622,6 +1832,15 @@ export type Database = {
           p_tipper_id: string
         }
         Returns: string
+      }
+      track_analytics_event: {
+        Args: {
+          p_event_data?: Json
+          p_event_type: string
+          p_post_id?: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       update_user_preferences: {
         Args: {

@@ -135,7 +135,7 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
           variant="ghost"
           size="sm"
           onClick={refreshFeed}
-          className="bg-black/40 text-white hover:bg-black/60"
+          className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
         >
           <RefreshCw className="w-4 h-4" />
         </Button>
@@ -144,32 +144,41 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
           variant="ghost"
           size="sm"
           onClick={() => setShowOnboarding(true)}
-          className="bg-black/40 text-white hover:bg-black/60"
+          className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
         >
           <HelpCircle className="w-4 h-4" />
         </Button>
         
-        {user && (
+        {user ? (
           <Dialog>
             <DialogTrigger asChild>
               <Button
-                variant="ghost"
                 size="sm"
-                className="bg-black/40 text-white hover:bg-black/60"
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 mr-1" />
+                Create
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh]">
               <VoiceToMusicEngine onTrackGenerated={() => refreshFeed()} />
             </DialogContent>
           </Dialog>
+        ) : (
+          <Button
+            size="sm"
+            className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg"
+            onClick={() => window.location.href = '/auth'}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Sign In to Create
+          </Button>
         )}
 
         <Button
           variant="ghost"
           size="sm"
-          className="bg-black/40 text-white hover:bg-black/60"
+          className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
         >
           <User className="w-4 h-4" />
         </Button>

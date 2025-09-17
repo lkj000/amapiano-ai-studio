@@ -196,10 +196,10 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
                 variant="ghost"
                 size="sm"
                 onClick={() => onRemix?.(post)}
-                className="text-white/80 hover:text-white"
+                className="text-white/80 hover:text-white hover:bg-purple-500/20 transition-all"
               >
                 <Repeat className="w-5 h-5" />
-                <span className="ml-1 text-sm">{post.remix_count}</span>
+                <span className="ml-1 text-sm">Remix {post.remix_count > 0 ? post.remix_count : ''}</span>
               </Button>
             </div>
 

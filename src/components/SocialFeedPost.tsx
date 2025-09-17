@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Heart, Play, Pause, Share2, MessageCircle, Repeat, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SocialPost, useSocialInteractions } from '@/hooks/useSocialFeed';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -20,6 +21,8 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(post.user_interactions?.liked || false);
+  const [likeCount, setLikeCount] = useState<number>(post.like_count || 0);
+  const [shareCount, setShareCount] = useState<number>(post.share_count || 0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const { likePost, playPost, sharePost } = useSocialInteractions();
@@ -38,35 +41,39 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
     }
   }, [isVisible, post.id, onPlay, playPost]);
 
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
+  const togglePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      if (audio.paused) {
+        await audio.play();
         playPost(post.id);
+      } else {
+        audio.pause();
       }
-      setIsPlaying(!isPlaying);
+      // isPlaying state syncs via onPlay/onPause events
+    } catch (err) {
+      console.error('Playback failed:', err);
     }
   };
 
   const handleLike = async () => {
-    if (onLike) {
-      setIsLiked((prev) => !prev); // optimistic UI
-      onLike(post.id);
-      return;
+    const nextLiked = !isLiked;
+    setIsLiked(nextLiked);
+    setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
+    onLike?.(post.id);
+    const serverLiked = await likePost(post.id);
+    if (serverLiked !== nextLiked) {
+      setIsLiked(serverLiked);
+      setLikeCount((c) => Math.max(0, c + (serverLiked ? 1 : -1) - (nextLiked ? 1 : -1)));
     }
-    const newLikedState = await likePost(post.id);
-    setIsLiked(newLikedState);
   };
 
   const handleShare = () => {
     const url = `${window.location.origin}/social/post/${post.id}`;
     navigator.clipboard.writeText(url);
-    if (onShare) {
-      onShare(post.id);
-      return;
-    }
+    setShareCount((c) => c + 1);
+    onShare?.(post.id);
     sharePost(post.id);
   };
 
@@ -112,9 +119,18 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
               <p className="text-xs text-white/80">{formatDistanceToNow(new Date(post.created_at))} ago</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="text-white/80 hover:text-white">
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-white/80 hover:text-white">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[180px]">
+              <DropdownMenuItem onClick={() => onRemix?.(post)}>Remix this track</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleShare}>Share</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(`${window.location.origin}/social/post/${post.id}`)}>Copy link</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Center Play Button */}
@@ -184,7 +200,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
                 className={`text-white hover:bg-white/20 transition-all ${isLiked ? 'text-red-400' : 'text-white/90'}`}
               >
                 <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="ml-1 text-sm font-medium">{post.like_count}</span>
+                <span className="ml-1 text-sm font-medium">{likeCount}</span>
               </Button>
               
               <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/20 transition-all">
@@ -211,7 +227,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
               className="text-white/90 hover:text-white hover:bg-white/20 transition-all"
             >
               <Share2 className="w-5 h-5" />
-              <span className="ml-1 text-sm font-medium">{post.share_count}</span>
+              <span className="ml-1 text-sm font-medium">{shareCount}</span>
             </Button>
           </div>
         </div>
@@ -223,9 +239,11 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
         src={post.preview_url || post.audio_url}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
         loop
-        muted={!isVisible} // Mute when not visible
+        muted={!isVisible}
       />
     </Card>
   );

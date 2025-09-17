@@ -7,6 +7,7 @@ import { Heart, Play, Pause, Share2, MessageCircle, Repeat, MoreHorizontal } fro
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SocialPost, useSocialInteractions } from '@/hooks/useSocialFeed';
 import { formatDistanceToNow } from 'date-fns';
+import { CommentsDialog } from '@/components/social/CommentsDialog';
 
 interface SocialFeedPostProps {
   post: SocialPost;
@@ -25,6 +26,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
   const [shareCount, setShareCount] = useState<number>(post.share_count || 0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [showComments, setShowComments] = useState(false);
   const { likePost, playPost, sharePost } = useSocialInteractions();
 
   // Auto-play when visible (muted initially)
@@ -47,13 +49,14 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
       console.error('Audio ref is null');
       return;
     }
-    
-    console.log('Audio src:', audio.src);
-    console.log('Audio readyState:', audio.readyState);
-    console.log('Audio paused:', audio.paused);
-    
+
     try {
       if (audio.paused) {
+        audio.muted = false;
+        audio.volume = 1;
+        // Ensure inline playback on mobile
+        // @ts-ignore - playsInline is boolean attribute
+        audio.playsInline = true;
         await audio.play();
         playPost(post.id);
         setIsPlaying(true);
@@ -67,14 +70,13 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
         src: audio.src,
         error: audio.error,
         networkState: audio.networkState,
-        readyState: audio.readyState
+        readyState: audio.readyState,
       });
     }
   };
 
   const handleComments = () => {
-    // TODO: Navigate to comments or open comments modal
-    console.log('Comments clicked for post:', post.id);
+    setShowComments(true);
   };
 
   const handleLike = async () => {
@@ -120,7 +122,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
       {/* Background Image */}
       {post.cover_image_url && (
         <div 
-          className="absolute inset-0 bg-cover bg-center blur-sm"
+          className="absolute inset-0 bg-cover bg-center blur-sm pointer-events-none"
           style={{ backgroundImage: `url(${post.cover_image_url})` }}
         />
       )}
@@ -258,6 +260,14 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
         </div>
       </div>
 
+      {/* Comments Dialog */}
+      <CommentsDialog
+        open={showComments}
+        onOpenChange={setShowComments}
+        postTitle={post.title}
+        commentCount={post.comment_count}
+      />
+
       {/* Audio Element */}
       <audio
         ref={audioRef}
@@ -284,7 +294,9 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
         onCanPlay={() => console.log('Audio can play')}
         loop
         muted={!isVisible}
-        preload="metadata"
+        preload="auto"
+        playsInline
+        crossOrigin="anonymous"
       />
     </Card>
   );

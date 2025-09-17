@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
+import { StemByStepGenerator } from "@/components/StemByStepGenerator";
+import { MoodBasedGenerator } from "@/components/MoodBasedGenerator";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 
@@ -28,7 +30,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [generationType, setGenerationType] = useState<"prompt" | "reference">("prompt");
+  const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood">("prompt");
   const [trackType, setTrackType] = useState<"full" | "loop">("full");
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
@@ -164,9 +166,11 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           </div>
 
           <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-6">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="prompt">Generate from Prompt</TabsTrigger>
               <TabsTrigger value="reference">Generate from Reference</TabsTrigger>
+              <TabsTrigger value="stem">Stem by Stem</TabsTrigger>
+              <TabsTrigger value="mood">Mood Based</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -565,15 +569,20 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     </div>
                   </CardContent>
                 </Card>
-              )}
+              ) : generationType === "stem" ? (
+                <StemByStepGenerator onTrackGenerated={(track) => setGeneratedTrack(track)} />
+              ) : generationType === "mood" ? (
+                <MoodBasedGenerator onTrackGenerated={(track) => setGeneratedTrack(track)} />
+              ) : null}
 
               {/* Generate Button */}
-              <Button 
-                onClick={handleGenerate}
-                disabled={isGenerating || (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio)}
-                className="w-full btn-glow"
-                size="lg"
-              >
+              {(generationType === "prompt" || generationType === "reference") && (
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio)}
+                  className="w-full btn-glow"
+                  size="lg"
+                >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { LanguageSelector } from './LanguageSelector';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { toast } from "sonner";
@@ -104,6 +105,7 @@ const navItems = [
 
           {/* Auth/User Section */}
           <div className="hidden md:flex items-center gap-3">
+            <LanguageSelector variant="minimal" />
             {user ? (
               <>
                 <SubscriptionBadge tier={subscription_tier} />

@@ -175,31 +175,32 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between bg-black/40 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleLike}
-                className={`text-white/80 hover:text-white ${isLiked ? 'text-red-400' : ''}`}
+                className={`text-white hover:bg-white/20 transition-all ${isLiked ? 'text-red-400' : 'text-white/90'}`}
               >
                 <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="ml-1 text-sm">{post.like_count}</span>
+                <span className="ml-1 text-sm font-medium">{post.like_count}</span>
               </Button>
               
-              <Button variant="ghost" size="sm" className="text-white/80 hover:text-white">
+              <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/20 transition-all">
                 <MessageCircle className="w-5 h-5" />
-                <span className="ml-1 text-sm">{post.comment_count}</span>
+                <span className="ml-1 text-sm font-medium">{post.comment_count}</span>
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onRemix?.(post)}
-                className="text-white/80 hover:text-white hover:bg-purple-500/20 transition-all"
+                className="text-white/90 hover:text-white hover:bg-gradient-to-r hover:from-purple-500/20 hover:to-pink-500/20 transition-all border border-purple-400/30 bg-gradient-to-r from-purple-500/10 to-pink-500/10"
               >
                 <Repeat className="w-5 h-5" />
-                <span className="ml-1 text-sm">Remix {post.remix_count > 0 ? post.remix_count : ''}</span>
+                <span className="ml-1 text-sm font-medium">Remix</span>
+                {post.remix_count > 0 && <span className="ml-1 text-xs">({post.remix_count})</span>}
               </Button>
             </div>
 
@@ -207,10 +208,10 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
               variant="ghost"
               size="sm"
               onClick={handleShare}
-              className="text-white/80 hover:text-white"
+              className="text-white/90 hover:text-white hover:bg-white/20 transition-all"
             >
               <Share2 className="w-5 h-5" />
-              <span className="ml-1 text-sm">{post.share_count}</span>
+              <span className="ml-1 text-sm font-medium">{post.share_count}</span>
             </Button>
           </div>
         </div>

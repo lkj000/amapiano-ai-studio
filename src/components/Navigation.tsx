@@ -23,7 +23,8 @@ import {
   LogOut,
   Settings,
   User as UserIcon,
-  Brain
+  Brain,
+  Users
 } from "lucide-react";
 
 interface NavigationProps {
@@ -51,6 +52,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
 const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
+    { path: "/social", label: "Social", icon: Users },
     { path: "/analyze", label: "Analyze", icon: Search },
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },

@@ -43,7 +43,8 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
     }
   }, [isVisible, post.id, onPlay, playPost]);
 
-  const togglePlay = async () => {
+  const togglePlay = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const audio = audioRef.current;
     if (!audio) {
       console.error('Audio ref is null');
@@ -54,9 +55,6 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
       if (audio.paused) {
         audio.muted = false;
         audio.volume = 1;
-        // Ensure inline playback on mobile
-        // @ts-ignore - playsInline is boolean attribute
-        audio.playsInline = true;
         await audio.play();
         playPost(post.id);
         setIsPlaying(true);
@@ -66,12 +64,6 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
       }
     } catch (err) {
       console.error('Playback failed:', err);
-      console.error('Audio error details:', {
-        src: audio.src,
-        error: audio.error,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
     }
   };
 
@@ -160,7 +152,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
           <Button
             variant="ghost"
             size="lg"
-            onClick={togglePlay}
+            onClick={(e) => togglePlay(e)}
             className="w-20 h-20 rounded-full bg-white/20 hover:bg-white/30 text-white border-2 border-white/40"
           >
             {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}

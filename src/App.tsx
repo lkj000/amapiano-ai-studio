@@ -77,6 +77,7 @@ const App = () => {
               <Route path="/aura" element={<AuraPlatform user={user} />} />
               <Route path="/ai-hub" element={<AIHub user={user} />} />
               <Route path="/social" element={<SocialFeed user={user} />} />
+              <Route path="/social/post/:id" element={<SocialFeed user={user} />} />
               <Route path="/creator-hub" element={<CreatorHub user={user} />} />
               <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
               <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />

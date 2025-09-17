@@ -49,7 +49,7 @@ interface RealTimeCollaborationProps {
   className?: string;
 }
 
-export const RealTimeCollaboration: React.FC<RealTimeCollaborationProps> = ({
+const RealTimeCollaboration: React.FC<RealTimeCollaborationProps> = ({
   projectId,
   currentUser,
   projectData,
@@ -658,3 +658,6 @@ export const RealTimeCollaboration: React.FC<RealTimeCollaborationProps> = ({
     </Card>
   );
 };
+
+export { RealTimeCollaboration };
+export default RealTimeCollaboration;

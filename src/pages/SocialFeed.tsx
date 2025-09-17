@@ -57,9 +57,19 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    const target = (e.target as HTMLElement) || (document.activeElement as HTMLElement | null);
+    const tag = target?.tagName?.toLowerCase();
+    const isEditing =
+      (tag === 'input' || tag === 'textarea' || target?.isContentEditable) ||
+      !!target?.closest('input, textarea, [contenteditable="true"], [role="textbox"]');
+    // If user is typing in any input/textarea/contentEditable or inside an open dialog, do nothing
+    const openDialog = document.querySelector('[role="dialog"][data-state="open"]');
+    if (isEditing || (openDialog && target && openDialog.contains(target))) {
+      return;
+    }
+
     if (e.key === 'ArrowDown' && currentIndex < posts.length - 1) {
       setCurrentIndex(prev => prev + 1);
-      // Track interaction
       if (user?.id && posts[currentIndex]) {
         trackInteraction(posts[currentIndex].id, 'keyboard_next', 0.2);
       }
@@ -68,16 +78,19 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
       }
     } else if (e.key === 'ArrowUp' && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
-      // Track interaction
       if (user?.id && posts[currentIndex]) {
         trackInteraction(posts[currentIndex].id, 'keyboard_prev', 0.1);
       }
     } else if (e.key === ' ') {
+      // prevent page scroll when not typing
       e.preventDefault();
-      // Track pause/play interaction
       if (user?.id && posts[currentIndex]) {
         trackInteraction(posts[currentIndex].id, 'keyboard_pause', 0.3);
       }
+      // Optional: notify current post to toggle playback
+      window.dispatchEvent(
+        new CustomEvent('social:toggle-play', { detail: { index: currentIndex, postId: posts[currentIndex]?.id } })
+      );
     }
   };
 

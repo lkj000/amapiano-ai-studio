@@ -566,6 +566,36 @@ export type Database = {
         }
         Relationships: []
       }
+      duet_collaborations: {
+        Row: {
+          collaboration_type: string | null
+          created_at: string
+          creator_id: string
+          duet_post_id: string
+          id: string
+          mix_settings: Json | null
+          original_post_id: string
+        }
+        Insert: {
+          collaboration_type?: string | null
+          created_at?: string
+          creator_id: string
+          duet_post_id: string
+          id?: string
+          mix_settings?: Json | null
+          original_post_id: string
+        }
+        Update: {
+          collaboration_type?: string | null
+          created_at?: string
+          creator_id?: string
+          duet_post_id?: string
+          id?: string
+          mix_settings?: Json | null
+          original_post_id?: string
+        }
+        Relationships: []
+      }
       licensed_content: {
         Row: {
           content_type: string | null
@@ -664,6 +694,36 @@ export type Database = {
           subcategory?: string | null
           tags?: string[] | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      music_clips: {
+        Row: {
+          auto_generated: boolean | null
+          created_at: string
+          duration: number
+          engagement_score: number | null
+          id: string
+          post_id: string
+          start_time: number
+        }
+        Insert: {
+          auto_generated?: boolean | null
+          created_at?: string
+          duration?: number
+          engagement_score?: number | null
+          id?: string
+          post_id: string
+          start_time?: number
+        }
+        Update: {
+          auto_generated?: boolean | null
+          created_at?: string
+          duration?: number
+          engagement_score?: number | null
+          id?: string
+          post_id?: string
+          start_time?: number
         }
         Relationships: []
       }
@@ -886,6 +946,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      remix_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          preview_url: string | null
+          style_params: Json
+          usage_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          preview_url?: string | null
+          style_params?: Json
+          usage_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          preview_url?: string | null
+          style_params?: Json
+          usage_count?: number | null
+        }
+        Relationships: []
       }
       samples: {
         Row: {
@@ -1173,6 +1266,36 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          genre_weights: Json
+          id: string
+          interaction_score: number | null
+          last_updated: string
+          style_preferences: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          genre_weights?: Json
+          id?: string
+          interaction_score?: number | null
+          last_updated?: string
+          style_preferences?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          genre_weights?: Json
+          id?: string
+          interaction_score?: number | null
+          last_updated?: string
+          style_preferences?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_purchases: {
         Row: {
           id: string
@@ -1262,7 +1385,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_personalized_feed: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
+        Returns: {
+          ai_model_used: string
+          audio_url: string
+          comment_count: number
+          cover_image_url: string
+          created_at: string
+          creator_id: string
+          description: string
+          duration_seconds: number
+          generation_params: Json
+          genre_tags: string[]
+          id: string
+          is_featured: boolean
+          is_remix: boolean
+          like_count: number
+          original_post_id: string
+          play_count: number
+          preview_url: string
+          relevance_score: number
+          remix_count: number
+          remix_style: string
+          share_count: number
+          title: string
+          updated_at: string
+          visibility: string
+        }[]
+      }
+      update_user_preferences: {
+        Args: {
+          p_interaction_type: string
+          p_post_id: string
+          p_user_id: string
+          p_weight?: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       subscription_tier: "free" | "producer" | "professional" | "enterprise"

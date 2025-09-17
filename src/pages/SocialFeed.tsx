@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SocialFeedPost } from '@/components/SocialFeedPost';
-import { useSocialFeed, SocialPost } from '@/hooks/useSocialFeed';
+import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
+import { useSocialInteractions, SocialPost } from '@/hooks/useSocialFeed';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, User, Plus } from 'lucide-react';
@@ -12,7 +13,11 @@ interface SocialFeedProps {
 }
 
 const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
-  const { posts, loading, hasMore, loadMore, refreshFeed } = useSocialFeed();
+  const { posts, loading, hasMore, loadMore, refreshFeed, trackInteraction } = usePersonalizedFeed({
+    user_id: user?.id,
+    limit: 10
+  });
+  const { likePost, playPost, sharePost } = useSocialInteractions();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRemixModal, setShowRemixModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
@@ -23,26 +28,45 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
     if (e.deltaY > 0 && currentIndex < posts.length - 1) {
       // Scroll down
       setCurrentIndex(prev => prev + 1);
+      // Track interaction for algorithmic learning
+      if (user?.id && posts[currentIndex]) {
+        trackInteraction(posts[currentIndex].id, 'scroll_past', 0.1);
+      }
       if (currentIndex >= posts.length - 3 && hasMore) {
         loadMore();
       }
     } else if (e.deltaY < 0 && currentIndex > 0) {
       // Scroll up
       setCurrentIndex(prev => prev - 1);
+      // Track interaction
+      if (user?.id && posts[currentIndex]) {
+        trackInteraction(posts[currentIndex].id, 'scroll_back', 0.05);
+      }
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'ArrowDown' && currentIndex < posts.length - 1) {
       setCurrentIndex(prev => prev + 1);
+      // Track interaction
+      if (user?.id && posts[currentIndex]) {
+        trackInteraction(posts[currentIndex].id, 'keyboard_next', 0.2);
+      }
       if (currentIndex >= posts.length - 3 && hasMore) {
         loadMore();
       }
     } else if (e.key === 'ArrowUp' && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
+      // Track interaction
+      if (user?.id && posts[currentIndex]) {
+        trackInteraction(posts[currentIndex].id, 'keyboard_prev', 0.1);
+      }
     } else if (e.key === ' ') {
       e.preventDefault();
-      // Space bar could toggle play/pause if needed
+      // Track pause/play interaction
+      if (user?.id && posts[currentIndex]) {
+        trackInteraction(posts[currentIndex].id, 'keyboard_pause', 0.3);
+      }
     }
   };
 

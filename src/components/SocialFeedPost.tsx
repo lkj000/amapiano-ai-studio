@@ -11,6 +11,9 @@ interface SocialFeedPostProps {
   post: SocialPost;
   isVisible: boolean;
   onRemix?: (post: SocialPost) => void;
+  onLike?: (postId: string) => void;
+  onShare?: (postId: string) => void;
+  onPlay?: (postId: string) => void;
 }
 
 export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible, onRemix }) => {

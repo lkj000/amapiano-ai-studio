@@ -10,7 +10,31 @@ max_rows = 1000
 [functions.ai-music-generation]
 verify_jwt = false
 
+[functions.aura-conductor-orchestration]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.create-purchase]
+verify_jwt = false
+
+[functions.create-subscription]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
 [functions.demo-audio-files]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.multi-language-processor]
+verify_jwt = false
+
+[functions.music-analysis]
 verify_jwt = false
 
 [functions.neural-music-generation]
@@ -19,7 +43,7 @@ verify_jwt = false
 [functions.rag-knowledge-search]
 verify_jwt = false
 
-[functions.multi-language-processor]
+[functions.realtime-ai-assistant]
 verify_jwt = false
 
 [functions.voice-to-text]

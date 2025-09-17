@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SocialFeedPost } from '@/components/SocialFeedPost';
 import { SocialOnboarding } from '@/components/SocialOnboarding';
+import { EngagementAnalytics } from '@/components/EngagementAnalytics';
 import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
 import { useSocialInteractions, SocialPost } from '@/hooks/useSocialFeed';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User, Plus, HelpCircle } from 'lucide-react';
+import { RefreshCw, User, Plus, HelpCircle, BarChart3 } from 'lucide-react';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
@@ -14,7 +15,7 @@ interface SocialFeedProps {
 }
 
 const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
-  const { posts, loading, hasMore, loadMore, refreshFeed, trackInteraction } = usePersonalizedFeed({
+  const { posts, loading, hasMore, loadMore, refreshFeed, trackInteraction, trackDwellTime, userEngagementScore } = usePersonalizedFeed({
     user_id: user?.id,
     limit: 10
   });
@@ -23,6 +24,8 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   const [showRemixModal, setShowRemixModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [postViewStartTime, setPostViewStartTime] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Show onboarding for first-time users
@@ -33,6 +36,26 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
       localStorage.setItem('social-onboarding-seen', 'true');
     }
   }, [posts.length]);
+
+  // Track dwell time when current post changes
+  useEffect(() => {
+    // Track dwell time for previous post
+    if (postViewStartTime && posts[currentIndex - 1] && user?.id) {
+      const dwellTime = Date.now() - postViewStartTime;
+      trackDwellTime(posts[currentIndex - 1].id, dwellTime);
+    }
+    
+    // Start tracking time for current post
+    setPostViewStartTime(Date.now());
+    
+    return () => {
+      // Track dwell time when component unmounts
+      if (postViewStartTime && posts[currentIndex] && user?.id) {
+        const dwellTime = Date.now() - postViewStartTime;
+        trackDwellTime(posts[currentIndex].id, dwellTime);
+      }
+    };
+  }, [currentIndex, posts, user?.id, trackDwellTime]);
 
   const handleScroll = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -152,6 +175,21 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
         >
           <RefreshCw className="w-4 h-4" />
         </Button>
+        
+        <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <EngagementAnalytics userId={user?.id} timeframe="24h" />
+          </DialogContent>
+        </Dialog>
         
         <Button
           variant="ghost"

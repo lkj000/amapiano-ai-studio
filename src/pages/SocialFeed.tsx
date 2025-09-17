@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SocialFeedPost } from '@/components/SocialFeedPost';
+import { SocialOnboarding } from '@/components/SocialOnboarding';
 import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
 import { useSocialInteractions, SocialPost } from '@/hooks/useSocialFeed';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User, Plus } from 'lucide-react';
+import { RefreshCw, User, Plus, HelpCircle } from 'lucide-react';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
@@ -21,7 +22,17 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRemixModal, setShowRemixModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Show onboarding for first-time users
+  useEffect(() => {
+    const hasSeenOnboarding = localStorage.getItem('social-onboarding-seen');
+    if (!hasSeenOnboarding && posts.length > 0) {
+      setShowOnboarding(true);
+      localStorage.setItem('social-onboarding-seen', 'true');
+    }
+  }, [posts.length]);
 
   const handleScroll = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -129,6 +140,15 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
           <RefreshCw className="w-4 h-4" />
         </Button>
         
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowOnboarding(true)}
+          className="bg-black/40 text-white hover:bg-black/60"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </Button>
+        
         {user && (
           <Dialog>
             <DialogTrigger asChild>
@@ -214,6 +234,13 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
         <p>Use ↑↓ arrow keys or scroll to navigate</p>
         <p>Space to pause/play • Click remix to create your version</p>
       </div>
+
+      {/* Social Onboarding */}
+      <SocialOnboarding 
+        user={user} 
+        isOpen={showOnboarding} 
+        onClose={() => setShowOnboarding(false)} 
+      />
     </div>
   );
 };

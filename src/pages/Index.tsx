@@ -30,6 +30,14 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
   const { subscription_tier, hasFeature } = useSubscription(user);
   const features = [
     {
+      icon: Users,
+      title: "Social Music Feed",
+      description: "Discover, share, and remix tracks from creators worldwide. TikTok-style vertical feed with AI-powered recommendations.",
+      href: "/social",
+      color: "text-primary",
+      featured: true
+    },
+    {
       icon: Music,
       title: "AI Music Generation",
       description: "Create authentic amapiano tracks from text prompts with professional-grade stem separation.",
@@ -98,41 +106,43 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               {user ? (
                 <>
-                  <Link to="/generate">
-                    <Button size="lg" className="btn-glow text-lg px-8 py-6">
-                      <Music className="w-5 h-5 mr-2" />
-                      Start Creating
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                  <Button 
-                    size="lg" 
-                    variant="outline" 
-                    className="text-lg px-8 py-6"
-                    onClick={() => setMarketplaceModalOpen(true)}
-                  >
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    Explore Marketplace
-                  </Button>
+                   <Link to="/social">
+                     <Button size="lg" className="btn-glow text-lg px-8 py-6">
+                       <Users className="w-5 h-5 mr-2" />
+                       Explore Social Feed
+                       <ArrowRight className="w-5 h-5 ml-2" />
+                     </Button>
+                   </Link>
+                   <Link to="/generate">
+                     <Button 
+                       size="lg" 
+                       variant="outline" 
+                       className="text-lg px-8 py-6"
+                     >
+                       <Music className="w-5 h-5 mr-2" />
+                       Create Music
+                     </Button>
+                   </Link>
                 </>
               ) : (
                 <>
-                  <Link to="/auth">
-                    <Button size="lg" className="btn-glow text-lg px-8 py-6">
-                      <Music className="w-5 h-5 mr-2" />
-                      Get Started Free
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
-                  <Button 
-                    size="lg" 
-                    variant="outline" 
-                    className="text-lg px-8 py-6"
-                    onClick={() => setSubscriptionModalOpen(true)}
-                  >
-                    <Crown className="w-5 h-5 mr-2" />
-                    View Plans
-                  </Button>
+                   <Link to="/auth">
+                     <Button size="lg" className="btn-glow text-lg px-8 py-6">
+                       <Users className="w-5 h-5 mr-2" />
+                       Join Social Network
+                       <ArrowRight className="w-5 h-5 ml-2" />
+                     </Button>
+                   </Link>
+                   <Link to="/social">
+                     <Button 
+                       size="lg" 
+                       variant="outline" 
+                       className="text-lg px-8 py-6"
+                     >
+                       <Music className="w-5 h-5 mr-2" />
+                       Browse Feed
+                     </Button>
+                   </Link>
                 </>
               )}
             </div>
@@ -172,11 +182,19 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
                 const Icon = feature.icon;
                 return (
                   <Link key={feature.title} to={feature.href}>
-                    <Card className="card-glow hover:shadow-xl transition-all duration-300 h-full group">
+                    <Card className={`card-glow hover:shadow-xl transition-all duration-300 h-full group ${
+                      feature.featured ? 'ring-2 ring-primary/20 bg-gradient-to-br from-primary/5 to-transparent' : ''
+                    }`}>
                       <CardHeader>
                         <div className={`w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center mb-4 ${feature.color}`}>
                           <Icon className="w-6 h-6 text-primary-foreground" />
                         </div>
+                        {feature.featured && (
+                          <Badge className="w-fit mb-2 bg-primary/10 text-primary border-primary/20">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            New Feature
+                          </Badge>
+                        )}
                         <CardTitle className="text-xl mb-2 group-hover:text-primary transition-colors">
                           {feature.title}
                         </CardTitle>
@@ -186,7 +204,7 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all">
-                          Explore feature
+                          {feature.featured ? 'Try now' : 'Explore feature'}
                           <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                       </CardContent>
@@ -194,6 +212,85 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
                   </Link>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Features Section */}
+      <section className="py-20 bg-gradient-to-br from-primary/5 via-transparent to-accent/5">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              <div>
+                <Badge variant="outline" className="mb-4 border-primary/20 text-primary">
+                  <Users className="w-3 h-3 mr-1" />
+                  Social Network
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  Connect with Global Amapiano Community
+                </h2>
+                <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
+                  Share your creations, discover new artists, and collaborate with producers worldwide in our TikTok-style vertical feed designed specifically for amapiano creators.
+                </p>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Users className="w-5 h-5 text-primary mt-1" />
+                    <div>
+                      <h3 className="font-semibold mb-1">Creator Network</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Connect with artists worldwide and build your fanbase
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Music className="w-5 h-5 text-primary mt-1" />
+                    <div>
+                      <h3 className="font-semibold mb-1">Share & Remix</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Upload tracks, create remixes, and engage with community content
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Zap className="w-5 h-5 text-primary mt-1" />
+                    <div>
+                      <h3 className="font-semibold mb-1">AI Recommendations</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Personalized feed powered by machine learning and your preferences
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <Link to="/social">
+                    <Button size="lg" className="bg-gradient-to-r from-primary to-accent text-primary-foreground">
+                      <Users className="w-5 h-5 mr-2" />
+                      Explore Social Feed
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              <div>
+                <div className="relative">
+                  <div className="w-full h-80 bg-gradient-card rounded-2xl border border-border/50 flex items-center justify-center overflow-hidden">
+                    <div className="text-center">
+                      <div className="relative">
+                        <Users className="w-16 h-16 text-primary mx-auto mb-4 animate-pulse-glow" />
+                        <div className="absolute top-0 right-0 w-6 h-6 bg-accent rounded-full animate-ping" />
+                        <div className="absolute bottom-0 left-0 w-4 h-4 bg-secondary rounded-full animate-pulse" />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-2">Social Network</h3>
+                      <p className="text-muted-foreground">
+                        TikTok-style vertical feed for amapiano
+                      </p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/20 rounded-full blur-xl" />
+                  <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-accent/20 rounded-full blur-xl" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -270,24 +367,43 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-2xl mx-auto">
             <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground mb-6">
-              Ready to Create Authentic Amapiano?
+              Join the Global Amapiano Community
             </h2>
             <p className="text-lg text-primary-foreground/80 mb-8">
-              Join thousands of producers, educators, and music lovers exploring the world of amapiano with AI assistance.
+              Connect with creators worldwide, share your music, and discover new sounds in our AI-powered social network.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/generate">
-                <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Start Creating Now
-                </Button>
-              </Link>
-              <Link to="/patterns">
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
-                  <BookOpen className="w-5 h-5 mr-2" />
-                  Learn Amapiano
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/social">
+                    <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
+                      <Users className="w-5 h-5 mr-2" />
+                      Explore Social Feed
+                    </Button>
+                  </Link>
+                  <Link to="/generate">
+                    <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
+                      <Music className="w-5 h-5 mr-2" />
+                      Create Music
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth">
+                    <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
+                      <Users className="w-5 h-5 mr-2" />
+                      Join Community
+                    </Button>
+                  </Link>
+                  <Link to="/social">
+                    <Button size="lg" variant="outline" className="text-lg px-8 py-6 border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10">
+                      <Music className="w-5 h-5 mr-2" />
+                      Browse Feed
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

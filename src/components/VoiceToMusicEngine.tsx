@@ -9,10 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Mic, MicOff, Play, Square, Wand2, Music, Volume2, VolumeX,
   Brain, Headphones, AudioWaveform, Sparkles, Upload, Download,
-  RefreshCw, Settings2, Clock, User, Bot
+  RefreshCw, Settings2, Clock, User, Bot, Languages
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { LanguageSelector } from './LanguageSelector';
+import { useMultiLanguage } from '@/hooks/useMultiLanguage';
 
 interface VoiceToMusicEngineProps {
   onTrackGenerated: (trackData: any) => void;
@@ -52,6 +54,13 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
   className,
   initialAudioUrl
 }) => {
+  const { 
+    currentLanguage, 
+    translate, 
+    enhancePromptWithCulture,
+    translatePrompt 
+  } = useMultiLanguage();
+  
   const [session, setSession] = useState<RecordingSession>({
     isRecording: false,
     isPaused: false,

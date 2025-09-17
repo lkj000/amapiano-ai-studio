@@ -18,3 +18,9 @@ verify_jwt = false
 
 [functions.rag-knowledge-search]
 verify_jwt = false
+
+[functions.multi-language-processor]
+verify_jwt = false
+
+[functions.voice-to-text]
+verify_jwt = false

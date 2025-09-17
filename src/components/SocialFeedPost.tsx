@@ -43,18 +43,38 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
 
   const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio) {
+      console.error('Audio ref is null');
+      return;
+    }
+    
+    console.log('Audio src:', audio.src);
+    console.log('Audio readyState:', audio.readyState);
+    console.log('Audio paused:', audio.paused);
+    
     try {
       if (audio.paused) {
         await audio.play();
         playPost(post.id);
+        setIsPlaying(true);
       } else {
         audio.pause();
+        setIsPlaying(false);
       }
-      // isPlaying state syncs via onPlay/onPause events
     } catch (err) {
       console.error('Playback failed:', err);
+      console.error('Audio error details:', {
+        src: audio.src,
+        error: audio.error,
+        networkState: audio.networkState,
+        readyState: audio.readyState
+      });
     }
+  };
+
+  const handleComments = () => {
+    // TODO: Navigate to comments or open comments modal
+    console.log('Comments clicked for post:', post.id);
   };
 
   const handleLike = async () => {
@@ -203,7 +223,12 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
                 <span className="ml-1 text-sm font-medium">{likeCount}</span>
               </Button>
               
-              <Button variant="ghost" size="sm" className="text-white/90 hover:text-white hover:bg-white/20 transition-all">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleComments}
+                className="text-white/90 hover:text-white hover:bg-white/20 transition-all"
+              >
                 <MessageCircle className="w-5 h-5" />
                 <span className="ml-1 text-sm font-medium">{post.comment_count}</span>
               </Button>
@@ -239,11 +264,27 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
         src={post.preview_url || post.audio_url}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-        onEnded={() => setIsPlaying(false)}
+        onPlay={() => {
+          console.log('Audio play event fired');
+          setIsPlaying(true);
+        }}
+        onPause={() => {
+          console.log('Audio pause event fired');
+          setIsPlaying(false);
+        }}
+        onEnded={() => {
+          console.log('Audio ended');
+          setIsPlaying(false);
+        }}
+        onError={(e) => {
+          console.error('Audio error:', e);
+          console.error('Audio src that failed:', post.preview_url || post.audio_url);
+        }}
+        onLoadStart={() => console.log('Audio load started')}
+        onCanPlay={() => console.log('Audio can play')}
         loop
         muted={!isVisible}
+        preload="metadata"
       />
     </Card>
   );

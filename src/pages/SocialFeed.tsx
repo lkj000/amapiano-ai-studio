@@ -169,6 +169,9 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
               post={post}
               isVisible={index === currentIndex}
               onRemix={handleRemix}
+              onLike={(postId) => trackInteraction(postId, 'like', 1.0)}
+              onShare={(postId) => trackInteraction(postId, 'share', 0.8)}
+              onPlay={(postId) => trackInteraction(postId, 'play', 0.5)}
             />
           </div>
         ))}

@@ -183,6 +183,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_model_marketplace: {
+        Row: {
+          created_at: string
+          currency: string | null
+          description: string | null
+          developer_id: string
+          id: string
+          is_active: boolean | null
+          is_premium: boolean | null
+          model_config: Json
+          model_name: string
+          price_cents: number
+          rating: number | null
+          usage_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          developer_id: string
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          model_config?: Json
+          model_name: string
+          price_cents: number
+          rating?: number | null
+          usage_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          developer_id?: string
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          model_config?: Json
+          model_name?: string
+          price_cents?: number
+          rating?: number | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       artist_licenses: {
         Row: {
           artist_id: string
@@ -947,6 +992,42 @@ export type Database = {
           },
         ]
       }
+      remix_royalties: {
+        Row: {
+          created_at: string
+          id: string
+          original_creator_earnings_cents: number | null
+          original_creator_id: string
+          original_post_id: string
+          remix_creator_id: string
+          remix_post_id: string
+          royalty_percentage: number | null
+          total_earnings_cents: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          original_creator_earnings_cents?: number | null
+          original_creator_id: string
+          original_post_id: string
+          remix_creator_id: string
+          remix_post_id: string
+          royalty_percentage?: number | null
+          total_earnings_cents?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          original_creator_earnings_cents?: number | null
+          original_creator_id?: string
+          original_post_id?: string
+          remix_creator_id?: string
+          remix_post_id?: string
+          royalty_percentage?: number | null
+          total_earnings_cents?: number | null
+        }
+        Relationships: []
+      }
       remix_templates: {
         Row: {
           created_at: string
@@ -1210,6 +1291,84 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_tiers: {
+        Row: {
+          ai_generation_credits: number | null
+          created_at: string
+          currency: string | null
+          exclusive_models: boolean | null
+          features: Json
+          id: string
+          price_cents: number
+          priority_processing: boolean | null
+          tier_name: string
+          upload_limit_mb: number | null
+        }
+        Insert: {
+          ai_generation_credits?: number | null
+          created_at?: string
+          currency?: string | null
+          exclusive_models?: boolean | null
+          features?: Json
+          id?: string
+          price_cents: number
+          priority_processing?: boolean | null
+          tier_name: string
+          upload_limit_mb?: number | null
+        }
+        Update: {
+          ai_generation_credits?: number | null
+          created_at?: string
+          currency?: string | null
+          exclusive_models?: boolean | null
+          features?: Json
+          id?: string
+          price_cents?: number
+          priority_processing?: boolean | null
+          tier_name?: string
+          upload_limit_mb?: number | null
+        }
+        Relationships: []
+      }
+      tip_transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string | null
+          id: string
+          message: string | null
+          post_id: string | null
+          processed_at: string | null
+          recipient_id: string
+          status: string | null
+          tipper_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          message?: string | null
+          post_id?: string | null
+          processed_at?: string | null
+          recipient_id: string
+          status?: string | null
+          tipper_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string | null
+          id?: string
+          message?: string | null
+          post_id?: string | null
+          processed_at?: string | null
+          recipient_id?: string
+          status?: string | null
+          tipper_id?: string
+        }
+        Relationships: []
+      }
       user_follows: {
         Row: {
           created_at: string
@@ -1335,6 +1494,42 @@ export type Database = {
           },
         ]
       }
+      user_wallets: {
+        Row: {
+          balance_cents: number | null
+          created_at: string
+          currency: string | null
+          id: string
+          stripe_account_id: string | null
+          total_earned_cents: number | null
+          total_withdrawn_cents: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          stripe_account_id?: string | null
+          total_earned_cents?: number | null
+          total_withdrawn_cents?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_cents?: number | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          stripe_account_id?: string | null
+          total_earned_cents?: number | null
+          total_withdrawn_cents?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       web_plugins: {
         Row: {
           created_at: string
@@ -1413,6 +1608,20 @@ export type Database = {
           updated_at: string
           visibility: string
         }[]
+      }
+      process_micro_royalty: {
+        Args: { p_play_value_cents?: number; p_post_id: string }
+        Returns: undefined
+      }
+      process_tip: {
+        Args: {
+          p_amount_cents: number
+          p_message?: string
+          p_post_id: string
+          p_recipient_id: string
+          p_tipper_id: string
+        }
+        Returns: string
       }
       update_user_preferences: {
         Args: {

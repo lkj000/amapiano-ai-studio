@@ -24,7 +24,8 @@ import {
   Settings,
   User as UserIcon,
   Brain,
-  Users
+  Users,
+  DollarSign
 } from "lucide-react";
 
 interface NavigationProps {
@@ -124,6 +125,12 @@ const navItems = [
                       </div>
                     </div>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/creator-hub" className="flex items-center">
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        Creator Hub
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/subscription" className="flex items-center">
                         <Crown className="mr-2 h-4 w-4" />

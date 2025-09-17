@@ -16,7 +16,7 @@ interface SocialFeedPostProps {
   onPlay?: (postId: string) => void;
 }
 
-export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible, onRemix }) => {
+export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible, onRemix, onLike, onShare, onPlay }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(post.user_interactions?.liked || false);
@@ -30,12 +30,13 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
       audioRef.current.currentTime = 0;
       audioRef.current.play();
       setIsPlaying(true);
+      onPlay?.(post.id);
       playPost(post.id);
     } else if (!isVisible && audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
     }
-  }, [isVisible, post.id]);
+  }, [isVisible, post.id, onPlay, playPost]);
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -50,6 +51,11 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
   };
 
   const handleLike = async () => {
+    if (onLike) {
+      setIsLiked((prev) => !prev); // optimistic UI
+      onLike(post.id);
+      return;
+    }
     const newLikedState = await likePost(post.id);
     setIsLiked(newLikedState);
   };
@@ -57,6 +63,10 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
   const handleShare = () => {
     const url = `${window.location.origin}/social/post/${post.id}`;
     navigator.clipboard.writeText(url);
+    if (onShare) {
+      onShare(post.id);
+      return;
+    }
     sharePost(post.id);
   };
 

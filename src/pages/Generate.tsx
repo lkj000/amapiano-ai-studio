@@ -302,7 +302,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     </div>
                   </CardContent>
                 </Card>
-              ) : (
+              ) : generationType === "reference" ? (
                 <Card className="card-glow">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -594,7 +594,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     Generate {generationType === "prompt" ? "from Prompt" : "from Reference"}
                   </>
                 )}
-              </Button>
+                  </Button>
+                )}
             </div>
 
             {/* Right Column */}

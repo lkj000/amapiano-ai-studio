@@ -52,8 +52,7 @@ export const useSocialFeed = () => {
         .from('social_posts')
         .select(`
           *,
-          creator:profiles!social_posts_creator_id_fkey(display_name, avatar_url),
-          post_interactions!left(interaction_type)
+          profiles!social_posts_creator_id_fkey(display_name, avatar_url)
         `)
         .eq('visibility', 'public')
         .order('created_at', { ascending: false })
@@ -63,10 +62,10 @@ export const useSocialFeed = () => {
 
       const postsWithInteractions = data?.map(post => ({
         ...post,
-        creator: post.creator,
+        creator: Array.isArray(post.profiles) ? post.profiles[0] : post.profiles,
         user_interactions: {
-          liked: post.post_interactions?.some((i: any) => i.interaction_type === 'like') || false,
-          played: post.post_interactions?.some((i: any) => i.interaction_type === 'play') || false,
+          liked: false,
+          played: false,
         }
       })) || [];
 
@@ -124,7 +123,7 @@ export const useSocialInteractions = () => {
         .eq('post_id', postId)
         .eq('interaction_type', 'like')
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
+        .maybeSingle();
 
       if (existingLike) {
         // Unlike
@@ -132,8 +131,6 @@ export const useSocialInteractions = () => {
           .from('post_interactions')
           .delete()
           .eq('id', existingLike.id);
-
-        await supabase.rpc('decrement_post_likes', { post_id: postId });
       } else {
         // Like
         await supabase
@@ -143,8 +140,6 @@ export const useSocialInteractions = () => {
             user_id: (await supabase.auth.getUser()).data.user?.id,
             interaction_type: 'like'
           });
-
-        await supabase.rpc('increment_post_likes', { post_id: postId });
       }
 
       return !existingLike;
@@ -169,9 +164,6 @@ export const useSocialInteractions = () => {
           user_id: (await supabase.auth.getUser()).data.user?.id,
           interaction_type: 'play'
         });
-
-      // Increment play count
-      await supabase.rpc('increment_post_plays', { post_id: postId });
     } catch (error) {
       console.error('Error recording play:', error);
     }
@@ -186,8 +178,6 @@ export const useSocialInteractions = () => {
           user_id: (await supabase.auth.getUser()).data.user?.id,
           interaction_type: 'share'
         });
-
-      await supabase.rpc('increment_post_shares', { post_id: postId });
 
       toast({
         title: "Success",

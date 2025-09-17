@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SocialFeedPost } from '@/components/SocialFeedPost';
 import { useSocialFeed, SocialPost } from '@/hooks/useSocialFeed';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, User, Plus } from 'lucide-react';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
@@ -11,7 +11,7 @@ interface SocialFeedProps {
   user?: any;
 }
 
-export const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
+const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   const { posts, loading, hasMore, loadMore, refreshFeed } = useSocialFeed();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRemixModal, setShowRemixModal] = useState(false);
@@ -79,7 +79,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh]">
-                <VoiceToMusicEngine />
+                <VoiceToMusicEngine onTrackGenerated={() => refreshFeed()} />
               </DialogContent>
             </Dialog>
           )}
@@ -117,7 +117,7 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh]">
-              <VoiceToMusicEngine />
+              <VoiceToMusicEngine onTrackGenerated={() => refreshFeed()} />
             </DialogContent>
           </Dialog>
         )}
@@ -173,8 +173,10 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
         <DialogContent className="max-w-4xl max-h-[90vh]">
           {selectedPost && (
             <VoiceToMusicEngine 
-              initialAudioUrl={selectedPost.preview_url || selectedPost.audio_url}
-              originalPostId={selectedPost.id}
+              onTrackGenerated={() => {
+                refreshFeed();
+                setShowRemixModal(false);
+              }}
             />
           )}
         </DialogContent>
@@ -188,3 +190,5 @@ export const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
     </div>
   );
 };
+
+export default SocialFeed;

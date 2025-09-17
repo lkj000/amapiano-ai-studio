@@ -486,6 +486,47 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_earnings: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          creator_id: string
+          currency: string | null
+          earning_type: string
+          id: string
+          post_id: string | null
+          processed_at: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          creator_id: string
+          currency?: string | null
+          earning_type: string
+          id?: string
+          post_id?: string | null
+          processed_at?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          creator_id?: string
+          currency?: string | null
+          earning_type?: string
+          id?: string
+          post_id?: string | null
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_earnings_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daw_projects: {
         Row: {
           bpm: number
@@ -665,6 +706,86 @@ export type Database = {
         }
         Relationships: []
       }
+      post_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          parent_comment_id: string | null
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          parent_comment_id?: string | null
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_interactions: {
+        Row: {
+          created_at: string
+          id: string
+          interaction_type: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interaction_type: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_interactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -820,6 +941,92 @@ export type Database = {
         }
         Relationships: []
       }
+      social_posts: {
+        Row: {
+          ai_model_used: string | null
+          audio_url: string
+          comment_count: number | null
+          cover_image_url: string | null
+          created_at: string
+          creator_id: string
+          description: string | null
+          duration_seconds: number | null
+          generation_params: Json | null
+          genre_tags: string[] | null
+          id: string
+          is_featured: boolean | null
+          is_remix: boolean | null
+          like_count: number | null
+          original_post_id: string | null
+          play_count: number | null
+          preview_url: string | null
+          remix_count: number | null
+          remix_style: string | null
+          share_count: number | null
+          title: string
+          updated_at: string
+          visibility: string | null
+        }
+        Insert: {
+          ai_model_used?: string | null
+          audio_url: string
+          comment_count?: number | null
+          cover_image_url?: string | null
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          duration_seconds?: number | null
+          generation_params?: Json | null
+          genre_tags?: string[] | null
+          id?: string
+          is_featured?: boolean | null
+          is_remix?: boolean | null
+          like_count?: number | null
+          original_post_id?: string | null
+          play_count?: number | null
+          preview_url?: string | null
+          remix_count?: number | null
+          remix_style?: string | null
+          share_count?: number | null
+          title: string
+          updated_at?: string
+          visibility?: string | null
+        }
+        Update: {
+          ai_model_used?: string | null
+          audio_url?: string
+          comment_count?: number | null
+          cover_image_url?: string | null
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          duration_seconds?: number | null
+          generation_params?: Json | null
+          genre_tags?: string[] | null
+          id?: string
+          is_featured?: boolean | null
+          is_remix?: boolean | null
+          like_count?: number | null
+          original_post_id?: string | null
+          play_count?: number | null
+          preview_url?: string | null
+          remix_count?: number | null
+          remix_style?: string | null
+          share_count?: number | null
+          title?: string
+          updated_at?: string
+          visibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_original_post_id_fkey"
+            columns: ["original_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       style_profiles: {
         Row: {
           created_at: string
@@ -907,6 +1114,27 @@ export type Database = {
             | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
         }
         Relationships: []
       }

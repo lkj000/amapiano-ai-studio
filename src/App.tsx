@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
 import AuraPlatform from "./pages/AuraPlatform";
 import AIHub from "./pages/AIHub";
+import SocialFeed from "./pages/SocialFeed";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,7 @@ const App = () => {
               <Route path="/daw" element={<DAW user={user} />} />
               <Route path="/aura" element={<AuraPlatform user={user} />} />
               <Route path="/ai-hub" element={<AIHub user={user} />} />
+              <Route path="/social" element={<SocialFeed user={user} />} />
               <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
               <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
               <Route path="/subscription-success" element={<Index user={user} />} />

@@ -129,12 +129,6 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
     // Fallback simulation if AI fails
     await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
-    const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);
-    
-    // Use Supabase edge function URLs for demo audio files
-    const baseUrl = "https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files";
     
     setGeneratedTrack({
       id: "enhanced-track-id",

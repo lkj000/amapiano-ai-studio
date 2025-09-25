@@ -42,10 +42,10 @@ serve(async (req) => {
       requestData = JSON.parse(body);
       console.log('Parsed request data keys:', Object.keys(requestData));
     } catch (parseError) {
-      console.error('JSON parse error:', parseError.message);
+      console.error('JSON parse error:', parseError instanceof Error ? parseError.message : 'Parse error');
       return new Response(JSON.stringify({
         error: 'Invalid JSON',
-        details: parseError.message
+        details: parseError instanceof Error ? parseError.message : 'Parse error'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -110,11 +110,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     return new Response(JSON.stringify({
       error: 'Internal server error',
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     }), {
       status: 500,

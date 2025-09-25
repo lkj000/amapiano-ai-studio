@@ -176,7 +176,7 @@ Focus on identifying authentic Amapiano elements and their frequency of occurren
     console.error('[PATTERN-ANALYZER] Error:', error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

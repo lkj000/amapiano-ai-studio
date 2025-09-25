@@ -212,7 +212,7 @@ serve(async (req) => {
     console.error('Error in ai-music-generation function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       newTrack: generateFallbackData(req.url.includes('prompt=') ? 'fallback' : 'error', 'midi')
     }), {
       status: 500,
@@ -222,7 +222,7 @@ serve(async (req) => {
 });
 
 function generateFallbackData(prompt: string, trackType: 'midi' | 'audio') {
-  const notes = [];
+  const notes: any[] = [];
   const isLogDrum = prompt.toLowerCase().includes('log') || prompt.toLowerCase().includes('drum');
   const isPiano = prompt.toLowerCase().includes('piano') || prompt.toLowerCase().includes('chord');
   const isBass = prompt.toLowerCase().includes('bass');

@@ -135,7 +135,7 @@ async function processContextUpdate(session: RealtimeSession, context: any) {
 }
 
 async function generateRealtimeSuggestions(context: any, preferences: any) {
-  const suggestions = [];
+  const suggestions: any[] = [];
   
   if (!context || !context.tracks) return suggestions;
   

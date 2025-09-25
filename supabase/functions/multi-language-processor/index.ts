@@ -258,7 +258,7 @@ serve(async (req) => {
     console.error('Error in multi-language-processor:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       code: 'TRANSLATION_ERROR'
     }), {
       status: 500,

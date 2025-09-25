@@ -84,7 +84,7 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
 
   const connectToRealtimeAI = async () => {
     try {
-      const wsUrl = `wss://mywijmtszelyutssormy.functions.supabase.co/realtime-ai-assistant`;
+      const wsUrl = `wss://mywijmtszelyutssormy.functions.supabase.co/functions/v1/realtime-ai-assistant`;
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {

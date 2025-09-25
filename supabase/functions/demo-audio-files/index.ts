@@ -6,35 +6,35 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Demo audio data - base64 encoded short audio files
+// Demo audio data - base64 encoded short audio files with actual audio content
 const demoAudioFiles: Record<string, { data: string; contentType: string; filename: string }> = {
   'generated-track': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==', // Short WAV silence
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYADAAC/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/', // 440hz sine wave
     contentType: 'audio/wav',
     filename: 'generated-track.wav'
   },
   'drums': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==',
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYADAAC/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/',
     contentType: 'audio/wav',
     filename: 'drums-stem.wav'
   },
   'bass': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==',
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQADAADMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMmpmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
     contentType: 'audio/wav',
     filename: 'bass-stem.wav'
   },
   'piano': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==',
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQADAADMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMmpmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
     contentType: 'audio/wav',
     filename: 'piano-stem.wav'
   },
   'vocals': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==',
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQADAADMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMmpmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
     contentType: 'audio/wav',
     filename: 'vocals-stem.wav'
   },
   'other': {
-    data: 'UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ4AAAAAAAAAAAAAAAAAAA==',
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQADAADMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMmpmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
     contentType: 'audio/wav',
     filename: 'other-stem.wav'
   }

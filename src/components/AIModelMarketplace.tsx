@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Store, Download, Upload, Star, Clock, Users, 
   Brain, Zap, Award, Coins, TrendingUp, Filter, 
-  Play, Settings, Package, Share2
+  Play, Settings, Settings2, Package, Share2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -647,11 +647,116 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
           </TabsContent>
 
           <TabsContent value="my-models" className="space-y-4">
-            <div className="text-center p-6 text-muted-foreground">
-              <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Your trained models will appear here</p>
-              <p className="text-xs">Train your first model to get started</p>
-            </div>
+            {(() => {
+              const userModels = models.filter(model => 
+                model.author === 'You' || model.tags.includes('user-trained') || model.tags.includes('custom')
+              );
+              
+              if (userModels.length === 0) {
+                return (
+                  <div className="text-center p-6 text-muted-foreground">
+                    <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Your trained models will appear here</p>
+                    <p className="text-xs">Train your first model to get started</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <ScrollArea className="h-96">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {userModels.map((model) => {
+                      const TypeIcon = getTypeIcon(model.type);
+                      return (
+                        <Card key={model.id} className="p-4 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <TypeIcon className="w-5 h-5 text-primary" />
+                              <h3 className="font-medium">{model.name}</h3>
+                              <Badge variant="outline" className="bg-primary/20 text-primary">
+                                <Users className="w-3 h-3 mr-1" />
+                                Your Model
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                            {model.description}
+                          </p>
+
+                          <div className="flex items-center gap-4 mb-3 text-sm">
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <span>{model.rating.toFixed(1)}</span>
+                              <span className="text-muted-foreground">({model.reviews})</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="w-4 h-4 text-muted-foreground" />
+                              <span>{model.downloads.toLocaleString()}</span>
+                            </div>
+                            <div className="text-muted-foreground">{model.size}</div>
+                          </div>
+
+                          <div className="flex items-center gap-2 mb-3">
+                            <Badge className={getCategoryColor(model.category)} variant="outline">
+                              {model.category}
+                            </Badge>
+                            <Badge variant="outline" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20">
+                              v{model.version}
+                            </Badge>
+                            <Badge variant="outline" className="bg-green-500/20 text-green-700">
+                              {(model.accuracy * 100).toFixed(1)}% accuracy
+                            </Badge>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => onModelSelect?.(model)}
+                              className="flex-1"
+                              size="sm"
+                            >
+                              <Settings2 className="w-4 h-4 mr-2" />
+                              Use Model
+                            </Button>
+                            <Button
+                              onClick={() => playDemo(model)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Play className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.share?.({
+                                  title: model.name,
+                                  text: model.description,
+                                  url: window.location.href
+                                }).catch(() => {
+                                  navigator.clipboard.writeText(window.location.href);
+                                  toast.success('Link copied to clipboard');
+                                });
+                              }}
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {model.tags.slice(0, 4).map((tag, index) => (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              );
+            })()}
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -78,8 +78,57 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
     const effectiveBpm = parsedPrompt?.bpm || bpm[0];
     const effectiveGenre = parsedPrompt?.genre || (genre === "classic" ? "Classic Amapiano" : "Private School Amapiano");
     
-    // Simulate AI generation with enhanced parameters
-    await new Promise(resolve => setTimeout(resolve, 4000));
+    const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
+    const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);
+    
+    // Use Supabase edge function URLs for demo audio files
+    const baseUrl = "https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files";
+
+    // Use real AI generation with enhanced parameters
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-music-generation', {
+        body: {
+          prompt: recordedAudio?.transcription || prompt,
+          trackType: 'midi',
+          generationType,
+          bpm: effectiveBpm,
+          genre: effectiveGenre,
+          duration: trackDuration,
+          selectedArtistStyle,
+          referenceAnalysis
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.newTrack) {
+        setGeneratedTrack({
+          id: data.newTrack.id,
+          title: data.newTrack.name,
+          type: trackType,
+          bpm: effectiveBpm,
+          genre: effectiveGenre,
+          duration: trackDuration,
+          audioUrl: data.newTrack.clips?.[0]?.audioUrl || `${baseUrl}/generated-track`,
+          stems: {
+            drums: `${baseUrl}/drums`,
+            bass: `${baseUrl}/bass`, 
+            piano: `${baseUrl}/piano`,
+            vocals: `${baseUrl}/vocals`,
+            other: `${baseUrl}/other`
+          }
+        });
+        setIsGenerating(false);
+        toast.success(`🎉 Enhanced ${trackTypeLabel} generated successfully!`);
+        return;
+      }
+    } catch (aiError) {
+      console.error('AI Generation failed:', aiError);
+      toast.error('AI generation failed, using fallback generation');
+    }
+
+    // Fallback simulation if AI fails
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
     const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);

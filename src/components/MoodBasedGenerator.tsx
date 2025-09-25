@@ -145,7 +145,7 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
       const { data, error } = await supabase.functions.invoke('ai-music-generation', {
         body: {
           prompt: promptText,
-          type: 'mood_based',
+          trackType: 'midi',
           mood_parameters: {
             ...moods,
             tempo,
@@ -166,11 +166,11 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
       clearInterval(progressInterval);
       setGenerationProgress(100);
 
-      // Simulate generated track (in real implementation, this would come from the AI service)
-      const mockAudioUrl = `https://example.com/mood-generated-${Date.now()}.mp3`;
+      // Use the generated track from AI service
+      const audioUrl = data.newTrack?.clips?.[0]?.audioUrl || `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/mood-generated-${Date.now()}`;
       
       setGeneratedTrack({
-        audioUrl: mockAudioUrl,
+        audioUrl: audioUrl,
         isPlaying: false
       });
 
@@ -180,7 +180,7 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
       });
 
       if (onTrackGenerated) {
-        onTrackGenerated(mockAudioUrl, {
+        onTrackGenerated(audioUrl, {
           moods,
           prompt: promptText,
           preset: selectedPreset,

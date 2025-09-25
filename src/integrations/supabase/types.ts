@@ -654,6 +654,69 @@ export type Database = {
         }
         Relationships: []
       }
+      content_gap_analysis: {
+        Row: {
+          analysis_date: string
+          analysis_metadata: Json | null
+          bpm_range_max: number | null
+          bpm_range_min: number | null
+          created_at: string
+          demand_score: number
+          gap_percentage: number
+          genre: string
+          id: string
+          key_signatures: string[] | null
+          monthly_searches: number | null
+          priority_level: string
+          remix_rate: number | null
+          revenue_potential: number
+          subgenre: string | null
+          supply_count: number
+          trending_velocity: number
+          updated_at: string
+        }
+        Insert: {
+          analysis_date?: string
+          analysis_metadata?: Json | null
+          bpm_range_max?: number | null
+          bpm_range_min?: number | null
+          created_at?: string
+          demand_score?: number
+          gap_percentage?: number
+          genre: string
+          id?: string
+          key_signatures?: string[] | null
+          monthly_searches?: number | null
+          priority_level?: string
+          remix_rate?: number | null
+          revenue_potential?: number
+          subgenre?: string | null
+          supply_count?: number
+          trending_velocity?: number
+          updated_at?: string
+        }
+        Update: {
+          analysis_date?: string
+          analysis_metadata?: Json | null
+          bpm_range_max?: number | null
+          bpm_range_min?: number | null
+          created_at?: string
+          demand_score?: number
+          gap_percentage?: number
+          genre?: string
+          id?: string
+          key_signatures?: string[] | null
+          monthly_searches?: number | null
+          priority_level?: string
+          remix_rate?: number | null
+          revenue_potential?: number
+          subgenre?: string | null
+          supply_count?: number
+          trending_velocity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       creator_analytics: {
         Row: {
           audience_demographics: Json | null
@@ -967,6 +1030,99 @@ export type Database = {
           stripe_session_id?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      partnership_metrics: {
+        Row: {
+          active_licenses: number
+          content_utilization_rate: number
+          created_at: string
+          engagement_boost: number
+          id: string
+          metric_date: string
+          partner_revenue_cents: number
+          remix_rate_improvement: number
+          total_partnerships: number
+        }
+        Insert: {
+          active_licenses?: number
+          content_utilization_rate?: number
+          created_at?: string
+          engagement_boost?: number
+          id?: string
+          metric_date?: string
+          partner_revenue_cents?: number
+          remix_rate_improvement?: number
+          total_partnerships?: number
+        }
+        Update: {
+          active_licenses?: number
+          content_utilization_rate?: number
+          created_at?: string
+          engagement_boost?: number
+          id?: string
+          metric_date?: string
+          partner_revenue_cents?: number
+          remix_rate_improvement?: number
+          total_partnerships?: number
+        }
+        Relationships: []
+      }
+      partnership_requests: {
+        Row: {
+          artist_name: string
+          content_type: string
+          created_at: string
+          email: string
+          genre_specialization: string | null
+          id: string
+          message: string | null
+          priority_level: string
+          requester_id: string | null
+          response_notes: string | null
+          revenue_potential: number | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          social_links: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          artist_name: string
+          content_type?: string
+          created_at?: string
+          email: string
+          genre_specialization?: string | null
+          id?: string
+          message?: string | null
+          priority_level?: string
+          requester_id?: string | null
+          response_notes?: string | null
+          revenue_potential?: number | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          social_links?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          artist_name?: string
+          content_type?: string
+          created_at?: string
+          email?: string
+          genre_specialization?: string | null
+          id?: string
+          message?: string | null
+          priority_level?: string
+          requester_id?: string | null
+          response_notes?: string | null
+          revenue_potential?: number | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          social_links?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }

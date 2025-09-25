@@ -84,16 +84,21 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
 
   const connectToRealtimeAI = async () => {
     try {
+      // Test basic connection first
+      console.log('Attempting to connect to Realtime AI Assistant...');
+      
       const wsUrl = `wss://mywijmtszelyutssormy.functions.supabase.co/functions/v1/realtime-ai-assistant`;
+      console.log('WebSocket URL:', wsUrl);
+      
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        console.log('Realtime AI Assistant connected');
+        console.log('✅ Realtime AI Assistant connected successfully');
         setSession(prev => ({ ...prev, isConnected: true }));
         reconnectAttemptsRef.current = 0;
         
         // Send initial context
-        wsRef.current?.send(JSON.stringify({
+        const initMessage = {
           type: 'init',
           projectData,
           preferences: {
@@ -102,31 +107,46 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
             autoApply,
             customPrompt
           }
-        }));
+        };
+        
+        console.log('Sending init message:', initMessage);
+        wsRef.current?.send(JSON.stringify(initMessage));
 
         toast.success("🔥 Realtime AI Assistant connected!");
         startLatencyMonitoring();
       };
 
       wsRef.current.onmessage = (event) => {
-        messageCountRef.current++;
-        handleRealtimeMessage(JSON.parse(event.data));
+        try {
+          messageCountRef.current++;
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
+          handleRealtimeMessage(data);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
       };
 
-      wsRef.current.onclose = () => {
-        console.log('Realtime AI connection closed');
+      wsRef.current.onclose = (event) => {
+        console.log('❌ Realtime AI connection closed:', event.code, event.reason);
         setSession(prev => ({ ...prev, isConnected: false }));
-        attemptReconnect();
+        
+        if (event.code !== 1000) { // Not a normal closure
+          toast.error(`Connection lost: ${event.reason || 'Unknown error'}`);
+          attemptReconnect();
+        }
       };
 
       wsRef.current.onerror = (error) => {
-        console.error('Realtime AI error:', error);
+        console.error('❌ Realtime AI WebSocket error:', error);
         toast.error("Connection error - attempting to reconnect...");
+        setSession(prev => ({ ...prev, isConnected: false }));
       };
 
     } catch (error) {
-      console.error('Failed to connect to Realtime AI:', error);
-      toast.error("Failed to connect to Realtime AI Assistant");
+      console.error('❌ Failed to create WebSocket connection:', error);
+      toast.error(`Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSession(prev => ({ ...prev, isConnected: false }));
     }
   };
 
@@ -205,11 +225,19 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
   const attemptReconnect = () => {
     if (reconnectAttemptsRef.current < 5) {
       reconnectAttemptsRef.current++;
+      const delay = Math.min(Math.pow(2, reconnectAttemptsRef.current) * 1000, 10000);
+      
+      console.log(`🔄 Attempting reconnect ${reconnectAttemptsRef.current}/5 in ${delay}ms...`);
+      toast.info(`Reconnecting... (${reconnectAttemptsRef.current}/5)`);
+      
       setTimeout(() => {
         if (!session.isConnected) {
           connectToRealtimeAI();
         }
-      }, Math.pow(2, reconnectAttemptsRef.current) * 1000);
+      }, delay);
+    } else {
+      console.log('❌ Max reconnection attempts reached');
+      toast.error("Failed to reconnect. Please try again manually.");
     }
   };
 
@@ -228,7 +256,15 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
   };
 
   const toggleConnection = () => {
-    setSession(prev => ({ ...prev, isConnected: !prev.isConnected }));
+    console.log('🔄 Toggling connection, current state:', session.isConnected);
+    
+    if (session.isConnected) {
+      disconnect();
+    } else {
+      // Reset reconnect attempts when manually connecting
+      reconnectAttemptsRef.current = 0;
+      setSession(prev => ({ ...prev, isConnected: true }));
+    }
   };
 
   const sendLiveContext = (context: any) => {

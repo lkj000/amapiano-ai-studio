@@ -124,6 +124,13 @@ Return a JSON plan with these steps and their parameters.`;
     });
 
     const data = await response.json();
+    
+    // Check if the response is valid
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Invalid OpenAI response:', data);
+      throw new Error('Invalid response from OpenAI API');
+    }
+    
     const planText = data.choices[0].message.content;
     
     // Try to parse as JSON, fallback to structured plan

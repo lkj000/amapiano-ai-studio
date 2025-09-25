@@ -113,7 +113,7 @@ Return a JSON plan with these steps and their parameters.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Create orchestration plan for: "${prompt}" targeting ${target}` }

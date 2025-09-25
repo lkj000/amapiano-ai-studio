@@ -33,7 +33,10 @@ export const usePersonalizedFeed = ({ user_id, limit = 10 }: PersonalizedFeedOpt
       // Transform the data to match SocialPost interface
       const transformedPosts = data?.map((post: any) => ({
         ...post,
-        creator: null, // Will be fetched separately if needed
+        creator: {
+          display_name: post.creator_display_name || 'Anonymous User',
+          avatar_url: post.creator_avatar_url
+        },
         user_interactions: {
           liked: false,
           played: false,

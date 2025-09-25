@@ -1946,6 +1946,8 @@ export type Database = {
           comment_count: number
           cover_image_url: string
           created_at: string
+          creator_avatar_url: string
+          creator_display_name: string
           creator_id: string
           description: string
           duration_seconds: number

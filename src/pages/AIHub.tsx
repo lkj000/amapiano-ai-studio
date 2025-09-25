@@ -8,6 +8,7 @@ import { RealtimeAIAssistant } from '@/components/RealtimeAIAssistant';
 import { EngagementAnalytics } from '@/components/EngagementAnalytics';
 import RealTimeCollaborationPanel from '@/components/RealTimeCollaborationPanel';
 import { AuraConductor } from '@/components/aura/AuraConductor';
+import { RealtimeAudioEngine } from '@/components/RealtimeAudioEngine';
 import { 
   Bot, 
   TrendingUp, 
@@ -26,6 +27,7 @@ interface AIHubProps {
 
 export default function AIHub({ user }: AIHubProps) {
   const [activeTab, setActiveTab] = useState('assistant');
+  const [isAudioEngineEnabled, setIsAudioEngineEnabled] = useState(false);
   const [mockProjectData] = useState({
     id: 'demo-project',
     name: 'Demo Amapiano Track',
@@ -189,11 +191,20 @@ export default function AIHub({ user }: AIHubProps) {
           </TabsContent>
 
           <TabsContent value="realtime" className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RealtimeAIAssistant
                 projectData={mockProjectData}
                 onLiveAction={(action) => {
                   console.log('Live action:', action);
+                }}
+                className="w-full"
+              />
+              <RealtimeAudioEngine
+                isEnabled={isAudioEngineEnabled}
+                onToggle={setIsAudioEngineEnabled}
+                onAudioData={(audioData) => {
+                  // Process real-time audio data for AI analysis
+                  console.log('Real-time audio data:', audioData.length);
                 }}
                 className="w-full"
               />

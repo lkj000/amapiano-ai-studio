@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -43,23 +43,7 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
     }
   }, [isVisible, post.id, onPlay, playPost]);
 
-  // Listen for global keyboard toggle events
-  useEffect(() => {
-    const onToggle = (evt: Event) => {
-      const e = evt as CustomEvent<{ index: number; postId?: string }>;
-      if (!isVisible) return;
-      if (!e.detail) return;
-      if (e.detail.postId && e.detail.postId !== post.id) return;
-      // Toggle playback for the visible post
-      void togglePlay();
-    };
-    (window as unknown as Window).addEventListener('social:toggle-play' as unknown as string, onToggle as unknown as EventListener);
-    return () => {
-      (window as unknown as Window).removeEventListener('social:toggle-play' as unknown as string, onToggle as unknown as EventListener);
-    };
-  }, [isVisible]);
-
-  const togglePlay = async (e?: React.MouseEvent) => {
+  const togglePlay = useCallback(async (e?: React.MouseEvent) => {
     e?.stopPropagation();
     const audio = audioRef.current;
     if (!audio) {
@@ -81,7 +65,23 @@ export const SocialFeedPost: React.FC<SocialFeedPostProps> = ({ post, isVisible,
     } catch (err) {
       console.error('Playback failed:', err);
     }
-  };
+  }, [playPost, post.id]);
+
+  // Listen for global keyboard toggle events
+  useEffect(() => {
+    const onToggle = (evt: Event) => {
+      const e = evt as CustomEvent<{ index: number; postId?: string }>;
+      if (!isVisible) return;
+      if (!e.detail) return;
+      if (e.detail.postId && e.detail.postId !== post.id) return;
+      // Toggle playback for the visible post
+      void togglePlay();
+    };
+    (window as unknown as Window).addEventListener('social:toggle-play' as unknown as string, onToggle as unknown as EventListener);
+    return () => {
+      (window as unknown as Window).removeEventListener('social:toggle-play' as unknown as string, onToggle as unknown as EventListener);
+    };
+  }, [isVisible, togglePlay]);
 
   const handleComments = () => {
     setShowComments(true);

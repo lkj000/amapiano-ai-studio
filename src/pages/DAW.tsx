@@ -35,6 +35,7 @@ import AudioRecordingPanel from '@/components/AudioRecordingPanel';
 import CommunityPanel from '@/components/CommunityPanel';
 import VSTPluginPanel from '@/components/VSTPluginPanel';
 import { useVSTPluginSystem } from '@/hooks/useVSTPluginSystem';
+import type { VSTPluginManifest } from '@/hooks/useVSTPluginSystem';
 import { supabase } from '@/integrations/supabase/client';
 import { AIAssistantSidebar } from '@/components/AIAssistantSidebar';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
@@ -699,6 +700,73 @@ export default function DawPage({ user }: DawPageProps) {
         return;
       }
 
+      // Bridge: ensure the VST system knows about this plugin ID
+      const existingVst = vstPluginSystem.getVSTPlugin(pluginId);
+      if (!existingVst) {
+        const webPlugin = installedPlugins.find(p => p.id === pluginId);
+        if (webPlugin) {
+          const mappedParams = (webPlugin.parameters || []).map((p: any) => {
+            const toFormat = (unit?: string) => {
+              if (!unit) return 'raw';
+              const u = String(unit).toLowerCase();
+              if (u.includes('hz')) return 'hz';
+              if (u.includes('db')) return 'db';
+              if (u.includes('%')) return 'percentage';
+              if (u.includes('s')) return 'seconds';
+              return 'raw';
+            };
+            return {
+              id: p.id,
+              name: p.name,
+              label: p.name,
+              type: p.type === 'boolean' ? 'bool' : p.type,
+              min: p.minValue ?? 0,
+              max: p.maxValue ?? 1,
+              default: p.defaultValue,
+              unit: p.unit,
+              options: p.options,
+              automatable: Boolean(p.automatable),
+              displayFormat: toFormat(p.unit),
+            } as VSTPluginManifest['parameters'][number];
+          });
+
+          const mappedPresets = (webPlugin.presets || []).map((pr: any) => ({
+            id: pr.id,
+            name: pr.name,
+            author: pr.author || webPlugin.author || 'Community',
+            category: webPlugin.category || 'General',
+            parameters: pr.parameters || {},
+            tags: pr.tags || [],
+          }));
+
+          const mappedManifest: VSTPluginManifest = {
+            id: webPlugin.id,
+            name: webPlugin.name,
+            vendor: webPlugin.author || 'Community',
+            version: webPlugin.version || '1.0.0',
+            type: 'VST3',
+            format: webPlugin.type === 'instrument' ? 'instrument' : 'effect',
+            latency: 64,
+            parameters: mappedParams,
+            presets: mappedPresets,
+            category: webPlugin.category || 'General',
+            description: webPlugin.description || webPlugin.name,
+            website: webPlugin.website,
+            price: typeof webPlugin.price === 'number' ? webPlugin.price : 0,
+            rating: typeof webPlugin.rating === 'number' ? webPlugin.rating : undefined,
+            downloads: typeof webPlugin.downloadCount === 'number' ? webPlugin.downloadCount : undefined,
+            tags: webPlugin.tags || [],
+            screenshots: webPlugin.screenshots || [],
+            pluginPath: undefined,
+            isNative: true,
+            supportsWebAudio: true,
+          };
+
+          // Register with VST system
+          vstPluginSystem.registerExternalPlugin(mappedManifest);
+        }
+      }
+
       // Also create VST plugin instance for advanced controls
       console.log('Creating VST instance for plugin:', pluginId, 'on track:', trackId);
       const vstInstanceId = await vstPluginSystem.createVSTInstance(pluginId, trackId);
@@ -750,7 +818,7 @@ export default function DawPage({ user }: DawPageProps) {
       console.error('Failed to create plugin instance:', error);
       toast.error('Failed to add plugin to track');
     }
-  }, [projectData, createPluginInstance, vstPluginSystem.createVSTInstance, undoRedoControls]);
+  }, [projectData, createPluginInstance, installedPlugins, vstPluginSystem, undoRedoControls]);
 
   const handleAddAutomationLane = useCallback((trackId: string, parameterName: string, parameterType: string) => {
     setProjectData(prev => {

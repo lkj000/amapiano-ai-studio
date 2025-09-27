@@ -525,6 +525,11 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
     }
   }, [availablePlugins]);
 
+  const registerExternalPlugin = useCallback((plugin: VSTPluginManifest) => {
+    setAvailablePlugins(prev => prev.some(p => p.id === plugin.id) ? prev : [...prev, plugin]);
+    setInstalledPlugins(prev => prev.some(p => p.id === plugin.id) ? prev : [...prev, plugin]);
+  }, []);
+
   return {
     // State
     availablePlugins,
@@ -541,6 +546,7 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
     loadVSTPreset,
     getTrackVSTPlugins,
     downloadPlugin,
+    registerExternalPlugin,
     
     // Utils
     getVSTPlugin: useCallback((id: string) => 

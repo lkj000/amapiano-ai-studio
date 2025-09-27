@@ -37,6 +37,12 @@ const backend = {
       projectId?: string;
     }): Promise<ProjectResponse> {
       try {
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('Authentication required to save projects');
+        }
+
         const upsertData: any = {
           name: data.name,
           bpm: data.projectData.bpm,
@@ -44,6 +50,7 @@ const backend = {
           time_signature: data.projectData.timeSignature || '4/4',
           project_data: data.projectData,
           updated_at: new Date().toISOString(),
+          user_id: user.id, // Add user_id for RLS policy
         };
 
         if (data.projectId) {
@@ -66,7 +73,7 @@ const backend = {
         };
       } catch (error) {
         console.error('Save project error:', error);
-        throw new Error('Failed to save project');
+        throw new Error(error.message || 'Failed to save project');
       }
     },
 

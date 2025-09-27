@@ -48,7 +48,9 @@ import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
 import { AuraSidebar } from '@/components/aura/AuraSidebar';
+import { PluginSidebar } from '@/components/PluginSidebar';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
+import { usePluginSystem } from '@/hooks/usePluginSystem';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -152,6 +154,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [showMusicAnalysis, setShowMusicAnalysis] = useState(false);
   const [showAuraSidebar, setShowAuraSidebar] = useState(true);
   const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
+  const [showPluginSidebar, setShowPluginSidebar] = useState(false);
   const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -206,6 +209,9 @@ export default function DawPage({ user }: DawPageProps) {
     updateEffectParam,
     getTrackEffects
   } = useAudioEngine(projectData);
+
+  // Plugin System
+  const { createPluginInstance } = usePluginSystem(getAudioContext());
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -613,6 +619,67 @@ export default function DawPage({ user }: DawPageProps) {
     });
     toast.success('Automation updated');
   }, [undoRedoControls]);
+
+  const handleRecording = useCallback((recording: AudioRecording) => {
+    if (!projectData || !selectedTrackId) return;
+
+    const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) as DawTrackV2;
+    if (!selectedTrack || selectedTrack.type !== 'audio') return;
+
+    const newTrack = {
+      ...selectedTrack,
+      recordings: [...(selectedTrack.recordings || []), recording]
+    };
+
+    const newData = {
+      ...projectData,
+      tracks: projectData.tracks.map(t => t.id === selectedTrackId ? newTrack : t)
+    };
+
+    undoRedoControls.pushState(newData, `Added recording to ${selectedTrack.name}`);
+    setProjectData(newData);
+    
+    toast.success(`🎤 Recording added to "${selectedTrack.name}"`);
+  }, [projectData, selectedTrackId, undoRedoControls]);
+
+  // Plugin drop handler
+  const handlePluginDrop = useCallback((pluginId: string, trackId: string) => {
+    if (!projectData) return;
+
+    const track = projectData.tracks.find(t => t.id === trackId);
+    if (!track) return;
+
+    try {
+      // Create plugin instance
+      const pluginInstance = createPluginInstance(pluginId, trackId);
+      if (!pluginInstance) {
+        toast.error('Failed to create plugin instance');
+        return;
+      }
+
+      // For instrument plugins, update the track's instrument
+      if (pluginId === 'aura-808-log-drum') {
+        const updatedTrack = {
+          ...track,
+          instrument: 'Aura 808 Log Drum',
+          name: track.name === 'New MIDI Track' ? 'Aura 808 Log Drums' : track.name
+        };
+
+        const newData = {
+          ...projectData,
+          tracks: projectData.tracks.map(t => t.id === trackId ? updatedTrack : t)
+        };
+
+        undoRedoControls.pushState(newData, `Added Aura 808 Log Drum to ${track.name}`);
+        setProjectData(newData);
+        
+        toast.success(`🥁 Aura 808 Log Drum added to ${track.name}!`);
+      }
+    } catch (error) {
+      console.error('Failed to create plugin instance:', error);
+      toast.error('Failed to add plugin to track');
+    }
+  }, [projectData, createPluginInstance, undoRedoControls]);
 
   const handleAddAutomationLane = useCallback((trackId: string, parameterName: string, parameterType: string) => {
     setProjectData(prev => {
@@ -1383,19 +1450,41 @@ export default function DawPage({ user }: DawPageProps) {
               </div>
 
               {/* Timeline with Context Menu Integration */}
-              <OptimizedTimeline
-                tracks={projectData.tracks}
-                zoom={zoom[0]}
-                currentTime={currentTime}
-                dragState={dragState}
-                selectedTrackId={selectedTrackId}
-                onTrackSelect={setSelectedTrackId}
-                onClipUpdate={handleUpdateClip}
-                onClipDuplicate={handleClipDuplicate}
-                onClipSplit={handleClipSplit}
-                onClipDelete={handleClipDelete}
-                onDragStart={(e, trackId, clipId) => onClipMouseDown(e, trackId, clipId, {})}
-              />
+              <div 
+                className="bg-muted/30 rounded-lg border overflow-hidden relative"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const data = e.dataTransfer.getData('application/json');
+                  if (data) {
+                    try {
+                      const dropData = JSON.parse(data);
+                      if (dropData.type === 'plugin' && selectedTrackId) {
+                        handlePluginDrop(dropData.pluginId, selectedTrackId);
+                      }
+                    } catch (error) {
+                      console.error('Failed to parse drop data:', error);
+                    }
+                  }
+                }}
+              >
+                <OptimizedTimeline
+                  tracks={projectData.tracks}
+                  zoom={zoom[0]}
+                  currentTime={currentTime}
+                  dragState={dragState}
+                  selectedTrackId={selectedTrackId}
+                  onTrackSelect={setSelectedTrackId}
+                  onClipUpdate={handleUpdateClip}
+                  onClipDuplicate={handleClipDuplicate}
+                  onClipSplit={handleClipSplit}
+                  onClipDelete={handleClipDelete}
+                  onDragStart={(e, trackId, clipId) => onClipMouseDown(e, trackId, clipId, {})}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1561,6 +1650,25 @@ export default function DawPage({ user }: DawPageProps) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      {/* Plugin Sidebar */}
+      {showPluginSidebar && (
+        <div className="fixed right-4 top-20 bottom-4 z-40">
+          <PluginSidebar
+            audioContext={getAudioContext()}
+            onClose={() => setShowPluginSidebar(false)}
+          />
+        </div>
+      )}
+
+      {/* Plugin Sidebar */}
+      {showPluginSidebar && (
+        <div className="fixed right-4 top-20 bottom-4 z-40">
+          <PluginSidebar
+            audioContext={getAudioContext()}
+            onClose={() => setShowPluginSidebar(false)}
+          />
         </div>
       )}
     </div>

@@ -804,7 +804,7 @@ export type Database = {
           project_data: Json
           time_signature: string | null
           updated_at: string
-          user_id: string | null
+          user_id: string
           version: number
         }
         Insert: {
@@ -816,7 +816,7 @@ export type Database = {
           project_data: Json
           time_signature?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id: string
           version?: number
         }
         Update: {
@@ -828,7 +828,7 @@ export type Database = {
           project_data?: Json
           time_signature?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           version?: number
         }
         Relationships: []

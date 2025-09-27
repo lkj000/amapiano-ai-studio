@@ -34,6 +34,7 @@ import AutomationLanesPanel from '@/components/AutomationLanesPanel';
 import AudioRecordingPanel from '@/components/AudioRecordingPanel';
 import CommunityPanel from '@/components/CommunityPanel';
 import VSTPluginPanel from '@/components/VSTPluginPanel';
+import { useVSTPluginSystem } from '@/hooks/useVSTPluginSystem';
 import { supabase } from '@/integrations/supabase/client';
 import { AIAssistantSidebar } from '@/components/AIAssistantSidebar';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
@@ -244,6 +245,9 @@ export default function DawPage({ user }: DawPageProps) {
 
   // Plugin System
   const { createPluginInstance, installedPlugins } = usePluginSystem(getAudioContext());
+  
+  // VST Plugin System
+  const vstPluginSystem = useVSTPluginSystem(getAudioContext());
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -681,18 +685,25 @@ export default function DawPage({ user }: DawPageProps) {
   }, [projectData, selectedTrackId, undoRedoControls]);
 
   // Plugin drop handler
-  const handlePluginDrop = useCallback((pluginId: string, trackId: string) => {
+  const handlePluginDrop = useCallback(async (pluginId: string, trackId: string) => {
     if (!projectData) return;
 
     const track = projectData.tracks.find(t => t.id === trackId);
     if (!track) return;
 
     try {
-      // Create plugin instance
+      // Create plugin instance in regular plugin system
       const pluginInstance = createPluginInstance(pluginId, trackId);
       if (!pluginInstance) {
         toast.error('Failed to create plugin instance');
         return;
+      }
+
+      // Also create VST plugin instance for advanced controls
+      console.log('Creating VST instance for plugin:', pluginId, 'on track:', trackId);
+      const vstInstanceId = await vstPluginSystem.createVSTInstance(pluginId, trackId);
+      if (vstInstanceId) {
+        console.log('VST instance created:', vstInstanceId);
       }
 
       // For instrument plugins, update the track's instrument (only for MIDI tracks)
@@ -739,7 +750,7 @@ export default function DawPage({ user }: DawPageProps) {
       console.error('Failed to create plugin instance:', error);
       toast.error('Failed to add plugin to track');
     }
-  }, [projectData, createPluginInstance, undoRedoControls]);
+  }, [projectData, createPluginInstance, vstPluginSystem.createVSTInstance, undoRedoControls]);
 
   const handleAddAutomationLane = useCallback((trackId: string, parameterName: string, parameterType: string) => {
     setProjectData(prev => {
@@ -1656,6 +1667,7 @@ export default function DawPage({ user }: DawPageProps) {
           audioContext={getAudioContext()}
           trackId={selectedTrackId || undefined}
           onClose={() => setShowVSTPlugins(false)}
+          vstPluginSystem={vstPluginSystem}
         />
       )}
       

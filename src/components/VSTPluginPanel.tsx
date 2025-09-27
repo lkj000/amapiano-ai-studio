@@ -23,15 +23,25 @@ interface VSTPluginPanelProps {
   audioContext: AudioContext | null;
   trackId?: string;
   onClose: () => void;
+  vstPluginSystem?: ReturnType<typeof useVSTPluginSystem>;
 }
 
-export default function VSTPluginPanel({ audioContext, trackId, onClose }: VSTPluginPanelProps) {
+export default function VSTPluginPanel({ 
+  audioContext, 
+  trackId, 
+  onClose, 
+  vstPluginSystem: externalVstSystem 
+}: VSTPluginPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedVendor, setSelectedVendor] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedInstance, setSelectedInstance] = useState<VSTPluginInstance | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Use external VST system if provided, otherwise create internal one  
+  const internalVstSystem = useVSTPluginSystem(audioContext);
+  const vstSystem = externalVstSystem || internalVstSystem;
 
   const {
     availablePlugins,
@@ -47,7 +57,7 @@ export default function VSTPluginPanel({ audioContext, trackId, onClose }: VSTPl
     getTrackVSTPlugins,
     downloadPlugin,
     getVSTPlugin
-  } = useVSTPluginSystem(audioContext);
+  } = vstSystem;
 
   const [activeTab, setActiveTab] = useState('marketplace');
 

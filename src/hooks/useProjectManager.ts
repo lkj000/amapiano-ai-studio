@@ -4,6 +4,21 @@ import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import type { DawProjectData } from '@/types/daw';
 
+// Supabase database row type
+interface DatabaseProject {
+  id: string;
+  name: string;
+  user_id: string;
+  bpm: number;
+  key_signature: string;
+  time_signature: string;
+  project_data: any; // Json type from Supabase
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
+
+// Frontend Project type
 interface Project {
   id: string;
   name: string;
@@ -23,6 +38,24 @@ interface ProjectStats {
   collaborativeProjects: number;
   storageUsed: number;
 }
+
+// Conversion functions
+const convertDatabaseToProject = (dbProject: DatabaseProject): Project => {
+  return {
+    ...dbProject,
+    project_data: dbProject.project_data as DawProjectData
+  };
+};
+
+const createDefaultProjectData = (bpm: number, keySignature: string, timeSignature: string): DawProjectData => {
+  return {
+    bpm,
+    keySignature,
+    timeSignature,
+    tracks: [],
+    masterVolume: 0.8
+  };
+};
 
 export const useProjectManager = (user: User | null) => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,12 +79,13 @@ export const useProjectManager = (user: User | null) => {
 
       if (error) throw error;
 
-      setProjects(data || []);
+      const convertedProjects = (data || []).map(convertDatabaseToProject);
+      setProjects(convertedProjects);
       
       // Calculate stats
       const stats: ProjectStats = {
-        totalProjects: data?.length || 0,
-        recentProjects: (data || []).slice(0, 5),
+        totalProjects: convertedProjects.length,
+        recentProjects: convertedProjects.slice(0, 5),
         collaborativeProjects: 0, // TODO: Add collaboration count
         storageUsed: 0 // TODO: Calculate storage usage
       };
@@ -78,22 +112,7 @@ export const useProjectManager = (user: User | null) => {
     }
 
     try {
-      const newProjectData: DawProjectData = {
-        id: crypto.randomUUID(),
-        name,
-        bpm,
-        keySignature,
-        timeSignature,
-        tracks: [],
-        masterVolume: 0.8,
-        masterEffects: [],
-        loops: [],
-        markers: [],
-        automation: {},
-        mixerSettings: {
-          tracks: {}
-        }
-      };
+      const newProjectData = createDefaultProjectData(bpm, keySignature, timeSignature);
 
       const { data, error } = await supabase
         .from('daw_projects')
@@ -103,14 +122,14 @@ export const useProjectManager = (user: User | null) => {
           bpm,
           key_signature: keySignature,
           time_signature: timeSignature,
-          project_data: newProjectData
+          project_data: newProjectData as any
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      const newProject = data as Project;
+      const newProject = convertDatabaseToProject(data as DatabaseProject);
       setProjects(prev => [newProject, ...prev]);
       setCurrentProject(newProject);
       toast.success(`Project "${name}" created successfully`);
@@ -131,11 +150,10 @@ export const useProjectManager = (user: User | null) => {
       const { error } = await supabase
         .from('daw_projects')
         .update({
-          name: projectData.name,
           bpm: projectData.bpm,
           key_signature: projectData.keySignature,
           time_signature: projectData.timeSignature,
-          project_data: projectData,
+          project_data: projectData as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', currentProject.id);
@@ -170,7 +188,8 @@ export const useProjectManager = (user: User | null) => {
 
       if (error) throw error;
 
-      setCurrentProject(data as Project);
+      const project = convertDatabaseToProject(data as DatabaseProject);
+      setCurrentProject(project);
       toast.success(`Project "${data.name}" loaded`);
       return true;
     } catch (error) {
@@ -221,13 +240,6 @@ export const useProjectManager = (user: User | null) => {
     const duplicateName = newName || `${sourceProject.name} (Copy)`;
     
     try {
-      // Create new project data with new ID
-      const newProjectData = {
-        ...sourceProject.project_data,
-        id: crypto.randomUUID(),
-        name: duplicateName
-      };
-
       const { data, error } = await supabase
         .from('daw_projects')
         .insert({
@@ -236,14 +248,14 @@ export const useProjectManager = (user: User | null) => {
           bpm: sourceProject.bpm,
           key_signature: sourceProject.key_signature,
           time_signature: sourceProject.time_signature,
-          project_data: newProjectData
+          project_data: sourceProject.project_data as any
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      const newProject = data as Project;
+      const newProject = convertDatabaseToProject(data as DatabaseProject);
       setProjects(prev => [newProject, ...prev]);
       toast.success(`Project duplicated as "${duplicateName}"`);
       

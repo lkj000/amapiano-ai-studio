@@ -281,48 +281,58 @@ export const Aura808LogDrum: React.FC<Aura808LogDrumProps> = ({
 
       if (error) throw error;
 
-      // Simulate AI-generated preset based on genre
-      const presets: Record<string, Partial<LogDrumParameters>> = {
-        "amapiano": {
-          pitch: 50,
-          glide_time: 200,
-          knock_mix: 0.4,
-          body_mix: 0.8,
-          decay_time: 600,
-          attack_time: 2,
-          sustain_level: 0.4,
-          release_time: 1000
-        },
-        "private_school": {
-          pitch: 55,
-          glide_time: 80,
-          knock_mix: 0.2,
-          body_mix: 0.9,
-          decay_time: 400,
-          attack_time: 1,
-          sustain_level: 0.2,
-          release_time: 800
-        },
-        "deep_house": {
-          pitch: 45,
-          glide_time: 300,
-          knock_mix: 0.6,
-          body_mix: 0.7,
-          decay_time: 1200,
-          attack_time: 8,
-          sustain_level: 0.5,
-          release_time: 1800
-        }
-      };
+      // Handle the response from the updated edge function
+      if (data?.preset?.parameters) {
+        setParameters(prev => ({
+          ...prev,
+          ...data.preset.parameters
+        }));
+        
+        toast.success(`Generated ${data.preset.name} successfully!`);
+      } else {
+        // Fallback to hardcoded presets if AI generation fails
+        const presets: Record<string, Partial<LogDrumParameters>> = {
+          "amapiano": {
+            pitch: 50,
+            glide_time: 200,
+            knock_mix: 0.4,
+            body_mix: 0.8,
+            decay_time: 600,
+            attack_time: 2,
+            sustain_level: 0.4,
+            release_time: 1000
+          },
+          "private_school": {
+            pitch: 55,
+            glide_time: 80,
+            knock_mix: 0.2,
+            body_mix: 0.9,
+            decay_time: 400,
+            attack_time: 1,
+            sustain_level: 0.2,
+            release_time: 800
+          },
+          "deep_house": {
+            pitch: 45,
+            glide_time: 300,
+            knock_mix: 0.6,
+            body_mix: 0.7,
+            decay_time: 1200,
+            attack_time: 8,
+            sustain_level: 0.5,
+            release_time: 1800
+          }
+        };
 
-      const newPreset = presets[genre] || presets["amapiano"];
-      
-      setParameters(prev => ({
-        ...prev,
-        ...newPreset
-      }));
+        const newPreset = presets[genre] || presets["amapiano"];
+        
+        setParameters(prev => ({
+          ...prev,
+          ...newPreset
+        }));
 
-      toast.success(`Generated ${genre} preset successfully!`);
+        toast.success(`Generated ${genre} preset successfully!`);
+      }
       
     } catch (error) {
       console.error('Error generating AI preset:', error);

@@ -236,9 +236,62 @@ export function usePluginSystem(audioContext: AudioContext | null) {
     }
   }, [audioContext]);
 
-  // Load built-in plugins
+  // Load built-in plugins and approved database plugins
   useEffect(() => {
     loadBuiltInPlugins();
+    loadApprovedPlugins();
+  }, []);
+
+  // Load approved plugins from database
+  const loadApprovedPlugins = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('web_plugins')
+        .select('*')
+        .eq('is_approved', true);
+
+      if (error) {
+        console.error('Failed to load approved plugins:', error);
+        return;
+      }
+
+      const dbPlugins: PluginManifest[] = data?.map(plugin => {
+        const manifest = plugin.manifest_data as any || {};
+        return {
+          id: plugin.id,
+          name: plugin.name,
+          version: plugin.version,
+          author: manifest.author || 'Community',
+          description: manifest.description || plugin.name,
+          type: plugin.plugin_type as 'instrument' | 'effect' | 'utility' | 'generator',
+          category: manifest.category || 'Instruments',
+          tags: manifest.tags || [],
+          icon: manifest.icon,
+          audioInputs: manifest.audioInputs || 0,
+          audioOutputs: manifest.audioOutputs || 2,
+          midiInputs: manifest.midiInputs || 1,
+          midiOutputs: manifest.midiOutputs || 0,
+          parameters: manifest.parameters || [],
+          presets: manifest.presets || [],
+          entryPoint: `plugin://${plugin.id}`,
+          dependencies: manifest.dependencies || [],
+          minimumVersion: '1.0.0',
+          license: manifest.license || 'Custom',
+          price: 0,
+          downloadCount: plugin.download_count,
+          rating: plugin.rating || 0,
+          reviews: 0
+        };
+      }) || [];
+
+      setAvailablePlugins(prev => [...prev, ...dbPlugins]);
+      setInstalledPlugins(prev => [...prev, ...dbPlugins]);
+    } catch (error) {
+      console.error('Error loading approved plugins:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const loadBuiltInPlugins = useCallback(async () => {

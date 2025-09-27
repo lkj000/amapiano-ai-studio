@@ -211,7 +211,7 @@ export default function DawPage({ user }: DawPageProps) {
   } = useAudioEngine(projectData);
 
   // Plugin System
-  const { createPluginInstance } = usePluginSystem(getAudioContext());
+  const { createPluginInstance, installedPlugins } = usePluginSystem(getAudioContext());
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -241,20 +241,26 @@ export default function DawPage({ user }: DawPageProps) {
     console.log('DAW: useEffect - isLoadingList:', isLoadingList);
     console.log('DAW: useEffect - activeProjectId:', activeProjectId);
     
-    if (isLoadingList || createDefaultProjectMutation.isPending) {
-      return; // Wait until loading/creation is finished
+    if (isLoadingList) {
+      return; // Wait until loading is finished
     }
+    
+    if (createDefaultProjectMutation.isPending) {
+      return; // Wait until creation is finished
+    }
+    
     if (projectsList) {
       console.log('DAW: projectsList.projects:', projectsList.projects);
       if (projectsList.projects && projectsList.projects.length > 0) {
         if (!activeProjectId) {
           setActiveProjectId(projectsList.projects[0].id);
         }
-      } else {
+      } else if (!createDefaultProjectMutation.isPending && !createDefaultProjectMutation.isSuccess) {
+        // Only create if we haven't already started creating
         createDefaultProjectMutation.mutate();
       }
     }
-  }, [projectsList, isLoadingList, activeProjectId, createDefaultProjectMutation]);
+  }, [projectsList, isLoadingList, activeProjectId]);
 
   // Step 4: Query to load the active project's data
   const { data: loadedProject, isLoading: isLoadingProject, isError: isProjectError, error: projectError } = useQuery({
@@ -657,24 +663,46 @@ export default function DawPage({ user }: DawPageProps) {
         return;
       }
 
-      // For instrument plugins, update the track's instrument
-      if (pluginId === 'aura-808-log-drum') {
+      // For instrument plugins, update the track's instrument (only for MIDI tracks)
+      if (track.type === 'midi') {
+        let instrumentName = (track as any).instrument || 'Unknown';
+        let trackName = track.name;
+        
+        // Get plugin manifest to get the name
+        const plugin = installedPlugins.find(p => p.id === pluginId);
+        const pluginName = plugin?.name || pluginId || 'Unknown Plugin';
+        
+        // Map specific plugins to instruments
+        if (pluginId === 'aura-808-log-drum') {
+          instrumentName = 'Aura 808 Log Drum';
+          trackName = track.name === 'New MIDI Track' ? 'Aura 808 Log Drums' : track.name;
+        } else if (pluginId === 'builtin-synthesizer') {
+          instrumentName = 'PolyWave Synthesizer';
+          trackName = track.name === 'New MIDI Track' ? 'PolyWave Synth' : track.name;
+        } else {
+          // For approved plugins, use the plugin name
+          instrumentName = pluginName;
+          trackName = track.name === 'New MIDI Track' ? pluginName : track.name;
+        }
+
         const updatedTrack = {
           ...track,
-          instrument: 'Aura 808 Log Drum',
-          name: track.name === 'New MIDI Track' ? 'Aura 808 Log Drums' : track.name
-        };
+          instrument: instrumentName,
+          name: trackName
+        } as DawTrackV2;
 
         const newData = {
           ...projectData,
           tracks: projectData.tracks.map(t => t.id === trackId ? updatedTrack : t)
         };
 
-        undoRedoControls.pushState(newData, `Added Aura 808 Log Drum to ${track.name}`);
+        undoRedoControls.pushState(newData, `Added ${pluginName} to ${track.name}`);
         setProjectData(newData);
-        
-        toast.success(`🥁 Aura 808 Log Drum added to ${track.name}!`);
       }
+      
+      const plugin = installedPlugins.find(p => p.id === pluginId);
+      const pluginDisplayName = plugin?.name || pluginId || 'Unknown Plugin';
+      toast.success(`🔌 ${pluginDisplayName} added to ${track.name}!`);
     } catch (error) {
       console.error('Failed to create plugin instance:', error);
       toast.error('Failed to add plugin to track');
@@ -1082,7 +1110,7 @@ export default function DawPage({ user }: DawPageProps) {
     return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={listError as Error} /></div>;
   }
 
-  if (projectsList && projectsList.projects && projectsList.projects.length === 0) {
+  if (projectsList && projectsList.projects && projectsList.projects.length === 0 && createDefaultProjectMutation.isPending) {
     return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Creating your first project..." /></div>;
   }
 
@@ -1090,7 +1118,7 @@ export default function DawPage({ user }: DawPageProps) {
     return <div className="flex flex-col items-center justify-center h-full"><ErrorMessage error={createDefaultProjectMutation.error as Error} /></div>;
   }
 
-  if (!activeProjectId || isLoadingProject) {
+  if (!activeProjectId || isLoadingProject || createDefaultProjectMutation.isPending) {
     return <div className="flex flex-col items-center justify-center h-full"><LoadingSpinner message="Loading project..." /></div>;
   }
 

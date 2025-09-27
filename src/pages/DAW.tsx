@@ -1225,6 +1225,10 @@ export default function DawPage({ user }: DawPageProps) {
               <Users className="w-4 h-4 mr-2" />
               Community
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowPluginSidebar(!showPluginSidebar)} className={showPluginSidebar ? 'bg-primary/20 text-primary' : ''}>
+              <Gamepad2 className="w-4 h-4 mr-2" />
+              Plugins
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
               <Settings className="w-4 h-4" />
             </Button>
@@ -1712,16 +1716,6 @@ export default function DawPage({ user }: DawPageProps) {
           </div>
         </div>
       )}
-      {/* Plugin Sidebar */}
-      {showPluginSidebar && (
-        <div className="fixed right-4 top-20 bottom-4 z-40">
-          <PluginSidebar
-            audioContext={getAudioContext()}
-            onClose={() => setShowPluginSidebar(false)}
-          />
-        </div>
-      )}
-
       {/* Plugin Sidebar */}
       {showPluginSidebar && (
         <div className="fixed right-4 top-20 bottom-4 z-40">

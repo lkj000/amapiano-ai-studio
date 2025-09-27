@@ -47,6 +47,8 @@ import { RAGKnowledgeBase } from '@/components/RAGKnowledgeBase';
 import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
+import { AuraSidebar } from '@/components/aura/AuraSidebar';
+import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -123,6 +125,7 @@ interface DawPageProps {
 
 export default function DawPage({ user }: DawPageProps) {
   const queryClient = useQueryClient();
+  const { isFeatureEnabled } = useFeatureFlags(user);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [showPianoRoll, setShowPianoRoll] = useState(false);
@@ -147,6 +150,8 @@ export default function DawPage({ user }: DawPageProps) {
   const [showRealTimeCollab, setShowRealTimeCollab] = useState(false);
   const [showAIMarketplace, setShowAIMarketplace] = useState(false);
   const [showMusicAnalysis, setShowMusicAnalysis] = useState(false);
+  const [showAuraSidebar, setShowAuraSidebar] = useState(true);
+  const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
   const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,

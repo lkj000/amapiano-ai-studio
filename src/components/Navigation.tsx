@@ -59,6 +59,7 @@ const navItems = [
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },
     { path: "/daw", label: "DAW", icon: Volume2 },
+    { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },
   ];
 

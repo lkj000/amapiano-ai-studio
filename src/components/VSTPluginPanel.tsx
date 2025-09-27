@@ -15,6 +15,7 @@ import {
   Settings, Play, Pause, RotateCcw, Save, Trash2, X, Volume2,
   Activity, TrendingUp, Users, Clock, HardDrive, Cpu
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { useVSTPluginSystem } from '@/hooks/useVSTPluginSystem';
 import type { VSTPluginManifest, VSTPluginInstance, VSTParameter } from '@/hooks/useVSTPluginSystem';
@@ -244,7 +245,7 @@ export default function VSTPluginPanel({
                     </Button>
                   </>
                 )}
-                {isInstalled && trackId && (
+                {trackId && (
                   <Button 
                     size="sm" 
                     onClick={() => handleInstallPlugin(plugin)}
@@ -311,7 +312,7 @@ export default function VSTPluginPanel({
                   {plugin.price ? `$${plugin.price}` : 'Free'}
                 </Button>
               )}
-              {isInstalled && trackId && (
+              {trackId && (
                 <Button 
                   size="sm" 
                   className="flex-1"
@@ -411,7 +412,18 @@ export default function VSTPluginPanel({
                           <List className="w-4 h-4" />
                         </Button>
                       </div>
+                  </div>
+
+                  {/* Track selection hint */}
+                  {!trackId && (
+                    <div className="px-4 pt-2">
+                      <Alert>
+                        <AlertDescription>
+                          Select a track in the DAW timeline to enable "Load" buttons.
+                        </AlertDescription>
+                      </Alert>
                     </div>
+                  )}
                   </div>
 
                   {/* Plugin Grid */}
@@ -444,7 +456,13 @@ export default function VSTPluginPanel({
 
                 <TabsContent value="instances" className="flex-1 m-0">
                   <ScrollArea className="flex-1 p-4">
-                    {trackPlugins.length === 0 ? (
+                    {!trackId ? (
+                      <div className="text-center py-12">
+                        <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <h3 className="text-lg font-medium mb-2">No track selected</h3>
+                        <p className="text-muted-foreground">Select a track in the DAW to view and manage its plugin instances</p>
+                      </div>
+                    ) : trackPlugins.length === 0 ? (
                       <div className="text-center py-12">
                         <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         <h3 className="text-lg font-medium mb-2">No plugins loaded</h3>

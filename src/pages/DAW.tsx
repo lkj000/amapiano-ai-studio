@@ -1460,22 +1460,38 @@ export default function DawPage({ user }: DawPageProps) {
                 <div className="space-y-1">
                   {projectData.tracks.map((track) => (
                     <div key={track.id} className={`p-3 border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer ${selectedTrackId === track.id ? 'bg-primary/10' : ''}`} onClick={() => setSelectedTrackId(track.id)}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-3 h-3 rounded-full ${track.color}`} />
-                        <Input value={track.name} onChange={(e) => updateTrack(track.id, { name: e.target.value })} className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0" />
-                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => handleRemoveTrack(track.id)}><Minus className="w-3 h-3 text-red-500" /></Button>
-                        <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
-                          <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
-                        <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowAutomation(!showAutomation)} title="Automation"><Activity className="w-3 h-3" /></Button>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs mb-2">
-                        <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
-                        <Button size="sm" variant={track.mixer.isSolo ? "secondary" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isSolo: !track.mixer.isSolo })}>S</Button>
-                        <div className="flex-1"><Slider value={[track.mixer.volume * 100]} onValueChange={([v]) => updateMixer(track.id, { volume: v / 100 })} /></div>
-                        <span className="text-xs w-8 text-right text-muted-foreground">{Math.round(track.mixer.volume * 100)}</span>
-                      </div>
+                       <div className="flex items-center gap-2 mb-2">
+                         <div className={`w-3 h-3 rounded-full ${track.color}`} />
+                         <Input value={track.name} onChange={(e) => updateTrack(track.id, { name: e.target.value })} className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0" />
+                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => handleRemoveTrack(track.id)}><Minus className="w-3 h-3 text-red-500" /></Button>
+                         <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
+                           <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
+                         </Button>
+                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
+                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowAutomation(!showAutomation)} title="Automation"><Activity className="w-3 h-3" /></Button>
+                       </div>
+                       
+                       {/* Show current instrument/plugin */}
+                       {track.type === 'midi' && (track as any).instrument && (
+                         <div className="mb-2">
+                           <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                             <Gamepad2 className="w-3 h-3" />
+                             {(track as any).instrument}
+                           </Badge>
+                         </div>
+                       )}
+                       <div className="flex items-center gap-2 text-xs mb-2">
+                         <Button size="sm" variant={track.mixer.isMuted ? "destructive" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isMuted: !track.mixer.isMuted })}>M</Button>
+                         <Button size="sm" variant={track.mixer.isSolo ? "secondary" : "outline"} className="w-8 h-6 text-xs" onClick={() => updateMixer(track.id, { isSolo: !track.mixer.isSolo })}>S</Button>
+                         {/* Plugin Controls Button */}
+                         {track.type === 'midi' && (track as any).instrument && (track as any).instrument !== 'New MIDI Track' && (
+                           <Button size="sm" variant="outline" className="w-8 h-6 text-xs" onClick={(e) => { e.stopPropagation(); setSelectedTrackId(track.id); setShowVSTPlugins(true); }} title="Plugin Controls">
+                             <Gamepad2 className="w-3 h-3" />
+                           </Button>
+                         )}
+                         <div className="flex-1"><Slider value={[track.mixer.volume * 100]} onValueChange={([v]) => updateMixer(track.id, { volume: v / 100 })} /></div>
+                         <span className="text-xs w-8 text-right text-muted-foreground">{Math.round(track.mixer.volume * 100)}</span>
+                       </div>
                       {track.mixer?.effects && track.mixer.effects.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {track.mixer.effects.map((effect) => (

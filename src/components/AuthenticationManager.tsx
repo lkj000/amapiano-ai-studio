@@ -16,7 +16,7 @@ import {
   Check, 
   AlertCircle,
   Music,
-  Google,
+  Chrome, // Changed from Google to Chrome
   Github,
   Facebook,
   Loader2
@@ -567,7 +567,7 @@ export const AuthenticationManager: React.FC<AuthenticationManagerProps> = ({
                 onClick={() => handleSocialLogin('google')}
                 disabled={loading}
               >
-                <Google className="w-4 h-4" />
+                <Chrome className="w-4 h-4" />
               </Button>
               <Button
                 variant="outline"

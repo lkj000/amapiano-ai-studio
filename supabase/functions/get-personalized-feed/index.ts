@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,7 +110,7 @@ serve(async (req) => {
     }
 
     // Add engagement predictions
-    posts = posts.map(post => ({
+    posts = posts.map((post: any) => ({
       ...post,
       predicted_engagement: calculateEngagementPrediction(post, feedType),
       recommendation_reason: getRecommendationReason(post, feedType)
@@ -145,7 +145,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: 'Failed to generate personalized feed',
-        details: error.message
+        details: (error as Error).message
       }),
       {
         status: 500,
@@ -159,7 +159,7 @@ serve(async (req) => {
 });
 
 function generateDescription(genre: string, feedType: string): string {
-  const descriptions = {
+  const descriptions: Record<string, string[]> = {
     'Classic Amapiano': [
       'Authentic log drums and soulful piano melodies define this classic amapiano masterpiece',
       'Traditional amapiano sound with deep basslines and signature South African rhythms'
@@ -260,7 +260,7 @@ function calculateEngagementPrediction(post: any, feedType: string): number {
 }
 
 function getRecommendationReason(post: any, feedType: string): string {
-  const reasons = {
+  const reasons: Record<string, string[]> = {
     'trending': [
       'Trending in your area',
       'Viral on social media',

@@ -31,6 +31,9 @@ verify_jwt = false
 [functions.elevenlabs-tts]
 verify_jwt = false
 
+[functions.get-personalized-feed]
+verify_jwt = false
+
 [functions.multi-language-processor]
 verify_jwt = false
 
@@ -44,6 +47,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.realtime-ai-assistant]
+verify_jwt = false
+
+[functions.track-ab-conversion]
 verify_jwt = false
 
 [functions.voice-to-text]

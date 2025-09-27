@@ -21,7 +21,7 @@ import {
   Layers,
   Clock,
   Music,
-  Waveform
+  BarChart3 // Changed from Waveform to BarChart3
 } from "lucide-react";
 import { useRealTimeAudio } from "@/hooks/useRealTimeAudio";
 import { toast } from 'sonner';
@@ -86,9 +86,9 @@ export const InteractiveDAW: React.FC<InteractiveDAWProps> = ({
     if (projectData?.tracks) {
       const trackStates = projectData.tracks.map((track: Track) => ({
         id: track.id,
-        volume: track.volume || 0.8,
-        muted: track.muted || false,
-        solo: track.solo || false,
+        volume: track.mixer?.volume || 0.8,
+        muted: track.mixer?.isMuted || false,
+        solo: track.mixer?.isSolo || false,
         armed: false,
         monitoring: false
       }));
@@ -333,7 +333,7 @@ export const InteractiveDAW: React.FC<InteractiveDAWProps> = ({
                 width: 32 * pixelsPerBeat
               }}
             >
-              <Waveform className="w-4 h-4 mr-2" />
+              <BarChart3 className="w-4 h-4 mr-2" />
               Audio Clip
             </div>
           )}

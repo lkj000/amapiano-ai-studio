@@ -117,6 +117,8 @@ export interface DragState {
   startDuration?: number;
 }
 
+export type Track = DawTrack;
+
 // Version 2.0 Types - Automation System
 export interface AutomationPoint {
   time: number; // Time in beats

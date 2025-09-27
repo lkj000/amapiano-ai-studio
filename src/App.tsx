@@ -15,6 +15,7 @@ import Patterns from "./pages/Patterns";
 import DAW from "./pages/DAW";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
+import { Admin } from "./pages/Admin";
 import AuraPlatform from "./pages/AuraPlatform";
 import Aura808Demo from "./pages/Aura808Demo";
 import AIHub from "./pages/AIHub";
@@ -85,7 +86,8 @@ const App = () => {
               <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
               <Route path="/subscription-success" element={<Index user={user} />} />
               <Route path="/purchase-success" element={<Index user={user} />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/admin" element={<Admin />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

@@ -26,7 +26,8 @@ import {
   User as UserIcon,
   Brain,
   Users,
-  DollarSign
+  DollarSign,
+  Shield
 } from "lucide-react";
 
 interface NavigationProps {
@@ -147,6 +148,12 @@ const navItems = [
                         Marketplace
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center">
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin Panel
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleBillingPortal}>
                       <Settings className="mr-2 h-4 w-4" />
                       Billing Portal
@@ -230,6 +237,14 @@ const navItems = [
                     >
                       <ShoppingCart className="w-5 h-5" />
                       Marketplace
+                    </Link>
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all"
+                    >
+                      <Shield className="w-5 h-5" />
+                      Admin Panel
                     </Link>
                     <Button
                       onClick={handleBillingPortal}

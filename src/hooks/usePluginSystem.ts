@@ -287,6 +287,12 @@ export function usePluginSystem(audioContext: AudioContext | null) {
 
       setAvailablePlugins(prev => [...prev, ...dbPlugins]);
       setInstalledPlugins(prev => [...prev, ...dbPlugins]);
+      
+      // Register database plugins with their APIs
+      dbPlugins.forEach(plugin => {
+        const api = createDatabasePluginAPI(plugin);
+        pluginRegistry.registerPlugin(plugin, api);
+      });
     } catch (error) {
       console.error('Error loading approved plugins:', error);
     } finally {
@@ -714,6 +720,59 @@ export function usePluginSystem(audioContext: AudioContext | null) {
 
     setInstalledPlugins(builtInPlugins);
   }, []);
+
+  const createDatabasePluginAPI = (plugin: PluginManifest): PluginAPI => {
+    const parameters: Record<string, any> = {};
+    plugin.parameters.forEach(param => {
+      parameters[param.id] = param.defaultValue;
+    });
+
+    return {
+      createAudioNode: (context: AudioContext) => {
+        // For database plugins, create a basic gain node as a placeholder
+        // In the future, this could load and execute the actual plugin code
+        const gainNode = context.createGain();
+        gainNode.gain.value = 0.8;
+        
+        console.log(`Created audio node for database plugin: ${plugin.name}`);
+        return gainNode;
+      },
+      
+      processAudio: (inputs, outputs, params) => {
+        // Database plugin audio processing would be implemented here
+        // For now, it's a pass-through
+      },
+      
+      setParameter: (id: string, value: any) => {
+        parameters[id] = value;
+        console.log(`Set parameter ${id} = ${value} for ${plugin.name}`);
+      },
+      
+      getParameter: (id: string) => parameters[id],
+      getParameters: () => ({ ...parameters }),
+      
+      loadPreset: (preset: PluginPreset) => {
+        Object.assign(parameters, preset.parameters);
+        console.log(`Loaded preset "${preset.name}" for ${plugin.name}`);
+      },
+      
+      savePreset: (name: string) => ({
+        id: `preset_${Date.now()}`,
+        name,
+        author: 'User',
+        parameters: { ...parameters },
+        tags: []
+      }),
+      
+      initialize: (sampleRate: number, bufferSize: number) => {
+        console.log(`Initializing database plugin ${plugin.name} at ${sampleRate}Hz`);
+      },
+      
+      cleanup: () => {
+        console.log(`Cleaning up database plugin ${plugin.name}`);
+      }
+    };
+  };
 
   const createBuiltInPluginAPI = (plugin: PluginManifest): PluginAPI => {
     const parameters: Record<string, any> = {};

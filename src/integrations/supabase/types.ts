@@ -1848,6 +1848,30 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_wallets: {
         Row: {
           balance_cents: number | null
@@ -1969,6 +1993,13 @@ export type Database = {
           visibility: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       join_room_by_code: {
         Args: {
           p_participant_name: string
@@ -2011,6 +2042,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "manager" | "user"
       subscription_tier: "free" | "producer" | "professional" | "enterprise"
     }
     CompositeTypes: {
@@ -2139,6 +2171,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "manager", "user"],
       subscription_tier: ["free", "producer", "professional", "enterprise"],
     },
   },

@@ -16,6 +16,7 @@ import DAW from "./pages/DAW";
 import NotFound from "./pages/NotFound";
 import { Auth } from "./pages/Auth";
 import AuraPlatform from "./pages/AuraPlatform";
+import Aura808Demo from "./pages/Aura808Demo";
 import AIHub from "./pages/AIHub";
 import CreatorHub from "./pages/CreatorHub";
 import SocialFeed from "./pages/SocialFeed";
@@ -75,6 +76,7 @@ const App = () => {
               <Route path="/patterns" element={<Patterns user={user} />} />
               <Route path="/daw" element={<DAW user={user} />} />
               <Route path="/aura" element={<AuraPlatform user={user} />} />
+              <Route path="/aura808" element={<Aura808Demo />} />
               <Route path="/ai-hub" element={<AIHub user={user} />} />
               <Route path="/social" element={<SocialFeed user={user} />} />
               <Route path="/social/post/:id" element={<SocialFeed user={user} />} />

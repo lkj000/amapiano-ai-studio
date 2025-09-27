@@ -470,6 +470,186 @@ export function usePluginSystem(audioContext: AudioContext | null) {
         downloadCount: 0,
         rating: 4.7,
         reviews: 0
+      },
+      {
+        id: 'aura-808-log-drum',
+        name: 'Aura 808 Log Drum',
+        version: '1.0.0',
+        author: 'Aura Team',
+        description: 'Authentic Amapiano log drum synthesizer with AI-driven presets and hybrid synth-sampler engine',
+        type: 'instrument',
+        category: 'Drums',
+        tags: ['808', 'log drum', 'amapiano', 'south african', 'AI'],
+        icon: '🥁',
+        audioInputs: 0,
+        audioOutputs: 2,
+        midiInputs: 1,
+        midiOutputs: 0,
+        parameters: [
+          {
+            id: 'pitch',
+            name: 'Pitch',
+            type: 'int',
+            defaultValue: 60,
+            minValue: 24,
+            maxValue: 96,
+            unit: 'MIDI',
+            description: 'MIDI note number for the fundamental frequency',
+            automatable: true
+          },
+          {
+            id: 'glide_time',
+            name: 'Glide Time',
+            type: 'int',
+            defaultValue: 100,
+            minValue: 0,
+            maxValue: 1000,
+            unit: 'ms',
+            description: 'Pitch glide duration for classic 808 slides',
+            automatable: true
+          },
+          {
+            id: 'knock_mix',
+            name: 'Knock Mix',
+            type: 'float',
+            defaultValue: 0.3,
+            minValue: 0.0,
+            maxValue: 1.0,
+            unit: '%',
+            description: 'Mix level of the high-frequency knock transient',
+            automatable: true
+          },
+          {
+            id: 'body_mix',
+            name: 'Body Mix',
+            type: 'float',
+            defaultValue: 0.7,
+            minValue: 0.0,
+            maxValue: 1.0,
+            unit: '%',
+            description: 'Mix level of the sub-bass body',
+            automatable: true
+          },
+          {
+            id: 'decay_time',
+            name: 'Decay Time',
+            type: 'int',
+            defaultValue: 800,
+            minValue: 50,
+            maxValue: 2000,
+            unit: 'ms',
+            description: 'ADSR decay time',
+            automatable: true
+          },
+          {
+            id: 'attack_time',
+            name: 'Attack Time',
+            type: 'int',
+            defaultValue: 5,
+            minValue: 1,
+            maxValue: 100,
+            unit: 'ms',
+            description: 'ADSR attack time',
+            automatable: true
+          },
+          {
+            id: 'sustain_level',
+            name: 'Sustain Level',
+            type: 'float',
+            defaultValue: 0.3,
+            minValue: 0.0,
+            maxValue: 1.0,
+            unit: '%',
+            description: 'ADSR sustain level',
+            automatable: true
+          },
+          {
+            id: 'release_time',
+            name: 'Release Time',
+            type: 'int',
+            defaultValue: 1200,
+            minValue: 100,
+            maxValue: 3000,
+            unit: 'ms',
+            description: 'ADSR release time',
+            automatable: true
+          },
+          {
+            id: 'master_gain',
+            name: 'Master Gain',
+            type: 'float',
+            defaultValue: 0.8,
+            minValue: 0.0,
+            maxValue: 1.0,
+            unit: '%',
+            description: 'Master output gain',
+            automatable: true
+          }
+        ],
+        presets: [
+          {
+            id: 'amapiano_classic',
+            name: 'Amapiano Classic',
+            author: 'Aura Team',
+            description: 'Traditional Amapiano log drum sound',
+            parameters: { 
+              pitch: 50, 
+              glide_time: 200, 
+              knock_mix: 0.4, 
+              body_mix: 0.8, 
+              decay_time: 600,
+              attack_time: 2,
+              sustain_level: 0.4,
+              release_time: 1000,
+              master_gain: 0.8
+            },
+            tags: ['amapiano', 'classic', 'traditional']
+          },
+          {
+            id: 'private_school',
+            name: 'Private School',
+            author: 'Aura Team',
+            description: 'Tighter, punchier sound for Private School sub-genre',
+            parameters: { 
+              pitch: 55, 
+              glide_time: 80, 
+              knock_mix: 0.2, 
+              body_mix: 0.9, 
+              decay_time: 400,
+              attack_time: 1,
+              sustain_level: 0.2,
+              release_time: 800,
+              master_gain: 0.8
+            },
+            tags: ['private school', 'tight', 'punchy']
+          },
+          {
+            id: 'deep_amapiano',
+            name: 'Deep Amapiano',
+            author: 'Aura Team',
+            description: 'Deeper, more sustained log drum for deep Amapiano',
+            parameters: { 
+              pitch: 45, 
+              glide_time: 300, 
+              knock_mix: 0.6, 
+              body_mix: 0.7, 
+              decay_time: 1200,
+              attack_time: 8,
+              sustain_level: 0.5,
+              release_time: 1800,
+              master_gain: 0.8
+            },
+            tags: ['deep', 'sustained', 'atmospheric']
+          }
+        ],
+        entryPoint: 'builtin://aura-808-log-drum',
+        dependencies: [],
+        minimumVersion: '1.0.0',
+        license: 'MIT',
+        price: 0,
+        downloadCount: 0,
+        rating: 5.0,
+        reviews: 0
       }
     ];
 
@@ -496,6 +676,8 @@ export function usePluginSystem(audioContext: AudioContext | null) {
           return createCompressorNode(context);
         } else if (plugin.id === 'builtin-synthesizer') {
           return createSynthesizerNode(context);
+        } else if (plugin.id === 'aura-808-log-drum') {
+          return createAura808LogDrumNode(context);
         }
         return context.createGain(); // Fallback
       },
@@ -583,6 +765,23 @@ export function usePluginSystem(audioContext: AudioContext | null) {
     // This would be a more complex implementation
     // For now, return a gain node as placeholder
     return context.createGain();
+  };
+
+  const createAura808LogDrumNode = (context: AudioContext): AudioNode => {
+    const gainNode = context.createGain();
+    gainNode.gain.value = 0.8;
+    
+    // Add some basic filtering for the 808 character
+    const filterNode = context.createBiquadFilter();
+    filterNode.type = 'lowpass';
+    filterNode.frequency.value = 8000;
+    filterNode.Q.value = 1;
+    
+    filterNode.connect(gainNode);
+    
+    // Return the filter as the input node, gain as output
+    (gainNode as any).inputNode = filterNode;
+    return gainNode;
   };
 
   // Plugin management functions

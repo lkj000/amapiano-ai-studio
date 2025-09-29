@@ -183,7 +183,37 @@ export const SocialFeedManager: React.FC<SocialFeedManagerProps> = ({
           : post
       ));
 
-      // TODO: Call API to update like status
+      // Update like status in database
+      const { error } = await supabase
+        .from('social_posts')
+        .update({ 
+          like_count: isLiked 
+            ? Math.max(0, posts.find(p => p.id === postId)?.like_count - 1 || 0)
+            : (posts.find(p => p.id === postId)?.like_count || 0) + 1
+        })
+        .eq('id', postId);
+
+      if (error) {
+        console.error('Error updating like status:', error);
+        // Revert optimistic update
+        setLikedPosts(prev => {
+          const newSet = new Set(prev);
+          if (isLiked) {
+            newSet.add(postId);
+          } else {
+            newSet.delete(postId);
+          }
+          return newSet;
+        });
+        setPosts(prev => prev.map(post => 
+          post.id === postId 
+            ? { ...post, like_count: post.like_count + (isLiked ? 1 : -1) }
+            : post
+        ));
+        toast.error('Failed to update like status');
+        return;
+      }
+
       toast.success(isLiked ? 'Post unliked' : 'Post liked');
       
     } catch (error) {

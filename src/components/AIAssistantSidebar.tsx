@@ -30,6 +30,7 @@ interface Message {
   content: string;
   timestamp: Date;
   suggestions?: string[];
+  isUser?: boolean; // For backward compatibility
 }
 
 interface VoiceSession {
@@ -103,20 +104,31 @@ export const AIAssistantSidebar: React.FC<AIAssistantSidebarProps> = ({
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Initialize audio context
+  // Initialize audio context and speech recognition
   useEffect(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
+    
+    // Initialize speech recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+    }
+    
     return () => {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
     };
   }, []);
@@ -211,8 +223,46 @@ export const AIAssistantSidebar: React.FC<AIAssistantSidebarProps> = ({
       setVoiceSession(prev => ({ ...prev, isActive: true, isListening: true }));
       toast.info("🎤 Voice session started - speak naturally about your music production needs!");
       
-      // TODO: Implement WebSocket connection to OpenAI Realtime API
-      // This would connect to a Supabase Edge Function that handles the OpenAI Realtime API
+      // Start continuous speech recognition for AI conversation
+      if (recognitionRef.current) {
+        const recognition = recognitionRef.current;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = (event) => {
+          let finalTranscript = '';
+          let interimTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              type: 'user',
+              content: finalTranscript,
+              timestamp: new Date()
+            }]);
+            
+            // Process with AI
+            sendTextMessage(finalTranscript);
+          }
+        };
+        
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setVoiceSession(prev => ({ ...prev, isActive: false, isListening: false }));
+        };
+        
+        recognition.start();
+      }
       
     } catch (error) {
       console.error('Voice session error:', error);

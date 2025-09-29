@@ -326,14 +326,39 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
     }
   };
 
-  const playDemo = (model: AIModel) => {
+  const playDemo = async (model: AIModel) => {
     if (model.demoUrl) {
       const audio = new Audio(model.demoUrl);
       audio.play().catch(() => {
         toast.error('Demo audio not available');
       });
     } else {
-      toast.info('Demo coming soon...');
+      // Generate a preview audio sample for this model
+      toast.info('Generating preview audio...');
+      try {
+        const { data, error } = await supabase.functions.invoke('neural-music-generation', {
+          body: {
+            type: 'ai_model_demo',
+            modelId: model.id,
+            category: model.category,
+            mode: 'quick_preview'
+          }
+        });
+        
+        if (error) throw error;
+        
+        if (data?.audioUrl) {
+          const audio = new Audio(data.audioUrl);
+          audio.play().catch(() => {
+            toast.error('Failed to play demo audio');
+          });
+        } else {
+          toast.error('Demo audio generation failed');
+        }
+      } catch (error) {
+        console.error('Demo generation error:', error);
+        toast.error('Failed to generate demo audio');
+      }
     }
   };
 

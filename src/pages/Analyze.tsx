@@ -298,15 +298,37 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                   <span className="text-muted-foreground">{quality as number}% confidence</span>
                                 </div>
                                 <Progress value={quality as number} className="h-2" />
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm" className="flex-1">
-                                    <Download className="w-3 h-3 mr-1" />
-                                    Download
-                                  </Button>
-                                  <Button variant="outline" size="sm" className="flex-1">
-                                    Preview
-                                  </Button>
-                                </div>
+                                 <div className="flex gap-2">
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm" 
+                                     className="flex-1"
+                                     onClick={() => {
+                                       toast.success(`📁 ${stem} stem downloaded!`);
+                                       const element = document.createElement('a');
+                                       element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/${stem}-stem`;
+                                       element.download = `${stem}_stem.wav`;
+                                       document.body.appendChild(element);
+                                       element.click();
+                                       document.body.removeChild(element);
+                                     }}
+                                   >
+                                     <Download className="w-3 h-3 mr-1" />
+                                     Download
+                                   </Button>
+                                   <Button 
+                                     variant="outline" 
+                                     size="sm" 
+                                     className="flex-1"
+                                     onClick={() => {
+                                       toast.info(`🔊 Previewing ${stem} stem...`);
+                                       const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/${stem}-stem`);
+                                       audio.play().catch(() => toast.error("Unable to preview audio"));
+                                     }}
+                                   >
+                                     Preview
+                                   </Button>
+                                 </div>
                               </div>
                             ))}
                           </div>
@@ -327,7 +349,20 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground mb-2">{pattern.content}</p>
-                                <Button variant="outline" size="sm" className="w-full">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="w-full"
+                                  onClick={() => {
+                                    toast.success(`📁 ${pattern.type} MIDI pattern exported!`);
+                                    const element = document.createElement('a');
+                                    element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/pattern-${index}.mid`;
+                                    element.download = `${pattern.type.replace(/\s+/g, '_')}.mid`;
+                                    document.body.appendChild(element);
+                                    element.click();
+                                    document.body.removeChild(element);
+                                  }}
+                                >
                                   <FileText className="w-3 h-3 mr-1" />
                                   Export MIDI Pattern
                                 </Button>

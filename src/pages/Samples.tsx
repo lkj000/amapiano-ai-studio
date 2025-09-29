@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Download, Heart, Filter, Search, Music, Star } from "lucide-react";
+import { Play, Pause, Download, Heart, Filter, Search, Music, Star } from "lucide-react";
 import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 
@@ -17,6 +17,9 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");
+  const [playingSample, setPlayingSample] = useState<number | null>(null);
+  const [likedSamples, setLikedSamples] = useState<Set<number>>(new Set([2, 5])); // Initialize with pre-liked samples
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const categories = [
     "All", "Log Drums", "Piano", "Percussion", "Bass", "Vocals", "Saxophone", "Guitar", "Synth"
@@ -122,6 +125,69 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
     return matchesSearch && matchesCategory && matchesGenre;
   });
 
+  const handlePlaySample = async (sampleId: number, sampleName: string) => {
+    if (playingSample === sampleId) {
+      // Stop current playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setPlayingSample(null);
+      return;
+    }
+
+    try {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      // Create new audio element for this sample
+      const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sampleId}`);
+      audioRef.current = audio;
+      
+      setPlayingSample(sampleId);
+      toast.info(`🎵 Playing "${sampleName}"`);
+
+      audio.addEventListener('ended', () => {
+        setPlayingSample(null);
+      });
+
+      audio.addEventListener('error', () => {
+        toast.error("Unable to play audio");
+        setPlayingSample(null);
+      });
+
+      await audio.play();
+    } catch (error) {
+      toast.error("Unable to play audio");
+      setPlayingSample(null);
+    }
+  };
+
+  const handleLikeSample = (sampleId: number) => {
+    const newLikedSamples = new Set(likedSamples);
+    if (likedSamples.has(sampleId)) {
+      newLikedSamples.delete(sampleId);
+      toast.success("Removed from favorites");
+    } else {
+      newLikedSamples.add(sampleId);
+      toast.success("Added to favorites");
+    }
+    setLikedSamples(newLikedSamples);
+  };
+
+  const handleDownloadSample = (sampleId: number, sampleName: string) => {
+    toast.success(`📁 "${sampleName}" downloaded!`);
+    // Simulate download
+    const element = document.createElement('a');
+    element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sampleId}`;
+    element.download = `${sampleName.replace(/\s+/g, '_')}.wav`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -199,9 +265,10 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={sample.isLiked ? "text-red-500" : "text-muted-foreground"}
+                          className={likedSamples.has(sample.id) ? "text-red-500" : "text-muted-foreground"}
+                          onClick={() => handleLikeSample(sample.id)}
                         >
-                          <Heart className="w-4 h-4" fill={sample.isLiked ? "currentColor" : "none"} />
+                          <Heart className="w-4 h-4" fill={likedSamples.has(sample.id) ? "currentColor" : "none"} />
                         </Button>
                       </div>
                     </CardHeader>
@@ -252,9 +319,18 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                         {/* Audio Player */}
                         <div className="bg-muted p-3 rounded-lg">
                           <div className="flex items-center justify-between">
-                            <Button size="sm" className="btn-glow">
-                              <Play className="w-3 h-3 mr-1" />
-                              Play
+                            <Button 
+                              size="sm" 
+                              className="btn-glow"
+                              onClick={() => handlePlaySample(sample.id, sample.name)}
+                              disabled={playingSample === sample.id}
+                            >
+                              {playingSample === sample.id ? (
+                                <Pause className="w-3 h-3 mr-1" />
+                              ) : (
+                                <Play className="w-3 h-3 mr-1" />
+                              )}
+                              {playingSample === sample.id ? "Playing..." : "Play"}
                             </Button>
                             <span className="text-xs text-muted-foreground">
                               {sample.downloads.toLocaleString()} downloads
@@ -264,7 +340,12 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
 
                         {/* Action Buttons */}
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleDownloadSample(sample.id, sample.name)}
+                          >
                             <Download className="w-3 h-3 mr-1" />
                             Download
                           </Button>
@@ -328,7 +409,13 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             <span className="text-sm">4.9</span>
                           </div>
                         </div>
-                        <Button className="w-full btn-glow">
+                        <Button 
+                          className="w-full btn-glow"
+                          onClick={() => {
+                            toast.success(`🎨 Opening ${artist} style pack...`);
+                            // Navigate to artist pack or show more details
+                          }}
+                        >
                           Explore Pack
                         </Button>
                       </div>

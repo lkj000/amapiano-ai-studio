@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Download, BookOpen, Music, TrendingUp, Heart } from "lucide-react";
+import { Play, Pause, Download, BookOpen, Music, TrendingUp, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 
@@ -15,6 +15,9 @@ interface PatternsProps {
 const Patterns: React.FC<PatternsProps> = ({ user }) => {
   const [selectedComplexity, setSelectedComplexity] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");
+  const [playingPattern, setPlayingPattern] = useState<number | null>(null);
+  const [likedPatterns, setLikedPatterns] = useState<Set<number>>(new Set());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const chordProgressions = [
     {
@@ -127,6 +130,69 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
     }
   };
 
+  const handlePlayPattern = async (patternId: number, patternName: string) => {
+    if (playingPattern === patternId) {
+      // Stop current playback
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setPlayingPattern(null);
+      return;
+    }
+
+    try {
+      // Stop any currently playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      // Create new audio element for this pattern
+      const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/pattern-${patternId}`);
+      audioRef.current = audio;
+      
+      setPlayingPattern(patternId);
+      toast.info(`🎵 Playing "${patternName}"`);
+
+      audio.addEventListener('ended', () => {
+        setPlayingPattern(null);
+      });
+
+      audio.addEventListener('error', () => {
+        toast.error("Unable to play audio");
+        setPlayingPattern(null);
+      });
+
+      await audio.play();
+    } catch (error) {
+      toast.error("Unable to play audio");
+      setPlayingPattern(null);
+    }
+  };
+
+  const handleLikePattern = (patternId: number) => {
+    const newLikedPatterns = new Set(likedPatterns);
+    if (likedPatterns.has(patternId)) {
+      newLikedPatterns.delete(patternId);
+      toast.success("Removed from favorites");
+    } else {
+      newLikedPatterns.add(patternId);
+      toast.success("Added to favorites");
+    }
+    setLikedPatterns(newLikedPatterns);
+  };
+
+  const handleDownloadMIDI = (patternId: number, patternName: string) => {
+    toast.success(`📁 MIDI file for "${patternName}" downloaded!`);
+    // Simulate MIDI download
+    const element = document.createElement('a');
+    element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/pattern-${patternId}.mid`;
+    element.download = `${patternName.replace(/\s+/g, '_')}.mid`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -206,9 +272,10 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={pattern.isLiked ? "text-red-500" : "text-muted-foreground"}
+                          className={likedPatterns.has(pattern.id) ? "text-red-500" : "text-muted-foreground"}
+                          onClick={() => handleLikePattern(pattern.id)}
                         >
-                          <Heart className="w-4 h-4" fill={pattern.isLiked ? "currentColor" : "none"} />
+                          <Heart className="w-4 h-4" fill={likedPatterns.has(pattern.id) ? "currentColor" : "none"} />
                         </Button>
                       </div>
                     </CardHeader>
@@ -267,17 +334,31 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-primary-foreground font-medium">Listen & Learn</span>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="secondary">
-                              <Play className="w-3 h-3 mr-1" />
-                              Play
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={() => handlePlayPattern(pattern.id, pattern.name)}
+                              disabled={playingPattern === pattern.id}
+                            >
+                              {playingPattern === pattern.id ? (
+                                <Pause className="w-3 h-3 mr-1" />
+                              ) : (
+                                <Play className="w-3 h-3 mr-1" />
+                              )}
+                              {playingPattern === pattern.id ? "Playing..." : "Play"}
                             </Button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="secondary" className="flex-1">
-                            <Download className="w-3 h-3 mr-1" />
-                            MIDI
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              className="flex-1"
+                              onClick={() => handleDownloadMIDI(pattern.id, pattern.name)}
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              MIDI
+                            </Button>
                           <Button 
                             size="sm" 
                             variant="secondary" 
@@ -324,9 +405,10 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={pattern.isLiked ? "text-red-500" : "text-muted-foreground"}
+                          className={likedPatterns.has(pattern.id) ? "text-red-500" : "text-muted-foreground"}
+                          onClick={() => handleLikePattern(pattern.id)}
                         >
-                          <Heart className="w-4 h-4" fill={pattern.isLiked ? "currentColor" : "none"} />
+                          <Heart className="w-4 h-4" fill={likedPatterns.has(pattern.id) ? "currentColor" : "none"} />
                         </Button>
                       </div>
                     </CardHeader>

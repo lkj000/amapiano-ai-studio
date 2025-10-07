@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PluginApprovalPanel } from "@/components/admin/PluginApprovalPanel";
+import { MonitoringDashboard } from "@/components/admin/MonitoringDashboard";
+import { MLOpsDashboard } from "@/components/admin/MLOpsDashboard";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -178,10 +180,10 @@ export const Admin: React.FC = () => {
 
         {/* Main Admin Tabs */}
         <Tabs defaultValue="plugins" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="plugins" className="flex items-center gap-2">
               <Puzzle className="w-4 h-4" />
-              Plugin Approval
+              Plugins
               {stats.pendingPlugins > 0 && (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs">
                   {stats.pendingPlugins}
@@ -190,7 +192,15 @@ export const Admin: React.FC = () => {
             </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              User Management
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Monitoring
+            </TabsTrigger>
+            <TabsTrigger value="mlops" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              MLOps
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -241,6 +251,14 @@ export const Admin: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="monitoring" className="space-y-6">
+            <MonitoringDashboard />
+          </TabsContent>
+
+          <TabsContent value="mlops" className="space-y-6">
+            <MLOpsDashboard />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">

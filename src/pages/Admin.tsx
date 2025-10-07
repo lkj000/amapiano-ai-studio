@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { PluginApprovalPanel } from "@/components/admin/PluginApprovalPanel";
 import { MonitoringDashboard } from "@/components/admin/MonitoringDashboard";
 import { MLOpsDashboard } from "@/components/admin/MLOpsDashboard";
+import { SecurityChecklist } from "@/components/admin/SecurityChecklist";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -180,7 +181,7 @@ export const Admin: React.FC = () => {
 
         {/* Main Admin Tabs */}
         <Tabs defaultValue="plugins" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="plugins" className="flex items-center gap-2">
               <Puzzle className="w-4 h-4" />
               Plugins
@@ -201,6 +202,10 @@ export const Admin: React.FC = () => {
             <TabsTrigger value="mlops" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               MLOps
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Security
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -259,6 +264,10 @@ export const Admin: React.FC = () => {
 
           <TabsContent value="mlops" className="space-y-6">
             <MLOpsDashboard />
+          </TabsContent>
+
+          <TabsContent value="security" className="space-y-6">
+            <SecurityChecklist />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">

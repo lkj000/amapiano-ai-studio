@@ -45,6 +45,9 @@ const VoiceToMIDI = () => {
   const [detectedPitch, setDetectedPitch] = useState<number | null>(null);
   const [detectedNote, setDetectedNote] = useState<string>('');
   
+  // Use ref for recording state to avoid closure issues
+  const isRecordingRef = useRef(false);
+  
   // MIDI state
   const [midiNotes, setMidiNotes] = useState<MIDINote[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -289,7 +292,7 @@ const VoiceToMIDI = () => {
     setAudioLevel(Math.min(rms * 200, 100));
     
     // Debug: Log audio level when recording
-    if (isRecording && rms > 0.001) {
+    if (isRecordingRef.current && rms > 0.001) {
       console.log('🎤 Audio RMS:', rms.toFixed(4), '| Threshold: 0.001');
     }
     
@@ -297,9 +300,9 @@ const VoiceToMIDI = () => {
     if (voiceMode === 'pitch' && rms > 0.001) {
       const pitch = detectPitch(dataArray, audioContextRef.current.sampleRate);
       
-      console.log('🎵 Pitch detected:', pitch?.toFixed(2), 'Hz');
-      
       if (pitch) {
+        console.log('🎵 Pitch detected:', pitch.toFixed(2), 'Hz');
+        
         setDetectedPitch(pitch);
         let midiNote = frequencyToMidi(pitch);
         
@@ -316,14 +319,15 @@ const VoiceToMIDI = () => {
         
         const newMidiNotes: MIDINote[] = notes.map(note => ({
           note,
-          velocity: Math.floor(rms * 127),
+          velocity: Math.max(20, Math.floor(rms * 500)), // Boost velocity
           timestamp,
+          duration: 100,
         }));
         
         setMidiNotes(newMidiNotes);
         
-        // Record if recording
-        if (isRecording) {
+        // Record if recording (use ref for immediate state)
+        if (isRecordingRef.current) {
           console.log('✅ Recording MIDI notes:', newMidiNotes.length, 'notes');
           setRecordedMIDI(prev => {
             const updated = [...prev, ...newMidiNotes];
@@ -336,7 +340,7 @@ const VoiceToMIDI = () => {
         setDetectedNote('');
         setMidiNotes([]);
       }
-    } else if (isRecording && rms <= 0.001) {
+    } else if (isRecordingRef.current && rms <= 0.001) {
       console.log('⚠️ Audio too quiet - RMS:', rms.toFixed(4), '| Need > 0.001');
     }
     
@@ -353,6 +357,7 @@ const VoiceToMIDI = () => {
     }
     
     console.log('✅ Audio initialized successfully');
+    isRecordingRef.current = true;
     setIsRecording(true);
     setRecordedMIDI([]);
     processAudio();
@@ -362,14 +367,13 @@ const VoiceToMIDI = () => {
   // Stop recording
   const stopRecording = () => {
     console.log('🛑 Stopping recording...');
-    console.log('📊 Current recordedMIDI state:', recordedMIDI.length);
     
+    isRecordingRef.current = false;
     setIsRecording(false);
     
     // Use a ref to capture the actual count from the latest state
     setTimeout(() => {
-      const finalCount = recordedMIDI.length;
-      console.log('🎯 Final MIDI count:', finalCount);
+      console.log('🎯 Final MIDI count:', recordedMIDI.length);
       console.log('📋 MIDI notes:', recordedMIDI);
       
       if (animationFrameRef.current) {
@@ -389,7 +393,7 @@ const VoiceToMIDI = () => {
       setDetectedNote('');
       setMidiNotes([]);
       
-      toast.success(`Recording stopped. Captured ${finalCount} MIDI notes`);
+      toast.success(`Recording stopped. Captured ${recordedMIDI.length} MIDI notes`);
     }, 100);
   };
   
@@ -551,7 +555,7 @@ const VoiceToMIDI = () => {
     oscillator.stop(audioCtx.currentTime + 0.5);
     
     // If recording, capture this trigger as a MIDI note
-    if (isRecording) {
+    if (isRecordingRef.current) {
       const timestamp = Date.now();
       const note: MIDINote = {
         note: trigger.midiNote,

@@ -1,17 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Mic, Square, Play, Download, Settings, Activity, 
-  Music2, Piano, Drum, Sparkles, Lock, Unlock,
-  Volume2, Save, Trash2, RotateCcw
-} from 'lucide-react';
+import { Mic, Square, Settings, Music2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MIDINote {
@@ -177,7 +171,7 @@ const VoiceToMIDI = () => {
     }
   };
   
-  // Pitch detection using autocorrelation
+  // Pitch detection using autocorrelation (IMPROVED SENSITIVITY)
   const detectPitch = useCallback((dataArray: Float32Array, sampleRate: number): number | null => {
     // Autocorrelation algorithm
     let maxCorrelation = 0;
@@ -197,8 +191,8 @@ const VoiceToMIDI = () => {
       }
     }
     
-    // Threshold for pitch detection
-    if (maxCorrelation < 0.01) return null;
+    // LOWERED threshold for better sensitivity
+    if (maxCorrelation < 0.001) return null;
     
     const frequency = sampleRate / maxLag;
     return frequency > 50 && frequency < 1000 ? frequency : null;
@@ -222,8 +216,8 @@ const VoiceToMIDI = () => {
     const rms = Math.sqrt(sum / dataArray.length);
     setAudioLevel(Math.min(rms * 200, 100));
     
-    // Pitch detection
-    if (voiceMode === 'pitch' && rms > 0.01) {
+    // Pitch detection (LOWERED threshold for better capture)
+    if (voiceMode === 'pitch' && rms > 0.005) {
       const pitch = detectPitch(dataArray, audioContextRef.current.sampleRate);
       
       if (pitch) {
@@ -276,6 +270,9 @@ const VoiceToMIDI = () => {
   const stopRecording = () => {
     setIsRecording(false);
     
+    // Capture the current count BEFORE cleanup
+    const capturedCount = recordedMIDI.length;
+    
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -293,7 +290,7 @@ const VoiceToMIDI = () => {
     setDetectedNote('');
     setMidiNotes([]);
     
-    toast.success(`Recording stopped. Captured ${recordedMIDI.length} MIDI notes`);
+    toast.success(`Recording stopped. Captured ${capturedCount} MIDI notes`);
   };
   
   // Export MIDI
@@ -315,369 +312,332 @@ const VoiceToMIDI = () => {
   };
   
   return (
-    <div className="space-y-6">
-      <Card className="card-glow">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            Voice-to-MIDI Engine
-          </CardTitle>
-          <CardDescription>
-            Advanced real-time voice-to-MIDI conversion with AI-powered features that exceed Dubler 2.0
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Mode Selection */}
-          <Tabs value={voiceMode} onValueChange={(v) => setVoiceMode(v as any)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="pitch">
-                <Piano className="w-4 h-4 mr-2" />
-                Pitch-to-MIDI
-              </TabsTrigger>
-              <TabsTrigger value="beatbox">
-                <Drum className="w-4 h-4 mr-2" />
-                Beatbox Triggers
-              </TabsTrigger>
-              <TabsTrigger value="control">
-                <Volume2 className="w-4 h-4 mr-2" />
-                Vocal Control
-              </TabsTrigger>
-            </TabsList>
+    <div className="space-y-4 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 p-6 rounded-xl border border-purple-500/20">
+      {/* Dubler-style Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Music2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Voice-to-MIDI</h2>
+            <p className="text-xs text-purple-300">Advanced AI Engine</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="border-green-500/50 text-green-400">
+            {isRecording ? 'RECORDING' : 'READY'}
+          </Badge>
+          <Button variant="ghost" size="icon" className="text-purple-300 hover:text-white">
+            <Settings className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Dubler-style Tabs */}
+      <Tabs value={voiceMode} onValueChange={(v) => setVoiceMode(v as any)}>
+        <TabsList className="w-full bg-slate-900/50 border border-purple-500/20 grid grid-cols-3">
+          <TabsTrigger 
+            value="pitch" 
+            className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+          >
+            Play
+          </TabsTrigger>
+          <TabsTrigger 
+            value="beatbox"
+            className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+          >
+            Triggers
+          </TabsTrigger>
+          <TabsTrigger 
+            value="control"
+            className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+          >
+            Control
+          </TabsTrigger>
+        </TabsList>
             
-            {/* Pitch-to-MIDI Tab */}
-            <TabsContent value="pitch" className="space-y-6">
-              {/* Real-time Visualization */}
-              <div className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-lg border">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="space-y-1">
-                    <div className="text-4xl font-bold text-primary">
-                      {detectedNote || '---'}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {detectedPitch ? `${detectedPitch.toFixed(2)} Hz` : 'No signal'}
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-end gap-2">
-                    {midiNotes.map((note, idx) => (
-                      <Badge key={idx} variant="secondary">
-                        {midiToNoteName(note.note)} - Vel: {note.velocity}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Input Level</span>
-                    <span>{audioLevel.toFixed(0)}%</span>
-                  </div>
-                  <Progress value={audioLevel} className="h-2" />
-                </div>
+        {/* Play Tab - Dubler-style circular pitch visualization */}
+        <TabsContent value="pitch" className="space-y-6 mt-6">
+          {/* Pitch Visualization Circle */}
+          <div className="relative aspect-square max-w-md mx-auto bg-gradient-to-br from-slate-900/50 to-purple-900/20 rounded-2xl border border-purple-500/30 p-8">
+            {/* Center display */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-6xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                {detectedNote || '---'}
               </div>
-              
-              {/* Chord Mode */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium">Chord Generation</label>
-                    <p className="text-xs text-muted-foreground">
-                      Generate full chords from single notes
-                    </p>
-                  </div>
-                  <Switch checked={chordMode} onCheckedChange={setChordMode} />
-                </div>
-                
-                {chordMode && (
-                  <Select value={selectedChord} onValueChange={setSelectedChord}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(chordPresets).map(([key, preset]) => (
-                        <SelectItem key={key} value={key}>
-                          {preset.name} ({preset.intervals.join(', ')})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+              <div className="text-sm text-purple-300 mt-2">
+                {detectedPitch ? `${detectedPitch.toFixed(1)} Hz` : 'No signal'}
               </div>
-              
-              {/* Key Lock */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      {keyLockEnabled ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                      Key Lock & Scale Quantization
-                    </label>
-                    <p className="text-xs text-muted-foreground">
-                      Lock notes to selected key and scale
-                    </p>
-                  </div>
-                  <Switch checked={keyLockEnabled} onCheckedChange={setKeyLockEnabled} />
-                </div>
-                
-                {keyLockEnabled && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Key</label>
-                      <Select value={selectedKey} onValueChange={setSelectedKey}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {noteNames.map(note => (
-                            <SelectItem key={note} value={note}>{note}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Scale</label>
-                      <Select value={selectedScale} onValueChange={setSelectedScale}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="major">Major</SelectItem>
-                          <SelectItem value="minor">Natural Minor</SelectItem>
-                          <SelectItem value="harmonic_minor">Harmonic Minor</SelectItem>
-                          <SelectItem value="pentatonic_major">Pentatonic Major</SelectItem>
-                          <SelectItem value="pentatonic_minor">Pentatonic Minor</SelectItem>
-                          <SelectItem value="blues">Blues</SelectItem>
-                          <SelectItem value="chromatic">Chromatic</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Performance Settings */}
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <label className="text-sm font-medium">Pitch Sensitivity</label>
-                    <span className="text-sm text-muted-foreground">{pitchSensitivity[0]}%</span>
-                  </div>
-                  <Slider
-                    value={pitchSensitivity}
-                    onValueChange={setPitchSensitivity}
-                    min={10}
-                    max={100}
-                    step={5}
-                  />
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <label className="text-sm font-medium">Latency Compensation</label>
-                    <span className="text-sm text-muted-foreground">{latencyCompensation[0]}ms</span>
-                  </div>
-                  <Slider
-                    value={latencyCompensation}
-                    onValueChange={setLatencyCompensation}
-                    min={0}
-                    max={50}
-                    step={1}
-                  />
-                </div>
-              </div>
-            </TabsContent>
-            
-            {/* Beatbox Triggers Tab */}
-            <TabsContent value="beatbox" className="space-y-4">
-              <div className="p-4 bg-gradient-to-r from-orange-500/10 to-red-500/10 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-orange-500" />
-                  <h4 className="font-semibold text-sm">AI-Powered Beatbox Recognition</h4>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Train the AI to recognize your beatbox sounds and trigger MIDI notes instantly
-                </p>
-              </div>
-              
-              <div className="space-y-3">
-                {beatboxTriggers.map(trigger => (
-                  <div key={trigger.id} className="p-4 border rounded-lg hover:border-primary/50 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <div className="font-medium">{trigger.sound}</div>
-                        <div className="text-sm text-muted-foreground">
-                          MIDI Note: {midiToNoteName(trigger.midiNote)} ({trigger.midiNote})
-                        </div>
-                      </div>
-                      <Badge variant={trigger.trained ? 'default' : 'outline'}>
-                        {trigger.trained ? 'Trained' : 'Not Trained'}
-                      </Badge>
-                    </div>
-                    <Button size="sm" variant="outline" className="w-full">
-                      {trigger.trained ? 'Retrain' : 'Train Sound'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              
-              <Button variant="outline" className="w-full">
-                <Settings className="w-4 h-4 mr-2" />
-                Add Custom Trigger
-              </Button>
-            </TabsContent>
-            
-            {/* Vocal Control Tab */}
-            <TabsContent value="control" className="space-y-4">
-              <div className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  <Music2 className="w-4 h-4 text-purple-500" />
-                  <h4 className="font-semibold text-sm">Vocal Parameter Control (MIDI CC)</h4>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Use vowel sounds and voice dynamics to control effects and parameters
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Vowel Control ("Ooh" / "Aah")</label>
-                  <Select value={vowelControl} onValueChange={(v) => setVowelControl(v as any)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Disabled</SelectItem>
-                      <SelectItem value="filter">Filter Cutoff</SelectItem>
-                      <SelectItem value="delay">Delay Amount</SelectItem>
-                      <SelectItem value="reverb">Reverb Mix</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Volume/Dynamics Control</label>
-                  <Select value={volumeControl} onValueChange={(v) => setVolumeControl(v as any)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Disabled</SelectItem>
-                      <SelectItem value="volume">Volume</SelectItem>
-                      <SelectItem value="pan">Stereo Pan</SelectItem>
-                      <SelectItem value="modulation">Modulation Depth</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              {(vowelControl !== 'none' || volumeControl !== 'none') && (
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Current Vowel Position:</span>
-                      <span className="font-mono">--</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Current Dynamics:</span>
-                      <span className="font-mono">{audioLevel.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
+              {isRecording && (
+                <Badge variant="outline" className="mt-4 border-red-500/50 text-red-400 animate-pulse">
+                  ● REC {recordedMIDI.length} notes
+                </Badge>
               )}
-            </TabsContent>
-          </Tabs>
-          
-          {/* Recording Controls */}
-          <div className="flex gap-2">
-            {!isRecording ? (
-              <Button onClick={startRecording} className="flex-1">
-                <Mic className="w-4 h-4 mr-2" />
-                Start Recording
-              </Button>
-            ) : (
-              <Button onClick={stopRecording} variant="destructive" className="flex-1">
-                <Square className="w-4 h-4 mr-2" />
-                Stop Recording
-              </Button>
-            )}
+            </div>
             
-            <Button
-              onClick={exportMIDI}
-              variant="outline"
-              disabled={recordedMIDI.length === 0}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export MIDI
-            </Button>
-            
-            <Button
-              onClick={clearRecording}
-              variant="outline"
-              disabled={recordedMIDI.length === 0}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {/* Circular note positions (Dubler-style) */}
+            <div className="absolute inset-0">
+              {noteNames.map((note, idx) => {
+                const angle = (idx / 12) * 2 * Math.PI - Math.PI / 2;
+                const radius = 45; // percentage
+                const x = 50 + radius * Math.cos(angle);
+                const y = 50 + radius * Math.sin(angle);
+                const isActive = detectedNote.startsWith(note);
+                
+                return (
+                  <div
+                    key={note}
+                    className={`absolute w-12 h-12 flex items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                      isActive 
+                        ? 'bg-gradient-to-br from-purple-500 to-pink-500 border-white scale-110 shadow-lg shadow-purple-500/50' 
+                        : 'bg-slate-800/50 border-purple-500/30 text-purple-300'
+                    }`}
+                    style={{
+                      left: `${x}%`,
+                      top: `${y}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <span className={`text-sm font-bold ${isActive ? 'text-white' : ''}`}>
+                      {note}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           
-          {/* MIDI Recording Info */}
-          {recordedMIDI.length > 0 && (
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">MIDI Recording</div>
-                  <div className="text-sm text-muted-foreground">
-                    {recordedMIDI.length} notes captured
-                  </div>
-                </div>
-                <Button size="sm" variant="outline">
-                  <Play className="w-4 h-4 mr-2" />
-                  Preview
-                </Button>
+          {/* Input Level Meter */}
+          <div className="space-y-2 bg-slate-900/50 p-4 rounded-lg border border-purple-500/20">
+            <div className="flex justify-between text-sm text-purple-300">
+              <span className="flex items-center gap-2">
+                <Mic className="w-4 h-4" />
+                Input Level
+              </span>
+              <span>{audioLevel.toFixed(0)}%</span>
+            </div>
+            <Progress 
+              value={audioLevel} 
+              className="h-2 bg-slate-800"
+            />
+          </div>
+              
+          {/* Settings Grid - Dubler style */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Key/Scale Selection */}
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-purple-500/20 space-y-3">
+              <label className="text-sm font-medium text-purple-300">Key / Scale</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={selectedKey} onValueChange={setSelectedKey}>
+                  <SelectTrigger className="bg-slate-800 border-purple-500/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {noteNames.map(note => (
+                      <SelectItem key={note} value={note}>{note}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={selectedScale} onValueChange={setSelectedScale}>
+                  <SelectTrigger className="bg-slate-800 border-purple-500/30">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="major">Major</SelectItem>
+                    <SelectItem value="minor">Minor</SelectItem>
+                    <SelectItem value="pentatonic_minor">Pent Min</SelectItem>
+                    <SelectItem value="blues">Blues</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-      
-      {/* Feature Highlights */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">🎯 Real-Time Processing</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Ultra-low latency voice-to-MIDI conversion with advanced pitch detection algorithms
-          </CardContent>
-        </Card>
+
+            {/* Chord Mode */}
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-purple-500/20 space-y-3">
+              <label className="text-sm font-medium text-purple-300">Chords</label>
+              <Select value={selectedChord} onValueChange={setSelectedChord}>
+                <SelectTrigger className="bg-slate-800 border-purple-500/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(chordPresets).map(([key, preset]) => (
+                    <SelectItem key={key} value={key}>{preset.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Sensitivity Slider */}
+          <div className="bg-slate-900/50 p-4 rounded-lg border border-purple-500/20 space-y-3">
+            <div className="flex justify-between text-sm text-purple-300">
+              <span>Sensitivity</span>
+              <span>{pitchSensitivity[0]}%</span>
+            </div>
+            <Slider
+              value={pitchSensitivity}
+              onValueChange={setPitchSensitivity}
+              min={10}
+              max={100}
+              step={5}
+              className="[&_[role=slider]]:bg-purple-500"
+            />
+          </div>
+        </TabsContent>
+            
+        {/* Triggers Tab - Dubler-style trigger pads */}
+        <TabsContent value="beatbox" className="space-y-6 mt-6">
+          <div className="grid grid-cols-2 gap-4">
+            {beatboxTriggers.map((trigger, idx) => {
+              const progress = audioLevel;
+              return (
+                <button
+                  key={trigger.id}
+                  className="relative aspect-square bg-gradient-to-br from-slate-900/80 to-slate-800/80 rounded-2xl border border-purple-500/30 hover:border-purple-500/60 transition-all p-4 group overflow-hidden"
+                >
+                  {/* Circular progress ring */}
+                  <div className="absolute inset-4 rounded-full border-4 border-purple-900/30 group-hover:border-purple-500/30 transition-colors" />
+                  {isRecording && (
+                    <div 
+                      className="absolute inset-4 rounded-full border-4 border-transparent border-t-purple-500 animate-spin"
+                      style={{ animationDuration: '2s' }}
+                    />
+                  )}
+                  
+                  {/* Content */}
+                  <div className="relative z-10 h-full flex flex-col items-center justify-center gap-2">
+                    <div className="text-2xl font-bold text-white">{trigger.sound}</div>
+                    <div className="text-xs text-purple-300">{midiToNoteName(trigger.midiNote)}</div>
+                    {trigger.trained && (
+                      <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
+                        Trained
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {/* Active pulse */}
+                  {isRecording && audioLevel > 20 && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl animate-pulse" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          
+          <Button 
+            variant="outline" 
+            className="w-full bg-slate-900/50 border-purple-500/30 hover:bg-purple-900/20"
+          >
+            + Add Trigger Pad
+          </Button>
+        </TabsContent>
+            
+        {/* Control Tab - Dubler-style parameter controls */}
+        <TabsContent value="control" className="space-y-6 mt-6">
+          <div className="space-y-4">
+            {/* Vowel Control */}
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-purple-500/20 space-y-3">
+              <label className="text-sm font-medium text-purple-300">Vowel Control (Ooh/Aah)</label>
+              <Select value={vowelControl} onValueChange={(v) => setVowelControl(v as any)}>
+                <SelectTrigger className="bg-slate-800 border-purple-500/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Disabled</SelectItem>
+                  <SelectItem value="filter">Filter Cutoff</SelectItem>
+                  <SelectItem value="delay">Delay Amount</SelectItem>
+                  <SelectItem value="reverb">Reverb Mix</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dynamics Control */}
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-purple-500/20 space-y-3">
+              <label className="text-sm font-medium text-purple-300">Dynamics Control</label>
+              <Select value={volumeControl} onValueChange={(v) => setVolumeControl(v as any)}>
+                <SelectTrigger className="bg-slate-800 border-purple-500/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Disabled</SelectItem>
+                  <SelectItem value="volume">Volume</SelectItem>
+                  <SelectItem value="pan">Stereo Pan</SelectItem>
+                  <SelectItem value="modulation">Modulation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Live Values Display */}
+            {(vowelControl !== 'none' || volumeControl !== 'none') && (
+              <div className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 p-6 rounded-lg border border-purple-500/30">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-purple-300">Vowel Position</span>
+                    <span className="text-2xl font-bold text-white">--</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-purple-300">Dynamics Level</span>
+                    <span className="text-2xl font-bold text-white">{audioLevel.toFixed(0)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Main Control Bar - Dubler style */}
+      <div className="flex gap-3 pt-4 border-t border-purple-500/20">
+        {!isRecording ? (
+          <Button 
+            onClick={startRecording} 
+            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-6"
+          >
+            <Mic className="w-5 h-5 mr-2" />
+            Start Voice Control
+          </Button>
+        ) : (
+          <Button 
+            onClick={stopRecording} 
+            variant="destructive" 
+            className="flex-1 bg-red-600 hover:bg-red-700 py-6 font-semibold"
+          >
+            <Square className="w-5 h-5 mr-2" />
+            Stop Recording
+          </Button>
+        )}
         
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">🎼 Smart Harmonization</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            AI-powered chord generation and key-locked scale quantization for perfect melodies
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">🥁 Beatbox AI</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Train custom beatbox sounds and trigger samples with voice percussion
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">🎚️ Vocal Control</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Control effects and parameters using vowel sounds and voice dynamics
-          </CardContent>
-        </Card>
+        <Button
+          onClick={clearRecording}
+          variant="outline"
+          disabled={recordedMIDI.length === 0}
+          className="bg-slate-900/50 border-purple-500/30 hover:bg-purple-900/20"
+        >
+          Clear
+        </Button>
       </div>
+
+      {/* Status Bar */}
+      {recordedMIDI.length > 0 && (
+        <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 p-4 rounded-lg border border-green-500/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-green-400">✓ MIDI Captured</div>
+              <div className="text-xs text-green-300/70">
+                {recordedMIDI.length} notes ready to export
+              </div>
+            </div>
+            <Button 
+              onClick={exportMIDI}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Export MIDI
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

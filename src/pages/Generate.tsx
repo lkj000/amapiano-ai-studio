@@ -15,6 +15,7 @@ import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { StemByStepGenerator } from "@/components/StemByStepGenerator";
 import { MoodBasedGenerator } from "@/components/MoodBasedGenerator";
+import VoiceToMIDI from "@/components/VoiceToMIDI";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 
@@ -30,7 +31,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood">("prompt");
+  const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood" | "voice-midi">("prompt");
   const [trackType, setTrackType] = useState<"full" | "loop">("full");
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
@@ -209,11 +210,12 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           </div>
 
           <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="prompt">Generate from Prompt</TabsTrigger>
               <TabsTrigger value="reference">Generate from Reference</TabsTrigger>
               <TabsTrigger value="stem">Stem by Stem</TabsTrigger>
               <TabsTrigger value="mood">Mood Based</TabsTrigger>
+              <TabsTrigger value="voice-midi">Voice-to-MIDI</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -616,6 +618,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                 <StemByStepGenerator onTrackGenerated={(track) => setGeneratedTrack(track)} />
               ) : generationType === "mood" ? (
                 <MoodBasedGenerator onTrackGenerated={(track) => setGeneratedTrack(track)} />
+              ) : generationType === "voice-midi" ? (
+                <VoiceToMIDI />
               ) : null}
 
               {/* Generate Button */}

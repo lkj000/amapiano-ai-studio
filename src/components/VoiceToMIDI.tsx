@@ -5,7 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Mic, Square, Settings, Music2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Mic, Square, Settings, Music2, Plus, Play } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MIDINote {
@@ -25,6 +27,14 @@ interface BeatboxTrigger {
   sound: string;
   midiNote: number;
   trained: boolean;
+  category?: string;
+}
+
+interface InstrumentPreset {
+  name: string;
+  category: string;
+  midiNote: number;
+  color: string;
 }
 
 const VoiceToMIDI = () => {
@@ -52,11 +62,73 @@ const VoiceToMIDI = () => {
   
   // Beatbox triggers
   const [beatboxTriggers, setBeatboxTriggers] = useState<BeatboxTrigger[]>([
-    { id: '1', sound: 'Kick', midiNote: 36, trained: false },
-    { id: '2', sound: 'Snare', midiNote: 38, trained: false },
-    { id: '3', sound: 'Hi-Hat', midiNote: 42, trained: false },
-    { id: '4', sound: 'Clap', midiNote: 39, trained: false },
+    { id: '1', sound: '808 Kick', midiNote: 36, trained: false, category: '808' },
+    { id: '2', sound: '808 Snare', midiNote: 38, trained: false, category: '808' },
+    { id: '3', sound: '808 Hi-Hat', midiNote: 42, trained: false, category: '808' },
+    { id: '4', sound: 'Log Drum', midiNote: 60, trained: false, category: 'Amapiano' },
+    { id: '5', sound: 'Amapiano Bass', midiNote: 48, trained: false, category: 'Amapiano' },
+    { id: '6', sound: 'Piano Stab', midiNote: 64, trained: false, category: 'Private School' },
   ]);
+  const [showInstrumentModal, setShowInstrumentModal] = useState(false);
+  const [activeTrigger, setActiveTrigger] = useState<string | null>(null);
+  
+  // Audio playback
+  const audioContextPlaybackRef = useRef<AudioContext | null>(null);
+  
+  // Comprehensive instrument library
+  const instrumentLibrary: InstrumentPreset[] = [
+    // 808 Drums
+    { name: '808 Kick', category: '808 Drums', midiNote: 36, color: 'from-red-500 to-orange-500' },
+    { name: '808 Snare', category: '808 Drums', midiNote: 38, color: 'from-orange-500 to-yellow-500' },
+    { name: '808 Hi-Hat Closed', category: '808 Drums', midiNote: 42, color: 'from-yellow-500 to-green-500' },
+    { name: '808 Hi-Hat Open', category: '808 Drums', midiNote: 46, color: 'from-green-500 to-teal-500' },
+    { name: '808 Clap', category: '808 Drums', midiNote: 39, color: 'from-teal-500 to-cyan-500' },
+    { name: '808 Rim', category: '808 Drums', midiNote: 37, color: 'from-cyan-500 to-blue-500' },
+    { name: '808 Tom Low', category: '808 Drums', midiNote: 45, color: 'from-blue-500 to-indigo-500' },
+    { name: '808 Tom Mid', category: '808 Drums', midiNote: 47, color: 'from-indigo-500 to-purple-500' },
+    { name: '808 Tom High', category: '808 Drums', midiNote: 50, color: 'from-purple-500 to-pink-500' },
+    { name: '808 Cowbell', category: '808 Drums', midiNote: 56, color: 'from-pink-500 to-red-500' },
+    { name: '808 Conga', category: '808 Drums', midiNote: 62, color: 'from-red-500 to-orange-500' },
+    { name: '808 Crash', category: '808 Drums', midiNote: 49, color: 'from-orange-500 to-yellow-500' },
+    
+    // Amapiano Essentials
+    { name: 'Log Drum', category: 'Amapiano', midiNote: 60, color: 'from-emerald-500 to-teal-500' },
+    { name: 'Amapiano Kick', category: 'Amapiano', midiNote: 35, color: 'from-teal-500 to-cyan-500' },
+    { name: 'Amapiano Snare', category: 'Amapiano', midiNote: 40, color: 'from-cyan-500 to-blue-500' },
+    { name: 'Amapiano Clap', category: 'Amapiano', midiNote: 39, color: 'from-blue-500 to-indigo-500' },
+    { name: 'Shaker', category: 'Amapiano', midiNote: 70, color: 'from-indigo-500 to-purple-500' },
+    { name: 'Amapiano Bass', category: 'Amapiano', midiNote: 48, color: 'from-purple-500 to-pink-500' },
+    { name: 'Amapiano Piano', category: 'Amapiano', midiNote: 64, color: 'from-pink-500 to-rose-500' },
+    { name: 'Amapiano Synth', category: 'Amapiano', midiNote: 72, color: 'from-rose-500 to-red-500' },
+    
+    // Private School Amapiano
+    { name: 'PS Piano Stab', category: 'Private School', midiNote: 64, color: 'from-violet-500 to-purple-500' },
+    { name: 'PS Log Drum Deep', category: 'Private School', midiNote: 58, color: 'from-purple-500 to-fuchsia-500' },
+    { name: 'PS 808 Sub', category: 'Private School', midiNote: 33, color: 'from-fuchsia-500 to-pink-500' },
+    { name: 'PS Vocal Chop', category: 'Private School', midiNote: 65, color: 'from-pink-500 to-rose-500' },
+    { name: 'PS Perc Loop', category: 'Private School', midiNote: 75, color: 'from-rose-500 to-red-500' },
+    { name: 'PS Bass Wobble', category: 'Private School', midiNote: 36, color: 'from-red-500 to-orange-500' },
+    { name: 'PS Sax', category: 'Private School', midiNote: 67, color: 'from-orange-500 to-amber-500' },
+    { name: 'PS Strings', category: 'Private School', midiNote: 52, color: 'from-amber-500 to-yellow-500' },
+    
+    // Electronic Drums
+    { name: 'Electro Kick', category: 'Electronic', midiNote: 36, color: 'from-cyan-500 to-blue-500' },
+    { name: 'Electro Snare', category: 'Electronic', midiNote: 40, color: 'from-blue-500 to-indigo-500' },
+    { name: 'Laser Zap', category: 'Electronic', midiNote: 80, color: 'from-indigo-500 to-purple-500' },
+    { name: 'Synth Hit', category: 'Electronic', midiNote: 84, color: 'from-purple-500 to-pink-500' },
+    
+    // Traditional Percussion
+    { name: 'Djembe', category: 'Percussion', midiNote: 62, color: 'from-amber-500 to-orange-500' },
+    { name: 'Bongo High', category: 'Percussion', midiNote: 64, color: 'from-orange-500 to-red-500' },
+    { name: 'Bongo Low', category: 'Percussion', midiNote: 61, color: 'from-red-500 to-pink-500' },
+    { name: 'Tambourine', category: 'Percussion', midiNote: 54, color: 'from-pink-500 to-fuchsia-500' },
+    { name: 'Triangle', category: 'Percussion', midiNote: 81, color: 'from-fuchsia-500 to-purple-500' },
+    
+    // Bass Sounds
+    { name: 'Sub Bass', category: 'Bass', midiNote: 36, color: 'from-slate-700 to-slate-900' },
+    { name: 'Funk Bass', category: 'Bass', midiNote: 38, color: 'from-slate-600 to-slate-800' },
+    { name: 'Synth Bass', category: 'Bass', midiNote: 40, color: 'from-slate-500 to-slate-700' },
+  ];
   
   // Vocal control parameters
   const [vowelControl, setVowelControl] = useState<'none' | 'filter' | 'delay' | 'reverb'>('none');
@@ -311,6 +383,76 @@ const VoiceToMIDI = () => {
     toast.info('MIDI recording cleared');
   };
   
+  // Play trigger sound
+  const playTrigger = (trigger: BeatboxTrigger) => {
+    setActiveTrigger(trigger.id);
+    
+    // Create audio context if needed
+    if (!audioContextPlaybackRef.current) {
+      audioContextPlaybackRef.current = new AudioContext();
+    }
+    
+    const audioCtx = audioContextPlaybackRef.current;
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    // Different waveforms for different sounds
+    if (trigger.category === '808') {
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(trigger.midiNote * 8, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    } else if (trigger.category === 'Amapiano' || trigger.category === 'Private School') {
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(440 * Math.pow(2, (trigger.midiNote - 69) / 12), audioCtx.currentTime);
+    } else {
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(trigger.midiNote * 10, audioCtx.currentTime);
+    }
+    
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.5);
+    
+    toast.success(`Triggered: ${trigger.sound}`);
+    
+    setTimeout(() => setActiveTrigger(null), 300);
+  };
+  
+  // Add new trigger
+  const addTrigger = (instrument: InstrumentPreset) => {
+    const newTrigger: BeatboxTrigger = {
+      id: Date.now().toString(),
+      sound: instrument.name,
+      midiNote: instrument.midiNote,
+      trained: false,
+      category: instrument.category,
+    };
+    
+    setBeatboxTriggers(prev => [...prev, newTrigger]);
+    setShowInstrumentModal(false);
+    toast.success(`Added: ${instrument.name}`);
+  };
+  
+  // Remove trigger
+  const removeTrigger = (id: string) => {
+    setBeatboxTriggers(prev => prev.filter(t => t.id !== id));
+    toast.info('Trigger removed');
+  };
+  
+  // Train trigger
+  const trainTrigger = (id: string) => {
+    setBeatboxTriggers(prev => 
+      prev.map(t => t.id === id ? { ...t, trained: !t.trained } : t)
+    );
+    const trigger = beatboxTriggers.find(t => t.id === id);
+    toast.success(trigger?.trained ? `Untrained: ${trigger.sound}` : `Trained: ${trigger?.sound}`);
+  };
+  
   return (
     <div className="space-y-4 bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 p-6 rounded-xl border border-purple-500/20">
       {/* Dubler-style Header */}
@@ -488,48 +630,91 @@ const VoiceToMIDI = () => {
             
         {/* Triggers Tab - Dubler-style trigger pads */}
         <TabsContent value="beatbox" className="space-y-6 mt-6">
-          <div className="grid grid-cols-2 gap-4">
-            {beatboxTriggers.map((trigger, idx) => {
-              const progress = audioLevel;
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {beatboxTriggers.map((trigger) => {
+              const isActive = activeTrigger === trigger.id;
               return (
-                <button
+                <div
                   key={trigger.id}
-                  className="relative aspect-square bg-gradient-to-br from-slate-900/80 to-slate-800/80 rounded-2xl border border-purple-500/30 hover:border-purple-500/60 transition-all p-4 group overflow-hidden"
+                  className="relative aspect-square"
                 >
-                  {/* Circular progress ring */}
-                  <div className="absolute inset-4 rounded-full border-4 border-purple-900/30 group-hover:border-purple-500/30 transition-colors" />
-                  {isRecording && (
-                    <div 
-                      className="absolute inset-4 rounded-full border-4 border-transparent border-t-purple-500 animate-spin"
-                      style={{ animationDuration: '2s' }}
-                    />
-                  )}
-                  
-                  {/* Content */}
-                  <div className="relative z-10 h-full flex flex-col items-center justify-center gap-2">
-                    <div className="text-2xl font-bold text-white">{trigger.sound}</div>
-                    <div className="text-xs text-purple-300">{midiToNoteName(trigger.midiNote)}</div>
-                    {trigger.trained && (
-                      <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
-                        Trained
-                      </Badge>
+                  <button
+                    onClick={() => playTrigger(trigger)}
+                    className={`w-full h-full bg-gradient-to-br from-slate-900/80 to-slate-800/80 rounded-2xl border transition-all p-4 group overflow-hidden ${
+                      isActive 
+                        ? 'border-purple-500 scale-95 shadow-lg shadow-purple-500/50' 
+                        : 'border-purple-500/30 hover:border-purple-500/60'
+                    }`}
+                  >
+                    {/* Circular progress ring */}
+                    <div className="absolute inset-4 rounded-full border-4 border-purple-900/30 group-hover:border-purple-500/30 transition-colors" />
+                    {isRecording && audioLevel > 20 && (
+                      <div 
+                        className="absolute inset-4 rounded-full border-4 border-transparent border-t-purple-500 animate-spin"
+                        style={{ animationDuration: '2s' }}
+                      />
                     )}
-                  </div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10 h-full flex flex-col items-center justify-center gap-2">
+                      <Play className="w-6 h-6 text-purple-400" />
+                      <div className="text-sm font-bold text-white text-center">{trigger.sound}</div>
+                      <div className="text-xs text-purple-300">{midiToNoteName(trigger.midiNote)}</div>
+                      {trigger.trained && (
+                        <Badge variant="outline" className="border-green-500/50 text-green-400 text-xs">
+                          Trained
+                        </Badge>
+                      )}
+                      {trigger.category && (
+                        <Badge variant="outline" className="border-purple-500/50 text-purple-300 text-xs">
+                          {trigger.category}
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {/* Active pulse */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/40 to-pink-500/40 rounded-2xl animate-pulse" />
+                    )}
+                  </button>
                   
-                  {/* Active pulse */}
-                  {isRecording && audioLevel > 20 && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl animate-pulse" />
-                  )}
-                </button>
+                  {/* Trigger controls */}
+                  <div className="absolute -top-2 -right-2 flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 rounded-full bg-slate-900 border border-purple-500/30 hover:border-green-500/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        trainTrigger(trigger.id);
+                      }}
+                    >
+                      <span className="text-xs">{trigger.trained ? '✓' : 'T'}</span>
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 rounded-full bg-slate-900 border border-purple-500/30 hover:border-red-500/50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeTrigger(trigger.id);
+                      }}
+                    >
+                      <span className="text-xs">×</span>
+                    </Button>
+                  </div>
+                </div>
               );
             })}
           </div>
           
           <Button 
+            onClick={() => setShowInstrumentModal(true)}
             variant="outline" 
-            className="w-full bg-slate-900/50 border-purple-500/30 hover:bg-purple-900/20"
+            className="w-full bg-slate-900/50 border-purple-500/30 hover:bg-purple-900/20 hover:border-purple-500/60"
           >
-            + Add Trigger Pad
+            <Plus className="w-4 h-4 mr-2" />
+            Add Trigger Pad
           </Button>
         </TabsContent>
             
@@ -638,6 +823,50 @@ const VoiceToMIDI = () => {
           </div>
         </div>
       )}
+      
+      {/* Instrument Library Modal */}
+      <Dialog open={showInstrumentModal} onOpenChange={setShowInstrumentModal}>
+        <DialogContent className="max-w-4xl bg-slate-950 border-purple-500/30">
+          <DialogHeader>
+            <DialogTitle className="text-white">Add Trigger Pad - Unlimited Instruments</DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            {/* Group by category */}
+            {['808 Drums', 'Amapiano', 'Private School', 'Electronic', 'Percussion', 'Bass'].map(category => {
+              const instruments = instrumentLibrary.filter(i => i.category === category);
+              if (instruments.length === 0) return null;
+              
+              return (
+                <div key={category} className="mb-6">
+                  <h3 className="text-lg font-bold text-purple-300 mb-3 flex items-center gap-2">
+                    <Music2 className="w-5 h-5" />
+                    {category}
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {instruments.map((instrument) => (
+                      <button
+                        key={instrument.name}
+                        onClick={() => addTrigger(instrument)}
+                        className={`p-4 rounded-lg border border-purple-500/30 hover:border-purple-500/60 transition-all bg-gradient-to-br ${instrument.color} bg-opacity-10 group`}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="text-sm font-bold text-white group-hover:scale-110 transition-transform">
+                            {instrument.name}
+                          </div>
+                          <Badge variant="outline" className="border-purple-500/50 text-purple-300 text-xs">
+                            {midiToNoteName(instrument.midiNote)}
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

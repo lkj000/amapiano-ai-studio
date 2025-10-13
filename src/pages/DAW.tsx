@@ -445,6 +445,7 @@ export default function DawPage({ user }: DawPageProps) {
       if (pendingMIDI && projectData) {
         try {
           const midiData = JSON.parse(pendingMIDI);
+          console.log('DAW: Found pending MIDI import:', midiData);
           localStorage.removeItem('pendingMIDIImport');
           
           // Convert the recorded MIDI notes to DAW format
@@ -455,6 +456,8 @@ export default function DawPage({ user }: DawPageProps) {
             startTime: (note.timestamp - midiData.notes[0].timestamp) / 1000 / 60 * (projectData.bpm / 60), // Convert ms to beats
             duration: Math.max(0.25, note.duration / 1000 / 60 * (projectData.bpm / 60)) // Convert ms to beats
           }));
+          
+          console.log(`DAW: Converted ${notes.length} notes from voice recording`);
           
           // Create a new MIDI clip
           const newClip: MidiClip = {
@@ -696,21 +699,33 @@ export default function DawPage({ user }: DawPageProps) {
       if (!file) return;
       
       try {
+        console.log('DAW: Importing MIDI file:', file.name);
         toast.info('Parsing MIDI file...');
         
         const { parseMIDIFile, convertToDAWFormat } = await import('@/lib/midiParser');
         const parsedMIDI = await parseMIDIFile(file);
+        
+        console.log('DAW: Parsed MIDI:', parsedMIDI);
         
         if (parsedMIDI.tracks.length === 0) {
           toast.error('No MIDI data found in file');
           return;
         }
         
+        // Collect all new tracks to add at once
+        const newTracks: DawTrackV2[] = [];
+        let totalNotes = 0;
+        
         // Import each track that has notes
         for (let i = 0; i < parsedMIDI.tracks.length; i++) {
-          if (parsedMIDI.tracks[i].length === 0) continue;
+          if (parsedMIDI.tracks[i].length === 0) {
+            console.log(`DAW: Skipping empty track ${i}`);
+            continue;
+          }
           
           const { notes, bpm: detectedBpm } = convertToDAWFormat(parsedMIDI, i);
+          console.log(`DAW: Track ${i} has ${notes.length} notes`);
+          totalNotes += notes.length;
           
           // Create a new MIDI clip
           const newClip: MidiClip = {
@@ -721,55 +736,52 @@ export default function DawPage({ user }: DawPageProps) {
             notes: notes as MidiNote[]
           };
           
-          // Create a new track or add to selected track
-          if (!selectedTrackId || projectData?.tracks.find(t => t.id === selectedTrackId)?.type !== 'midi') {
-            // Create new track
-            const newTrack: DawTrackV2 = {
-              id: `track_${Date.now()}_${i}`,
-              type: 'midi',
-              name: `${file.name.replace('.mid', '').replace('.midi', '')} ${i + 1}`,
-              instrument: 'Piano',
-              clips: [newClip],
-              mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
-              isArmed: false,
-              color: 'bg-purple-500',
-              automationLanes: [],
-            } as DawTrackV2;
-            
-            const newData = { 
-              ...projectData!, 
-              tracks: [...projectData!.tracks, newTrack],
-              ...(detectedBpm && { bpm: detectedBpm })
-            };
-            undoRedoControls.pushState(newData, `Imported MIDI: ${file.name}`);
-            setProjectData(newData);
-            
-            if (detectedBpm) {
-              setBpm(detectedBpm);
-            }
-          } else {
-            // Add to selected track
-            setProjectData(prev => {
-              if (!prev) return null;
-              const newData = {
-                ...prev,
-                tracks: prev.tracks.map(t => {
-                  if (t.id === selectedTrackId && t.type === 'midi') {
-                    return { ...t, clips: [...t.clips, newClip] };
-                  }
-                  return t;
-                })
-              };
-              undoRedoControls.pushState(newData, `Added MIDI clip: ${file.name}`);
-              return newData;
-            });
-          }
+          // Create new track
+          const newTrack: DawTrackV2 = {
+            id: `track_${Date.now()}_${i}`,
+            type: 'midi',
+            name: `${file.name.replace('.mid', '').replace('.midi', '')} ${parsedMIDI.tracks.length > 1 ? `- Track ${i + 1}` : ''}`.trim(),
+            instrument: 'Piano',
+            clips: [newClip],
+            mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+            isArmed: false,
+            color: `bg-purple-${500 + (i % 3) * 100}`,
+            automationLanes: [],
+          } as DawTrackV2;
+          
+          newTracks.push(newTrack);
         }
         
-        toast.success(`🎹 Imported ${parsedMIDI.tracks.length} MIDI track(s) with ${parsedMIDI.tracks.reduce((sum, t) => sum + t.length, 0)} notes`);
+        if (newTracks.length === 0) {
+          toast.error('No valid MIDI tracks found');
+          return;
+        }
+        
+        console.log(`DAW: Adding ${newTracks.length} tracks with ${totalNotes} total notes`);
+        
+        // Add all tracks at once
+        const newData = { 
+          ...projectData!, 
+          tracks: [...projectData!.tracks, ...newTracks],
+          ...(parsedMIDI.bpm && { bpm: parsedMIDI.bpm })
+        };
+        
+        undoRedoControls.pushState(newData, `Imported MIDI: ${file.name}`);
+        setProjectData(newData);
+        
+        if (parsedMIDI.bpm) {
+          setBpm(parsedMIDI.bpm);
+        }
+        
+        // Select the first imported track
+        if (newTracks.length > 0) {
+          setSelectedTrackId(newTracks[0].id);
+        }
+        
+        toast.success(`🎹 Imported ${newTracks.length} track(s) with ${totalNotes} notes`);
         
       } catch (error) {
-        console.error('MIDI import error:', error);
+        console.error('DAW: MIDI import error:', error);
         toast.error('Failed to import MIDI file', {
           description: error instanceof Error ? error.message : 'Unknown error'
         });

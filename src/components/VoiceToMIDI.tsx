@@ -290,11 +290,11 @@ const VoiceToMIDI = () => {
     
     // Debug: Log audio level when recording
     if (isRecording && rms > 0.001) {
-      console.log('🎤 Audio RMS:', rms.toFixed(4), '| Threshold: 0.005');
+      console.log('🎤 Audio RMS:', rms.toFixed(4), '| Threshold: 0.001');
     }
     
     // Pitch detection (LOWERED threshold for better capture)
-    if (voiceMode === 'pitch' && rms > 0.005) {
+    if (voiceMode === 'pitch' && rms > 0.001) {
       const pitch = detectPitch(dataArray, audioContextRef.current.sampleRate);
       
       console.log('🎵 Pitch detected:', pitch?.toFixed(2), 'Hz');
@@ -336,8 +336,8 @@ const VoiceToMIDI = () => {
         setDetectedNote('');
         setMidiNotes([]);
       }
-    } else if (isRecording && rms <= 0.005) {
-      console.log('⚠️ Audio too quiet - RMS:', rms.toFixed(4), '| Need > 0.005');
+    } else if (isRecording && rms <= 0.001) {
+      console.log('⚠️ Audio too quiet - RMS:', rms.toFixed(4), '| Need > 0.001');
     }
     
     animationFrameRef.current = requestAnimationFrame(processAudio);
@@ -445,6 +445,22 @@ const VoiceToMIDI = () => {
     
     oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.5);
+    
+    // If recording, capture this trigger as a MIDI note
+    if (isRecording) {
+      const timestamp = Date.now();
+      const note: MIDINote = {
+        note: trigger.midiNote,
+        velocity: 110,
+        timestamp,
+        duration: 200,
+      };
+      setRecordedMIDI(prev => {
+        const updated = [...prev, note];
+        console.log('🥁 Recorded trigger MIDI note:', note, '| Total:', updated.length);
+        return updated;
+      });
+    }
     
     toast.success(`Triggered: ${trigger.sound}`);
     

@@ -766,8 +766,8 @@ export default function DawPage({ user }: DawPageProps) {
           ...(parsedMIDI.bpm && { bpm: parsedMIDI.bpm })
         };
         
-        undoRedoControls.pushState(newData, `Imported MIDI: ${file.name}`);
-        setProjectData(newData);
+        // Use the proper setter that handles both state and undo/redo
+        setProjectDataWithHistory(newData, `Imported MIDI: ${file.name}`);
         
         if (parsedMIDI.bpm) {
           setBpm(parsedMIDI.bpm);

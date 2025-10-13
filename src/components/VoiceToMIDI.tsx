@@ -427,22 +427,50 @@ const VoiceToMIDI = () => {
       const blob = new Blob([midiData.buffer as ArrayBuffer], { type: 'audio/midi' });
       const url = URL.createObjectURL(blob);
       
-      // Create download link
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `voice-to-midi-${Date.now()}.mid`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `voice-to-midi-${Date.now()}.mid`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      toast.success(`MIDI file downloaded! (${recordedMIDI.length} notes)`);
+      toast.success('MIDI file downloaded!');
     } catch (error) {
-      console.error('MIDI export error:', error);
-      toast.error('Failed to export MIDI file');
+      console.error('Export error:', error);
+      toast.error('Failed to export MIDI');
     }
   };
   
+  // Import directly to DAW
+  const importToDAW = () => {
+    if (recordedMIDI.length === 0) {
+      toast.error('No MIDI data to import');
+      return;
+    }
+    
+    try {
+      // Save MIDI data to localStorage for DAW to pick up
+      localStorage.setItem('pendingMIDIImport', JSON.stringify({
+        notes: recordedMIDI,
+        name: `Voice Recording ${new Date().toLocaleTimeString()}`,
+        timestamp: Date.now()
+      }));
+      
+      toast.success('🎹 Opening DAW...');
+      
+      // Navigate to DAW
+      setTimeout(() => {
+        window.location.href = '/daw';
+      }, 500);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import to DAW');
+    }
+  };
+  
+  // Helper function to create MIDI file structure
   // Create MIDI file buffer
   const createMIDIFile = (notes: MIDINote[]): Uint8Array => {
     // Simple MIDI file format (Type 0, single track)
@@ -1012,16 +1040,26 @@ const VoiceToMIDI = () => {
             <div>
               <div className="text-sm font-medium text-green-400">✓ MIDI Captured Successfully</div>
               <div className="text-xs text-green-300/70">
-                {recordedMIDI.length} notes • Ready to download as .mid file
+                {recordedMIDI.length} notes • Ready to use in DAW
               </div>
             </div>
-            <Button 
-              onClick={exportMIDI}
-              size="sm"
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 font-semibold"
-            >
-              📥 Download MIDI
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={importToDAW}
+                size="sm"
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 font-semibold"
+              >
+                🎹 Import to DAW
+              </Button>
+              <Button 
+                onClick={exportMIDI}
+                size="sm"
+                variant="outline"
+                className="font-semibold"
+              >
+                📥 Download
+              </Button>
+            </div>
           </div>
         </div>
       )}

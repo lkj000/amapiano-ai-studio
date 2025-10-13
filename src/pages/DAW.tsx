@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
-import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane, DawTrackV2, AudioClip, AudioTrack } from '@/types/daw';
+import type { DawProjectData, DawTrack, MidiNote, DragState, AudioRecording, AutomationLane, DawTrackV2, AudioClip, AudioTrack, MidiClip } from '@/types/daw';
 import ElasticAudioPanel from '@/components/ElasticAudioPanel';
 import MultiTrackRoutingPanel from '@/components/MultiTrackRoutingPanel';
 import type { ElasticAudioSettings } from '@/components/ElasticAudioPanel';
@@ -439,11 +439,64 @@ export default function DawPage({ user }: DawPageProps) {
           localStorage.removeItem('pendingGeneratedTrack');
         }
       }
+      
+      // Check for pending MIDI import from Voice-to-MIDI
+      const pendingMIDI = localStorage.getItem('pendingMIDIImport');
+      if (pendingMIDI && projectData) {
+        try {
+          const midiData = JSON.parse(pendingMIDI);
+          localStorage.removeItem('pendingMIDIImport');
+          
+          // Convert the recorded MIDI notes to DAW format
+          const notes: MidiNote[] = midiData.notes.map((note: any, index: number) => ({
+            id: `note_${Date.now()}_${index}`,
+            pitch: note.note,
+            velocity: note.velocity,
+            startTime: (note.timestamp - midiData.notes[0].timestamp) / 1000 / 60 * (projectData.bpm / 60), // Convert ms to beats
+            duration: Math.max(0.25, note.duration / 1000 / 60 * (projectData.bpm / 60)) // Convert ms to beats
+          }));
+          
+          // Create a new MIDI clip
+          const newClip: MidiClip = {
+            id: `clip_${Date.now()}`,
+            name: midiData.name,
+            startTime: 0,
+            duration: Math.max(...notes.map(n => n.startTime + n.duration), 4),
+            notes
+          };
+          
+          // Create a new track
+          const newTrack: DawTrackV2 = {
+            id: `track_${Date.now()}`,
+            type: 'midi',
+            name: midiData.name,
+            instrument: 'Piano',
+            clips: [newClip],
+            mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+            isArmed: false,
+            color: 'bg-cyan-500',
+            automationLanes: [],
+          } as DawTrackV2;
+          
+          const newData = { 
+            ...projectData, 
+            tracks: [...projectData.tracks, newTrack]
+          };
+          undoRedoControls.pushState(newData, `Imported Voice MIDI: ${midiData.name}`);
+          setProjectData(newData);
+          setSelectedTrackId(newTrack.id);
+          
+          toast.success(`🎹 Imported ${notes.length} notes from voice recording!`);
+        } catch (error) {
+          console.error('Failed to import pending MIDI:', error);
+          localStorage.removeItem('pendingMIDIImport');
+        }
+      }
     };
     
     // Check on mount and when project data changes
     checkPendingTrack();
-  }, [projectData, handleTrackGenerated]);
+  }, [projectData, handleTrackGenerated, undoRedoControls]);
 
   const handleAIGenerate = (prompt: string) => {
     if (!prompt.trim()) {
@@ -631,6 +684,99 @@ export default function DawPage({ user }: DawPageProps) {
     toast.info("Upload Audio", {
       description: "This would open a file dialog to import an audio file into a new track."
     });
+  };
+
+  const handleImportMIDI = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mid,.midi';
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        toast.info('Parsing MIDI file...');
+        
+        const { parseMIDIFile, convertToDAWFormat } = await import('@/lib/midiParser');
+        const parsedMIDI = await parseMIDIFile(file);
+        
+        if (parsedMIDI.tracks.length === 0) {
+          toast.error('No MIDI data found in file');
+          return;
+        }
+        
+        // Import each track that has notes
+        for (let i = 0; i < parsedMIDI.tracks.length; i++) {
+          if (parsedMIDI.tracks[i].length === 0) continue;
+          
+          const { notes, bpm: detectedBpm } = convertToDAWFormat(parsedMIDI, i);
+          
+          // Create a new MIDI clip
+          const newClip: MidiClip = {
+            id: `clip_${Date.now()}_${i}`,
+            name: `${file.name} - Track ${i + 1}`,
+            startTime: 0,
+            duration: Math.max(...notes.map(n => n.startTime + n.duration)),
+            notes: notes as MidiNote[]
+          };
+          
+          // Create a new track or add to selected track
+          if (!selectedTrackId || projectData?.tracks.find(t => t.id === selectedTrackId)?.type !== 'midi') {
+            // Create new track
+            const newTrack: DawTrackV2 = {
+              id: `track_${Date.now()}_${i}`,
+              type: 'midi',
+              name: `${file.name.replace('.mid', '').replace('.midi', '')} ${i + 1}`,
+              instrument: 'Piano',
+              clips: [newClip],
+              mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+              isArmed: false,
+              color: 'bg-purple-500',
+              automationLanes: [],
+            } as DawTrackV2;
+            
+            const newData = { 
+              ...projectData!, 
+              tracks: [...projectData!.tracks, newTrack],
+              ...(detectedBpm && { bpm: detectedBpm })
+            };
+            undoRedoControls.pushState(newData, `Imported MIDI: ${file.name}`);
+            setProjectData(newData);
+            
+            if (detectedBpm) {
+              setBpm(detectedBpm);
+            }
+          } else {
+            // Add to selected track
+            setProjectData(prev => {
+              if (!prev) return null;
+              const newData = {
+                ...prev,
+                tracks: prev.tracks.map(t => {
+                  if (t.id === selectedTrackId && t.type === 'midi') {
+                    return { ...t, clips: [...t.clips, newClip] };
+                  }
+                  return t;
+                })
+              };
+              undoRedoControls.pushState(newData, `Added MIDI clip: ${file.name}`);
+              return newData;
+            });
+          }
+        }
+        
+        toast.success(`🎹 Imported ${parsedMIDI.tracks.length} MIDI track(s) with ${parsedMIDI.tracks.reduce((sum, t) => sum + t.length, 0)} notes`);
+        
+      } catch (error) {
+        console.error('MIDI import error:', error);
+        toast.error('Failed to import MIDI file', {
+          description: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    };
+    
+    input.click();
   };
 
   const handleUpdateProjectSettings = useCallback((updatedData: Partial<DawProjectData>) => {
@@ -1532,7 +1678,8 @@ export default function DawPage({ user }: DawPageProps) {
                         <Plus className="w-3 h-3 mr-1" />
                         Add ({projectData?.tracks.length || 0})
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleUploadAudio}><Upload className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={handleUploadAudio} title="Upload Audio"><Upload className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="outline" onClick={handleImportMIDI} title="Import MIDI"><Piano className="w-3 h-3" /></Button>
                     </div>
                   </div>
                 </div>

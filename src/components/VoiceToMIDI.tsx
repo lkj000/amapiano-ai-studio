@@ -393,16 +393,120 @@ const VoiceToMIDI = () => {
     }, 100);
   };
   
-  // Export MIDI
+  // Test MIDI capture
+  const testMIDICapture = () => {
+    const testNote: MIDINote = {
+      note: 60, // Middle C
+      velocity: 100,
+      timestamp: Date.now(),
+      duration: 500,
+    };
+    
+    setRecordedMIDI(prev => {
+      const updated = [...prev, testNote];
+      toast.success(`Test note added! Total: ${updated.length} notes`);
+      console.log('🧪 Test MIDI note added:', testNote, '| Total:', updated.length);
+      return updated;
+    });
+  };
+  
+  // Export MIDI as downloadable file
   const exportMIDI = () => {
     if (recordedMIDI.length === 0) {
       toast.error('No MIDI data to export');
       return;
     }
     
-    toast.success(`Exporting ${recordedMIDI.length} MIDI notes...`);
-    // In a real implementation, this would create a MIDI file
-    console.log('MIDI Export:', recordedMIDI);
+    try {
+      // Create a simple MIDI file structure
+      const midiData = createMIDIFile(recordedMIDI);
+      const blob = new Blob([midiData.buffer as ArrayBuffer], { type: 'audio/midi' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `voice-to-midi-${Date.now()}.mid`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`MIDI file downloaded! (${recordedMIDI.length} notes)`);
+    } catch (error) {
+      console.error('MIDI export error:', error);
+      toast.error('Failed to export MIDI file');
+    }
+  };
+  
+  // Create MIDI file buffer
+  const createMIDIFile = (notes: MIDINote[]): Uint8Array => {
+    // Simple MIDI file format (Type 0, single track)
+    const header = [
+      0x4d, 0x54, 0x68, 0x64, // "MThd"
+      0x00, 0x00, 0x00, 0x06, // Header length
+      0x00, 0x00, // Format type 0
+      0x00, 0x01, // Number of tracks
+      0x00, 0x60, // Ticks per quarter note (96)
+    ];
+    
+    // Track data
+    const trackEvents: number[] = [];
+    let lastTime = 0;
+    
+    // Sort notes by timestamp
+    const sortedNotes = [...notes].sort((a, b) => a.timestamp - b.timestamp);
+    
+    sortedNotes.forEach((note, idx) => {
+      const deltaTime = idx === 0 ? 0 : Math.max(0, note.timestamp - lastTime);
+      const deltaTicks = Math.floor(deltaTime / 10); // Convert ms to ticks
+      
+      // Note on event
+      trackEvents.push(...encodeVariableLength(deltaTicks));
+      trackEvents.push(0x90, note.note, note.velocity); // Note on
+      
+      // Note off event
+      const duration = note.duration || 200;
+      const durationTicks = Math.floor(duration / 10);
+      trackEvents.push(...encodeVariableLength(durationTicks));
+      trackEvents.push(0x80, note.note, 0); // Note off
+      
+      lastTime = note.timestamp;
+    });
+    
+    // End of track
+    trackEvents.push(0x00, 0xff, 0x2f, 0x00);
+    
+    // Track header
+    const trackHeader = [
+      0x4d, 0x54, 0x72, 0x6b, // "MTrk"
+      ...intToBytes(trackEvents.length, 4), // Track length
+    ];
+    
+    return new Uint8Array([...header, ...trackHeader, ...trackEvents]);
+  };
+  
+  // Helper: Encode variable length value
+  const encodeVariableLength = (value: number): number[] => {
+    const bytes: number[] = [];
+    bytes.push(value & 0x7f);
+    
+    let v = value >> 7;
+    while (v > 0) {
+      bytes.unshift((v & 0x7f) | 0x80);
+      v >>= 7;
+    }
+    
+    return bytes;
+  };
+  
+  // Helper: Convert integer to bytes
+  const intToBytes = (value: number, numBytes: number): number[] => {
+    const bytes: number[] = [];
+    for (let i = numBytes - 1; i >= 0; i--) {
+      bytes.push((value >> (i * 8)) & 0xff);
+    }
+    return bytes;
   };
   
   // Clear recording
@@ -594,19 +698,59 @@ const VoiceToMIDI = () => {
             </div>
           </div>
           
-          {/* Input Level Meter */}
-          <div className="space-y-2 bg-slate-900/50 p-4 rounded-lg border border-purple-500/20">
-            <div className="flex justify-between text-sm text-purple-300">
-              <span className="flex items-center gap-2">
-                <Mic className="w-4 h-4" />
-                Input Level
+          {/* Live Input Level Meter - Enhanced */}
+          <div className="space-y-3 bg-gradient-to-br from-slate-900/80 to-purple-900/20 p-6 rounded-xl border-2 border-purple-500/30">
+            <div className="flex justify-between items-center text-sm">
+              <span className="flex items-center gap-2 text-purple-300 font-medium">
+                <Mic className={`w-5 h-5 ${audioLevel > 10 ? 'text-green-400 animate-pulse' : ''}`} />
+                Live Input Level
               </span>
-              <span>{audioLevel.toFixed(0)}%</span>
+              <span className={`text-lg font-bold ${
+                audioLevel > 50 ? 'text-green-400' : 
+                audioLevel > 20 ? 'text-yellow-400' : 
+                'text-purple-300'
+              }`}>
+                {audioLevel.toFixed(0)}%
+              </span>
             </div>
-            <Progress 
-              value={audioLevel} 
-              className="h-2 bg-slate-800"
-            />
+            
+            {/* Visual meter bars */}
+            <div className="flex gap-1 h-12 items-end">
+              {Array.from({ length: 20 }).map((_, i) => {
+                const barThreshold = (i + 1) * 5;
+                const isActive = audioLevel >= barThreshold;
+                return (
+                  <div
+                    key={i}
+                    className={`flex-1 rounded-t transition-all duration-100 ${
+                      isActive 
+                        ? i < 14 ? 'bg-green-500' : i < 18 ? 'bg-yellow-500' : 'bg-red-500'
+                        : 'bg-slate-700'
+                    }`}
+                    style={{
+                      height: `${Math.min(100, (i + 1) * 5)}%`,
+                      opacity: isActive ? 1 : 0.3,
+                    }}
+                  />
+                );
+              })}
+            </div>
+            
+            {/* Status indicator */}
+            <div className="text-xs text-center">
+              {audioLevel < 5 && (
+                <span className="text-red-400">⚠️ Too quiet - speak louder or adjust mic</span>
+              )}
+              {audioLevel >= 5 && audioLevel < 20 && (
+                <span className="text-yellow-400">📊 Low signal - increase volume</span>
+              )}
+              {audioLevel >= 20 && audioLevel < 80 && (
+                <span className="text-green-400">✓ Good signal level</span>
+              )}
+              {audioLevel >= 80 && (
+                <span className="text-orange-400">⚡ Very loud - may clip</span>
+              )}
+            </div>
           </div>
               
           {/* Settings Grid - Dubler style */}
@@ -819,13 +963,23 @@ const VoiceToMIDI = () => {
       {/* Main Control Bar - Dubler style */}
       <div className="flex gap-3 pt-4 border-t border-purple-500/20">
         {!isRecording ? (
-          <Button 
-            onClick={startRecording} 
-            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-6"
-          >
-            <Mic className="w-5 h-5 mr-2" />
-            Start Voice Control
-          </Button>
+          <>
+            <Button 
+              onClick={startRecording} 
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-6"
+            >
+              <Mic className="w-5 h-5 mr-2" />
+              Start Voice Control
+            </Button>
+            <Button
+              onClick={testMIDICapture}
+              variant="outline"
+              className="bg-slate-900/50 border-green-500/50 hover:bg-green-900/20 hover:border-green-500 text-green-400"
+              title="Add a test MIDI note to verify capture is working"
+            >
+              Test
+            </Button>
+          </>
         ) : (
           <Button 
             onClick={stopRecording} 
@@ -849,20 +1003,20 @@ const VoiceToMIDI = () => {
 
       {/* Status Bar */}
       {recordedMIDI.length > 0 && (
-        <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 p-4 rounded-lg border border-green-500/30">
+        <div className="bg-gradient-to-r from-green-900/20 to-emerald-900/20 p-4 rounded-lg border-2 border-green-500/40 shadow-lg shadow-green-500/20">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-green-400">✓ MIDI Captured</div>
+              <div className="text-sm font-medium text-green-400">✓ MIDI Captured Successfully</div>
               <div className="text-xs text-green-300/70">
-                {recordedMIDI.length} notes ready to export
+                {recordedMIDI.length} notes • Ready to download as .mid file
               </div>
             </div>
             <Button 
               onClick={exportMIDI}
               size="sm"
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 font-semibold"
             >
-              Export MIDI
+              📥 Download MIDI
             </Button>
           </div>
         </div>

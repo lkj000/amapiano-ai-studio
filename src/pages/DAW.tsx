@@ -208,6 +208,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>();
   const [projectName, setProjectName] = useState("Untitled Project");
   const [projectData, setProjectData] = useState<DawProjectData | null>(null);
+  const hasInitializedProjectDataRef = useRef(false);
 
   // Undo/Redo System
   const undoRedoControls = useUndoRedo(projectData, 50);
@@ -309,10 +310,15 @@ export default function DawPage({ user }: DawPageProps) {
     enabled: !!activeProjectId,
   });
 
+  // Reset initial load guard when switching projects
+  useEffect(() => {
+    hasInitializedProjectDataRef.current = false;
+  }, [activeProjectId]);
+
   // Step 5: Sync loaded data into local state for editing
   useEffect(() => {
     console.log('DAW: loadedProject useEffect - loadedProject:', loadedProject);
-    if (loadedProject) {
+    if (loadedProject && !hasInitializedProjectDataRef.current) {
       console.log('DAW: loadedProject.projectData:', loadedProject.projectData);
       console.log('DAW: loadedProject.projectData.tracks:', loadedProject.projectData?.tracks);
       
@@ -331,6 +337,8 @@ export default function DawPage({ user }: DawPageProps) {
       if (!selectedTrackId && loadedProject.projectData?.tracks && loadedProject.projectData.tracks.length > 0) {
         setSelectedTrackId(loadedProject.projectData.tracks[0].id);
       }
+      // Prevent overwriting local edits on refetch
+      hasInitializedProjectDataRef.current = true;
     }
   }, [loadedProject, selectedTrackId, setProjectDataWithHistory]);
 

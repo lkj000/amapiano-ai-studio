@@ -288,9 +288,16 @@ const VoiceToMIDI = () => {
     const rms = Math.sqrt(sum / dataArray.length);
     setAudioLevel(Math.min(rms * 200, 100));
     
+    // Debug: Log audio level when recording
+    if (isRecording && rms > 0.001) {
+      console.log('🎤 Audio RMS:', rms.toFixed(4), '| Threshold: 0.005');
+    }
+    
     // Pitch detection (LOWERED threshold for better capture)
     if (voiceMode === 'pitch' && rms > 0.005) {
       const pitch = detectPitch(dataArray, audioContextRef.current.sampleRate);
+      
+      console.log('🎵 Pitch detected:', pitch?.toFixed(2), 'Hz');
       
       if (pitch) {
         setDetectedPitch(pitch);
@@ -300,6 +307,8 @@ const VoiceToMIDI = () => {
         midiNote = quantizeToScale(midiNote);
         
         setDetectedNote(midiToNoteName(midiNote));
+        
+        console.log('🎹 MIDI Note:', midiNote, midiToNoteName(midiNote));
         
         // Generate MIDI notes
         const notes = chordMode ? generateChord(midiNote) : [midiNote];
@@ -315,23 +324,35 @@ const VoiceToMIDI = () => {
         
         // Record if recording
         if (isRecording) {
-          setRecordedMIDI(prev => [...prev, ...newMidiNotes]);
+          console.log('✅ Recording MIDI notes:', newMidiNotes.length, 'notes');
+          setRecordedMIDI(prev => {
+            const updated = [...prev, ...newMidiNotes];
+            console.log('📝 Total recorded:', updated.length);
+            return updated;
+          });
         }
       } else {
         setDetectedPitch(null);
         setDetectedNote('');
         setMidiNotes([]);
       }
+    } else if (isRecording && rms <= 0.005) {
+      console.log('⚠️ Audio too quiet - RMS:', rms.toFixed(4), '| Need > 0.005');
     }
     
     animationFrameRef.current = requestAnimationFrame(processAudio);
-  }, [voiceMode, chordMode, selectedChord, isRecording, detectPitch, keyLockEnabled]);
+  }, [voiceMode, chordMode, selectedChord, isRecording, detectPitch, keyLockEnabled, quantizeToScale, midiToNoteName]);
   
   // Start recording
   const startRecording = async () => {
+    console.log('🎙️ Starting recording...');
     const success = await initializeAudio();
-    if (!success) return;
+    if (!success) {
+      console.error('❌ Failed to initialize audio');
+      return;
+    }
     
+    console.log('✅ Audio initialized successfully');
     setIsRecording(true);
     setRecordedMIDI([]);
     processAudio();
@@ -340,29 +361,36 @@ const VoiceToMIDI = () => {
   
   // Stop recording
   const stopRecording = () => {
+    console.log('🛑 Stopping recording...');
+    console.log('📊 Current recordedMIDI state:', recordedMIDI.length);
+    
     setIsRecording(false);
     
-    // Capture the current count BEFORE cleanup
-    const capturedCount = recordedMIDI.length;
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-    
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    
-    setAudioLevel(0);
-    setDetectedPitch(null);
-    setDetectedNote('');
-    setMidiNotes([]);
-    
-    toast.success(`Recording stopped. Captured ${capturedCount} MIDI notes`);
+    // Use a ref to capture the actual count from the latest state
+    setTimeout(() => {
+      const finalCount = recordedMIDI.length;
+      console.log('🎯 Final MIDI count:', finalCount);
+      console.log('📋 MIDI notes:', recordedMIDI);
+      
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      
+      setAudioLevel(0);
+      setDetectedPitch(null);
+      setDetectedNote('');
+      setMidiNotes([]);
+      
+      toast.success(`Recording stopped. Captured ${finalCount} MIDI notes`);
+    }, 100);
   };
   
   // Export MIDI

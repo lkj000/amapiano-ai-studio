@@ -261,9 +261,27 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                         const gainNode = ctxNow.createGain();
                         const trackGain = trackGainsRef.current.get(track.id);
                         
-                        oscillator.type = 'sine';
+                        // Set oscillator type based on track instrument
+                        const instrument = track.instrument || '';
+                        if (instrument.toLowerCase().includes('drum') || instrument.toLowerCase().includes('log')) {
+                          oscillator.type = 'square'; // Percussive sound
+                          gainNode.gain.setValueAtTime((note.velocity / 127) * 0.4, ctxNow.currentTime);
+                          gainNode.gain.exponentialRampToValueAtTime(0.01, ctxNow.currentTime + Math.min(noteDuration, 0.1));
+                        } else if (instrument.toLowerCase().includes('bass')) {
+                          oscillator.type = 'sawtooth'; // Rich bass sound
+                          gainNode.gain.value = (note.velocity / 127) * 0.35;
+                        } else if (instrument.toLowerCase().includes('piano')) {
+                          oscillator.type = 'triangle'; // Mellow piano-like sound
+                          gainNode.gain.value = (note.velocity / 127) * 0.25;
+                        } else if (instrument.toLowerCase().includes('vocal') || instrument.toLowerCase().includes('sampler')) {
+                          oscillator.type = 'sine'; // Smooth vocal-like sound
+                          gainNode.gain.value = (note.velocity / 127) * 0.3;
+                        } else {
+                          oscillator.type = 'sine'; // Default
+                          gainNode.gain.value = (note.velocity / 127) * 0.3;
+                        }
+                        
                         oscillator.frequency.value = frequency;
-                        gainNode.gain.value = (note.velocity / 127) * 0.3;
                         
                         oscillator.connect(gainNode);
                         if (trackGain) {
@@ -379,7 +397,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     };
   }, []);
 
-  const playNote = useCallback((pitch: number, velocity: number = 80, duration: number = 1) => {
+  const playNote = useCallback((pitch: number, velocity: number = 80, duration: number = 1, instrument?: string) => {
     if (!audioContextRef.current || !masterGainRef.current) return;
 
     const ctx = audioContextRef.current;
@@ -388,10 +406,26 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     const oscillator = ctx.createOscillator();
     const gainNode = ctx.createGain();
     
-    oscillator.type = 'sine';
-    oscillator.frequency.value = frequency;
+    // Set oscillator type based on instrument
+    if (instrument?.toLowerCase().includes('drum') || instrument?.toLowerCase().includes('log')) {
+      oscillator.type = 'square'; // Percussive sound
+      gainNode.gain.setValueAtTime((velocity / 127) * 0.4, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + Math.min(duration, 0.1));
+    } else if (instrument?.toLowerCase().includes('bass')) {
+      oscillator.type = 'sawtooth'; // Rich bass sound
+      gainNode.gain.value = (velocity / 127) * 0.35;
+    } else if (instrument?.toLowerCase().includes('piano')) {
+      oscillator.type = 'triangle'; // Mellow piano-like sound
+      gainNode.gain.value = (velocity / 127) * 0.25;
+    } else if (instrument?.toLowerCase().includes('vocal') || instrument?.toLowerCase().includes('sampler')) {
+      oscillator.type = 'sine'; // Smooth vocal-like sound
+      gainNode.gain.value = (velocity / 127) * 0.3;
+    } else {
+      oscillator.type = 'sine'; // Default
+      gainNode.gain.value = (velocity / 127) * 0.3;
+    }
     
-    gainNode.gain.value = (velocity / 127) * 0.3; // Convert velocity to gain
+    oscillator.frequency.value = frequency;
     
     oscillator.connect(gainNode);
     gainNode.connect(masterGainRef.current);

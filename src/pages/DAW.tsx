@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, AudioWaveform, Cable, BookOpen, Palette
+  Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, AudioWaveform, Cable, BookOpen, Palette, ZoomIn
 } from "lucide-react";
 import { toast } from 'sonner';
 import backend from '@/backend/client';
@@ -48,6 +48,7 @@ import { VoiceAIGuide } from '@/components/VoiceAIGuide';
 import { RAGKnowledgeBase } from '@/components/RAGKnowledgeBase';
 import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
+import { cn } from '@/lib/utils';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
 import { AuraSidebar } from '@/components/aura/AuraSidebar';
 import { PluginSidebar } from '@/components/PluginSidebar';
@@ -1626,35 +1627,40 @@ export default function DawPage({ user }: DawPageProps) {
 
         {/* Main DAW Area */}
         <div className="flex-1 flex flex-col">
-          {/* Transport Controls */}
-          <div className="border-b border-border/50 bg-gradient-subtle">
-            <div className="flex items-center justify-between px-6 py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1">
+          {/* Transport Controls - Premium Design */}
+          <div className="border-b border-border/50 bg-gradient-to-r from-background via-muted/30 to-background">
+            <div className="flex items-center justify-between px-6 py-4">
+              {/* Left: Playback Controls */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl p-2 shadow-sm border border-border/30">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 hover:bg-primary/10"
+                    className="h-9 w-9 hover:bg-background/80 rounded-lg"
                     onClick={() => setCurrentTime(t => Math.max(0, t - 5))}
                   >
-                    <SkipBack className="w-4 h-4" />
+                    <SkipBack className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-9 w-9 hover:bg-destructive/20 rounded-lg"
                     onClick={() => {
                       console.log('DAW Transport: Stop clicked');
                       stop();
                       console.log('DAW Transport: stop called');
                     }}
                   >
-                    <Square className="w-3.5 h-3.5" />
+                    <Square className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant={isPlaying ? "default" : "outline"}
                     size="icon"
-                    className="h-9 w-9 shadow-sm"
+                    className={cn(
+                      "h-10 w-10 rounded-lg shadow-md transition-all",
+                      isPlaying 
+                        ? "bg-muted hover:bg-muted/80" 
+                        : "bg-gradient-to-br from-primary via-primary to-primary/80 hover:shadow-lg hover:scale-105"
+                    )}
                     onClick={() => {
                       console.log('DAW Transport: Play/Pause clicked', { isPlayingBefore: isPlaying });
                       if (isPlaying) {
@@ -1666,12 +1672,12 @@ export default function DawPage({ user }: DawPageProps) {
                       }
                     }}
                   >
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
                   </Button>
                   <Button 
-                    variant={isRecording ? "destructive" : "outline"}
+                    variant={isRecording ? "destructive" : "ghost"}
                     size="icon"
-                    className="h-8 w-8"
+                    className={cn("h-9 w-9 rounded-lg", isRecording && "animate-pulse")}
                     onClick={() => {
                       if (selectedTrackId) {
                         setShowAudioRecording(true);
@@ -1681,27 +1687,28 @@ export default function DawPage({ user }: DawPageProps) {
                     }}
                     disabled={!selectedTrackId}
                   >
-                    <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-current"}`} />
+                    <div className={`w-4 h-4 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-current"}`} />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 hover:bg-primary/10"
+                    className="h-9 w-9 hover:bg-background/80 rounded-lg"
                     onClick={() => setCurrentTime(t => t + 5)}
                   >
-                    <SkipForward className="w-4 h-4" />
+                    <SkipForward className="h-4 w-4" />
                   </Button>
                 </div>
-                
-                <Separator orientation="vertical" className="h-6" />
                 
                 <Button
                   variant={isLooping ? "default" : "ghost"}
                   size="sm"
-                  className="h-8 text-xs"
+                  className={cn(
+                    "h-9 px-4 rounded-lg",
+                    isLooping && "bg-primary/20 hover:bg-primary/30 border border-primary/30"
+                  )}
                   onClick={() => setIsLooping(!isLooping)}
                 >
-                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  <RotateCcw className="h-4 w-4 mr-2" />
                   Loop
                 </Button>
               </div>
@@ -1715,30 +1722,31 @@ export default function DawPage({ user }: DawPageProps) {
                   onRedo={handleRedo} 
                 />
 
-                <Separator orientation="vertical" className="h-6" />
+                <Separator orientation="vertical" className="h-8" />
 
-                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
-                  <span className="text-xs text-muted-foreground">BPM</span>
-                  <div className="w-20">
+                <div className="flex items-center gap-2.5 bg-background/60 rounded-xl px-4 py-2 border border-border/30 backdrop-blur-sm shadow-sm">
+                  <Music className="h-4 w-4 text-primary/70" />
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">BPM</span>
+                  <div className="w-24">
                     <Slider value={[projectData.bpm]} onValueChange={([v]) => handleUpdateProjectSettings({ bpm: v })} min={80} max={160} step={1} />
                   </div>
-                  <span className="text-xs font-medium w-8">{projectData.bpm}</span>
+                  <span className="text-xs font-bold tabular-nums min-w-[32px]">{projectData.bpm}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
-                  <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
-                  <div className="w-20">
+                <div className="flex items-center gap-3 bg-background/60 rounded-xl px-4 py-2 border border-border/30 backdrop-blur-sm shadow-sm min-w-[140px]">
+                  <Volume2 className="h-4 w-4 text-primary/70" />
+                  <div className="flex-1">
                     <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => {
                       const newVolume = v / 100;
                       setProjectData({ ...projectData, masterVolume: newVolume });
                       setMasterVolume(newVolume);
                     }} />
                   </div>
-                  <span className="text-xs font-medium w-8">{Math.round(projectData.masterVolume * 100)}</span>
+                  <span className="text-xs font-bold tabular-nums min-w-[28px]">{Math.round(projectData.masterVolume * 100)}</span>
                 </div>
-                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
-                  <span className="text-xs text-muted-foreground">Zoom</span>
-                  <div className="w-20"><Slider value={zoom} onValueChange={setZoom} min={25} max={400} step={25} /></div>
-                  <span className="text-xs font-medium">{zoom[0]}%</span>
+                <div className="flex items-center gap-3 bg-background/60 rounded-xl px-4 py-2 border border-border/30 backdrop-blur-sm shadow-sm min-w-[140px]">
+                  <ZoomIn className="h-4 w-4 text-primary/70" />
+                  <div className="flex-1"><Slider value={zoom} onValueChange={setZoom} min={25} max={400} step={25} /></div>
+                  <span className="text-xs font-bold tabular-nums min-w-[36px]">{zoom[0]}%</span>
                 </div>
               </div>
             </div>

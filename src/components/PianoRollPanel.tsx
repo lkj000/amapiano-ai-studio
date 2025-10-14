@@ -254,26 +254,34 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   console.log('PianoRoll: clipNotes', clipNotes);
 
   return (
-    <Card className="fixed inset-4 z-50 bg-background shadow-elegant border-0 flex flex-col">
-      {/* Modern Header */}
-      <div className="bg-gradient-subtle border-b border-border/50 px-4 py-3">
+    <Card className="fixed inset-4 z-50 bg-gradient-to-br from-background via-background to-muted/20 shadow-2xl border-0 flex flex-col backdrop-blur-xl">
+      {/* Premium Header */}
+      <div className="bg-gradient-to-r from-background/95 via-primary/5 to-background/95 border-b border-border/50 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Music className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center shadow-sm border border-primary/20">
+              <Music className="h-6 w-6 text-primary" />
+            </div>
             <div>
-              <CardTitle className="text-base font-semibold">
+              <CardTitle className="text-xl font-bold mb-0.5">
                 Piano Roll
               </CardTitle>
-              <div className="text-xs text-muted-foreground">{selectedTrack.name}</div>
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <span className={cn("w-2 h-2 rounded-full", selectedTrack.color)} />
+                {selectedTrack.name}
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {/* Tools Section */}
-            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
+            <div className="flex items-center gap-1 bg-muted/40 rounded-xl p-1 border border-border/30">
               <Button 
                 size="sm" 
                 variant={tool === 'select' ? 'default' : 'ghost'}
-                className="h-7 px-2.5"
+                className={cn(
+                  "h-8 px-3 rounded-lg",
+                  tool === 'select' && "bg-primary/20 hover:bg-primary/30 shadow-sm"
+                )}
                 onClick={() => setTool('select')}
               >
                 Select
@@ -281,7 +289,10 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               <Button 
                 size="sm" 
                 variant={tool === 'pencil' ? 'default' : 'ghost'}
-                className="h-7 w-7 p-0"
+                className={cn(
+                  "h-8 w-8 p-0 rounded-lg",
+                  tool === 'pencil' && "bg-primary/20 hover:bg-primary/30 shadow-sm"
+                )}
                 onClick={() => setTool('pencil')}
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -289,18 +300,23 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               <Button 
                 size="sm" 
                 variant={tool === 'eraser' ? 'default' : 'ghost'}
-                className="h-7 w-7 p-0"
+                className={cn(
+                  "h-8 w-8 p-0 rounded-lg",
+                  tool === 'eraser' && "bg-destructive/20 hover:bg-destructive/30 shadow-sm"
+                )}
                 onClick={() => setTool('eraser')}
               >
                 <Eraser className="w-3.5 h-3.5" />
               </Button>
             </div>
 
+            <Separator orientation="vertical" className="h-8" />
+
             {/* Grid Settings */}
-            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
-              <span className="text-xs text-muted-foreground">Snap:</span>
+            <div className="flex items-center gap-2 bg-background/60 px-3 py-1.5 rounded-xl border border-border/30 shadow-sm">
+              <span className="text-xs text-muted-foreground font-medium">Snap:</span>
               <Select value={snap.toString()} onValueChange={(v) => setSnap(parseInt(v))}>
-                <SelectTrigger className="w-16 h-7">
+                <SelectTrigger className="w-16 h-7 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -312,102 +328,30 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               </Select>
             </div>
 
-            {/* Zoom */}
-            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
-              <span className="text-xs text-muted-foreground">Zoom:</span>
-              <Slider
-                value={[zoom]}
-                onValueChange={([v]) => setZoom(v)}
-                min={25}
-                max={400}
-                step={25}
-                className="w-20"
-              />
-              <span className="text-xs font-medium w-10">{zoom}%</span>
-            </div>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            {/* Transport */}
-            <div className="flex gap-1">
-              <Button 
-                size="sm" 
-                variant={isPlaying ? "default" : "outline"}
-                className="h-8 w-8 p-0"
-                onClick={() => onPlay?.()}
-                disabled={!onPlay}
-              >
-                <Play className="w-3.5 h-3.5" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="h-8 w-8 p-0"
-                onClick={() => onStop?.()}
-                disabled={!onStop}
-              >
-                <Square className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            {/* Edit Tools */}
-            <div className="flex gap-1">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                onClick={handleCopyNotes} 
-                disabled={selectedNotes.length === 0}
-              >
-                <Copy className="w-3.5 h-3.5" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline"
-                className="h-8 w-8 p-0" 
-                onClick={handlePasteNotes} 
-                disabled={clipboard.length === 0}
-              >
-                <ClipboardPaste className="w-3.5 h-3.5" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8"
-                onClick={handleDeleteSelected} 
-                disabled={selectedNotes.length === 0}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                Delete
-              </Button>
-            </div>
-
             {/* Velocity Editor */}
             {selectedNotes.length === 1 && clipNotes.length > 0 && (
               <>
-                <Separator orientation="vertical" className="h-6" />
-                <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
-                  <span className="text-xs text-muted-foreground">Velocity:</span>
+                <Separator orientation="vertical" className="h-8" />
+                <div className="flex items-center gap-3 bg-background/60 px-3 py-1.5 rounded-xl border border-border/30 shadow-sm">
+                  <span className="text-xs text-muted-foreground font-medium">Velocity:</span>
                   <Slider
                     value={[clipNotes.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80]}
                     onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
                     min={1}
                     max={127}
                     step={1}
-                    className="w-20"
+                    className="w-24"
                   />
-                  <span className="text-xs font-medium w-8">
+                  <span className="text-xs font-bold tabular-nums min-w-[32px] text-center">
                     {clipNotes.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}
                   </span>
                 </div>
               </>
             )}
 
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-8" />
 
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-destructive/20" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>
           </div>

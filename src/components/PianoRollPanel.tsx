@@ -244,17 +244,53 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   }
 
   return (
-    <Card className="fixed inset-4 z-50 bg-background flex flex-col">
-      <CardHeader className="pb-3">
+    <Card className="fixed inset-4 z-50 bg-background shadow-elegant border-0 flex flex-col">
+      {/* Modern Header */}
+      <div className="bg-gradient-subtle border-b border-border/50 px-4 py-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">
-            Piano Roll - {selectedTrack.name}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Snap:</span>
+          <div className="flex items-center gap-3">
+            <Music className="w-5 h-5 text-primary" />
+            <div>
+              <CardTitle className="text-base font-semibold">
+                Piano Roll
+              </CardTitle>
+              <div className="text-xs text-muted-foreground">{selectedTrack.name}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Tools Section */}
+            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
+              <Button 
+                size="sm" 
+                variant={tool === 'select' ? 'default' : 'ghost'}
+                className="h-7 px-2.5"
+                onClick={() => setTool('select')}
+              >
+                Select
+              </Button>
+              <Button 
+                size="sm" 
+                variant={tool === 'pencil' ? 'default' : 'ghost'}
+                className="h-7 w-7 p-0"
+                onClick={() => setTool('pencil')}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+              <Button 
+                size="sm" 
+                variant={tool === 'eraser' ? 'default' : 'ghost'}
+                className="h-7 w-7 p-0"
+                onClick={() => setTool('eraser')}
+              >
+                <Eraser className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+
+            {/* Grid Settings */}
+            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
+              <span className="text-xs text-muted-foreground">Snap:</span>
               <Select value={snap.toString()} onValueChange={(v) => setSnap(parseInt(v))}>
-                <SelectTrigger className="w-20">
+                <SelectTrigger className="w-16 h-7">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -265,80 +301,85 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">Zoom:</span>
-              <div className="w-20">
-                <Slider
-                  value={[zoom]}
-                  onValueChange={([v]) => setZoom(v)}
-                  min={25}
-                  max={400}
-                  step={25}
-                />
-              </div>
-              <span className="text-sm">{zoom}%</span>
+
+            {/* Zoom */}
+            <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
+              <span className="text-xs text-muted-foreground">Zoom:</span>
+              <Slider
+                value={[zoom]}
+                onValueChange={([v]) => setZoom(v)}
+                min={25}
+                max={400}
+                step={25}
+                className="w-20"
+              />
+              <span className="text-xs font-medium w-10">{zoom}%</span>
             </div>
-            <div className="flex gap-1">
-              <Button 
-                size="sm" 
-                variant={tool === 'select' ? 'default' : 'outline'}
-                onClick={() => setTool('select')}
-              >
-                Select
-              </Button>
-              <Button 
-                size="sm" 
-                variant={tool === 'pencil' ? 'default' : 'outline'}
-                onClick={() => setTool('pencil')}
-              >
-                <Pencil className="w-3 h-3" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant={tool === 'eraser' ? 'default' : 'outline'}
-                onClick={() => setTool('eraser')}
-              >
-                <Eraser className="w-3 h-3" />
-              </Button>
-            </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Transport */}
             <div className="flex gap-1">
               <Button 
                 size="sm" 
                 variant={isPlaying ? "default" : "outline"}
-                onClick={() => {
-                  console.log('PianoRoll: Play clicked');
-                  onPlay?.();
-                }}
+                className="h-8 w-8 p-0"
+                onClick={() => onPlay?.()}
                 disabled={!onPlay}
               >
-                <Play className="w-3 h-3" />
+                <Play className="w-3.5 h-3.5" />
               </Button>
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => {
-                  console.log('PianoRoll: Stop clicked');
-                  onStop?.();
-                }}
+                className="h-8 w-8 p-0"
+                onClick={() => onStop?.()}
                 disabled={!onStop}
               >
-                <Square className="w-3 h-3" />
+                <Square className="w-3.5 h-3.5" />
               </Button>
             </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Edit Tools */}
             <div className="flex gap-1">
-              <Button size="sm" variant="outline" onClick={handleCopyNotes} disabled={selectedNotes.length === 0}>
-                <Copy className="w-4 h-4" />
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8 w-8 p-0"
+                onClick={handleCopyNotes} 
+                disabled={selectedNotes.length === 0}
+              >
+                <Copy className="w-3.5 h-3.5" />
               </Button>
-              <Button size="sm" variant="outline" onClick={handlePasteNotes} disabled={clipboard.length === 0}>
-                <ClipboardPaste className="w-4 h-4" />
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-8 w-8 p-0" 
+                onClick={handlePasteNotes} 
+                disabled={clipboard.length === 0}
+              >
+                <ClipboardPaste className="w-3.5 h-3.5" />
               </Button>
-              <Button size="sm" variant="outline" onClick={handleDeleteSelected} disabled={selectedNotes.length === 0}>
-                <Trash2 className="w-4 h-4" />
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8"
+                onClick={handleDeleteSelected} 
+                disabled={selectedNotes.length === 0}
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Delete
               </Button>
-                  {selectedNotes.length === 1 && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0] && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Velocity:</span>
+            </div>
+
+            {/* Velocity Editor */}
+            {selectedNotes.length === 1 && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0] && (
+              <>
+                <Separator orientation="vertical" className="h-6" />
+                <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
+                  <span className="text-xs text-muted-foreground">Velocity:</span>
                   <Slider
                     value={[selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80]}
                     onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
@@ -347,104 +388,140 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                     step={1}
                     className="w-20"
                   />
-                  <span className="text-xs w-8">{selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}</span>
+                  <span className="text-xs font-medium w-8">
+                    {selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}
+                  </span>
                 </div>
-              )}
-            </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+              </>
+            )}
+
+            <Separator orientation="vertical" className="h-6" />
+
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
               <X className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="flex-1 p-0 overflow-hidden">
+      </div>
+      <div className="flex-1 p-0 overflow-hidden flex flex-col">
         <div className="flex h-full">
-          {/* Piano Keys */}
-          <div className="w-16 border-r border-border bg-muted/10 overflow-y-auto">
-            {keys.map((pitch) => (
-              <div
-                key={pitch}
-                className={`h-6 border-b border-border/30 flex items-center justify-center text-xs cursor-pointer hover:bg-primary/10 ${
-                  isBlackKey(pitch) ? 'bg-muted text-muted-foreground' : 'bg-background'
-                }`}
-                onClick={() => onPlayNote && onPlayNote(pitch, 80, 0.5)}
-              >
-                {keyToNote(pitch)}
-              </div>
-            ))}
+          {/* Piano Keys Sidebar */}
+          <div className="w-20 border-r border-border/50 bg-muted/10 overflow-y-auto flex-shrink-0">
+            {keys.map((pitch) => {
+              const isBlack = isBlackKey(pitch);
+              return (
+                <div
+                  key={pitch}
+                  className={cn(
+                    "h-6 border-b border-border/20 flex items-center justify-center text-xs cursor-pointer transition-colors",
+                    "hover:bg-primary/10 active:bg-primary/20",
+                    isBlack 
+                      ? 'bg-muted/50 text-muted-foreground font-medium' 
+                      : 'bg-background/50'
+                  )}
+                  onClick={() => onPlayNote && onPlayNote(pitch, 80, 0.5)}
+                >
+                  <span className="text-[10px]">{keyToNote(pitch)}</span>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Note Grid */}
-          <div className="flex-1 overflow-auto">
+          {/* Note Grid Area */}
+          <div className="flex-1 overflow-auto bg-background/30">
             <div className="relative">
-              {/* Time ruler */}
-              <div className="h-8 bg-muted/20 border-b border-border flex sticky top-0 z-10">
+              {/* Time Ruler */}
+              <div className="h-9 bg-gradient-subtle border-b border-border/50 flex sticky top-0 z-10">
                 {Array.from({ length: 32 }, (_, i) => (
-                  <div key={i} className="flex-1 text-xs text-center border-r border-border/30 py-1 text-muted-foreground">
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "flex-1 text-xs text-center border-r py-2 font-mono transition-colors",
+                      i % 4 === 0 ? "border-border/40 font-semibold text-foreground" : "border-border/20 text-muted-foreground"
+                    )}
+                  >
                     {i + 1}
                   </div>
                 ))}
               </div>
 
-              {/* Grid */}
+              {/* Grid with Notes */}
               <div className="relative" style={{ width: `${zoom}%` }}>
-                {keys.map((pitch) => (
-                  <div
-                    key={pitch}
-                    className={`h-6 border-b border-border/30 relative ${
-                      isBlackKey(pitch) ? 'bg-muted/20' : 'bg-background'
-                    }`}
-                  >
-                    {/* Grid lines */}
-                    {Array.from({ length: 32 * 4 }, (_, i) => (
-                      <div
-                        key={i}
-                        className={`absolute top-0 bottom-0 border-r ${i % 4 === 0 ? 'border-border/30' : 'border-border/10'}`}
-                        style={{ left: `${(i / (32 * 4)) * 100}%` }}
-                      />
-                    ))}
-                    
-                    {/* Click area for adding notes */}
+                {keys.map((pitch) => {
+                  const isBlack = isBlackKey(pitch);
+                  return (
                     <div
-                      className="absolute inset-0 cursor-pointer"
-                      onClick={(e) => {
-                        if (tool === 'pencil') {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const x = e.clientX - rect.left;
-                          const startTime = (x / rect.width) * 32;
-                          handleAddNote(pitch, startTime);
-                        }
-                      }}
-                    />
-                    
-                    {/* Notes */}
-                    {selectedTrack.clips[0] && 'notes' in selectedTrack.clips[0] && 
-                     selectedTrack.clips[0].notes?.filter((note: MidiNote) => note.pitch === pitch).map((note: MidiNote) => (
+                      key={pitch}
+                      className={cn(
+                        "h-6 border-b border-border/20 relative transition-colors",
+                        isBlack ? 'bg-muted/10' : 'bg-background/50',
+                        'hover:bg-accent/5'
+                      )}
+                    >
+                      {/* Grid Lines */}
+                      {Array.from({ length: 32 * 4 }, (_, i) => {
+                        const isBar = i % 16 === 0;
+                        const isBeat = i % 4 === 0;
+                        return (
+                          <div
+                            key={i}
+                            className={cn(
+                              "absolute top-0 bottom-0 border-r",
+                              isBar && "border-border/40",
+                              isBeat && !isBar && "border-border/25",
+                              !isBeat && "border-border/10"
+                            )}
+                            style={{ left: `${(i / (32 * 4)) * 100}%` }}
+                          />
+                        );
+                      })}
+                      
+                      {/* Click Area */}
                       <div
-                        key={note.id}
-                        className={`absolute top-0.5 bottom-0.5 rounded cursor-pointer transition-colors ${
-                          selectedNotes.includes(note.id) 
-                            ? 'bg-primary/90 ring-2 ring-primary' 
-                            : 'bg-primary/70 hover:bg-primary/80'
-                        } ${isResizing ? 'cursor-ew-resize' : 'cursor-move'}`}
-                        style={{
-                          left: `${(note.startTime / 32) * 100}%`,
-                          width: `${Math.max((note.duration / 32) * 100, 1)}%`
+                        className="absolute inset-0 cursor-pointer"
+                        onClick={(e) => {
+                          if (tool === 'pencil') {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const startTime = (x / rect.width) * 32;
+                            handleAddNote(pitch, startTime);
+                          }
                         }}
-                        onMouseDown={(e) => handleNoteMouseDown(note.id, e)}
-                      >
-                        {/* Resize handles */}
-                        <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-50 bg-primary" />
-                        <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-50 bg-primary" />
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                      />
+                      
+                      {/* MIDI Notes */}
+                      {selectedTrack.clips[0] && 'notes' in selectedTrack.clips[0] && 
+                       selectedTrack.clips[0].notes?.filter((note: MidiNote) => note.pitch === pitch).map((note: MidiNote) => (
+                        <div
+                          key={note.id}
+                          className={cn(
+                            "absolute top-0.5 bottom-0.5 rounded-md cursor-pointer transition-all",
+                            "bg-gradient-primary/70 border border-primary/40 backdrop-blur-sm",
+                            selectedNotes.includes(note.id) 
+                              ? 'ring-2 ring-primary shadow-glow bg-gradient-primary/90' 
+                              : 'hover:bg-gradient-primary/80 hover:border-primary/60',
+                            isResizing ? 'cursor-ew-resize' : 'cursor-move'
+                          )}
+                          style={{
+                            left: `${(note.startTime / 32) * 100}%`,
+                            width: `${Math.max((note.duration / 32) * 100, 1)}%`,
+                            opacity: note.velocity / 127 * 0.5 + 0.5
+                          }}
+                          onMouseDown={(e) => handleNoteMouseDown(note.id, e)}
+                        >
+                          {/* Resize Handles */}
+                          <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-100 bg-primary/30 rounded-l-md transition-opacity" />
+                          <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 hover:opacity-100 bg-primary/30 rounded-r-md transition-opacity" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

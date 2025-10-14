@@ -1974,6 +1974,7 @@ export default function DawPage({ user }: DawPageProps) {
             }}
             onStop={stop}
             isPlaying={isPlaying}
+            currentTime={currentTime}
           />
         </>
       )}

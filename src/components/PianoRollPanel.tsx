@@ -436,16 +436,14 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                 </div>
               </div>
             )}
-            {/* Playhead Indicator */}
-            {isPlaying && (
-              <div 
-                className="absolute top-0 bottom-0 w-0.5 bg-destructive shadow-glow pointer-events-none z-30 transition-all duration-75"
-                style={{
-                  left: `${(currentTime / 32) * (zoom / 100) * 100}%`
-                }}
-              />
-            )}
             <div className="relative">
+              {/* Playhead Indicator */}
+              {isPlaying && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-destructive pointer-events-none z-30"
+                  style={{ left: `${(currentTime / 32) * 100}%` }}
+                />
+              )}
               {/* Time Ruler */}
               <div className="h-9 bg-gradient-subtle border-b border-border/50 flex sticky top-0 z-10">
                 {Array.from({ length: 32 }, (_, i) => (

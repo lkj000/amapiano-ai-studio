@@ -254,54 +254,16 @@ export function useAudioEngine(projectData: DawProjectData | null) {
 
                       // Schedule with setTimeout so we can cancel on stop/pause
                       const timeoutId = window.setTimeout(() => {
-                        const ctxNow = audioContextRef.current;
-                        if (!ctxNow) return;
-                        const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
-                        const oscillator = ctxNow.createOscillator();
-                        const gainNode = ctxNow.createGain();
-                        const trackGain = trackGainsRef.current.get(track.id);
-                        
-                        // Set oscillator type based on track instrument
-                        const instrument = track.instrument || '';
-                        if (instrument.toLowerCase().includes('drum') || instrument.toLowerCase().includes('log')) {
-                          oscillator.type = 'square'; // Percussive sound
-                          gainNode.gain.setValueAtTime((note.velocity / 127) * 0.4, ctxNow.currentTime);
-                          gainNode.gain.exponentialRampToValueAtTime(0.01, ctxNow.currentTime + Math.min(noteDuration, 0.1));
-                        } else if (instrument.toLowerCase().includes('bass')) {
-                          oscillator.type = 'sawtooth'; // Rich bass sound
-                          gainNode.gain.value = (note.velocity / 127) * 0.35;
-                        } else if (instrument.toLowerCase().includes('piano')) {
-                          oscillator.type = 'triangle'; // Mellow piano-like sound
-                          gainNode.gain.value = (note.velocity / 127) * 0.25;
-                        } else if (instrument.toLowerCase().includes('vocal') || instrument.toLowerCase().includes('sampler')) {
-                          oscillator.type = 'sine'; // Smooth vocal-like sound
-                          gainNode.gain.value = (note.velocity / 127) * 0.3;
-                        } else {
-                          oscillator.type = 'sine'; // Default
-                          gainNode.gain.value = (note.velocity / 127) * 0.3;
-                        }
-                        
-                        oscillator.frequency.value = frequency;
-                        
-                        oscillator.connect(gainNode);
-                        if (trackGain) {
-                          gainNode.connect(trackGain);
-                        } else {
-                          gainNode.connect(masterGainRef.current!);
-                        }
-
-                        const target = trackGain ? `track:${track.id} vol:${trackGain.gain.value}` : 'master';
+                        const osc = synthNote(note.pitch, note.velocity, noteDuration, track.instrument || '', track.id);
                         console.log('AudioEngine: transport NOTE', {
                           pitch: note.pitch,
                           startTimeBeats: absoluteNoteTime,
                           durationBeats: note.duration,
-                          frequency,
-                          waveform: oscillator.type,
-                          target,
+                          frequency: 440 * Math.pow(2, (note.pitch - 69) / 12),
+                          waveform: osc?.type,
+                          trackId: track.id,
+                          instrument: track.instrument,
                         });
-                        
-                        oscillator.start();
-                        oscillator.stop(ctxNow.currentTime + noteDuration);
 
                         // Cleanup tracking after note start
                         if (scheduledNotesRef.current) scheduledNotesRef.current.delete(noteKey);

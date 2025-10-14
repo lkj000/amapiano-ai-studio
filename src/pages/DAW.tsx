@@ -497,6 +497,14 @@ export default function DawPage({ user }: DawPageProps) {
           setProjectData(newData);
           setSelectedTrackId(newTrack.id);
           
+          // Auto-save the track immediately to prevent data loss
+          console.log('DAW: Auto-saving voice-to-MIDI track...');
+          saveMutation.mutate({
+            name: projectName,
+            projectData: newData,
+            projectId: activeProjectId
+          });
+          
           toast.success(`🎹 Imported ${notes.length} notes from voice recording!`);
         } catch (error) {
           console.error('Failed to import pending MIDI:', error);

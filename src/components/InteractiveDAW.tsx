@@ -515,8 +515,9 @@ export const InteractiveDAW: React.FC<InteractiveDAWProps> = ({
         </div>
       </div>
 
+      <CardContent className="p-0">
         {/* Main DAW Interface */}
-        <div className="flex">
+        <div className="flex h-[600px]">
           {/* Track Controls */}
           <div className="w-48 border-r border-border/30">
             <div className="h-12 border-b border-border/30 bg-muted/20 flex items-center px-3">

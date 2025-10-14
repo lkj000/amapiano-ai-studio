@@ -2,8 +2,10 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Play, Square, Pencil, Eraser, Scissors, Trash2, Copy, ClipboardPaste } from 'lucide-react';
+import { X, Play, Square, Pencil, Eraser, Scissors, Trash2, Copy, ClipboardPaste, Music } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { DawTrack, MidiNote } from '@/types/daw';
 
 interface PianoRollPanelProps {

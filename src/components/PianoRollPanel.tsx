@@ -17,9 +17,10 @@ interface PianoRollPanelProps {
   onPlay?: () => void;
   onStop?: () => void;
   isPlaying?: boolean;
+  currentTime?: number;
 }
 
-export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext, onPlayNote, onPlay, onStop, isPlaying }: PianoRollPanelProps) {
+export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext, onPlayNote, onPlay, onStop, isPlaying, currentTime = 0 }: PianoRollPanelProps) {
   const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
   const [zoom, setZoom] = useState(100);
   const [snap, setSnap] = useState(16); // 16th note snap
@@ -434,6 +435,15 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                   No notes in this clip
                 </div>
               </div>
+            )}
+            {/* Playhead Indicator */}
+            {isPlaying && (
+              <div 
+                className="absolute top-0 bottom-0 w-0.5 bg-destructive shadow-glow pointer-events-none z-30 transition-all duration-75"
+                style={{
+                  left: `${(currentTime / 32) * (zoom / 100) * 100}%`
+                }}
+              />
             )}
             <div className="relative">
               {/* Time Ruler */}

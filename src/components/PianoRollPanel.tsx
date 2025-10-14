@@ -31,8 +31,8 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   const [clipboard, setClipboard] = useState<MidiNote[]>([]);
   const [tool, setTool] = useState<'select' | 'pencil' | 'eraser'>('select');
 
-  // Piano keys (C4 to C6)
-  const keys = Array.from({ length: 25 }, (_, i) => 84 - i); // MIDI notes 84 down to 60
+  // Piano keys (wide range A0–C8)
+  const keys = Array.from({ length: 88 }, (_, i) => 108 - i); // MIDI notes 108 down to 21
 
   const snapToGrid = (time: number) => {
     const snapValue = 1 / (snap / 4); // Convert snap to beat fractions

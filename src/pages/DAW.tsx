@@ -1960,7 +1960,7 @@ export default function DawPage({ user }: DawPageProps) {
           onClose={() => setShowPianoRoll(false)}
           onUpdateNotes={handleUpdateNotes}
           audioContext={getAudioContext()}
-          onPlayNote={playNote}
+          onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
           onPlay={play}
           onStop={stop}
           isPlaying={isPlaying}

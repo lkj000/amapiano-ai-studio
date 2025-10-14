@@ -1979,51 +1979,78 @@ const [zoom, setZoom] = useState([100]);
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
                 if (clip && 'notes' in clip) {
+                  // Auto-solo selected track for Piano Roll preview
+                  setProjectData((prev: any) => {
+                    if (!prev) return prev;
+                    return {
+                      ...prev,
+                      tracks: prev.tracks.map((t: any) => 
+                        t.id === selectedTrack.id 
+                          ? { ...t, mixer: { ...t.mixer, isSolo: true } }
+                          : t
+                      )
+                    };
+                  });
+                  
+                  // Use main transport for 1:1 sound
+                  setCurrentTime(clip.startTime || 0);
+                  play();
+                  
+                  // Track when to stop (clip end)
                   const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
-                  // Ensure DAW transport is paused to avoid overlapping playback
-                  pause();
-                  console.log('PianoRoll: preview PLAY', { trackId: selectedTrack.id, instrument: selectedTrack.instrument, endBeats });
-                  // Start local piano roll playhead
+                  const endTime = (clip.startTime || 0) + endBeats;
+                  
                   if (pianoRollTimerRef.current) {
                     clearInterval(pianoRollTimerRef.current);
-                    pianoRollTimerRef.current = null;
                   }
-                  setPianoRollTime(0);
-                  setPianoRollIsPlaying(true);
-                  const bps = (projectData?.bpm || 120) / 60;
-                  const intervalMs = 16;
+                  
                   pianoRollTimerRef.current = window.setInterval(() => {
-                    setPianoRollTime(prev => {
-                      const next = prev + bps * (intervalMs / 1000);
-                      if (next >= endBeats) {
-                        if (pianoRollTimerRef.current) {
-                          clearInterval(pianoRollTimerRef.current);
-                          pianoRollTimerRef.current = null;
-                        }
-                        setPianoRollIsPlaying(false);
-                        pause();
-                        console.log('PianoRoll: preview END');
-                        return endBeats;
+                    if (currentTime >= endTime) {
+                      stop();
+                      // Unsolo track
+                      setProjectData((prev: any) => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          tracks: prev.tracks.map((t: any) => 
+                            t.id === selectedTrack.id 
+                              ? { ...t, mixer: { ...t.mixer, isSolo: false } }
+                              : t
+                          )
+                        };
+                      });
+                      if (pianoRollTimerRef.current) {
+                        clearInterval(pianoRollTimerRef.current);
+                        pianoRollTimerRef.current = null;
                       }
-                      return next;
-                    });
-                  }, intervalMs);
-                  // Play only the selected clip's notes with track gain
-                  playClip(clip.notes, 0, selectedTrack.instrument, selectedTrack.id);
+                    }
+                  }, 100);
                 }
               }
             }}
             onStop={() => {
+              stop();
+              // Unsolo track on stop
+              setProjectData((prev: any) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  tracks: prev.tracks.map((t: any) => 
+                    t.id === selectedTrack?.id 
+                      ? { ...t, mixer: { ...t.mixer, isSolo: false } }
+                      : t
+                  )
+                };
+              });
               if (pianoRollTimerRef.current) {
                 clearInterval(pianoRollTimerRef.current);
                 pianoRollTimerRef.current = null;
               }
               setPianoRollIsPlaying(false);
               setPianoRollTime(0);
-              stop();
             }}
-            isPlaying={isPlaying || pianoRollIsPlaying}
-            currentTime={pianoRollIsPlaying ? pianoRollTime : currentTime}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
           />
         </>
       )}

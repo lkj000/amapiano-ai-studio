@@ -245,9 +245,18 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     );
   }
 
-  // Get the first MIDI clip with notes
-  const midiClip = selectedTrack.clips?.[0];
+  // Get the first MIDI clip that has notes (fallback to first clip)
+  const midiClip = selectedTrack.clips?.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) ?? selectedTrack.clips?.[0];
   const clipNotes = midiClip && 'notes' in midiClip ? (midiClip.notes || []) : [];
+
+  // Auto-fit zoom to show entire clip/notes range
+  useEffect(() => {
+    if (midiClip && 'notes' in midiClip) {
+      const maxEnd = clipNotes.length > 0 ? Math.max(...clipNotes.map((n: MidiNote) => n.startTime + n.duration)) : 0;
+      const neededPercent = maxEnd > 0 ? (maxEnd / 32) * 100 : 100;
+      setZoom((prev) => Math.max(100, Math.ceil(neededPercent)));
+    }
+  }, [midiClip, clipNotes.length]);
 
   console.log('PianoRoll: selectedTrack', selectedTrack);
   console.log('PianoRoll: midiClip', midiClip);

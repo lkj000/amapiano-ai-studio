@@ -442,15 +442,22 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     }, duration * 1000 + 100);
   }, []);
 
-  const playClip = useCallback((notes: MidiNote[], startTime: number = 0) => {
+  const playClip = useCallback((notes: MidiNote[], startBeat: number = 0, instrument?: string) => {
     if (!audioContextRef.current) return;
 
+    const bpm = projectData?.bpm || 120;
+    const secsPerBeat = 60 / bpm;
+
     notes.forEach(note => {
-      setTimeout(() => {
-        playNote(note.pitch, note.velocity, note.duration);
-      }, (note.startTime - startTime) * 1000);
+      const delayMs = Math.max(0, (note.startTime - startBeat) * secsPerBeat * 1000);
+      const timeoutId = window.setTimeout(() => {
+        playNote(note.pitch, note.velocity, note.duration * secsPerBeat, instrument);
+      }, delayMs);
+      if (scheduledTimeoutsRef.current) {
+        scheduledTimeoutsRef.current.add(timeoutId);
+      }
     });
-  }, [playNote]);
+  }, [playNote, projectData]);
 
   const getAudioContext = useCallback(() => audioContextRef.current, []);
 

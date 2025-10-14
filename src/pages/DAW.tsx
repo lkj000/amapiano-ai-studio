@@ -462,8 +462,8 @@ export default function DawPage({ user }: DawPageProps) {
             id: `note_${Date.now()}_${index}`,
             pitch: note.note,
             velocity: note.velocity,
-            startTime: (note.timestamp - midiData.notes[0].timestamp) / 1000 / 60 * (projectData.bpm / 60), // Convert ms to beats
-            duration: Math.max(0.25, note.duration / 1000 / 60 * (projectData.bpm / 60)) // Convert ms to beats
+            startTime: ((note.timestamp - midiData.notes[0].timestamp) / 1000) * (projectData.bpm / 60), // ms -> sec -> beats
+            duration: Math.max(0.25, (note.duration / 1000) * (projectData.bpm / 60)) // ms -> sec -> beats
           }));
           
           console.log(`DAW: Converted ${notes.length} notes from voice recording`);
@@ -1962,7 +1962,14 @@ export default function DawPage({ user }: DawPageProps) {
           onUpdateNotes={handleUpdateNotes}
           audioContext={getAudioContext()}
           onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
-          onPlay={play}
+          onPlay={() => {
+            if (selectedTrack?.type === 'midi') {
+              const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
+              if (clip && 'notes' in clip) {
+                playClip(clip.notes, 0, selectedTrack.instrument);
+              }
+            }
+          }}
           onStop={stop}
           isPlaying={isPlaying}
         />

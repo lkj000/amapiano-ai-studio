@@ -1623,10 +1623,33 @@ export default function DawPage({ user }: DawPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={isPlaying ? pause : play}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('DAW Transport: Play/Pause clicked', { isPlayingBefore: isPlaying });
+                      if (isPlaying) {
+                        pause();
+                        console.log('DAW Transport: pause called');
+                      } else {
+                        play();
+                        console.log('DAW Transport: play called');
+                      }
+                    }}
+                  >
                     {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={stop}><Square className="w-4 h-4" /></Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      console.log('DAW Transport: Stop clicked');
+                      stop();
+                      console.log('DAW Transport: stop called');
+                    }}
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 

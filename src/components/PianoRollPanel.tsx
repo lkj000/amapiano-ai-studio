@@ -305,7 +305,10 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               <Button 
                 size="sm" 
                 variant={isPlaying ? "default" : "outline"}
-                onClick={onPlay}
+                onClick={() => {
+                  console.log('PianoRoll: Play clicked');
+                  onPlay?.();
+                }}
                 disabled={!onPlay}
               >
                 <Play className="w-3 h-3" />
@@ -313,7 +316,10 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={onStop}
+                onClick={() => {
+                  console.log('PianoRoll: Stop clicked');
+                  onStop?.();
+                }}
                 disabled={!onStop}
               >
                 <Square className="w-3 h-3" />

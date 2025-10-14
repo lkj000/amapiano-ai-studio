@@ -1980,6 +1980,9 @@ const [zoom, setZoom] = useState([100]);
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
                 if (clip && 'notes' in clip) {
                   const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
+                  // Ensure DAW transport is paused to avoid overlapping playback
+                  pause();
+                  console.log('PianoRoll: preview PLAY', { trackId: selectedTrack.id, instrument: selectedTrack.instrument, endBeats });
                   // Start local piano roll playhead
                   if (pianoRollTimerRef.current) {
                     clearInterval(pianoRollTimerRef.current);
@@ -1998,7 +2001,8 @@ const [zoom, setZoom] = useState([100]);
                           pianoRollTimerRef.current = null;
                         }
                         setPianoRollIsPlaying(false);
-                        stop();
+                        pause();
+                        console.log('PianoRoll: preview END');
                         return endBeats;
                       }
                       return next;

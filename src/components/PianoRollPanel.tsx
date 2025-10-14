@@ -310,6 +310,28 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               </Button>
             </div>
 
+            {/* Playback Controls */}
+            <div className="flex items-center gap-1 bg-muted/40 rounded-xl p-1 border border-border/30">
+              <Button
+                size="sm"
+                variant={isPlaying ? 'ghost' : 'default'}
+                className="h-8 w-8 p-0 rounded-lg"
+                onClick={onPlay}
+                aria-label="Play"
+              >
+                <Play className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant={!isPlaying ? 'ghost' : 'default'}
+                className="h-8 w-8 p-0 rounded-lg"
+                onClick={onStop}
+                aria-label="Stop"
+              >
+                <Square className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+
             <Separator orientation="vertical" className="h-8" />
 
             {/* Grid Settings */}

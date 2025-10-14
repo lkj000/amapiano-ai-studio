@@ -1817,7 +1817,8 @@ export default function DawPage({ user }: DawPageProps) {
                           className="w-6 h-6 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setShowPianoRoll(!showPianoRoll);
+                            setSelectedTrackId(track.id);
+                            setShowPianoRoll(true);
                           }}
                         >
                           <Piano className="w-3 h-3" />

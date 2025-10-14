@@ -34,6 +34,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const analyzerRef = useRef<AnalyserNode | null>(null);
   const trackAnalyzers = useRef<Map<string, AnalyserNode>>(new Map());
   const effectsRef = useRef<any>(null);
+  const scheduledNotesRef = useRef<Set<string>>(new Set());
+  const nextNoteTimeRef = useRef<number>(0);
 
   // Initialize Web Audio API
   useEffect(() => {
@@ -190,33 +192,77 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     }
 
     setIsPlaying(true);
+    scheduledNotesRef.current.clear();
+    nextNoteTimeRef.current = 0;
     
     // Start playback timer
     playbackIntervalRef.current = window.setInterval(() => {
       setCurrentTime(prev => {
         const bpm = projectData?.bpm || 120;
         const increment = (bpm / 60) * 0.1; // 100ms updates
-        return prev + increment;
+        const newTime = prev + increment;
+        
+        // Schedule MIDI notes from clips
+        if (projectData && audioContextRef.current) {
+          const ctx = audioContextRef.current;
+          const scheduleAheadTime = 0.2; // Schedule 200ms ahead
+          
+          projectData.tracks.forEach((track) => {
+            if (track.type === 'midi' && !track.mixer?.isMuted && track.clips) {
+              track.clips.forEach((clip) => {
+                if ('notes' in clip && clip.notes) {
+                  clip.notes.forEach((note) => {
+                    const absoluteNoteTime = clip.startTime + note.startTime;
+                    const noteKey = `${clip.id}_${note.id}`;
+                    
+                    // Check if note should be scheduled
+                    if (
+                      absoluteNoteTime >= newTime &&
+                      absoluteNoteTime < newTime + scheduleAheadTime &&
+                      !scheduledNotesRef.current.has(noteKey)
+                    ) {
+                      // Calculate when to play the note
+                      const timeUntilNote = (absoluteNoteTime - newTime) * (60 / (bpm || 120));
+                      const scheduledTime = ctx.currentTime + timeUntilNote;
+                      
+                      // Create oscillator for note
+                      const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
+                      const oscillator = ctx.createOscillator();
+                      const gainNode = ctx.createGain();
+                      const trackGain = trackGainsRef.current.get(track.id);
+                      
+                      oscillator.type = 'sine';
+                      oscillator.frequency.value = frequency;
+                      gainNode.gain.value = (note.velocity / 127) * 0.3;
+                      
+                      oscillator.connect(gainNode);
+                      if (trackGain) {
+                        gainNode.connect(trackGain);
+                      } else {
+                        gainNode.connect(masterGainRef.current!);
+                      }
+                      
+                      const noteDuration = note.duration * (60 / (bpm || 120));
+                      oscillator.start(scheduledTime);
+                      oscillator.stop(scheduledTime + noteDuration);
+                      
+                      scheduledNotesRef.current.add(noteKey);
+                      
+                      // Clean up after note
+                      setTimeout(() => {
+                        scheduledNotesRef.current.delete(noteKey);
+                      }, (timeUntilNote + noteDuration + 0.5) * 1000);
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+        
+        return newTime;
       });
     }, 100);
-
-    // Generate simple test tones for tracks (placeholder for real audio)
-    if (projectData) {
-      projectData.tracks.forEach((track, index) => {
-        if (!track.mixer?.isMuted) {
-          const oscillator = audioContextRef.current!.createOscillator();
-          const gainNode = trackGainsRef.current.get(track.id);
-          
-          if (gainNode) {
-            oscillator.connect(gainNode);
-            oscillator.frequency.value = 200 + (index * 100); // Different frequency per track
-            oscillator.type = track.type === 'midi' ? 'sine' : 'sawtooth';
-            oscillator.start();
-            oscillatorsRef.current.set(track.id, oscillator);
-          }
-        }
-      });
-    }
   }, [projectData]);
 
   const pause = useCallback(() => {
@@ -227,7 +273,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       playbackIntervalRef.current = null;
     }
 
-    // Stop all oscillators
+    // Stop all oscillators and clear scheduled notes
     oscillatorsRef.current.forEach((oscillator) => {
       try {
         oscillator.stop();
@@ -236,6 +282,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       }
     });
     oscillatorsRef.current.clear();
+    scheduledNotesRef.current.clear();
   }, []);
 
   const stop = useCallback(() => {

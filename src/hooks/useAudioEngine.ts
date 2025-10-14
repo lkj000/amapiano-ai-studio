@@ -35,6 +35,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const trackAnalyzers = useRef<Map<string, AnalyserNode>>(new Map());
   const effectsRef = useRef<any>(null);
   const scheduledNotesRef = useRef<Set<string>>(new Set());
+  const scheduledTimeoutsRef = useRef<Set<number>>(new Set());
   const nextNoteTimeRef = useRef<number>(0);
 
   // Initialize Web Audio API
@@ -215,6 +216,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         const bpm = projectData?.bpm || 120;
         const increment = (bpm / 60) * 0.1; // 100ms updates
         const newTime = prev + increment;
+        const windowStart = prev;
         
         // Schedule MIDI notes from clips
         if (projectData && audioContextRef.current) {
@@ -238,45 +240,49 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                     // Check if note should be scheduled
                     if (
                       scheduledNotesRef.current &&
-                      absoluteNoteTime >= newTime &&
+                      absoluteNoteTime >= windowStart &&
                       absoluteNoteTime < newTime + scheduleAheadTime &&
                       !scheduledNotesRef.current.has(noteKey)
                     ) {
-                      // Calculate when to play the note
-                      const timeUntilNote = (absoluteNoteTime - newTime) * (60 / (bpm || 120));
-                      const scheduledTime = ctx.currentTime + timeUntilNote;
-                      
-                      // Create oscillator for note
-                      const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
-                      const oscillator = ctx.createOscillator();
-                      const gainNode = ctx.createGain();
-                      const trackGain = trackGainsRef.current.get(track.id);
-                      
-                      oscillator.type = 'sine';
-                      oscillator.frequency.value = frequency;
-                      gainNode.gain.value = (note.velocity / 127) * 0.3;
-                      
-                      oscillator.connect(gainNode);
-                      if (trackGain) {
-                        gainNode.connect(trackGain);
-                      } else {
-                        gainNode.connect(masterGainRef.current!);
-                      }
-                      
-                      const noteDuration = note.duration * (60 / (bpm || 120));
-                      oscillator.start(scheduledTime);
-                      oscillator.stop(scheduledTime + noteDuration);
-                      
+                      // Calculate when to play the note (in seconds)
+                      const secsPerBeat = 60 / (bpm || 120);
+                      const delaySec = Math.max(0, (absoluteNoteTime - newTime) * secsPerBeat);
+                      const noteDuration = note.duration * secsPerBeat;
+
+                      // Schedule with setTimeout so we can cancel on stop/pause
+                      const timeoutId = window.setTimeout(() => {
+                        const ctxNow = audioContextRef.current;
+                        if (!ctxNow) return;
+                        const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
+                        const oscillator = ctxNow.createOscillator();
+                        const gainNode = ctxNow.createGain();
+                        const trackGain = trackGainsRef.current.get(track.id);
+                        
+                        oscillator.type = 'sine';
+                        oscillator.frequency.value = frequency;
+                        gainNode.gain.value = (note.velocity / 127) * 0.3;
+                        
+                        oscillator.connect(gainNode);
+                        if (trackGain) {
+                          gainNode.connect(trackGain);
+                        } else {
+                          gainNode.connect(masterGainRef.current!);
+                        }
+                        
+                        oscillator.start();
+                        oscillator.stop(ctxNow.currentTime + noteDuration);
+
+                        // Cleanup tracking after note start
+                        if (scheduledNotesRef.current) scheduledNotesRef.current.delete(noteKey);
+                        if (scheduledTimeoutsRef.current) scheduledTimeoutsRef.current.delete(timeoutId);
+                      }, delaySec * 1000);
+
                       if (scheduledNotesRef.current) {
                         scheduledNotesRef.current.add(noteKey);
                       }
-                      
-                      // Clean up after note
-                      setTimeout(() => {
-                        if (scheduledNotesRef.current) {
-                          scheduledNotesRef.current.delete(noteKey);
-                        }
-                      }, (timeUntilNote + noteDuration + 0.5) * 1000);
+                      if (scheduledTimeoutsRef.current) {
+                        scheduledTimeoutsRef.current.add(timeoutId);
+                      }
                     }
                   });
                 }
@@ -310,6 +316,10 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     
     if (scheduledNotesRef.current) {
       scheduledNotesRef.current.clear();
+    }
+    if (scheduledTimeoutsRef.current) {
+      scheduledTimeoutsRef.current.forEach((id) => clearTimeout(id));
+      scheduledTimeoutsRef.current.clear();
     }
   }, []);
 

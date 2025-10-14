@@ -447,8 +447,10 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               {/* Grid with Notes */}
               <div className="relative" style={{ width: `${zoom}%` }}>
                 {clipNotes.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-sm text-muted-foreground">No notes in this clip</div>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div className="text-lg text-muted-foreground bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border">
+                      No notes in this clip
+                    </div>
                   </div>
                 )}
                 {keys.map((pitch) => {

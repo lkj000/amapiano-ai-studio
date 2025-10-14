@@ -289,6 +289,16 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                         } else {
                           gainNode.connect(masterGainRef.current!);
                         }
+
+                        const target = trackGain ? `track:${track.id} vol:${trackGain.gain.value}` : 'master';
+                        console.log('AudioEngine: transport NOTE', {
+                          pitch: note.pitch,
+                          startTimeBeats: absoluteNoteTime,
+                          durationBeats: note.duration,
+                          frequency,
+                          waveform: oscillator.type,
+                          target,
+                        });
                         
                         oscillator.start();
                         oscillator.stop(ctxNow.currentTime + noteDuration);

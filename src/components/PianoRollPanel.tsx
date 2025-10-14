@@ -70,8 +70,8 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     }
     
     // Play note for feedback
-    if (onPlayNote && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0]) {
-      const note = selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === noteId);
+    if (onPlayNote && midiClip && 'notes' in midiClip) {
+      const note = clipNotes.find((n: MidiNote) => n.id === noteId);
       if (note) {
         onPlayNote(note.pitch, note.velocity, 0.3);
       }
@@ -245,6 +245,14 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
     );
   }
 
+  // Get the first MIDI clip with notes
+  const midiClip = selectedTrack.clips?.[0];
+  const clipNotes = midiClip && 'notes' in midiClip ? (midiClip.notes || []) : [];
+
+  console.log('PianoRoll: selectedTrack', selectedTrack);
+  console.log('PianoRoll: midiClip', midiClip);
+  console.log('PianoRoll: clipNotes', clipNotes);
+
   return (
     <Card className="fixed inset-4 z-50 bg-background shadow-elegant border-0 flex flex-col">
       {/* Modern Header */}
@@ -377,13 +385,13 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
             </div>
 
             {/* Velocity Editor */}
-            {selectedNotes.length === 1 && selectedTrack?.clips[0] && 'notes' in selectedTrack.clips[0] && (
+            {selectedNotes.length === 1 && clipNotes.length > 0 && (
               <>
                 <Separator orientation="vertical" className="h-6" />
                 <div className="flex items-center gap-2 bg-background/50 px-2.5 py-1.5 rounded-md border border-border/50">
                   <span className="text-xs text-muted-foreground">Velocity:</span>
                   <Slider
-                    value={[selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80]}
+                    value={[clipNotes.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80]}
                     onValueChange={([value]) => handleVelocityChange(selectedNotes[0], value)}
                     min={1}
                     max={127}
@@ -391,7 +399,7 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                     className="w-20"
                   />
                   <span className="text-xs font-medium w-8">
-                    {selectedTrack.clips[0].notes?.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}
+                    {clipNotes.find((n: MidiNote) => n.id === selectedNotes[0])?.velocity || 80}
                   </span>
                 </div>
               </>
@@ -492,8 +500,7 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                       />
                       
                       {/* MIDI Notes */}
-                      {selectedTrack.clips[0] && 'notes' in selectedTrack.clips[0] && 
-                       selectedTrack.clips[0].notes?.filter((note: MidiNote) => note.pitch === pitch).map((note: MidiNote) => (
+                      {clipNotes.filter((note: MidiNote) => note.pitch === pitch).map((note: MidiNote) => (
                         <div
                           key={note.id}
                           className={cn(

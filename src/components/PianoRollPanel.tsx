@@ -427,7 +427,14 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
           </div>
 
           {/* Note Grid Area */}
-          <div className="flex-1 overflow-auto bg-background/30">
+          <div className="flex-1 overflow-auto bg-background/30 relative">
+            {clipNotes.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+                <div className="text-lg text-muted-foreground bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border">
+                  No notes in this clip
+                </div>
+              </div>
+            )}
             <div className="relative">
               {/* Time Ruler */}
               <div className="h-9 bg-gradient-subtle border-b border-border/50 flex sticky top-0 z-10">
@@ -446,13 +453,6 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
 
               {/* Grid with Notes */}
               <div className="relative" style={{ width: `${zoom}%` }}>
-                {clipNotes.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div className="text-lg text-muted-foreground bg-background/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-border">
-                      No notes in this clip
-                    </div>
-                  </div>
-                )}
                 {keys.map((pitch) => {
                   const isBlack = isBlackKey(pitch);
                   return (

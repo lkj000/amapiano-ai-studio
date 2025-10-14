@@ -200,8 +200,14 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     });
 
     setIsPlaying(true);
-    scheduledNotesRef.current.clear();
-    nextNoteTimeRef.current = 0;
+    
+    // Clear scheduled notes safely
+    if (scheduledNotesRef.current) {
+      scheduledNotesRef.current.clear();
+    }
+    if (nextNoteTimeRef.current !== undefined) {
+      nextNoteTimeRef.current = 0;
+    }
     
     // Start playback timer
     playbackIntervalRef.current = window.setInterval(() => {
@@ -231,6 +237,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                     
                     // Check if note should be scheduled
                     if (
+                      scheduledNotesRef.current &&
                       absoluteNoteTime >= newTime &&
                       absoluteNoteTime < newTime + scheduleAheadTime &&
                       !scheduledNotesRef.current.has(noteKey)
@@ -260,11 +267,15 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                       oscillator.start(scheduledTime);
                       oscillator.stop(scheduledTime + noteDuration);
                       
-                      scheduledNotesRef.current.add(noteKey);
+                      if (scheduledNotesRef.current) {
+                        scheduledNotesRef.current.add(noteKey);
+                      }
                       
                       // Clean up after note
                       setTimeout(() => {
-                        scheduledNotesRef.current.delete(noteKey);
+                        if (scheduledNotesRef.current) {
+                          scheduledNotesRef.current.delete(noteKey);
+                        }
                       }, (timeUntilNote + noteDuration + 0.5) * 1000);
                     }
                   });
@@ -287,7 +298,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       playbackIntervalRef.current = null;
     }
 
-    // Stop all oscillators and clear scheduled notes
+    // Stop all oscillators and clear scheduled notes safely
     oscillatorsRef.current.forEach((oscillator) => {
       try {
         oscillator.stop();
@@ -296,7 +307,10 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       }
     });
     oscillatorsRef.current.clear();
-    scheduledNotesRef.current.clear();
+    
+    if (scheduledNotesRef.current) {
+      scheduledNotesRef.current.clear();
+    }
   }, []);
 
   const stop = useCallback(() => {

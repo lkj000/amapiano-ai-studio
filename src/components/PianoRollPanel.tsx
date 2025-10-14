@@ -31,8 +31,8 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   const [clipboard, setClipboard] = useState<MidiNote[]>([]);
   const [tool, setTool] = useState<'select' | 'pencil' | 'eraser'>('select');
 
-  // Piano keys (wide range A0–C8)
-  const keys = Array.from({ length: 88 }, (_, i) => 108 - i); // MIDI notes 108 down to 21
+  // Piano keys will be computed dynamically based on clip notes (defined later)
+
 
   const snapToGrid = (time: number) => {
     const snapValue = 1 / (snap / 4); // Convert snap to beat fractions
@@ -262,6 +262,20 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
   console.log('PianoRoll: midiClip', midiClip);
   console.log('PianoRoll: clipNotes', clipNotes);
 
+  // Dynamic key range (show only relevant pitches with padding)
+  const keys = React.useMemo(() => {
+    if (clipNotes.length > 0) {
+      const minPitch = Math.min(...clipNotes.map((n: MidiNote) => n.pitch));
+      const maxPitch = Math.max(...clipNotes.map((n: MidiNote) => n.pitch));
+      const pad = 2;
+      const start = Math.max(0, minPitch - pad);
+      const end = Math.min(127, maxPitch + pad);
+      return Array.from({ length: end - start + 1 }, (_, i) => end - i);
+    }
+    // Default to A0–C8 when no notes yet
+    return Array.from({ length: 88 }, (_, i) => 108 - i);
+  }, [clipNotes]);
+
   return (
     <Card className="fixed inset-4 z-50 bg-gradient-to-br from-background via-background to-muted/20 shadow-2xl border-0 flex flex-col backdrop-blur-xl">
       {/* Premium Header */}
@@ -432,6 +446,11 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
 
               {/* Grid with Notes */}
               <div className="relative" style={{ width: `${zoom}%` }}>
+                {clipNotes.length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-sm text-muted-foreground">No notes in this clip</div>
+                  </div>
+                )}
                 {keys.map((pitch) => {
                   const isBlack = isBlackKey(pitch);
                   return (

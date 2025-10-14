@@ -1956,23 +1956,26 @@ export default function DawPage({ user }: DawPageProps) {
         />
       )}
       {showPianoRoll && selectedTrack && (
-        <PianoRollPanel 
-          selectedTrack={selectedTrack}
-          onClose={() => setShowPianoRoll(false)}
-          onUpdateNotes={handleUpdateNotes}
-          audioContext={getAudioContext()}
-          onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
-          onPlay={() => {
-            if (selectedTrack?.type === 'midi') {
-              const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
-              if (clip && 'notes' in clip) {
-                playClip(clip.notes, 0, selectedTrack.instrument);
+        <> 
+          {console.log('DAW: Opening PianoRollPanel for', { id: selectedTrack?.id, name: selectedTrack?.name, clips: selectedTrack?.clips?.map((c: any) => ('notes' in c ? (c.notes?.length || 0) : 0)) })}
+          <PianoRollPanel 
+            selectedTrack={selectedTrack}
+            onClose={() => setShowPianoRoll(false)}
+            onUpdateNotes={handleUpdateNotes}
+            audioContext={getAudioContext()}
+            onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
+            onPlay={() => {
+              if (selectedTrack?.type === 'midi') {
+                const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
+                if (clip && 'notes' in clip) {
+                  playClip(clip.notes, 0, selectedTrack.instrument);
+                }
               }
-            }
-          }}
-          onStop={stop}
-          isPlaying={isPlaying}
-        />
+            }}
+            onStop={stop}
+            isPlaying={isPlaying}
+          />
+        </>
       )}
       {showEffects && selectedTrackId && projectData && (
         <EffectsPanel

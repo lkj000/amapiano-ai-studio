@@ -2004,8 +2004,8 @@ const [zoom, setZoom] = useState([100]);
                       return next;
                     });
                   }, intervalMs);
-                  // Play only the selected clip's notes
-                  playClip(clip.notes, 0, selectedTrack.instrument);
+                  // Play only the selected clip's notes with track gain
+                  playClip(clip.notes, 0, selectedTrack.instrument, selectedTrack.id);
                 }
               }
             }}

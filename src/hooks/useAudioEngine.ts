@@ -442,7 +442,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     }, duration * 1000 + 100);
   }, []);
 
-  const playClip = useCallback((notes: MidiNote[], startBeat: number = 0, instrument?: string) => {
+  const playClip = useCallback((notes: MidiNote[], startBeat: number = 0, instrument?: string, trackId?: string) => {
     if (!audioContextRef.current) return;
 
     const bpm = projectData?.bpm || 120;
@@ -451,13 +451,53 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     notes.forEach(note => {
       const delayMs = Math.max(0, (note.startTime - startBeat) * secsPerBeat * 1000);
       const timeoutId = window.setTimeout(() => {
-        playNote(note.pitch, note.velocity, note.duration * secsPerBeat, instrument);
+        if (!audioContextRef.current || !masterGainRef.current) return;
+
+        const ctx = audioContextRef.current;
+        const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
+        
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        // Set oscillator type based on instrument
+        if (instrument?.toLowerCase().includes('drum') || instrument?.toLowerCase().includes('log')) {
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime((note.velocity / 127) * 0.4, ctx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + Math.min(note.duration * secsPerBeat, 0.1));
+        } else if (instrument?.toLowerCase().includes('bass')) {
+          oscillator.type = 'sawtooth';
+          gainNode.gain.value = (note.velocity / 127) * 0.35;
+        } else if (instrument?.toLowerCase().includes('piano')) {
+          oscillator.type = 'triangle';
+          gainNode.gain.value = (note.velocity / 127) * 0.25;
+        } else if (instrument?.toLowerCase().includes('vocal') || instrument?.toLowerCase().includes('sampler')) {
+          oscillator.type = 'sine';
+          gainNode.gain.value = (note.velocity / 127) * 0.3;
+        } else {
+          oscillator.type = 'sine';
+          gainNode.gain.value = (note.velocity / 127) * 0.3;
+        }
+        
+        oscillator.frequency.value = frequency;
+        
+        oscillator.connect(gainNode);
+        
+        // Use track gain if available (respects track volume)
+        const trackGain = trackId ? trackGainsRef.current.get(trackId) : null;
+        if (trackGain) {
+          gainNode.connect(trackGain);
+        } else {
+          gainNode.connect(masterGainRef.current);
+        }
+        
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + note.duration * secsPerBeat);
       }, delayMs);
       if (scheduledTimeoutsRef.current) {
         scheduledTimeoutsRef.current.add(timeoutId);
       }
     });
-  }, [playNote, projectData]);
+  }, [projectData]);
 
   const getAudioContext = useCallback(() => audioContextRef.current, []);
 

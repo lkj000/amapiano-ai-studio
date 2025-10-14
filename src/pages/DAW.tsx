@@ -1979,14 +1979,19 @@ const [zoom, setZoom] = useState([100]);
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
                 if (clip && 'notes' in clip) {
-                  toast.info(`🎹 Piano Roll Preview - Starting from beat ${clip.startTime || 0}`);
+                  console.log('🎹 PianoRoll: onPlay START', { 
+                    clipStartTime: clip.startTime,
+                    notesCount: clip.notes.length,
+                    trackInstrument: selectedTrack.instrument
+                  });
                   
                   const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
                   const clipEndTime = (clip.startTime || 0) + endBeats;
                   
-                  // Auto-solo selected track FIRST (before play)
+                  // Auto-solo selected track FIRST
                   setProjectData((prev: any) => {
                     if (!prev) return prev;
+                    console.log('🎹 PianoRoll: Setting solo on track', selectedTrack.id);
                     return {
                       ...prev,
                       tracks: prev.tracks.map((t: any) => 
@@ -1997,28 +2002,33 @@ const [zoom, setZoom] = useState([100]);
                     };
                   });
                   
-                  // Wait for solo to apply, then start transport
+                  // Wait for solo state update, then start transport
                   setTimeout(() => {
+                    console.log('🎹 PianoRoll: Starting transport at beat', clip.startTime || 0);
                     setCurrentTime(clip.startTime || 0);
-                    play();
                     
-                    toast.success(`✅ Solo Applied - Track: ${selectedTrack.name}`);
+                    // Give time for currentTime state to update before play
+                    setTimeout(() => {
+                      play();
+                      console.log('🎹 PianoRoll: Transport play() called');
+                    }, 10);
                     
                     // Clear any existing timer
                     if (pianoRollTimerRef.current) {
                       clearInterval(pianoRollTimerRef.current);
                     }
                     
-                    // Use ref to track end time reliably
+                    // Use time-based stop
                     const startTimeMs = Date.now();
                     const durationMs = (endBeats / ((projectData?.bpm || 120) / 60)) * 1000;
+                    
+                    console.log('🎹 PianoRoll: Will stop after', durationMs, 'ms');
                     
                     pianoRollTimerRef.current = window.setInterval(() => {
                       const elapsedMs = Date.now() - startTimeMs;
                       if (elapsedMs >= durationMs) {
+                        console.log('🎹 PianoRoll: Clip end reached, stopping');
                         stop();
-                        
-                        toast.info("⏹️ Clip End - Unsoloing track");
                         
                         // Unsolo track
                         setProjectData((prev: any) => {

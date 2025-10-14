@@ -1979,7 +1979,12 @@ const [zoom, setZoom] = useState([100]);
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
                 if (clip && 'notes' in clip) {
-                  // Auto-solo selected track for Piano Roll preview
+                  toast.info(`🎹 Piano Roll Preview - Starting from beat ${clip.startTime || 0}`);
+                  
+                  const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
+                  const clipEndTime = (clip.startTime || 0) + endBeats;
+                  
+                  // Auto-solo selected track FIRST (before play)
                   setProjectData((prev: any) => {
                     if (!prev) return prev;
                     return {
@@ -1992,39 +1997,49 @@ const [zoom, setZoom] = useState([100]);
                     };
                   });
                   
-                  // Use main transport for 1:1 sound
-                  setCurrentTime(clip.startTime || 0);
-                  play();
-                  
-                  // Track when to stop (clip end)
-                  const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
-                  const endTime = (clip.startTime || 0) + endBeats;
-                  
-                  if (pianoRollTimerRef.current) {
-                    clearInterval(pianoRollTimerRef.current);
-                  }
-                  
-                  pianoRollTimerRef.current = window.setInterval(() => {
-                    if (currentTime >= endTime) {
-                      stop();
-                      // Unsolo track
-                      setProjectData((prev: any) => {
-                        if (!prev) return prev;
-                        return {
-                          ...prev,
-                          tracks: prev.tracks.map((t: any) => 
-                            t.id === selectedTrack.id 
-                              ? { ...t, mixer: { ...t.mixer, isSolo: false } }
-                              : t
-                          )
-                        };
-                      });
-                      if (pianoRollTimerRef.current) {
-                        clearInterval(pianoRollTimerRef.current);
-                        pianoRollTimerRef.current = null;
-                      }
+                  // Wait for solo to apply, then start transport
+                  setTimeout(() => {
+                    setCurrentTime(clip.startTime || 0);
+                    play();
+                    
+                    toast.success(`✅ Solo Applied - Track: ${selectedTrack.name}`);
+                    
+                    // Clear any existing timer
+                    if (pianoRollTimerRef.current) {
+                      clearInterval(pianoRollTimerRef.current);
                     }
-                  }, 100);
+                    
+                    // Use ref to track end time reliably
+                    const startTimeMs = Date.now();
+                    const durationMs = (endBeats / ((projectData?.bpm || 120) / 60)) * 1000;
+                    
+                    pianoRollTimerRef.current = window.setInterval(() => {
+                      const elapsedMs = Date.now() - startTimeMs;
+                      if (elapsedMs >= durationMs) {
+                        stop();
+                        
+                        toast.info("⏹️ Clip End - Unsoloing track");
+                        
+                        // Unsolo track
+                        setProjectData((prev: any) => {
+                          if (!prev) return prev;
+                          return {
+                            ...prev,
+                            tracks: prev.tracks.map((t: any) => 
+                              t.id === selectedTrack.id 
+                                ? { ...t, mixer: { ...t.mixer, isSolo: false } }
+                                : t
+                            )
+                          };
+                        });
+                        
+                        if (pianoRollTimerRef.current) {
+                          clearInterval(pianoRollTimerRef.current);
+                          pianoRollTimerRef.current = null;
+                        }
+                      }
+                    }, 100);
+                  }, 50);
                 }
               }
             }}

@@ -397,7 +397,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     };
   }, []);
 
-  const playNote = useCallback((pitch: number, velocity: number = 80, duration: number = 1, instrument?: string) => {
+  const playNote = useCallback((pitch: number, velocity: number = 80, duration: number = 1, instrument?: string, trackId?: string) => {
     if (!audioContextRef.current || !masterGainRef.current) return;
 
     const ctx = audioContextRef.current;
@@ -428,7 +428,21 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     oscillator.frequency.value = frequency;
     
     oscillator.connect(gainNode);
-    gainNode.connect(masterGainRef.current);
+
+    // Prefer track gain (matches DAW transport path). Fallback to master.
+    const trackGain = trackId ? trackGainsRef.current.get(trackId) : null;
+    if (trackGain) {
+      gainNode.connect(trackGain);
+    } else {
+      // Fallback: approximate track volume when no track node yet
+      if (trackId && projectData?.tracks) {
+        const tr = projectData.tracks.find(t => t.id === trackId) as any;
+        if (tr?.mixer?.volume != null) {
+          try { gainNode.gain.value *= tr.mixer.volume; } catch {}
+        }
+      }
+      gainNode.connect(masterGainRef.current);
+    }
     
     oscillator.start();
     oscillator.stop(ctx.currentTime + duration);
@@ -440,7 +454,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     setTimeout(() => {
       oscillatorsRef.current.delete(noteId);
     }, duration * 1000 + 100);
-  }, []);
+  }, [projectData]);
 
   const playClip = useCallback((notes: MidiNote[], startBeat: number = 0, instrument?: string, trackId?: string) => {
     if (!audioContextRef.current) return;

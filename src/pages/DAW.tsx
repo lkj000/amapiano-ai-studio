@@ -1974,7 +1974,7 @@ const [zoom, setZoom] = useState([100]);
             }}
             onUpdateNotes={handleUpdateNotes}
             audioContext={getAudioContext()}
-            onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
+            onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined, selectedTrack?.id)}
             onPlay={() => {
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;

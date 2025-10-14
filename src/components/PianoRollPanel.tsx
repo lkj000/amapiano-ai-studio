@@ -501,16 +501,16 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
                           key={note.id}
                           className={cn(
                             "absolute top-0.5 bottom-0.5 rounded-md cursor-pointer transition-all",
-                            "bg-gradient-primary/70 border border-primary/40 backdrop-blur-sm",
+                            "bg-primary border-2 border-primary-foreground/20",
                             selectedNotes.includes(note.id) 
-                              ? 'ring-2 ring-primary shadow-glow bg-gradient-primary/90' 
-                              : 'hover:bg-gradient-primary/80 hover:border-primary/60',
+                              ? 'ring-2 ring-primary-foreground shadow-glow brightness-110' 
+                              : 'hover:brightness-125 hover:border-primary-foreground/40',
                             isResizing ? 'cursor-ew-resize' : 'cursor-move'
                           )}
                           style={{
                             left: `${(note.startTime / 32) * 100}%`,
                             width: `${Math.max((note.duration / 32) * 100, 1)}%`,
-                            opacity: note.velocity / 127 * 0.5 + 0.5
+                            opacity: Math.max(0.75, note.velocity / 127)
                           }}
                           onMouseDown={(e) => handleNoteMouseDown(note.id, e)}
                         >

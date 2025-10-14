@@ -1842,6 +1842,9 @@ export default function DawPage({ user }: DawPageProps) {
           onUpdateNotes={handleUpdateNotes}
           audioContext={getAudioContext()}
           onPlayNote={playNote}
+          onPlay={play}
+          onStop={stop}
+          isPlaying={isPlaying}
         />
       )}
       {showEffects && selectedTrackId && projectData && (

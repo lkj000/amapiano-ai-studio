@@ -12,9 +12,12 @@ interface PianoRollPanelProps {
   onUpdateNotes: (trackId: string, clipId: string, notes: MidiNote[]) => void;
   audioContext?: AudioContext;
   onPlayNote?: (pitch: number, velocity?: number, duration?: number) => void;
+  onPlay?: () => void;
+  onStop?: () => void;
+  isPlaying?: boolean;
 }
 
-export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext, onPlayNote }: PianoRollPanelProps) {
+export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, audioContext, onPlayNote, onPlay, onStop, isPlaying }: PianoRollPanelProps) {
   const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
   const [zoom, setZoom] = useState(100);
   const [snap, setSnap] = useState(16); // 16th note snap
@@ -299,10 +302,20 @@ export default function PianoRollPanel({ selectedTrack, onClose, onUpdateNotes, 
               </Button>
             </div>
             <div className="flex gap-1">
-              <Button size="sm" variant="outline">
+              <Button 
+                size="sm" 
+                variant={isPlaying ? "default" : "outline"}
+                onClick={onPlay}
+                disabled={!onPlay}
+              >
                 <Play className="w-3 h-3" />
               </Button>
-              <Button size="sm" variant="outline">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onStop}
+                disabled={!onStop}
+              >
                 <Square className="w-3 h-3" />
               </Button>
             </div>

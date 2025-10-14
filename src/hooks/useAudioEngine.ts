@@ -186,6 +186,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, [isPlaying]);
 
   const play = useCallback(() => {
+    console.log('🎬 AudioEngine: play() CALLED');
+    
     if (!audioContextRef.current) {
       console.warn('AudioEngine: No audio context available');
       return;
@@ -197,7 +199,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
 
     console.log('AudioEngine: Starting playback', { 
       tracks: projectData?.tracks.length,
-      firstTrack: projectData?.tracks[0]
+      allTracks: projectData?.tracks.map(t => ({ id: t.id, name: t.name, clips: t.clips.length })),
+      projectData: projectData
     });
 
     setIsPlaying(true);
@@ -297,6 +300,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, [projectData]);
 
   const pause = useCallback(() => {
+    console.log('⏸️ AudioEngine: pause() CALLED');
     setIsPlaying(false);
     
     if (playbackIntervalRef.current) {
@@ -324,6 +328,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, []);
 
   const stop = useCallback(() => {
+    console.log('⏹️ AudioEngine: stop() CALLED');
     pause();
     setCurrentTime(0);
   }, [pause]);

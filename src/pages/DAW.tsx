@@ -1965,9 +1965,12 @@ export default function DawPage({ user }: DawPageProps) {
             audioContext={getAudioContext()}
             onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
             onPlay={() => {
-              // Use main transport play to update currentTime
-              setCurrentTime(0);
-              play();
+              if (selectedTrack?.type === 'midi') {
+                const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
+                if (clip && 'notes' in clip) {
+                  playClip(clip.notes, 0, selectedTrack.instrument);
+                }
+              }
             }}
             onStop={stop}
             isPlaying={isPlaying}

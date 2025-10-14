@@ -190,7 +190,10 @@ export default function DawPage({ user }: DawPageProps) {
   const [showAuraSidebar, setShowAuraSidebar] = useState(true);
   const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
   const [showPluginSidebar, setShowPluginSidebar] = useState(false);
-  const [zoom, setZoom] = useState([100]);
+const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
+const [pianoRollTime, setPianoRollTime] = useState(0);
+const pianoRollTimerRef = useRef<number | null>(null);
+const [zoom, setZoom] = useState([100]);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     dragType: null,
@@ -1960,7 +1963,15 @@ export default function DawPage({ user }: DawPageProps) {
           {console.log('DAW: Opening PianoRollPanel for', { id: selectedTrack?.id, name: selectedTrack?.name, clips: selectedTrack?.clips?.map((c: any) => ('notes' in c ? (c.notes?.length || 0) : 0)) })}
           <PianoRollPanel 
             selectedTrack={selectedTrack}
-            onClose={() => setShowPianoRoll(false)}
+            onClose={() => {
+              if (pianoRollTimerRef.current) {
+                clearInterval(pianoRollTimerRef.current);
+                pianoRollTimerRef.current = null;
+              }
+              setPianoRollIsPlaying(false);
+              setPianoRollTime(0);
+              setShowPianoRoll(false);
+            }}
             onUpdateNotes={handleUpdateNotes}
             audioContext={getAudioContext()}
             onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined)}
@@ -1968,13 +1979,47 @@ export default function DawPage({ user }: DawPageProps) {
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
                 if (clip && 'notes' in clip) {
+                  const endBeats = clip.notes.length > 0 ? Math.max(...clip.notes.map((n: any) => n.startTime + n.duration)) : 0;
+                  // Start local piano roll playhead
+                  if (pianoRollTimerRef.current) {
+                    clearInterval(pianoRollTimerRef.current);
+                    pianoRollTimerRef.current = null;
+                  }
+                  setPianoRollTime(0);
+                  setPianoRollIsPlaying(true);
+                  const bps = (projectData?.bpm || 120) / 60;
+                  const intervalMs = 16;
+                  pianoRollTimerRef.current = window.setInterval(() => {
+                    setPianoRollTime(prev => {
+                      const next = prev + bps * (intervalMs / 1000);
+                      if (next >= endBeats) {
+                        if (pianoRollTimerRef.current) {
+                          clearInterval(pianoRollTimerRef.current);
+                          pianoRollTimerRef.current = null;
+                        }
+                        setPianoRollIsPlaying(false);
+                        stop();
+                        return endBeats;
+                      }
+                      return next;
+                    });
+                  }, intervalMs);
+                  // Play only the selected clip's notes
                   playClip(clip.notes, 0, selectedTrack.instrument);
                 }
               }
             }}
-            onStop={stop}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
+            onStop={() => {
+              if (pianoRollTimerRef.current) {
+                clearInterval(pianoRollTimerRef.current);
+                pianoRollTimerRef.current = null;
+              }
+              setPianoRollIsPlaying(false);
+              setPianoRollTime(0);
+              stop();
+            }}
+            isPlaying={isPlaying || pianoRollIsPlaying}
+            currentTime={pianoRollIsPlaying ? pianoRollTime : currentTime}
           />
         </>
       )}

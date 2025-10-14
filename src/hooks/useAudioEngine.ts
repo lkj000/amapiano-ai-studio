@@ -448,6 +448,15 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     const bpm = projectData?.bpm || 120;
     const secsPerBeat = 60 / bpm;
 
+    console.log('AudioEngine: playClip START', {
+      bpm,
+      secsPerBeat,
+      trackId,
+      instrument,
+      notesCount: notes?.length || 0,
+      startBeat,
+    });
+
     notes.forEach(note => {
       const delayMs = Math.max(0, (note.startTime - startBeat) * secsPerBeat * 1000);
       const timeoutId = window.setTimeout(() => {
@@ -484,11 +493,21 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         
         // Use track gain if available (respects track volume)
         const trackGain = trackId ? trackGainsRef.current.get(trackId) : null;
+        const target = trackGain ? `track:${trackId} vol:${trackGain.gain.value}` : 'master';
         if (trackGain) {
           gainNode.connect(trackGain);
         } else {
           gainNode.connect(masterGainRef.current);
         }
+
+        console.log('AudioEngine: playClip NOTE', {
+          pitch: note.pitch,
+          startTimeBeats: note.startTime,
+          durationBeats: note.duration,
+          frequency,
+          waveform: oscillator.type,
+          target,
+        });
         
         oscillator.start();
         oscillator.stop(ctx.currentTime + note.duration * secsPerBeat);

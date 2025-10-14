@@ -1627,13 +1627,34 @@ export default function DawPage({ user }: DawPageProps) {
         {/* Main DAW Area */}
         <div className="flex-1 flex flex-col">
           {/* Transport Controls */}
-          <div className="border-b border-border p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
+          <div className="border-b border-border/50 bg-gradient-subtle">
+            <div className="flex items-center justify-between px-6 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-primary/10"
+                    onClick={() => setCurrentTime(t => Math.max(0, t - 5))}
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </Button>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      console.log('DAW Transport: Stop clicked');
+                      stop();
+                      console.log('DAW Transport: stop called');
+                    }}
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant={isPlaying ? "default" : "outline"}
+                    size="icon"
+                    className="h-9 w-9 shadow-sm"
                     onClick={() => {
                       console.log('DAW Transport: Play/Pause clicked', { isPlayingBefore: isPlaying });
                       if (isPlaying) {
@@ -1645,23 +1666,12 @@ export default function DawPage({ user }: DawPageProps) {
                       }
                     }}
                   >
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      console.log('DAW Transport: Stop clicked');
-                      stop();
-                      console.log('DAW Transport: stop called');
-                    }}
-                  >
-                    <Square className="w-4 h-4" />
+                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
                   </Button>
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className={isRecording ? "bg-destructive text-destructive-foreground" : ""} 
+                    variant={isRecording ? "destructive" : "outline"}
+                    size="icon"
+                    className="h-8 w-8"
                     onClick={() => {
                       if (selectedTrackId) {
                         setShowAudioRecording(true);
@@ -1671,15 +1681,33 @@ export default function DawPage({ user }: DawPageProps) {
                     }}
                     disabled={!selectedTrackId}
                   >
-                    <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-destructive"}`} />
+                    <div className={`w-3 h-3 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-current"}`} />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setCurrentTime(t => Math.max(0, t - 5))}><SkipBack className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => setCurrentTime(t => t + 5)}><SkipForward className="w-4 h-4" /></Button>
-                  <Button variant="outline" size="sm" onClick={() => setIsLooping(!isLooping)} className={isLooping ? 'bg-primary/20 text-primary' : ''}>
-                    <RotateCcw className="w-4 h-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-primary/10"
+                    onClick={() => setCurrentTime(t => t + 5)}
+                  >
+                    <SkipForward className="w-4 h-4" />
                   </Button>
                 </div>
+                
+                <Separator orientation="vertical" className="h-6" />
+                
+                <Button
+                  variant={isLooping ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setIsLooping(!isLooping)}
+                >
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+                  Loop
+                </Button>
+              </div>
 
+              {/* Center: Undo/Redo + Right: Controls */}
+              <div className="flex items-center gap-4">
                 {/* Undo/Redo Controls */}
                 <UndoRedoControls 
                   undoRedoState={undoRedoControls.getState()} 
@@ -1687,30 +1715,30 @@ export default function DawPage({ user }: DawPageProps) {
                   onRedo={handleRedo} 
                 />
 
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">BPM:</span>
-                    <div className="w-20">
-                      <Slider value={[projectData.bpm]} onValueChange={([v]) => handleUpdateProjectSettings({ bpm: v })} min={80} max={160} step={1} />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-8">{projectData.bpm}</span>
+                <Separator orientation="vertical" className="h-6" />
+
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
+                  <span className="text-xs text-muted-foreground">BPM</span>
+                  <div className="w-20">
+                    <Slider value={[projectData.bpm]} onValueChange={([v]) => handleUpdateProjectSettings({ bpm: v })} min={80} max={160} step={1} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Volume2 className="w-4 h-4" />
-                    <div className="w-20">
-                      <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => {
-                        const newVolume = v / 100;
-                        setProjectData({ ...projectData, masterVolume: newVolume });
-                        setMasterVolume(newVolume);
-                      }} />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-8">{Math.round(projectData.masterVolume * 100)}</span>
+                  <span className="text-xs font-medium w-8">{projectData.bpm}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
+                  <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  <div className="w-20">
+                    <Slider value={[projectData.masterVolume * 100]} onValueChange={([v]) => {
+                      const newVolume = v / 100;
+                      setProjectData({ ...projectData, masterVolume: newVolume });
+                      setMasterVolume(newVolume);
+                    }} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Zoom:</span>
-                    <div className="w-20"><Slider value={zoom} onValueChange={setZoom} min={25} max={400} step={25} /></div>
-                    <span className="text-sm text-muted-foreground">{zoom[0]}%</span>
-                  </div>
+                  <span className="text-xs font-medium w-8">{Math.round(projectData.masterVolume * 100)}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-md border border-border/50">
+                  <span className="text-xs text-muted-foreground">Zoom</span>
+                  <div className="w-20"><Slider value={zoom} onValueChange={setZoom} min={25} max={400} step={25} /></div>
+                  <span className="text-xs font-medium">{zoom[0]}%</span>
                 </div>
               </div>
             </div>
@@ -1720,33 +1748,85 @@ export default function DawPage({ user }: DawPageProps) {
           <div className="flex-1 overflow-auto bg-background" ref={timelineContainerRef}>
             <div className="h-full flex">
               {/* Track List */}
-              <div className="w-80 border-r border-border bg-muted/10 overflow-y-auto">
-                <div className="p-3 border-b border-border">
+              <div className="w-80 border-r border-border/50 bg-muted/10 overflow-y-auto">
+                <div className="p-3 border-b border-border/50 bg-background/50">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Tracks ({projectData?.tracks.length || 0})</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Tracks ({projectData?.tracks.length || 0})
+                    </h3>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => handleAddTrack()} title={`Add Track (${projectData?.tracks.length || 0} tracks currently)`}>
+                      <Button size="sm" variant="outline" className="h-7" onClick={() => handleAddTrack()} title="Add Track">
                         <Plus className="w-3 h-3 mr-1" />
-                        Add ({projectData?.tracks.length || 0})
+                        Add
                       </Button>
-                      <Button size="sm" variant="outline" onClick={handleUploadAudio} title="Upload Audio"><Upload className="w-3 h-3" /></Button>
-                      <Button size="sm" variant="outline" onClick={handleImportMIDI} title="Import MIDI"><Piano className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleUploadAudio} title="Upload Audio"><Upload className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleImportMIDI} title="Import MIDI"><Piano className="w-3 h-3" /></Button>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-1">
                   {projectData.tracks.map((track) => (
-                    <div key={track.id} className={`p-3 border-b border-border/50 hover:bg-muted/20 transition-colors cursor-pointer ${selectedTrackId === track.id ? 'bg-primary/10' : ''}`} onClick={() => setSelectedTrackId(track.id)}>
-                       <div className="flex items-center gap-2 mb-2">
-                         <div className={`w-3 h-3 rounded-full ${track.color}`} />
-                         <Input value={track.name} onChange={(e) => updateTrack(track.id, { name: e.target.value })} className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0" />
-                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => handleRemoveTrack(track.id)}><Minus className="w-3 h-3 text-red-500" /></Button>
-                         <Button size="sm" variant="ghost" className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`} onClick={(e) => { e.stopPropagation(); updateTrack(track.id, { isArmed: !track.isArmed }); }}>
-                           <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
-                         </Button>
-                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowPianoRoll(!showPianoRoll)}><Piano className="w-3 h-3" /></Button>
-                         <Button size="sm" variant="ghost" className="w-6 h-6 p-0" onClick={() => setShowAutomation(!showAutomation)} title="Automation"><Activity className="w-3 h-3" /></Button>
-                       </div>
+                    <div
+                      key={track.id}
+                      className={`p-3 border-b border-border/20 hover:bg-accent/5 transition-colors cursor-pointer group ${
+                        selectedTrackId === track.id ? 'bg-accent/10' : ''
+                      }`}
+                      onClick={() => setSelectedTrackId(track.id)}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-1 h-8 rounded-full bg-gradient-primary" />
+                        <div className={`w-2 h-2 rounded-full ${track.color}`} />
+                        <Input
+                          value={track.name}
+                          onChange={(e) => updateTrack(track.id, { name: e.target.value })}
+                          className="font-medium text-sm flex-1 border-0 p-0 h-auto bg-transparent focus-visible:ring-0"
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveTrack(track.id);
+                          }}
+                        >
+                          <Minus className="w-3 h-3 text-red-500" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className={`w-6 h-6 p-0 ${track.isArmed ? 'text-destructive' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateTrack(track.id, { isArmed: !track.isArmed });
+                          }}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${track.isArmed ? 'bg-destructive animate-pulse' : 'bg-muted-foreground'}`} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-6 h-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPianoRoll(!showPianoRoll);
+                          }}
+                        >
+                          <Piano className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-6 h-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAutomation(!showAutomation);
+                          }}
+                          title="Automation"
+                        >
+                          <Activity className="w-3 h-3" />
+                        </Button>
+                      </div>
                        
                        {/* Show current instrument/plugin */}
                        {track.type === 'midi' && (track as any).instrument && (

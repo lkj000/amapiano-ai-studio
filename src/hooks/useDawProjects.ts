@@ -3,20 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { DawProject, DawProjectData } from '@/types/daw';
 import type { Tables } from '@/integrations/supabase/types';
+import backend from '@/backend/client';
 
 export const useDawProjects = () => {
   return useQuery({
     queryKey: ['dawProjects'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('daw_projects')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-      return (data || []).map((project): DawProject => ({
-        ...project,
-        project_data: project.project_data as unknown as DawProjectData,
+      const response = await backend.music.listProjects();
+      return response.projects.map((project): DawProject => ({
+        id: project.id,
+        name: project.name,
+        version: project.version,
+        bpm: project.bpm,
+        key_signature: project.keySignature,
+        time_signature: '4/4',
+        user_id: '',
+        created_at: '',
+        updated_at: project.updatedAt,
+        project_data: {} as DawProjectData,
       }));
     },
   });

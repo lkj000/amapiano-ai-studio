@@ -9,6 +9,7 @@ import { EngagementAnalytics } from '@/components/EngagementAnalytics';
 import RealTimeCollaborationPanel from '@/components/RealTimeCollaborationPanel';
 import { AuraConductor } from '@/components/aura/AuraConductor';
 import { RealtimeAudioEngine } from '@/components/RealtimeAudioEngine';
+import UnifiedVoiceToMusicEngine from '@/components/UnifiedVoiceToMusicEngine';
 import { 
   Bot, 
   TrendingUp, 
@@ -18,7 +19,8 @@ import {
   Music,
   BarChart3,
   Radio,
-  Sparkles
+  Sparkles,
+  Mic
 } from 'lucide-react';
 
 interface AIHubProps {
@@ -145,10 +147,14 @@ export default function AIHub({ user }: AIHubProps) {
 
         {/* Main AI Hub Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="assistant" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               Assistant
+            </TabsTrigger>
+            <TabsTrigger value="voice" className="flex items-center gap-2">
+              <Mic className="w-4 h-4" />
+              Voice
             </TabsTrigger>
             <TabsTrigger value="realtime" className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
@@ -188,6 +194,34 @@ export default function AIHub({ user }: AIHubProps) {
                 />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="voice" className="space-y-6">
+            <div className="space-y-4">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
+                  <Mic className="w-6 h-6 text-primary" />
+                  Unified Voice-to-Music Engine
+                </h2>
+                <p className="text-muted-foreground">
+                  Advanced voice-to-music with real-time pitch detection, MIDI export, and AI generation
+                </p>
+                <div className="flex justify-center gap-2 flex-wrap">
+                  <Badge variant="secondary">🎵 Melody Mode</Badge>
+                  <Badge variant="secondary">🗣️ Instruction Mode</Badge>
+                  <Badge variant="secondary">🥁 Beatbox Mode</Badge>
+                  <Badge variant="secondary">🎹 MIDI Export</Badge>
+                  <Badge variant="secondary">📊 Real-time Pitch</Badge>
+                </div>
+              </div>
+              
+              <UnifiedVoiceToMusicEngine
+                onTrackGenerated={(audioUrl, metadata) => {
+                  console.log('Voice track generated:', { audioUrl, metadata });
+                  // Could integrate with DAW here
+                }}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="realtime" className="space-y-6">

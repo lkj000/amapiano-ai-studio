@@ -33,6 +33,14 @@ const App = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session ? 'Session active' : 'No session');
+        
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed successfully');
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -48,6 +56,26 @@ const App = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Auto-refresh token every 50 minutes (tokens expire after 1 hour)
+  useEffect(() => {
+    if (!session) return;
+
+    const refreshInterval = setInterval(async () => {
+      console.log('Attempting to refresh session token...');
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Token refresh failed:', error);
+      } else if (data.session) {
+        console.log('Token refreshed successfully');
+        setSession(data.session);
+        setUser(data.session.user);
+      }
+    }, 50 * 60 * 1000); // 50 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, [session]);
 
   if (loading) {
     return (

@@ -6,115 +6,150 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to process base64 audio in chunks
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 serve(async (req) => {
-  console.log('=== Neural Music Generation Function Started ===');
-  console.log('Method:', req.method);
-  console.log('Headers:', Object.fromEntries(req.headers.entries()));
+  console.log('=== Neural Music Generation Started ===');
   
   if (req.method === 'OPTIONS') {
-    console.log('Returning CORS response');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Processing request...');
-    
-    // Get OpenAI API key
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    console.log('OpenAI API Key present:', !!openAIApiKey);
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!openAIApiKey) {
-      console.error('No OpenAI API key found');
-      return new Response(JSON.stringify({
-        error: 'OpenAI API key not configured'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!openAIApiKey || !lovableApiKey) {
+      throw new Error('Required API keys not configured');
     }
 
-    // Parse request body
-    const body = await req.text();
-    console.log('Raw body length:', body.length);
+    const { type, audioData, mode } = await req.json();
     
-    let requestData;
-    try {
-      requestData = JSON.parse(body);
-      console.log('Parsed request data keys:', Object.keys(requestData));
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError instanceof Error ? parseError.message : 'Parse error');
-      return new Response(JSON.stringify({
-        error: 'Invalid JSON',
-        details: parseError instanceof Error ? parseError.message : 'Parse error'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (type !== 'voice_to_music' || !audioData) {
+      throw new Error('Invalid request: missing type or audioData');
     }
 
-    const { type, audioData, mode } = requestData;
-    console.log('Request type:', type, 'mode:', mode, 'audioData length:', audioData?.length || 0);
-
-    // Validate required fields
-    if (type !== 'voice_to_music') {
-      console.error('Invalid type:', type);
-      return new Response(JSON.stringify({
-        error: 'Invalid request type, expected voice_to_music'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!audioData) {
-      console.error('No audio data provided');
-      return new Response(JSON.stringify({
-        error: 'No audio data provided'
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('Validation passed, generating fallback response...');
+    console.log('Step 1: Transcribing audio with Whisper...');
     
-    // Generate simple fallback response for now
-    const fallbackResponse = {
-      transcript: `${mode || 'melody'} recording processed successfully`,
-      audioUrl: "",
-      midiData: {
-        tracks: [{
-          name: "Generated Track",
-          instrument: "Piano",
-          notes: [{
-            id: "note_1",
-            pitch: 60,
-            velocity: 80,
-            startTime: 0.0,
-            duration: 1.0
-          }]
-        }]
+    // Transcribe audio using OpenAI Whisper
+    const audioBuffer = base64ToArrayBuffer(audioData);
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
+    
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+
+    const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
       },
-      metadata: {
-        bpm: 118,
-        key: "F#m",
-        genre: "Amapiano",
-        confidence: 0.75
-      }
-    };
+      body: formData,
+    });
 
-    console.log('Returning successful response');
-    return new Response(JSON.stringify(fallbackResponse), {
+    if (!transcriptionResponse.ok) {
+      throw new Error(`Transcription failed: ${await transcriptionResponse.text()}`);
+    }
+
+    const { text: transcript } = await transcriptionResponse.json();
+    console.log('Transcription:', transcript);
+
+    console.log('Step 2: Generating music structure with Lovable AI...');
+    
+    // Use Lovable AI to generate musical structure
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a music composition AI. Analyze voice input and generate MIDI note data in Amapiano style.
+Return ONLY valid JSON with this structure:
+{
+  "midiData": {
+    "tracks": [{
+      "name": "string",
+      "instrument": "string",
+      "notes": [{"id": "string", "pitch": number (0-127), "velocity": number (0-127), "startTime": number, "duration": number}]
+    }]
+  },
+  "metadata": {
+    "bpm": number,
+    "key": "string",
+    "genre": "Amapiano",
+    "confidence": number
+  }
+}`
+          },
+          {
+            role: 'user',
+            content: `Mode: ${mode || 'melody'}
+User said: "${transcript}"
+
+Generate Amapiano music MIDI data based on this input. Create realistic note patterns with proper timing.`
+          }
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (aiResponse.status === 402) {
+        throw new Error('AI credits exhausted. Please add funds to continue.');
+      }
+      throw new Error(`AI generation failed: ${await aiResponse.text()}`);
+    }
+
+    const aiResult = await aiResponse.json();
+    const generatedContent = aiResult.choices?.[0]?.message?.content;
+    
+    if (!generatedContent) {
+      throw new Error('No content generated from AI');
+    }
+
+    // Parse AI response
+    let musicData;
+    try {
+      // Extract JSON from markdown code blocks if present
+      const jsonMatch = generatedContent.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : generatedContent;
+      musicData = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', generatedContent);
+      throw new Error('Invalid AI response format');
+    }
+
+    console.log('Successfully generated music data');
+
+    return new Response(JSON.stringify({
+      transcript,
+      audioUrl: "", // Frontend will synthesize audio
+      ...musicData
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Unexpected error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('Error:', error);
     
     return new Response(JSON.stringify({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     }), {
       status: 500,

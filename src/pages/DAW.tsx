@@ -704,37 +704,64 @@ const [zoom, setZoom] = useState([100]);
   };
 
   const handleUploadAudio = async () => {
+    console.log('🎵 handleUploadAudio: CLICKED - Creating file input dialog');
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.mp3,.wav,.ogg,.m4a,.aac,.flac,.aiff,.wma';
     
     input.onchange = async (e) => {
+      console.log('🎵 handleUploadAudio: File selected, processing...');
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+      console.log('🎵 handleUploadAudio: File object:', file);
+      if (!file) {
+        console.log('🎵 handleUploadAudio: No file selected, aborting');
+        return;
+      }
       
       try {
-        console.log('DAW: Importing audio file:', file.name);
+        console.log('🎵 handleUploadAudio: Starting import -', {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
         toast.info('Loading audio file...');
         
         // Validate file size (max 100MB)
         if (file.size > 100 * 1024 * 1024) {
+          console.log('🎵 handleUploadAudio: File too large:', file.size);
           toast.error('File too large. Maximum size is 100MB.');
           return;
         }
         
+        console.log('🎵 handleUploadAudio: Creating object URL...');
         // Create object URL for the audio file
         const audioUrl = URL.createObjectURL(file);
+        console.log('🎵 handleUploadAudio: Object URL created:', audioUrl);
         
+        console.log('🎵 handleUploadAudio: Creating Audio element to get duration...');
         // Create an audio element to get duration
         const audio = new Audio(audioUrl);
         
         await new Promise<void>((resolve, reject) => {
-          audio.addEventListener('loadedmetadata', () => resolve());
-          audio.addEventListener('error', () => reject(new Error('Failed to load audio')));
+          audio.addEventListener('loadedmetadata', () => {
+            console.log('🎵 handleUploadAudio: Audio metadata loaded, duration:', audio.duration, 'seconds');
+            resolve();
+          });
+          audio.addEventListener('error', (err) => {
+            console.error('🎵 handleUploadAudio: Audio load ERROR:', err);
+            reject(new Error('Failed to load audio'));
+          });
         });
         
+        console.log('🎵 handleUploadAudio: Calculating duration in beats...');
         const durationInBeats = (audio.duration / 60) * projectData.bpm * 4; // Convert seconds to beats
+        console.log('🎵 handleUploadAudio: Duration calculated:', {
+          durationSeconds: audio.duration,
+          durationBeats: durationInBeats,
+          bpm: projectData.bpm
+        });
         
+        console.log('🎵 handleUploadAudio: Creating audio clip...');
         // Create a new audio clip
         const newClip: AudioClip = {
           id: `audio-clip-${Date.now()}`,
@@ -743,7 +770,9 @@ const [zoom, setZoom] = useState([100]);
           duration: durationInBeats,
           audioUrl: audioUrl
         };
+        console.log('🎵 handleUploadAudio: Audio clip created:', newClip);
         
+        console.log('🎵 handleUploadAudio: Creating audio track...');
         // Create a new audio track
         const newTrack: AudioTrack = {
           id: `track-${Date.now()}`,
@@ -760,26 +789,40 @@ const [zoom, setZoom] = useState([100]);
           isArmed: false,
           color: `#${Math.floor(Math.random()*16777215).toString(16)}`
         };
+        console.log('🎵 handleUploadAudio: Audio track created:', newTrack);
         
+        console.log('🎵 handleUploadAudio: Adding track to project...');
         // Add track to project
-        setProjectData(prev => ({
-          ...prev,
-          tracks: [...prev.tracks, newTrack]
-        }));
+        setProjectData(prev => {
+          const updated = {
+            ...prev,
+            tracks: [...prev.tracks, newTrack]
+          };
+          console.log('🎵 handleUploadAudio: Project updated, total tracks:', updated.tracks.length);
+          return updated;
+        });
         
+        console.log('🎵 handleUploadAudio: ✅ SUCCESS - Import complete!');
         toast.success(`Audio file "${file.name}" imported successfully!`, {
           description: `Duration: ${audio.duration.toFixed(2)}s`
         });
         
       } catch (error) {
-        console.error('Audio import error:', error);
+        console.error('🎵 handleUploadAudio: ❌ ERROR occurred:', error);
+        console.error('🎵 handleUploadAudio: Error details:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error
+        });
         toast.error('Failed to import audio file', {
           description: error instanceof Error ? error.message : 'Unknown error'
         });
       }
     };
     
+    console.log('🎵 handleUploadAudio: Triggering file dialog...');
     input.click();
+    console.log('🎵 handleUploadAudio: File dialog opened');
   };
 
   const handleImportMIDI = async () => {

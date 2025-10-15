@@ -37,6 +37,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const scheduledNotesRef = useRef<Set<string>>(new Set());
   const scheduledTimeoutsRef = useRef<Set<number>>(new Set());
   const nextNoteTimeRef = useRef<number>(0);
+  const audioBufferSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
+  const scheduledAudioClipsRef = useRef<Set<string>>(new Set());
 
   // Initialize Web Audio API
   useEffect(() => {
@@ -281,6 +283,33 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                 }
               });
             }
+            
+            // Schedule audio clips
+            if (track.type === 'audio' && !track.mixer?.isMuted && track.clips) {
+              track.clips.forEach((clip) => {
+                if ('audioUrl' in clip && clip.audioUrl) {
+                  const clipKey = `${clip.id}`;
+                  const clipStartTime = clip.startTime;
+                  const clipEndTime = clipStartTime + clip.duration;
+                  
+                  // Check if audio clip should play now
+                  if (
+                    clipStartTime >= windowStart &&
+                    clipStartTime < newTime &&
+                    !scheduledAudioClipsRef.current.has(clipKey)
+                  ) {
+                    scheduledAudioClipsRef.current.add(clipKey);
+                    
+                    // Load and play audio
+                    playAudioClip(clip.audioUrl, track.id, clipStartTime, newTime)
+                      .catch(err => {
+                        console.error('AudioEngine: Failed to play audio clip:', err);
+                        scheduledAudioClipsRef.current.delete(clipKey);
+                      });
+                  }
+                }
+              });
+            }
           });
         }
         
@@ -315,6 +344,17 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       scheduledTimeoutsRef.current.forEach((id) => clearTimeout(id));
       scheduledTimeoutsRef.current.clear();
     }
+    
+    // Stop all audio buffer sources
+    audioBufferSourcesRef.current.forEach((source) => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Source might already be stopped
+      }
+    });
+    audioBufferSourcesRef.current.clear();
+    scheduledAudioClipsRef.current.clear();
   }, []);
 
   const stop = useCallback(() => {
@@ -427,6 +467,56 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       oscillatorsRef.current.delete(noteId);
     }, duration * 1000 + 100);
   }, [synthNote]);
+
+  const playAudioClip = useCallback(async (audioUrl: string, trackId: string, clipStartBeat: number, currentBeat: number) => {
+    if (!audioContextRef.current) return;
+    
+    try {
+      const ctx = audioContextRef.current;
+      const bpm = projectData?.bpm || 120;
+      const secsPerBeat = 60 / bpm;
+      
+      // Calculate offset into the audio file based on current playback position
+      const beatOffset = currentBeat - clipStartBeat;
+      const timeOffset = Math.max(0, beatOffset * secsPerBeat);
+      
+      console.log('AudioEngine: Loading audio clip', { audioUrl, trackId, timeOffset });
+      
+      // Fetch and decode audio
+      const response = await fetch(audioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      // Create buffer source
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      
+      // Connect to track gain
+      const trackGain = trackGainsRef.current.get(trackId);
+      if (trackGain) {
+        source.connect(trackGain);
+      } else {
+        source.connect(masterGainRef.current!);
+      }
+      
+      // Store reference
+      const sourceId = `${audioUrl}_${Date.now()}`;
+      audioBufferSourcesRef.current.set(sourceId, source);
+      
+      // Start playback from the calculated offset
+      source.start(0, timeOffset);
+      
+      // Clean up when done
+      source.onended = () => {
+        audioBufferSourcesRef.current.delete(sourceId);
+      };
+      
+      console.log('AudioEngine: Audio clip playing', { sourceId, duration: audioBuffer.duration, offset: timeOffset });
+    } catch (error) {
+      console.error('AudioEngine: Failed to play audio clip:', error);
+      throw error;
+    }
+  }, [projectData]);
 
   const playClip = useCallback((notes: MidiNote[], startBeat: number = 0, instrument?: string, trackId?: string) => {
     if (!audioContextRef.current) return;

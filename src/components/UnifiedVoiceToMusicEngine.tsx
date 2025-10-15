@@ -64,6 +64,7 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
   const [chordMode, setChordMode] = useState(false);
   const [selectedChord, setSelectedChord] = useState<string>('major');
   const [customInstructions, setCustomInstructions] = useState('');
+  const [generatedTrack, setGeneratedTrack] = useState<any>(null);
   
   // Beatbox triggers
   const [beatboxTriggers, setBeatboxTriggers] = useState<BeatboxTrigger[]>([
@@ -845,6 +846,90 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
             </Button>
+          </div>
+        )}
+        
+        {/* Generated Track Display */}
+        {generatedTrack && (
+          <div className="mt-6 p-6 border-2 border-primary/30 rounded-xl bg-gradient-to-br from-background to-primary/5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold">{generatedTrack.title}</h3>
+                <p className="text-sm text-muted-foreground">{generatedTrack.description}</p>
+              </div>
+              <Badge variant="secondary" className="gap-2">
+                <Music2 className="w-4 h-4" />
+                Generated
+              </Badge>
+            </div>
+            
+            <audio 
+              controls 
+              className="w-full"
+              src={generatedTrack.audioUrl}
+            >
+              Your browser does not support audio playback.
+            </audio>
+            
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = generatedTrack.audioUrl;
+                  link.download = `${generatedTrack.title}.mp3`;
+                  link.click();
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Track
+              </Button>
+              
+              {onTrackGenerated && (
+                <Button
+                  onClick={() => onTrackGenerated(generatedTrack.audioUrl, generatedTrack)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Add to DAW
+                </Button>
+              )}
+              
+              <Button
+                onClick={() => setGeneratedTrack(null)}
+                variant="ghost"
+                size="sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Clear
+              </Button>
+            </div>
+            
+            {generatedTrack.stems && (
+              <div className="pt-4 border-t space-y-2">
+                <h4 className="text-sm font-semibold">Stems</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {generatedTrack.stems.map((stem: any, idx: number) => (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = stem.url;
+                        link.download = stem.name;
+                        link.click();
+                      }}
+                    >
+                      <Download className="w-3 h-3 mr-2" />
+                      {stem.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

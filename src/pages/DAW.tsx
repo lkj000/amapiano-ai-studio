@@ -703,10 +703,83 @@ const [zoom, setZoom] = useState([100]);
     toast.success("Project data exported as JSON.");
   };
 
-  const handleUploadAudio = () => {
-    toast.info("Upload Audio", {
-      description: "This would open a file dialog to import an audio file into a new track."
-    });
+  const handleUploadAudio = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mp3,.wav,.ogg,.m4a,.aac,.flac,.aiff,.wma';
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        console.log('DAW: Importing audio file:', file.name);
+        toast.info('Loading audio file...');
+        
+        // Validate file size (max 100MB)
+        if (file.size > 100 * 1024 * 1024) {
+          toast.error('File too large. Maximum size is 100MB.');
+          return;
+        }
+        
+        // Create object URL for the audio file
+        const audioUrl = URL.createObjectURL(file);
+        
+        // Create an audio element to get duration
+        const audio = new Audio(audioUrl);
+        
+        await new Promise<void>((resolve, reject) => {
+          audio.addEventListener('loadedmetadata', () => resolve());
+          audio.addEventListener('error', () => reject(new Error('Failed to load audio')));
+        });
+        
+        const durationInBeats = (audio.duration / 60) * projectData.bpm * 4; // Convert seconds to beats
+        
+        // Create a new audio clip
+        const newClip: AudioClip = {
+          id: `audio-clip-${Date.now()}`,
+          name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+          startTime: 0,
+          duration: durationInBeats,
+          audioUrl: audioUrl
+        };
+        
+        // Create a new audio track
+        const newTrack: AudioTrack = {
+          id: `track-${Date.now()}`,
+          type: 'audio',
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          clips: [newClip],
+          mixer: {
+            volume: 0.75,
+            pan: 0,
+            isMuted: false,
+            isSolo: false,
+            effects: []
+          },
+          isArmed: false,
+          color: `#${Math.floor(Math.random()*16777215).toString(16)}`
+        };
+        
+        // Add track to project
+        setProjectData(prev => ({
+          ...prev,
+          tracks: [...prev.tracks, newTrack]
+        }));
+        
+        toast.success(`Audio file "${file.name}" imported successfully!`, {
+          description: `Duration: ${audio.duration.toFixed(2)}s`
+        });
+        
+      } catch (error) {
+        console.error('Audio import error:', error);
+        toast.error('Failed to import audio file', {
+          description: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    };
+    
+    input.click();
   };
 
   const handleImportMIDI = async () => {

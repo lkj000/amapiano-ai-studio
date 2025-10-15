@@ -397,13 +397,25 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
       
       if (error) throw error;
       
-      if (data && onTrackGenerated) {
-        onTrackGenerated(data.audioUrl, {
-          bpm: data.metadata?.bpm || 118,
-          key: data.metadata?.key || selectedKey,
-          genre: 'Amapiano',
-          midiNotes: recordedMIDI.length
+      if (data) {
+        // Set generated track for display
+        setGeneratedTrack({
+          title: data.title || `${selectedMode} Generation ${new Date().toLocaleTimeString()}`,
+          description: data.description || `Generated using ${selectedMode} mode`,
+          audioUrl: data.audioUrl,
+          stems: data.stems || [],
+          metadata: data.metadata || {}
         });
+        
+        // Call callback if provided
+        if (onTrackGenerated) {
+          onTrackGenerated(data.audioUrl, {
+            bpm: data.metadata?.bpm || 118,
+            key: data.metadata?.key || selectedKey,
+            genre: 'Amapiano',
+            midiNotes: recordedMIDI.length
+          });
+        }
       }
       
       toast.success('🎵 Music generated successfully!');

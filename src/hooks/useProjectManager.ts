@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import type { DawProjectData } from '@/types/daw';
+import backend from '@/backend/client';
 
 // Supabase database row type
 interface DatabaseProject {
@@ -71,17 +72,21 @@ export const useProjectManager = (user: User | null) => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('daw_projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      const convertedProjects = (data || []).map(convertDatabaseToProject);
+      const response = await backend.music.listProjects();
+      const convertedProjects = response.projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        user_id: user.id,
+        bpm: p.bpm,
+        key_signature: p.keySignature,
+        time_signature: '4/4',
+        project_data: createDefaultProjectData(p.bpm, p.keySignature, '4/4'),
+        created_at: '',
+        updated_at: p.updatedAt,
+        version: p.version,
+      }));
       setProjects(convertedProjects);
-      
+
       // Calculate stats
       const stats: ProjectStats = {
         totalProjects: convertedProjects.length,

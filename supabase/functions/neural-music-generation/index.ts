@@ -41,71 +41,83 @@ serve(async (req) => {
       );
     }
 
-    const { type, audioData, mode } = body;
+    const { type, audioData, text, mode } = body;
     
-    if (type !== 'voice_to_music' || !audioData) {
+    if (type !== 'voice_to_music') {
       return new Response(
-        JSON.stringify({ error: 'Invalid request: missing type or audioData' }),
+        JSON.stringify({ error: 'Invalid request: missing type' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Step 1: Transcribing audio with Whisper...');
-    
-    // Transcribe audio using OpenAI Whisper
-    const audioBuffer = base64ToArrayBuffer(audioData);
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
-    
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-
-    const transcriptionResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-      },
-      body: formData,
-    });
-
-    if (!transcriptionResponse.ok) {
-      // Map OpenAI errors to meaningful HTTP statuses/messages
-      let status = transcriptionResponse.status || 500;
-      let message = 'Transcription failed';
-      let code = 'TRANSCRIPTION_ERROR';
-      try {
-        const errText = await transcriptionResponse.text();
-        try {
-          const errJson = JSON.parse(errText);
-          const openAiMsg = errJson?.error?.message || errText;
-          const openAiCode = errJson?.error?.code || '';
-          if (openAiCode === 'insufficient_quota') {
-            status = 402; // Payment Required
-            message = 'Transcription credits exhausted. Please add funds or reduce usage.';
-            code = 'INSUFFICIENT_QUOTA';
-          } else if (status === 429) {
-            message = 'Rate limit exceeded. Please try again later.';
-            code = 'RATE_LIMITED';
-          } else {
-            message = `Transcription failed: ${openAiMsg}`;
-          }
-        } catch {
-          // Not JSON; pass through raw text
-          message = `Transcription failed: ${errText}`;
-        }
-      } catch {
-        // Fallback generic mapping
-        message = 'Transcription failed due to an unexpected error';
-      }
-
+    // Allow either text OR audioData
+    if (!text && !audioData) {
       return new Response(
-        JSON.stringify({ error: message, code }),
-        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Invalid request: provide either text or audioData' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { text: transcript } = await transcriptionResponse.json();
-    console.log('Transcription:', transcript);
+    let transcription = '';
+
+    // Skip Whisper if text is provided directly
+    if (text) {
+      console.log('Using direct text input, skipping Whisper transcription');
+      transcription = text;
+    } else {
+      console.log('Step 1: Transcribing audio with Whisper...');
+      
+      // Convert base64 to array buffer
+      const audioBuffer = base64ToArrayBuffer(audioData);
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
+      
+      // Create form data for Whisper
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'en');
+      
+      // Call OpenAI Whisper API
+      const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!whisperResponse.ok) {
+        const errorData = await whisperResponse.json().catch(() => ({}));
+        const status = whisperResponse.status;
+        console.error(`Whisper API error (${status}):`, errorData);
+        
+        if (status === 402 || errorData.error?.code === 'insufficient_quota') {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Transcription credits exhausted', 
+              details: 'OpenAI API quota exceeded. Please add credits to your OpenAI account.' 
+            }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (status === 429) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Rate limit exceeded', 
+              details: 'Too many requests. Please wait a moment and try again.' 
+            }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        throw new Error(`Whisper transcription failed: ${JSON.stringify(errorData)}`);
+      }
+
+      const whisperData = await whisperResponse.json();
+      transcription = whisperData.text;
+      console.log('Transcription:', transcription);
+    }
 
     console.log('Step 2: Generating music structure with Lovable AI...');
     
@@ -142,7 +154,7 @@ Return ONLY valid JSON with this structure:
           {
             role: 'user',
             content: `Mode: ${mode || 'melody'}
-User said: "${transcript}"
+User said: "${transcription}"
 
 Generate Amapiano music MIDI data based on this input. Create realistic note patterns with proper timing.`
           }
@@ -183,7 +195,7 @@ Generate Amapiano music MIDI data based on this input. Create realistic note pat
     console.log('Successfully generated music data');
 
     return new Response(JSON.stringify({
-      transcript,
+      transcription,
       audioUrl: "", // Frontend will synthesize audio
       ...musicData
     }), {

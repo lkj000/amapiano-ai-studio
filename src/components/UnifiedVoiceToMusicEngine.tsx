@@ -65,6 +65,7 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
   const [selectedChord, setSelectedChord] = useState<string>('major');
   const [customInstructions, setCustomInstructions] = useState('');
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
+  const [textPrompt, setTextPrompt] = useState('');
   
   // Beatbox triggers
   const [beatboxTriggers, setBeatboxTriggers] = useState<BeatboxTrigger[]>([
@@ -353,12 +354,19 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
   
   // Process and generate music
   const generateMusic = async () => {
-    if (!audioBlob && recordedMIDI.length === 0) {
-      toast.error('No recording to process');
+    if (!audioBlob && recordedMIDI.length === 0 && !textPrompt.trim()) {
+      toast.error('No recording or text prompt to process');
       return;
     }
     
     setIsProcessing(true);
+    
+    // Show appropriate toast based on input type
+    if (textPrompt.trim()) {
+      toast.info('🎵 Generating music from your text description...');
+    } else {
+      toast.info('🎵 Processing recording and generating music...');
+    }
     
     try {
       // Convert audio blob to base64 via DataURL to ensure correct padding
@@ -385,7 +393,8 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
       const result = await supabase.functions.invoke('neural-music-generation', {
         body: {
           type: 'voice_to_music',
-          audioData: base64Audio,
+          audioData: base64Audio || undefined,
+          text: textPrompt.trim() || undefined,
           midiData: recordedMIDI,
           mode: selectedMode,
           customInstructions: customInstructions || undefined,
@@ -792,8 +801,27 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
           
           {/* Instruction Tab */}
           <TabsContent value="instruction" className="space-y-4">
+            <div className="space-y-3 mb-4">
+              <label className="text-sm font-medium">💬 Text Input (No Recording Required)</label>
+              <Textarea
+                placeholder="Type your music description: e.g., 'Create an upbeat amapiano track with piano chords, log drums, and a deep bass at 118 BPM in F# minor'"
+                value={textPrompt}
+                onChange={(e) => setTextPrompt(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or record</span>
+              </div>
+            </div>
+            
             <Textarea
-              placeholder="Describe the music you want: e.g., 'Create an upbeat amapiano track with piano chords, log drums, and a deep bass at 118 BPM in F# minor'"
+              placeholder="Additional custom instructions (optional)"
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
               className="min-h-[150px]"
@@ -850,11 +878,11 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
         </div>
         
         {/* Action Buttons */}
-        {audioBlob && (
+        {(audioBlob || textPrompt.trim()) && (
           <div className="flex gap-2 flex-wrap">
             <Button onClick={generateMusic} disabled={isProcessing} variant="default">
               <Music2 className="w-4 h-4 mr-2" />
-              {isProcessing ? 'Generating...' : 'Generate Music'}
+              {isProcessing ? 'Generating...' : textPrompt.trim() ? 'Generate from Text' : 'Generate Music'}
             </Button>
             
             {recordedMIDI.length > 0 && (

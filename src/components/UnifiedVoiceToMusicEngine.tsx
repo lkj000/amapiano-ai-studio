@@ -382,7 +382,7 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
       }
       
       // Call neural music generation
-      const { data, error } = await supabase.functions.invoke('neural-music-generation', {
+      const result = await supabase.functions.invoke('neural-music-generation', {
         body: {
           type: 'voice_to_music',
           audioData: base64Audio,
@@ -400,7 +400,19 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
         }
       });
       
-      if (error) throw error;
+      const { data, error } = result as { data: any; error?: any };
+      
+      if (error) {
+        const status = (error as any)?.status;
+        const rawMsg = (error as any)?.message || '';
+        let friendly = rawMsg;
+        if (status === 402 || /insufficient_quota|Payment Required/i.test(rawMsg)) {
+          friendly = 'Transcription credits exhausted. Please add funds to your AI usage and try again.';
+        } else if (status === 429 || /rate limit/i.test(rawMsg)) {
+          friendly = 'Rate limit exceeded. Please wait a moment and try again.';
+        }
+        throw new Error(friendly || 'Edge function error');
+      }
       
       if (data) {
         // Set generated track for display
@@ -427,7 +439,7 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
       
     } catch (error) {
       console.error('Generation failed:', error);
-      toast.error('Failed to generate music');
+      toast.error(`Failed to generate music: ${(error as any)?.message || 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }

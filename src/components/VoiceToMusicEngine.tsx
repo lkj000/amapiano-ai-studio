@@ -342,15 +342,12 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       
       console.log('Audio data size:', uint8Array.length, 'bytes');
       
-      // Convert to base64 in chunks to avoid stack overflow
-      let base64Audio = '';
-      const chunkSize = 32768; // 32KB chunks
-      
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.slice(i, i + chunkSize);
-        const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
-        base64Audio += btoa(chunkString);
+      // Convert to base64 properly (single pass)
+      let binary = '';
+      for (let i = 0; i < uint8Array.byteLength; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
       }
+      const base64Audio = btoa(binary);
       
       console.log('Base64 conversion completed, length:', base64Audio.length);
 

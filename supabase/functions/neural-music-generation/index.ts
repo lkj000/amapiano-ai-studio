@@ -31,10 +31,23 @@ serve(async (req) => {
       throw new Error('Required API keys not configured');
     }
 
-    const { type, audioData, mode } = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or missing JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { type, audioData, mode } = body;
     
     if (type !== 'voice_to_music' || !audioData) {
-      throw new Error('Invalid request: missing type or audioData');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: missing type or audioData' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Step 1: Transcribing audio with Whisper...');

@@ -375,17 +375,6 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
         await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
-      // First test if the function is working
-      console.log('Testing neural-music-generation function...');
-      try {
-        const testResult = await supabase.functions.invoke('neural-music-generation', {
-          body: {},
-          headers: { 'Content-Type': 'application/json' }
-        });
-        console.log('Test function call result:', testResult);
-      } catch (testError) {
-        console.error('Test function call failed:', testError);
-      }
 
       // Call the neural music generation function
       console.log('Calling neural-music-generation function with payload:', {

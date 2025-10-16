@@ -234,8 +234,9 @@
         </div>
 
         <div class="controls">
-            <button class="btn btn-primary" onclick="runAllTests()">🚀 Run All Tests</button>
+            <button class="btn btn-primary" onclick="runAllTests()">🚀 Run All Tests (Demo)</button>
             <button class="btn btn-secondary" onclick="clearAllResults()">🧹 Clear All Results</button>
+            <button class="btn btn-primary" onclick="showVitestInstructions()">▶️ Run Real Vitest Tests</button>
         </div>
 
         <div class="progress-container" id="progressContainer">
@@ -317,7 +318,7 @@
                 tests: ['Immersive Interface', '3D Visualization', 'Spatial Audio', 'Gesture Control']
             },
             {
-                id: 'global-network',
+                id: 'global-collaboration',
                 icon: '🌍',
                 title: 'Global Collaboration',
                 description: 'Real-time collaboration',
@@ -331,7 +332,7 @@
                 tests: ['NFT Creation', 'Rights Management', 'Smart Contracts', 'Decentralized Storage']
             },
             {
-                id: 'aurabridge',
+                id: 'aurabridge-integration',
                 icon: '🌉',
                 title: 'AuraBridge Integration',
                 description: 'Service connectivity',
@@ -345,11 +346,32 @@
                 tests: ['Context Providers', 'Custom Hooks', 'State Persistence', 'Data Flow']
             },
             {
-                id: 'utilities',
+                id: 'utilities-services',
                 icon: '⚙️',
                 title: 'Utilities & Services',
                 description: 'Core functionality',
                 tests: ['API Services', 'Helper Functions', 'Library Utils', 'Configuration']
+            },
+            {
+                id: 'ai-music-generation',
+                icon: '🎼',
+                title: 'AI Music Generation',
+                description: 'Neural composition engine',
+                tests: ['Text-to-Music', 'Neural Composition', 'Genre Specialization', 'Advanced Features']
+            },
+            {
+                id: 'audio-engine',
+                icon: '🔊',
+                title: 'Audio Engine',
+                description: 'Real-time audio processing',
+                tests: ['Audio Processing', 'Effects Chain', 'Mixing', 'Performance']
+            },
+            {
+                id: 'social-features',
+                icon: '👥',
+                title: 'Social Features',
+                description: 'Community and collaboration',
+                tests: ['User Profiles', 'Social Feed', 'Following System', 'Collaboration']
             }
         ];
 
@@ -477,6 +499,57 @@
             
             document.getElementById('summary').classList.remove('visible');
             document.getElementById('progressContainer').style.display = 'none';
+        }
+
+        // Show Vitest instructions
+        function showVitestInstructions() {
+            const instructions = `
+📋 Running Real Vitest Tests
+
+To run the actual Vitest test suite:
+
+1. Open your terminal in the project directory
+
+2. Run all tests:
+   npm test
+   or
+   npm run test
+
+3. Run tests in watch mode:
+   npm run test:watch
+
+4. Run tests with coverage:
+   npm run test:coverage
+
+5. Run tests with UI:
+   npm run test:ui
+
+6. Run specific test category:
+   npm test -- src/test/categories/ui-components.test.tsx
+
+All test files are located in:
+- src/test/categories/
+- src/components/ui/__tests__/
+- src/hooks/__tests__/
+
+Test Categories Available:
+✅ ui-components.test.tsx
+✅ voice-synthesis.test.tsx
+✅ plugin-development.test.tsx
+✅ consciousness-studio.test.tsx
+✅ quantum-intelligence.test.tsx
+✅ holographic-daw.test.tsx
+✅ blockchain-studio.test.tsx
+✅ global-collaboration.test.tsx
+✅ aurabridge-integration.test.tsx
+✅ state-management.test.tsx
+✅ utilities-services.test.tsx
+✅ ai-music-generation.test.tsx
+✅ audio-engine.test.tsx
+✅ social-features.test.tsx
+            `;
+            
+            alert(instructions);
         }
 
         // Initialize on load

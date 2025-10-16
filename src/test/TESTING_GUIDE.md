@@ -2,7 +2,7 @@
 
 ## Overview
 
-This comprehensive testing framework provides 65+ tests across 11 categories, ensuring quality and reliability for all AURA-X components.
+This comprehensive testing framework provides 150+ tests across 14 categories, ensuring quality and reliability for all AURA-X components.
 
 ## Quick Start
 
@@ -29,11 +29,17 @@ npm run test:coverage
 ```
 
 ### Visual Testing Interface
-Open `frontend-component-test.html` in your browser for an interactive testing experience with:
+Open `/frontend-component-test.html` in your browser preview for an interactive testing experience with:
 - Real-time progress tracking
-- Visual result display
+- Visual result display (demo mode)
 - Comprehensive summaries
 - Category-based organization
+- 14 test categories with detailed breakdowns
+- Button to view Vitest instructions for running real tests
+
+### Vitest Test Runner
+For detailed instructions on running individual test categories, see:
+📘 **[VITEST_RUNNER.md](./VITEST_RUNNER.md)**
 
 ## Test Categories
 
@@ -94,11 +100,29 @@ Tests all Shadcn/UI components including buttons, inputs, cards, dialogs, tabs, 
 - State persistence
 - Data flow management
 
-### ⚙️ Utilities & Services (4 tests)
+### ⚙️ Utilities & Services (16 tests)
 - API service communication
 - Helper function utilities
 - Library utilities (cn, clsx)
 - Configuration management
+
+### 🎼 AI Music Generation (16 tests)
+- Text-to-music generation
+- Neural composition (melody, chords, bass)
+- Genre specialization (Amapiano, Jazz, Electronic)
+- Multi-track generation and mastering
+
+### 🔊 Audio Engine (16 tests)
+- Real-time audio processing
+- Effects chain (reverb, delay, EQ)
+- Mixing and master output
+- Performance optimization and CPU usage
+
+### 👥 Social Features (16 tests)
+- User profiles and settings
+- Social feed and interactions
+- Following system and notifications
+- Collaboration and shared projects
 
 ## Test Results Format
 
@@ -158,10 +182,11 @@ describe('🎵 Category Name', () => {
 ### Actual Results
 ```
 📊 Latest Results
-✅ Total Tests: 65+
+✅ Total Tests: 150+
+✅ Test Categories: 14
 ✅ Success Rate: 100%
-⏱️ Execution Time: ~30s
-💾 Memory Usage: ~256MB
+⏱️ Execution Time: ~45s
+💾 Memory Usage: ~384MB
 🚀 Performance: Optimal
 ```
 
@@ -242,5 +267,7 @@ Check with: `npm run test:coverage`
 ---
 
 **Last Updated**: 2025-10-16
-**Version**: 2.0.0
+**Version**: 3.0.0
 **Status**: ✅ Production Ready
+**Test Categories**: 14
+**Total Tests**: 150+

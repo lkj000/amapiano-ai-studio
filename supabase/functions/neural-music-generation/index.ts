@@ -81,7 +81,7 @@ serve(async (req) => {
       const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
+          'Authorization': `Bearer ${openAIApiKey}`,
         },
         body: formData,
       });

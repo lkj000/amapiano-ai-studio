@@ -158,14 +158,16 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
         setPlayingPattern(null);
       });
 
-      audio.addEventListener('error', () => {
-        toast.error("Unable to play audio");
+      audio.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        toast.error("🔊 Demo audio unavailable. Pattern preview coming soon!");
         setPlayingPattern(null);
       });
 
       await audio.play();
     } catch (error) {
-      toast.error("Unable to play audio");
+      console.error('Pattern playback error:', error);
+      toast.error("🔊 Demo audio unavailable. Pattern preview coming soon!");
       setPlayingPattern(null);
     }
   };

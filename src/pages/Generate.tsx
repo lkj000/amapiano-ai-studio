@@ -123,9 +123,17 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
         toast.success(`🎉 Enhanced ${trackTypeLabel} generated successfully!`);
         return;
       }
-    } catch (aiError) {
+    } catch (aiError: any) {
       console.error('AI Generation failed:', aiError);
-      toast.error('AI generation failed, using fallback generation');
+      
+      // Check for specific error types
+      if (aiError?.message?.includes('429') || aiError?.message?.toLowerCase().includes('rate limit')) {
+        toast.error('⏱️ Rate limit reached. Please wait a moment before trying again.');
+      } else if (aiError?.message?.includes('402') || aiError?.message?.toLowerCase().includes('payment required')) {
+        toast.error('💳 AI credits exhausted. Please add credits to continue generating.');
+      } else {
+        toast.error('AI generation unavailable, using demo generation');
+      }
     }
 
     // Fallback simulation if AI fails

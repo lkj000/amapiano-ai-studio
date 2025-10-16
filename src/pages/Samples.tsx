@@ -153,14 +153,16 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
         setPlayingSample(null);
       });
 
-      audio.addEventListener('error', () => {
-        toast.error("Unable to play audio");
+      audio.addEventListener('error', (e) => {
+        console.error('Audio playback error:', e);
+        toast.error("🔊 Demo audio unavailable. Sample preview coming soon!");
         setPlayingSample(null);
       });
 
       await audio.play();
     } catch (error) {
-      toast.error("Unable to play audio");
+      console.error('Sample playback error:', error);
+      toast.error("🔊 Demo audio unavailable. Sample preview coming soon!");
       setPlayingSample(null);
     }
   };

@@ -367,13 +367,13 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
         const arrayBuffer = await audioBlob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
         
-        // Convert to base64 in chunks
-        const chunkSize = 32768;
-        for (let i = 0; i < uint8Array.length; i += chunkSize) {
-          const chunk = uint8Array.slice(i, i + chunkSize);
-          const chunkString = String.fromCharCode.apply(null, Array.from(chunk));
-          base64Audio += btoa(chunkString);
+        // Convert to base64 properly
+        let binary = '';
+        const len = uint8Array.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
         }
+        base64Audio = btoa(binary);
       }
       
       // Call neural music generation

@@ -342,12 +342,22 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       
       console.log('Audio data size:', uint8Array.length, 'bytes');
       
-      // Convert to base64 properly (single pass)
-      let binary = '';
-      for (let i = 0; i < uint8Array.byteLength; i++) {
-        binary += String.fromCharCode(uint8Array[i]);
-      }
-      const base64Audio = btoa(binary);
+      // Convert audio blob to base64 via DataURL for robust encoding
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const result = reader.result as string;
+            const base64 = (result.split(',')[1] || '').replace(/\s/g, '');
+            const pad = base64.length % 4;
+            resolve(pad ? base64 + '='.repeat(4 - pad) : base64);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(session.audioBlob!);
+      });
       
       console.log('Base64 conversion completed, length:', base64Audio.length);
 

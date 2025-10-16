@@ -361,19 +361,24 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
     setIsProcessing(true);
     
     try {
+      // Convert audio blob to base64 via DataURL to ensure correct padding
       let base64Audio = '';
-      
       if (audioBlob) {
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        // Convert to base64 properly
-        let binary = '';
-        const len = uint8Array.byteLength;
-        for (let i = 0; i < len; i++) {
-          binary += String.fromCharCode(uint8Array[i]);
-        }
-        base64Audio = btoa(binary);
+        base64Audio = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const result = reader.result as string;
+              const base64 = (result.split(',')[1] || '').replace(/\s/g, '');
+              const pad = base64.length % 4;
+              resolve(pad ? base64 + '='.repeat(4 - pad) : base64);
+            } catch (e) {
+              reject(e);
+            }
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(audioBlob);
+        });
       }
       
       // Call neural music generation

@@ -217,7 +217,9 @@ const RealTimeCollaboration: React.FC<RealTimeCollaborationProps> = ({
     } catch (error) {
       console.error('Collaboration initialization error:', error);
       setConnectionStatus('disconnected');
-      toast.error('Failed to start collaboration session');
+      toast.error('Failed to start collaboration', { 
+        description: 'Check your internet connection and try again.' 
+      });
     }
   };
 

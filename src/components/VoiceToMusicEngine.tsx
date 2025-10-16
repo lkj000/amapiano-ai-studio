@@ -413,11 +413,18 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
         const status = (error as any)?.status;
         const rawMsg = (error as any)?.message || '';
         let friendly = rawMsg;
+        
         // Provide clearer guidance for quota/rate-limit cases
         if (status === 402 || /insufficient_quota|Payment Required/i.test(rawMsg)) {
-          friendly = 'Transcription credits exhausted. Please add funds to your AI usage and try again.';
+          friendly = 'OpenAI credits exhausted. Please check your OpenAI API key and usage limits.';
+          toast.error('OpenAI API Issue', { 
+            description: 'Your OpenAI API key may be missing credits. Add funds to your OpenAI account or check your API key configuration.' 
+          });
         } else if (status === 429 || /rate limit/i.test(rawMsg)) {
           friendly = 'Rate limit exceeded. Please wait a moment and try again.';
+          toast.error('Rate Limit', { description: 'Too many requests. Wait 1 minute and try again.' });
+        } else {
+          toast.error('Voice Processing Failed', { description: friendly });
         }
         throw new Error(friendly || 'Edge function error');
       }

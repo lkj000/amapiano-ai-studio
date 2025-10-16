@@ -205,7 +205,9 @@ export const AIModelRouter: React.FC<AIModelRouterProps> = ({
     const model = models.find(m => m.id === modelId);
     if (model) {
       onModelSelect(modelId, selectedTask);
-      toast.success(`🤖 Selected ${model.name} for ${selectedTask.replace('_', ' ')}`);
+      toast.success(`Selected ${model.name}`, { 
+        description: `Optimized for ${selectedTask.replace(/_/g, ' ')}` 
+      });
     }
   };
 

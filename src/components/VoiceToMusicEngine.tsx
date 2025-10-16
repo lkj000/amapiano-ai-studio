@@ -411,16 +411,26 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
         });
         
         console.log('Function response received:', functionResult);
-      } catch (functionError) {
+      } catch (functionError: any) {
         console.error('Supabase function call failed:', functionError);
-        throw new Error(`Function call failed: ${functionError.message}`);
+        const msg = functionError?.message || 'Function call failed';
+        throw new Error(msg);
       }
       
-      const { data, error } = functionResult;
+      const { data, error } = functionResult as { data: any; error?: any };
 
       if (error) {
         console.error('Function returned error:', error);
-        throw new Error(`Function error: ${error.message || JSON.stringify(error)}`);
+        const status = (error as any)?.status;
+        const rawMsg = (error as any)?.message || '';
+        let friendly = rawMsg;
+        // Provide clearer guidance for quota/rate-limit cases
+        if (status === 402 || /insufficient_quota|Payment Required/i.test(rawMsg)) {
+          friendly = 'Transcription credits exhausted. Please add funds to your AI usage and try again.';
+        } else if (status === 429 || /rate limit/i.test(rawMsg)) {
+          friendly = 'Rate limit exceeded. Please wait a moment and try again.';
+        }
+        throw new Error(friendly || 'Edge function error');
       }
       
       if (!data) {

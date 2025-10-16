@@ -56,7 +56,39 @@ serve(async (req) => {
     });
 
     if (!transcriptionResponse.ok) {
-      throw new Error(`Transcription failed: ${await transcriptionResponse.text()}`);
+      // Map OpenAI errors to meaningful HTTP statuses/messages
+      let status = transcriptionResponse.status || 500;
+      let message = 'Transcription failed';
+      let code = 'TRANSCRIPTION_ERROR';
+      try {
+        const errText = await transcriptionResponse.text();
+        try {
+          const errJson = JSON.parse(errText);
+          const openAiMsg = errJson?.error?.message || errText;
+          const openAiCode = errJson?.error?.code || '';
+          if (openAiCode === 'insufficient_quota') {
+            status = 402; // Payment Required
+            message = 'Transcription credits exhausted. Please add funds or reduce usage.';
+            code = 'INSUFFICIENT_QUOTA';
+          } else if (status === 429) {
+            message = 'Rate limit exceeded. Please try again later.';
+            code = 'RATE_LIMITED';
+          } else {
+            message = `Transcription failed: ${openAiMsg}`;
+          }
+        } catch {
+          // Not JSON; pass through raw text
+          message = `Transcription failed: ${errText}`;
+        }
+      } catch {
+        // Fallback generic mapping
+        message = 'Transcription failed due to an unexpected error';
+      }
+
+      return new Response(
+        JSON.stringify({ error: message, code }),
+        { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { text: transcript } = await transcriptionResponse.json();

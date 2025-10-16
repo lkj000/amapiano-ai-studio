@@ -182,9 +182,12 @@ export const VoiceAIGuide: React.FC<VoiceAIGuideProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('ElevenLabs error:', error);
+        throw new Error(error.message || 'Failed to generate speech');
+      }
 
-      if (data.audioContent) {
+      if (data?.audioContent) {
         // Stop current audio if playing
         if (currentAudio) {
           currentAudio.pause();
@@ -221,7 +224,15 @@ export const VoiceAIGuide: React.FC<VoiceAIGuideProps> = ({
 
     } catch (error) {
       console.error('Text-to-speech error:', error);
-      toast.error("Failed to generate speech. Please check your ElevenLabs API key.");
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('ELEVENLABS_API_KEY')) {
+        toast.error("ElevenLabs API key not configured. Please add it in project settings.");
+      } else if (errorMessage.includes('quota') || errorMessage.includes('limit')) {
+        toast.error("ElevenLabs quota exceeded. Please check your account.");
+      } else {
+        toast.error(`Speech generation failed: ${errorMessage}`);
+      }
     } finally {
       setIsGenerating(false);
     }

@@ -25,6 +25,7 @@ import { MusicAnalysisTools } from './MusicAnalysisTools';
 import { VoiceToMusicEngine } from './VoiceToMusicEngine';
 import { User } from '@supabase/supabase-js';
 import type { DawProjectData } from '@/types/daw';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface AIAssistantHubProps {
   user: User | null;
@@ -172,15 +173,17 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
       </div>
 
       {activeFeature === 'realtime' && (
-        <RealtimeAIAssistant
-          projectData={projectData}
-          onLiveAction={(action) => {
-            console.log('Live AI Action:', action);
-            if (action.type === 'addEffect' && onEffectAdded) {
-              onEffectAdded(action.effectName);
-            }
-          }}
-        />
+        <ErrorBoundary>
+          <RealtimeAIAssistant
+            projectData={projectData}
+            onLiveAction={(action) => {
+              console.log('Live AI Action:', action);
+              if (action.type === 'addEffect' && onEffectAdded) {
+                onEffectAdded(action.effectName);
+              }
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {activeFeature === 'models' && (
@@ -192,18 +195,22 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
       )}
 
       {activeFeature === 'voice' && (
-        <VoiceAIGuide
-          currentContext={`Project: ${projectData ? 'Active' : 'None'} | Features: All AI capabilities available`}
-          onVoiceCommand={(command) => {
-            console.log('Voice Command:', command);
-          }}
-        />
+        <ErrorBoundary>
+          <VoiceAIGuide
+            currentContext={`Project: ${projectData ? 'Active' : 'None'} | Features: All AI capabilities available`}
+            onVoiceCommand={(command) => {
+              console.log('Voice Command:', command);
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {activeFeature === 'knowledge' && (
-        <RAGKnowledgeBase
-          currentContext="AI Assistant Hub - Full access to amapiano knowledge base"
-        />
+        <ErrorBoundary>
+          <RAGKnowledgeBase
+            currentContext="AI Assistant Hub - Full access to amapiano knowledge base"
+          />
+        </ErrorBoundary>
       )}
 
       {activeFeature === 'collaboration' && (
@@ -222,9 +229,11 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
       )}
 
       {activeFeature === 'analysis' && (
-        <MusicAnalysisTools
-          projectData={projectData}
-        />
+        <ErrorBoundary>
+          <MusicAnalysisTools
+            projectData={projectData}
+          />
+        </ErrorBoundary>
       )}
 
       {activeFeature === 'voice-to-music' && (

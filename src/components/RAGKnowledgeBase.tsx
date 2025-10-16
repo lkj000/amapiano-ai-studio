@@ -228,7 +228,6 @@ export const RAGKnowledgeBase: React.FC<RAGKnowledgeBaseProps> = ({
     setIsSearching(true);
     
     try {
-      // Use AI to enhance search understanding
       const { data, error } = await supabase.functions.invoke('rag-knowledge-search', {
         body: {
           query,
@@ -236,26 +235,34 @@ export const RAGKnowledgeBase: React.FC<RAGKnowledgeBaseProps> = ({
           knowledgeBase: knowledgeItems.map(item => ({
             id: item.id,
             title: item.title,
-            content: item.content.substring(0, 500), // Truncate for efficiency
+            content: item.content.substring(0, 500),
             tags: item.tags,
             type: item.type
           }))
         }
       });
 
-      if (!error && data.enhancedResults) {
-        // Update search results with AI-enhanced relevance
-        const enhancedItems = data.enhancedResults.map((result: any) => {
-          const originalItem = knowledgeItems.find(item => item.id === result.id);
-          return originalItem ? { ...originalItem, relevanceScore: result.score } : null;
-        }).filter(Boolean);
+      if (error) {
+        console.error('RAG search error:', error);
+        toast.error('AI search unavailable, using basic search');
+        return;
+      }
+
+      if (data?.enhancedResults) {
+        const enhancedItems = data.enhancedResults
+          .map((result: any) => {
+            const originalItem = knowledgeItems.find(item => item.id === result.id);
+            return originalItem ? { ...originalItem, relevanceScore: result.score } : null;
+          })
+          .filter(Boolean) as KnowledgeItem[];
 
         setFilteredItems(enhancedItems);
+        toast.success(`Found ${enhancedItems.length} AI-enhanced results`);
       }
 
     } catch (error) {
       console.error('AI search error:', error);
-      // Fall back to regular search
+      toast.error('Search failed, using basic filtering');
     } finally {
       setIsSearching(false);
     }

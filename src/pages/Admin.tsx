@@ -80,8 +80,17 @@ export const Admin: React.FC = () => {
         totalPlugins: totalPluginsResult.count || 0,
         approvedPlugins: approvedCount
       });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+    } catch (error: any) {
+      console.error('Error fetching admin stats:', error);
+      toast.error("Failed to load admin statistics. Please refresh the page.");
+      
+      // Set default values on error
+      setStats({
+        pendingPlugins: 0,
+        totalUsers: 0,
+        totalPlugins: 0,
+        approvedPlugins: 0
+      });
     }
   };
 

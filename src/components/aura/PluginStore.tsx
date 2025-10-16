@@ -112,8 +112,15 @@ window.AuraPluginExports = { AuraPlugin };`
 
       if (error) throw error;
       setPlugins((data || []) as WebPlugin[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching plugins:', error);
+      
+      // Use sample data as fallback
+      toast({
+        title: "Connection Issue",
+        description: "Showing demo plugins. Create and submit your own!",
+      });
+      setPlugins(samplePlugins);
     }
   };
 

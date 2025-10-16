@@ -307,7 +307,7 @@ export const MultiAgentOrchestrator: React.FC<MultiAgentOrchestratorProps> = ({
         description: "Multi-agent system successfully completed all tasks",
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Orchestration error:', error);
       
       setCurrentSession(prev => ({
@@ -315,9 +315,14 @@ export const MultiAgentOrchestrator: React.FC<MultiAgentOrchestratorProps> = ({
         status: 'failed' as const
       }));
 
+      const errorMsg = error?.message || 'Unknown error';
+      const isQuotaError = errorMsg.includes('quota') || errorMsg.includes('402');
+      
       toast({
         title: "Orchestration Failed",
-        description: "An error occurred during multi-agent execution",
+        description: isQuotaError
+          ? "AI credits exhausted. Add funds to continue orchestration."
+          : "An error occurred during multi-agent execution. Check logs for details.",
         variant: "destructive",
       });
     } finally {

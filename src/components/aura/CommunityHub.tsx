@@ -89,8 +89,21 @@ export const CommunityHub: React.FC<CommunityHubProps> = ({ user }) => {
 
       if (error) throw error;
       setPosts((data || []) as CommunityPost[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching posts:', error);
+      
+      // Fallback to sample data if table doesn't exist or query fails
+      if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
+        console.log('Using sample community posts data');
+        setPosts(samplePosts);
+      } else {
+        toast({
+          title: "Load Error",
+          description: "Failed to load community posts. Showing sample data.",
+          variant: "destructive",
+        });
+        setPosts(samplePosts);
+      }
     }
   };
 

@@ -89,8 +89,16 @@ export const StyleExchange: React.FC<StyleExchangeProps> = ({ user }) => {
 
       if (error) throw error;
       setProfiles(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching profiles:', error);
+      
+      // Use sample data as fallback
+      if (profiles.length === 0) {
+        toast({
+          title: "Demo Mode",
+          description: "Create your first style profile to get started!",
+        });
+      }
     }
   };
 

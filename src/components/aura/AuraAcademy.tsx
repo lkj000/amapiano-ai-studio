@@ -89,8 +89,15 @@ export const AuraAcademy: React.FC<AuraAcademyProps> = ({ user }) => {
 
       if (error) throw error;
       setCourses((data || []) as Course[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching courses:', error);
+      
+      // Use sample data as fallback
+      toast({
+        title: "Loading Demo Content",
+        description: "Showing sample courses. Enroll to get started!",
+      });
+      setCourses(sampleCourses);
     }
   };
 

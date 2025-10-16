@@ -239,12 +239,21 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
         });
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Orchestration failed:', error);
       setIsRunning(false);
+      
+      const errorMsg = error?.message || 'Unknown error';
+      const isQuotaError = errorMsg.includes('quota') || errorMsg.includes('402') || errorMsg.includes('Payment Required');
+      const isRateLimit = errorMsg.includes('rate limit') || errorMsg.includes('429');
+      
       toast({
         title: "Orchestration Failed",
-        description: "AI orchestration encountered an error. Please try again.",
+        description: isQuotaError 
+          ? "AI credits exhausted. Please add funds to your Lovable AI account."
+          : isRateLimit
+          ? "Too many requests. Please wait a moment and try again."
+          : "AI orchestration encountered an error. Please try again.",
         variant: "destructive",
       });
     }

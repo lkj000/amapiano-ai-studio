@@ -369,44 +369,61 @@ export const UnifiedVoiceToMusicEngine = ({ onTrackGenerated, initialAudio }: Un
     }
     
     try {
-      // Convert audio blob to base64 via DataURL to ensure correct padding
-      let base64Audio = '';
-      if (audioBlob) {
-        base64Audio = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const result = reader.result as string;
-              const base64 = (result.split(',')[1] || '').replace(/\s/g, '');
-              const pad = base64.length % 4;
-              resolve(pad ? base64 + '='.repeat(4 - pad) : base64);
-            } catch (e) {
-              reject(e);
-            }
-          };
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(audioBlob);
-        });
+      // For beatbox mode, send text description instead of audio to bypass Whisper
+      let requestBody: any = {
+        type: 'voice_to_music',
+        mode: selectedMode,
+        customInstructions: customInstructions || undefined,
+        musicalSettings: {
+          key: selectedKey,
+          scale: selectedScale,
+          chordMode,
+          selectedChord
+        },
+        outputFormat: 'full_track_with_stems',
+        amapiano_style: 'adaptive'
+      };
+      
+      if (selectedMode === 'beatbox' || selectedMode === 'instruction') {
+        // Use text description for beatbox/instruction modes to skip Whisper
+        const description = textPrompt.trim() || 
+          (selectedMode === 'beatbox' 
+            ? `Create an Amapiano beat with ${recordedMIDI.length} MIDI notes recorded. Include 808 drums, log drums, and bass.`
+            : 'Create an Amapiano track based on the vocal melody.');
+        requestBody.text = description;
+        requestBody.midiData = recordedMIDI;
+      } else {
+        // For melody mode, only send audio if we have it AND text isn't provided
+        if (textPrompt.trim()) {
+          requestBody.text = textPrompt.trim();
+          requestBody.midiData = recordedMIDI;
+        } else if (audioBlob) {
+          // Convert audio blob to base64 only if needed
+          const base64Audio = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const result = reader.result as string;
+                const base64 = (result.split(',')[1] || '').replace(/\s/g, '');
+                const pad = base64.length % 4;
+                resolve(pad ? base64 + '='.repeat(4 - pad) : base64);
+              } catch (e) {
+                reject(e);
+              }
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(audioBlob);
+          });
+          requestBody.audioData = base64Audio;
+          requestBody.midiData = recordedMIDI;
+        } else {
+          throw new Error('No audio or text input provided');
+        }
       }
       
       // Call neural music generation
       const result = await supabase.functions.invoke('neural-music-generation', {
-        body: {
-          type: 'voice_to_music',
-          audioData: base64Audio || undefined,
-          text: textPrompt.trim() || undefined,
-          midiData: recordedMIDI,
-          mode: selectedMode,
-          customInstructions: customInstructions || undefined,
-          musicalSettings: {
-            key: selectedKey,
-            scale: selectedScale,
-            chordMode,
-            selectedChord
-          },
-          outputFormat: 'full_track_with_stems',
-          amapiano_style: 'adaptive'
-        }
+        body: requestBody
       });
       
       const { data, error } = result as { data: any; error?: any };

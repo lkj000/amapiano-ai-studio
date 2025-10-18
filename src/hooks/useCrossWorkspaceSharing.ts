@@ -71,7 +71,7 @@ export const useCrossWorkspaceSharing = () => {
         },
       };
 
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('shared_patterns' as any)
         .insert({
           ...sharedPattern,
@@ -89,7 +89,7 @@ export const useCrossWorkspaceSharing = () => {
           : `Shared with ${permissions.workspaceIds.length} workspace(s)`,
       });
 
-      return data.id;
+      return (data as any)?.id || null;
     } catch (error: any) {
       console.error('[CrossWorkspace] Share error:', error);
       toast({
@@ -150,8 +150,9 @@ export const useCrossWorkspaceSharing = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      setSharedPatterns(data || []);
-      return data || [];
+      const patterns = (data || []) as any[];
+      setSharedPatterns(patterns);
+      return patterns;
     } catch (error: any) {
       console.error('[CrossWorkspace] Browse error:', error);
       toast({
@@ -181,14 +182,16 @@ export const useCrossWorkspaceSharing = () => {
 
       if (fetchError) throw fetchError;
 
+      const pattern = sharedPattern as any;
+
       // Check permissions
-      if (!sharedPattern.permissions.public) {
-        if (!sharedPattern.permissions.workspaceIds.includes(targetWorkspaceId)) {
+      if (!pattern.permissions.public) {
+        if (!pattern.permissions.workspaceIds.includes(targetWorkspaceId)) {
           throw new Error('No permission to import this pattern');
         }
       }
 
-      if (!sharedPattern.permissions.allowDownload) {
+      if (!pattern.permissions.allowDownload) {
         throw new Error('Download not allowed for this pattern');
       }
 
@@ -197,11 +200,11 @@ export const useCrossWorkspaceSharing = () => {
         .from('workspace_patterns' as any)
         .insert({
           workspace_id: targetWorkspaceId,
-          pattern_data: sharedPattern.pattern,
+          pattern_data: pattern.pattern,
           metadata: {
-            ...sharedPattern.metadata,
+            ...pattern.metadata,
             importedFrom: patternId,
-            originalWorkspace: sharedPattern.sourceWorkspaceId,
+            originalWorkspace: pattern.sourceWorkspaceId,
           },
         });
 
@@ -212,8 +215,8 @@ export const useCrossWorkspaceSharing = () => {
         .from('shared_patterns' as any)
         .update({
           usage: {
-            ...sharedPattern.usage,
-            downloads: (sharedPattern.usage.downloads || 0) + 1,
+            ...pattern.usage,
+            downloads: (pattern.usage.downloads || 0) + 1,
           },
         })
         .eq('id', patternId);
@@ -252,7 +255,9 @@ export const useCrossWorkspaceSharing = () => {
 
       if (fetchError) throw fetchError;
 
-      if (!sharedPattern.permissions.allowRemix) {
+      const pattern = sharedPattern as any;
+
+      if (!pattern.permissions.allowRemix) {
         throw new Error('Remixing not allowed for this pattern');
       }
 
@@ -262,14 +267,14 @@ export const useCrossWorkspaceSharing = () => {
         .insert({
           workspace_id: targetWorkspaceId,
           pattern_data: {
-            ...sharedPattern.pattern,
+            ...pattern.pattern,
             ...modifications,
           },
           metadata: {
-            name: `${sharedPattern.metadata.name} (Remix)`,
+            name: `${pattern.metadata.name} (Remix)`,
             remixOf: patternId,
-            originalWorkspace: sharedPattern.sourceWorkspaceId,
-            requiresAttribution: sharedPattern.permissions.requireAttribution,
+            originalWorkspace: pattern.sourceWorkspaceId,
+            requiresAttribution: pattern.permissions.requireAttribution,
           },
         })
         .select()
@@ -282,8 +287,8 @@ export const useCrossWorkspaceSharing = () => {
         .from('shared_patterns' as any)
         .update({
           usage: {
-            ...sharedPattern.usage,
-            remixes: (sharedPattern.usage.remixes || 0) + 1,
+            ...pattern.usage,
+            remixes: (pattern.usage.remixes || 0) + 1,
           },
         })
         .eq('id', patternId);
@@ -293,7 +298,7 @@ export const useCrossWorkspaceSharing = () => {
         description: "Pattern remixed successfully",
       });
 
-      return remix.id;
+      return (remix as any)?.id || null;
     } catch (error: any) {
       console.error('[CrossWorkspace] Remix error:', error);
       toast({

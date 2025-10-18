@@ -1548,6 +1548,47 @@ export type Database = {
           },
         ]
       }
+      shared_patterns: {
+        Row: {
+          created_at: string | null
+          id: string
+          metadata: Json
+          pattern: Json
+          permissions: Json
+          source_workspace_id: string
+          updated_at: string | null
+          usage: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metadata: Json
+          pattern: Json
+          permissions?: Json
+          source_workspace_id: string
+          updated_at?: string | null
+          usage?: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json
+          pattern?: Json
+          permissions?: Json
+          source_workspace_id?: string
+          updated_at?: string | null
+          usage?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_patterns_source_workspace_id_fkey"
+            columns: ["source_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           ai_model_used: string | null
@@ -2109,6 +2150,85 @@ export type Database = {
             foreignKeyName: "workspace_members_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_patterns: {
+        Row: {
+          created_at: string | null
+          id: string
+          metadata: Json
+          pattern_data: Json
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metadata: Json
+          pattern_data: Json
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json
+          pattern_data?: Json
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_patterns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_sharing_policies: {
+        Row: {
+          allow_incoming: boolean | null
+          allow_outgoing: boolean | null
+          auto_approve_from: string[] | null
+          blocked_workspaces: string[] | null
+          created_at: string | null
+          id: string
+          require_review: boolean | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          allow_incoming?: boolean | null
+          allow_outgoing?: boolean | null
+          auto_approve_from?: string[] | null
+          blocked_workspaces?: string[] | null
+          created_at?: string | null
+          id?: string
+          require_review?: boolean | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          allow_incoming?: boolean | null
+          allow_outgoing?: boolean | null
+          auto_approve_from?: string[] | null
+          blocked_workspaces?: string[] | null
+          created_at?: string | null
+          id?: string
+          require_review?: boolean | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_sharing_policies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },

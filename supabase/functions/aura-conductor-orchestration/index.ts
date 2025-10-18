@@ -101,115 +101,112 @@ serve(async (req) => {
   }
 });
 
-// Generate orchestration plan using OpenAI with graceful fallback
+// Generate orchestration plan using Lovable AI with graceful fallback
 async function generateOrchestrationPlan(prompt: string, target: string, config: any) {
   const safeConfig = config || { ai_models: [], tools: [], quality_threshold: 0.9, cultural_authenticity: true };
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
   const systemPrompt = `You are AURA Conductor, an AI orchestration engine for amapiano music production. 
 Create a detailed orchestration plan based on the user's creative vision.
 
-The plan should include:
-1. Musical Analysis (BPM, key, mood, style elements)
-2. Style Profile Selection (which amapiano artists/styles to reference)  
-3. Neural Generation Strategy (which AI models to use for which parts)
-4. Quality Assurance checkpoints
-5. Cultural Authenticity validation steps
+The plan must include and return structured fields:
+- overview: { bpm, key, mood, style, intent, target }
+- steps: [
+  { id: 'analysis', name: 'Musical Analysis', parameters: { bpm, key, mood, style } },
+  { id: 'style_selection', name: 'Style Profile Selection', parameters: { artists: string[], elements: string[] } },
+  { id: 'neural_generation', name: 'Neural Music Generation', parameters: { models: string[], routing: any[], quality: number } },
+  { id: 'quality_assurance', name: 'Quality Assurance', parameters: { min_quality: number } },
+  { id: 'cultural_authenticity', name: 'Cultural Authenticity Check', parameters: { min_authenticity: number } }
+];`;
 
-Return a JSON plan with these steps and their parameters.`;
-
-  // Helper to try OpenAI, but never throw – return null on failure
-  const tryOpenAI = async (): Promise<any | null> => {
-    if (!OPENAI_API_KEY) {
-      console.warn('No OpenAI API key configured, falling back to heuristic plan');
+  // Prefer Lovable AI; if not configured, fall back to heuristic plan
+  const tryLovableAI = async (): Promise<any | null> => {
+    if (!LOVABLE_API_KEY) {
+      console.warn('LOVABLE_API_KEY not configured, using heuristic plan');
       return null;
     }
-    
+
     try {
-      console.log('Attempting OpenAI orchestration plan generation...');
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      console.log('Attempting Lovable AI orchestration plan generation...');
+      const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'google/gemini-2.5-flash',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Create orchestration plan for: "${prompt}" targeting ${target}` }
+            { role: 'user', content: `Create orchestration plan for: "${prompt}" targeting ${target}. Use models: ${safeConfig.ai_models?.join(', ') || 'defaults'}.` }
           ],
-          temperature: 0.7,
-          max_tokens: 2000
+          tools: [{
+            type: 'function',
+            function: {
+              name: 'create_orchestration_plan',
+              description: 'Return a structured orchestration plan for amapiano production',
+              parameters: {
+                type: 'object',
+                properties: {
+                  overview: {
+                    type: 'object',
+                    properties: {
+                      intent: { type: 'string' },
+                      target: { type: 'string' },
+                      bpm: { type: 'number' },
+                      key: { type: 'string' },
+                      mood: { type: 'string' },
+                      style: { type: 'string' }
+                    },
+                    required: ['intent','target','bpm','key','mood','style']
+                  },
+                  steps: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        name: { type: 'string' },
+                        description: { type: 'string' },
+                        parameters: { type: 'object' }
+                      },
+                      required: ['id','name','parameters']
+                    }
+                  },
+                  estimated_duration: { type: 'string' }
+                },
+                required: ['overview','steps']
+              }
+            }
+          }],
+          tool_choice: { type: 'function', function: { name: 'create_orchestration_plan' } }
         }),
       });
 
-      const data = await response.json();
-
-      // If API returned an error, log and bail to fallback
-      if (!response.ok || data?.error) {
-        console.error('OpenAI API error response:', JSON.stringify(data, null, 2));
+      if (!resp.ok) {
+        const t = await resp.text();
+        console.error('Lovable AI error:', resp.status, t);
+        if (resp.status === 429 || resp.status === 402) return null; // fall back
         return null;
       }
 
-      const planText = data?.choices?.[0]?.message?.content;
-      if (!planText) {
-        console.error('No content in OpenAI response');
+      const data = await resp.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      const args = toolCall?.function?.arguments;
+      if (!args) {
+        console.warn('Lovable AI returned no tool arguments, falling back');
         return null;
       }
-
-      try {
-        const parsedPlan = JSON.parse(planText);
-        console.log('✅ Successfully generated AI orchestration plan');
-        return { ...parsedPlan, meta: { source: 'openai', fallback: false } };
-      } catch {
-        // If not valid JSON, create a structured plan using the text as description
-        console.log('OpenAI returned non-JSON, creating structured fallback');
-        return {
-          meta: { source: 'openai-structured', fallback: true },
-          steps: [
-            {
-              id: 'analysis',
-              name: 'Musical Analysis',
-              description: planText.substring(0, 200) + '...',
-              parameters: { bpm: 118, key: 'F#m', mood: 'sunset', style: 'deep_amapiano' }
-            },
-            {
-              id: 'style_selection',
-              name: 'Style Profile Selection',
-              description: 'Select appropriate amapiano style influences',
-              parameters: { artists: ['Kelvin Momo', 'Kabza De Small'], elements: ['log_drums', 'deep_bass'] }
-            },
-            {
-              id: 'neural_generation',
-              name: 'Neural Music Generation',
-              description: 'Generate musical elements using neural networks',
-              parameters: { models: safeConfig.ai_models, quality: safeConfig.quality_threshold }
-            },
-            {
-              id: 'quality_assurance',
-              name: 'Quality Assurance',
-              description: 'Validate audio quality and musical coherence',
-              parameters: { min_quality: safeConfig.quality_threshold }
-            },
-            {
-              id: 'cultural_authenticity',
-              name: 'Cultural Authenticity Check',
-              description: 'Ensure cultural authenticity and respect',
-              parameters: { min_authenticity: 0.8 }
-            }
-          ],
-          estimated_duration: '5-10 minutes'
-        };
-      }
-    } catch (err) {
-      console.error('Error calling OpenAI for orchestration plan:', err);
+      const plan = JSON.parse(args);
+      console.log('✅ Successfully generated orchestration plan via Lovable AI');
+      return { ...plan, meta: { source: 'lovable_ai', fallback: false } };
+    } catch (e) {
+      console.error('Error calling Lovable AI for orchestration plan:', e);
       return null;
     }
   };
 
-  // Try OpenAI first
-  const aiPlan = await tryOpenAI();
+  const aiPlan = await tryLovableAI();
   if (aiPlan) return aiPlan;
 
   // Fallback – heuristic plan generator (no external APIs)

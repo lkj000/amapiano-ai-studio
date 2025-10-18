@@ -1,7 +1,7 @@
 project_id = "mywijmtszelyutssormy"
 
 [functions.aura-ai-suggestions]
-verify_jwt = true
+verify_jwt = false
 
 [api]
 enabled = true

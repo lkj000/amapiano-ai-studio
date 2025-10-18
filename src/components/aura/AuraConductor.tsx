@@ -21,6 +21,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 import { useToast } from "@/hooks/use-toast";
+import { OrchestrationProgress } from "@/components/OrchestrationProgress";
+import { useDebouncedRequest } from "@/hooks/useDebouncedRequest";
+import { aiCache } from "@/utils/aiCache";
 
 interface AuraConductorProps {
   user: User | null;
@@ -46,6 +49,7 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
   const [newSessionName, setNewSessionName] = useState('');
   const [orchestrationPrompt, setOrchestrationPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+  const [orchestrationSteps, setOrchestrationSteps] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -137,7 +141,35 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
     setCurrentSession(session);
     setProgress(0);
 
+    // Initialize orchestration steps for progress tracking
+    const steps = [
+      { id: 'analysis', name: 'Musical Analysis', status: 'pending' as const },
+      { id: 'style_selection', name: 'Style Profile Selection', status: 'pending' as const },
+      { id: 'neural_generation', name: 'Neural Music Generation', status: 'pending' as const },
+      { id: 'quality_assurance', name: 'Quality Assurance', status: 'pending' as const },
+      { id: 'cultural_authenticity', name: 'Cultural Authenticity Check', status: 'pending' as const }
+    ];
+    setOrchestrationSteps(steps);
+
     try {
+      // Check cache first
+      const cacheKey = {
+        type: 'orchestration',
+        prompt: session.orchestration_config.prompt,
+        target: session.orchestration_config.target
+      };
+      
+      const cachedResult = aiCache.get(cacheKey);
+      if (cachedResult) {
+        console.log('✅ Using cached orchestration result');
+        toast({
+          title: "Using Cached Result",
+          description: "Loading previously generated orchestration",
+        });
+        // Process cached result...
+        return;
+      }
+
       // Call the real AI orchestration edge function
       const { data, error } = await supabase.functions.invoke('aura-conductor-orchestration', {
         body: {
@@ -154,6 +186,9 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
 
       if (error) throw error;
 
+      // Cache the result
+      aiCache.set(cacheKey, data, 10 * 60 * 1000); // Cache for 10 minutes
+
       // Process orchestration results
       const orchestrationResult = data;
       const tasks = session.task_queue;
@@ -161,6 +196,15 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
       for (let i = 0; i < tasks.length; i++) {
         const task = tasks[i];
         
+        // Update orchestration step status
+        setOrchestrationSteps(prev => 
+          prev.map((step, idx) => 
+            idx === i 
+              ? { ...step, status: 'running' as const, message: `Processing ${step.name}...`, progress: 0 }
+              : step
+          )
+        );
+
         // Update task status to running
         const updatedLog = [...session.execution_log, {
           timestamp: new Date().toISOString(),
@@ -178,8 +222,15 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
           })
           .eq('id', session.id);
 
-        // Real processing time from AI
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Simulate progress within each step
+        for (let p = 0; p <= 100; p += 20) {
+          setOrchestrationSteps(prev => 
+            prev.map((step, idx) => 
+              idx === i ? { ...step, progress: p } : step
+            )
+          );
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
         
         // Update progress
         setProgress(((i + 1) / tasks.length) * 100);
@@ -189,6 +240,20 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
           (r: any) => r.taskName.toLowerCase().includes(task.task.split('_')[0])
         );
         
+        // Mark step as completed
+        setOrchestrationSteps(prev => 
+          prev.map((step, idx) => 
+            idx === i 
+              ? { 
+                  ...step, 
+                  status: 'completed' as const, 
+                  message: taskResult?.ai_insights || generateAIInsight(task.task),
+                  progress: 100 
+                }
+              : step
+          )
+        );
+
         // Mark task as completed with real AI insights
         const completedLog = [...updatedLog, {
           timestamp: new Date().toISOString(),
@@ -355,7 +420,12 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Progress value={progress} className="h-2" />
+            {/* Real-time Progress Tracking */}
+            {isRunning && orchestrationSteps.length > 0 && (
+              <OrchestrationProgress steps={orchestrationSteps} />
+            )}
+
+            {!isRunning && <Progress value={progress} className="h-2" />}
             
             <div className="flex gap-2">
               {!isRunning && currentSession.is_active && (
@@ -373,7 +443,7 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
             </div>
 
             {/* Execution Log */}
-            {currentSession.execution_log && currentSession.execution_log.length > 0 && (
+            {!isRunning && currentSession.execution_log && currentSession.execution_log.length > 0 && (
               <div className="space-y-2">
                 <h4 className="font-semibold">Execution Log</h4>
                 <div className="max-h-40 overflow-y-auto space-y-1">

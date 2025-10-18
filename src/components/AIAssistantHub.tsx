@@ -23,6 +23,7 @@ import { RealTimeCollaboration } from './RealTimeCollaboration';
 import { AIModelMarketplace } from './AIModelMarketplace';
 import { MusicAnalysisTools } from './MusicAnalysisTools';
 import { VoiceToMusicEngine } from './VoiceToMusicEngine';
+import { StreamingAISuggestions } from './StreamingAISuggestions';
 import { User } from '@supabase/supabase-js';
 import type { DawProjectData } from '@/types/daw';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -246,6 +247,18 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
           }}
         />
       )}
+
+      {/* Streaming AI Suggestions available on all pages */}
+      <div className="mt-6">
+        <StreamingAISuggestions
+          context={{
+            bpm: projectData?.bpm
+          }}
+          onSuggestionReceived={(suggestion) => {
+            console.log('Received suggestion:', suggestion);
+          }}
+        />
+      </div>
     </div>
   );
 };

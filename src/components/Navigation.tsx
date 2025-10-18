@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { LanguageSelector } from './LanguageSelector';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
+import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher';
+import { PresenceIndicators } from '@/components/PresenceIndicators';
 import { toast } from "sonner";
 import { 
   Music, 
@@ -110,6 +112,8 @@ const navItems = [
           {/* Auth/User Section */}
           <div className="hidden md:flex items-center gap-3">
             <LanguageSelector variant="minimal" />
+            {user && <WorkspaceSwitcher />}
+            {user && <PresenceIndicators />}
             {user ? (
               <>
                 <SubscriptionBadge tier={subscription_tier} />

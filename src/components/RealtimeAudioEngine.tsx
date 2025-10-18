@@ -10,6 +10,7 @@ import {
   Activity, Zap, Settings, RadioIcon, Wifi, WifiOff
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getEventProcessor } from '@/lib/EventProcessor';
 
 interface RealtimeAudioEngineProps {
   isEnabled: boolean;
@@ -117,6 +118,19 @@ export const RealtimeAudioEngine: React.FC<RealtimeAudioEngineProps> = ({
             }
           }
         }
+
+        // VAST Integration: Dispatch audio event via EventProcessor
+        const processor = getEventProcessor();
+        processor.dispatch({
+          type: 'audio.processed',
+          priority: 'critical',
+          payload: {
+            data: processedData,
+            inputLevel: audioMetrics.inputLevel,
+            settings: settings
+          },
+          source: 'realtime-audio-engine'
+        });
 
         // Send processed audio data to callback
         if (onAudioData) {

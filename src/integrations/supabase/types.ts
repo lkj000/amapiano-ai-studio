@@ -1337,6 +1337,44 @@ export type Database = {
           },
         ]
       }
+      project_versions: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          message: string | null
+          project_data: Json
+          project_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          message?: string | null
+          project_data: Json
+          project_id: string
+          version: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          message?: string | null
+          project_data?: Json
+          project_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "daw_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       remix_royalties: {
         Row: {
           created_at: string

@@ -300,10 +300,10 @@ export const useProjectManager = (user: User | null) => {
         created_by: user.id,
       };
 
-      // Store in separate versions table or as JSONB array
+      // Store in separate versions table
       const { error } = await supabase
-        .from('project_versions')
-        .insert(versionData);
+        .from('project_versions' as any)
+        .insert(versionData as any);
 
       if (error) throw error;
 
@@ -322,7 +322,7 @@ export const useProjectManager = (user: User | null) => {
 
     try {
       const { data, error } = await supabase
-        .from('project_versions')
+        .from('project_versions' as any)
         .select('*')
         .eq('project_id', projectId)
         .order('version', { ascending: false });
@@ -365,7 +365,7 @@ export const useProjectManager = (user: User | null) => {
       const { error } = await supabase
         .from('daw_projects')
         .update({
-          project_data: version.projectData,
+          project_data: version.projectData as any,
           version: version.version,
           updated_at: new Date().toISOString(),
         })

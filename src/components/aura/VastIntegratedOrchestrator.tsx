@@ -131,34 +131,62 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
 
       // Step 2: Get AI suggestions via Lovable AI (30%)
       console.log('💡 Step 2: Getting AI suggestions...');
-      const suggestions = await AuraBridge.call({
-        function_name: 'aura-ai-suggestions',
-        body: {
-          context: {
-            user_intent: prompt,
-            genre: 'amapiano',
-            bpm: 118
+      let suggestions;
+      try {
+        suggestions = await AuraBridge.call({
+          function_name: 'aura-ai-suggestions',
+          body: {
+            context: {
+              user_intent: prompt,
+              genre: 'amapiano',
+              bpm: 118
+            },
+            suggestion_type: 'full_analysis'
           },
-          suggestion_type: 'full_analysis'
-        }
-      });
+          timeout: 10000
+        });
+      } catch (error) {
+        console.warn('⚠️ AI suggestions unavailable, using fallback');
+        suggestions = {
+          suggestions: [
+            { category: 'rhythm', priority: 'high', title: 'Add Log Drums', description: 'Implement signature amapiano log drum pattern', implementation: 'Use deep kick on beats 1, 1.5, 2.5, 3' },
+            { category: 'harmony', priority: 'high', title: 'Jazz Chords', description: 'Layer jazzy piano progressions', implementation: 'Use 7th and 9th chords with syncopation' }
+          ],
+          overall_assessment: 'Using fallback suggestions'
+        };
+      }
       setOrchestrationProgress(30);
 
       // Step 3: Execute orchestration via Conductor (60%)
       console.log('🎼 Step 3: Executing orchestration...');
-      const orchestrationResult = await AuraBridge.call({
-        function_name: 'aura-conductor-orchestration',
-        body: {
-          prompt,
-          target: 'amapiano_production',
-          config: {
-            ai_models: ['transformer_harmony', 'gan_log_drums'],
-            tools: ['arrangement', 'harmony', 'rhythm'],
-            quality_threshold: 0.9,
-            cultural_authenticity: true
-          }
-        }
-      });
+      let orchestrationResult;
+      try {
+        orchestrationResult = await AuraBridge.call({
+          function_name: 'aura-conductor-orchestration',
+          body: {
+            prompt,
+            target: 'amapiano_production',
+            config: {
+              ai_models: ['transformer_harmony', 'gan_log_drums'],
+              tools: ['arrangement', 'harmony', 'rhythm'],
+              quality_threshold: 0.9,
+              cultural_authenticity: true
+            }
+          },
+          timeout: 15000
+        });
+      } catch (error) {
+        console.warn('⚠️ Orchestration service unavailable, using local generation');
+        orchestrationResult = {
+          presets: [
+            { name: 'Amapiano Kick', type: 'kick', parameters: { frequency: 60, decay: 0.8 } },
+            { name: 'Jazz Piano', type: 'piano', parameters: { complexity: 0.7, swing: 0.3 } },
+            { name: 'Deep Bass', type: 'bass', parameters: { depth: 0.9, groove: 0.8 } }
+          ],
+          arrangement: { intro: 8, verse: 16, chorus: 16, outro: 8 },
+          metadata: { generated_by: 'local_fallback', timestamp: new Date().toISOString() }
+        };
+      }
       setOrchestrationProgress(60);
 
       // Step 4: Store results in DataSpace (80%)

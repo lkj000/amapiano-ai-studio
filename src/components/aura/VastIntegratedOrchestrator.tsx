@@ -144,13 +144,19 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
       });
       setOrchestrationProgress(30);
 
-      // Step 3: Execute MCP orchestration request (60%)
+      // Step 3: Execute orchestration via Conductor (60%)
       console.log('🎼 Step 3: Executing orchestration...');
-      const orchestrationResult = await mcpServer.executeRequest({
-        prompt,
-        context: {
-          suggestions: suggestions.suggestions,
-          session_context: mcpServer.context?.context
+      const orchestrationResult = await AuraBridge.call({
+        function_name: 'aura-conductor-orchestration',
+        body: {
+          prompt,
+          target: 'amapiano_production',
+          config: {
+            ai_models: ['transformer_harmony', 'gan_log_drums'],
+            tools: ['arrangement', 'harmony', 'rhythm'],
+            quality_threshold: 0.9,
+            cultural_authenticity: true
+          }
         }
       });
       setOrchestrationProgress(60);

@@ -21,6 +21,7 @@ import Aura808Demo from "./pages/Aura808Demo";
 import AIHub from "./pages/AIHub";
 import CreatorHub from "./pages/CreatorHub";
 import SocialFeed from "./pages/SocialFeed";
+import VASTDemo from "./pages/VASTDemo";
 
 const queryClient = new QueryClient();
 
@@ -114,7 +115,8 @@ const App = () => {
               <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
               <Route path="/subscription-success" element={<Index user={user} />} />
               <Route path="/purchase-success" element={<Index user={user} />} />
-            <Route path="/admin" element={<Admin />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/vast-demo" element={<VASTDemo />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

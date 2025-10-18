@@ -63,6 +63,7 @@ const navItems = [
     { path: "/aura808", label: "Aura 808", icon: Music },
     { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },
+    { path: "/vast-demo", label: "VAST Demo", icon: Brain },
   ];
 
   const isActive = (path: string) => {

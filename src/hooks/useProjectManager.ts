@@ -5,6 +5,17 @@ import { toast } from 'sonner';
 import type { DawProjectData } from '@/types/daw';
 import backend from '@/backend/client';
 
+// Version control types
+interface ProjectVersion {
+  id: string;
+  projectId: string;
+  version: number;
+  projectData: DawProjectData;
+  message: string;
+  createdAt: string;
+  createdBy: string;
+}
+
 // Supabase database row type
 interface DatabaseProject {
   id: string;
@@ -65,6 +76,7 @@ export const useProjectManager = (user: User | null) => {
   const [projectStats, setProjectStats] = useState<ProjectStats | null>(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [projectVersions, setProjectVersions] = useState<ProjectVersion[]>([]);
 
   // Load all projects for the user
   const loadProjects = useCallback(async () => {
@@ -272,6 +284,130 @@ export const useProjectManager = (user: User | null) => {
     }
   }, [user, projects]);
 
+  // Create a version snapshot
+  const createVersion = useCallback(async (
+    projectId: string,
+    message: string = 'Auto-saved version'
+  ): Promise<boolean> => {
+    if (!user || !currentProject) return false;
+
+    try {
+      const versionData = {
+        project_id: projectId,
+        version: (currentProject.version || 1) + 1,
+        project_data: currentProject.project_data,
+        message,
+        created_by: user.id,
+      };
+
+      // Store in separate versions table or as JSONB array
+      const { error } = await supabase
+        .from('project_versions')
+        .insert(versionData);
+
+      if (error) throw error;
+
+      toast.success(`Version ${versionData.version} created`);
+      return true;
+    } catch (error) {
+      console.error('Failed to create version:', error);
+      toast.error('Failed to create version');
+      return false;
+    }
+  }, [user, currentProject]);
+
+  // Load versions for a project
+  const loadVersions = useCallback(async (projectId: string) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('project_versions')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('version', { ascending: false });
+
+      if (error) throw error;
+
+      const versions: ProjectVersion[] = (data || []).map((v: any) => ({
+        id: v.id,
+        projectId: v.project_id,
+        version: v.version,
+        projectData: v.project_data,
+        message: v.message,
+        createdAt: v.created_at,
+        createdBy: v.created_by,
+      }));
+
+      setProjectVersions(versions);
+    } catch (error) {
+      console.error('Failed to load versions:', error);
+    }
+  }, [user]);
+
+  // Restore a specific version
+  const restoreVersion = useCallback(async (
+    versionId: string
+  ): Promise<boolean> => {
+    if (!user || !currentProject) return false;
+
+    try {
+      const version = projectVersions.find(v => v.id === versionId);
+      if (!version) {
+        toast.error('Version not found');
+        return false;
+      }
+
+      // Create a backup of current state
+      await createVersion(currentProject.id, 'Before restore');
+
+      // Restore the version
+      const { error } = await supabase
+        .from('daw_projects')
+        .update({
+          project_data: version.projectData,
+          version: version.version,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentProject.id);
+
+      if (error) throw error;
+
+      const updatedProject = {
+        ...currentProject,
+        project_data: version.projectData,
+        version: version.version,
+      };
+
+      setCurrentProject(updatedProject);
+      toast.success(`Restored to version ${version.version}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to restore version:', error);
+      toast.error('Failed to restore version');
+      return false;
+    }
+  }, [user, currentProject, projectVersions, createVersion]);
+
+  // Compare two versions
+  const compareVersions = useCallback((v1Id: string, v2Id: string) => {
+    const v1 = projectVersions.find(v => v.id === v1Id);
+    const v2 = projectVersions.find(v => v.id === v2Id);
+
+    if (!v1 || !v2) return null;
+
+    return {
+      v1,
+      v2,
+      tracksDiff: {
+        added: v2.projectData.tracks.length - v1.projectData.tracks.length,
+        modified: 0, // TODO: Deep comparison
+      },
+      bpmChange: v2.projectData.bpm - v1.projectData.bpm,
+      keyChange: v1.projectData.keySignature !== v2.projectData.keySignature,
+    };
+  }, [projectVersions]);
+
   // Auto-save functionality
   useEffect(() => {
     if (!autoSaveEnabled || !currentProject) return;
@@ -303,6 +439,7 @@ export const useProjectManager = (user: User | null) => {
     projectStats,
     autoSaveEnabled,
     lastSaved,
+    projectVersions,
     setAutoSaveEnabled,
     loadProjects,
     createProject,
@@ -310,6 +447,11 @@ export const useProjectManager = (user: User | null) => {
     loadProject,
     deleteProject,
     duplicateProject,
-    setCurrentProject
+    setCurrentProject,
+    // Version control
+    createVersion,
+    loadVersions,
+    restoreVersion,
+    compareVersions,
   };
 };

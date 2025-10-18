@@ -37,10 +37,33 @@ export class DataSpace {
   private config: DataSpaceConfig;
   private eventBuffer: DataSpaceEvent[] = [];
   private subscribers: Map<string, Set<(event: DataSpaceEvent) => void>> = new Map();
+  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private queryBatcher: Map<string, Promise<any>> = new Map();
 
   constructor(config: DataSpaceConfig) {
     this.config = config;
     this.setupRealtimeSync();
+    // Clean cache periodically
+    setInterval(() => this.cleanCache(), 60000);
+  }
+
+  private cleanCache() {
+    const now = Date.now();
+    for (const [key, value] of this.cache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  private getCacheKey(query: DataQuery): string {
+    return JSON.stringify({
+      collection: query.collection,
+      operation: query.operation,
+      filters: query.filters,
+      limit: query.limit
+    });
   }
 
   /**
@@ -48,26 +71,80 @@ export class DataSpace {
    */
   async execute<T = any>(query: DataQuery): Promise<DataSpaceResponse<T>> {
     try {
+      // Check cache for read/search operations
+      if (query.operation === 'read' || query.operation === 'search') {
+        const cacheKey = this.getCacheKey(query);
+        const cached = this.cache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+          console.log(`[DataSpace] Cache hit for ${query.collection}.${query.operation}`);
+          return { data: cached.data as T, error: null };
+        }
+
+        // Batch concurrent identical queries
+        if (this.queryBatcher.has(cacheKey)) {
+          console.log(`[DataSpace] Deduplicating query for ${query.collection}`);
+          const result = await this.queryBatcher.get(cacheKey);
+          return { data: result as T, error: null };
+        }
+      }
+
       console.log(`[DataSpace] Executing ${query.operation} on ${query.collection}`);
+
+      let resultPromise: Promise<DataSpaceResponse<T>>;
 
       switch (query.collection) {
         case 'projects':
-          return await this.handleProjects(query);
+          resultPromise = this.handleProjects(query);
+          break;
         case 'samples':
-          return await this.handleSamples(query);
+          resultPromise = this.handleSamples(query);
+          break;
         case 'patterns':
-          return await this.handlePatterns(query);
+          resultPromise = this.handlePatterns(query);
+          break;
         case 'plugins':
-          return await this.handlePlugins(query);
+          resultPromise = this.handlePlugins(query);
+          break;
         case 'events':
-          return await this.handleEvents(query);
+          resultPromise = this.handleEvents(query);
+          break;
         default:
           throw new Error(`Unknown collection: ${query.collection}`);
       }
+
+      // Store in batcher for read/search operations
+      if (query.operation === 'read' || query.operation === 'search') {
+        const cacheKey = this.getCacheKey(query);
+        this.queryBatcher.set(cacheKey, resultPromise.then(r => r.data));
+      }
+
+      const result = await resultPromise;
+
+      // Cache successful read/search results
+      if (result.data && (query.operation === 'read' || query.operation === 'search')) {
+        const cacheKey = this.getCacheKey(query);
+        this.cache.set(cacheKey, { data: result.data, timestamp: Date.now() });
+        this.queryBatcher.delete(cacheKey);
+      } else if (query.operation !== 'read' && query.operation !== 'search') {
+        // Invalidate cache on mutations
+        this.cache.clear();
+      }
+
+      return result;
     } catch (error: any) {
       console.error('[DataSpace] Execution error:', error);
       return { data: null, error };
     }
+  }
+
+  /**
+   * Clear cache manually
+   */
+  clearCache() {
+    this.cache.clear();
+    this.queryBatcher.clear();
+    console.log('[DataSpace] Cache cleared');
   }
 
   /**
@@ -255,6 +332,17 @@ export class DataSpace {
     if (wildcardSubs) {
       wildcardSubs.forEach(callback => callback(event));
     }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getCacheStats() {
+    return {
+      size: this.cache.size,
+      pending: this.queryBatcher.size,
+      hitRate: this.cache.size > 0 ? 'Available' : 'No data'
+    };
   }
 
   /**

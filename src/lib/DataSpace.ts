@@ -21,6 +21,11 @@ export interface DataQuery {
   offset?: number;
 }
 
+export interface DataSpaceResponse<T = any> {
+  data: T | null;
+  error: Error | null;
+}
+
 export interface DataSpaceEvent {
   type: string;
   collection: string;
@@ -41,7 +46,7 @@ export class DataSpace {
   /**
    * Universal data access method - handles all CRUD operations
    */
-  async execute<T = any>(query: DataQuery): Promise<{ data: T | null; error: Error | null }> {
+  async execute<T = any>(query: DataQuery): Promise<DataSpaceResponse<T>> {
     try {
       console.log(`[DataSpace] Executing ${query.operation} on ${query.collection}`);
 
@@ -68,7 +73,7 @@ export class DataSpace {
   /**
    * Handle DAW projects operations
    */
-  private async handleProjects(query: DataQuery) {
+  private async handleProjects(query: DataQuery): Promise<DataSpaceResponse> {
     const table = supabase.from('daw_projects');
 
     switch (query.operation) {
@@ -77,10 +82,10 @@ export class DataSpace {
         if (!createResult.error) {
           this.emit({ type: 'project.created', collection: 'projects', data: createResult.data, timestamp: Date.now() });
         }
-        return createResult;
+        return { data: createResult.data, error: createResult.error ? new Error(createResult.error.message) : null };
 
       case 'read':
-        let selectQuery = table.select('*');
+        let selectQuery: any = table.select('*');
         if (query.filters) {
           Object.entries(query.filters).forEach(([key, value]) => {
             selectQuery = selectQuery.eq(key, value);
@@ -88,24 +93,26 @@ export class DataSpace {
         }
         if (query.limit) selectQuery = selectQuery.limit(query.limit);
         if (query.offset) selectQuery = selectQuery.range(query.offset, query.offset + (query.limit || 10) - 1);
-        return await selectQuery;
+        const readResult = await selectQuery;
+        return { data: readResult.data, error: readResult.error ? new Error(readResult.error.message) : null };
 
       case 'update':
         const updateResult = await table.update(query.data).eq('id', query.filters?.id).select().single();
         if (!updateResult.error) {
           this.emit({ type: 'project.updated', collection: 'projects', data: updateResult.data, timestamp: Date.now() });
         }
-        return updateResult;
+        return { data: updateResult.data, error: updateResult.error ? new Error(updateResult.error.message) : null };
 
       case 'delete':
         const deleteResult = await table.delete().eq('id', query.filters?.id);
         if (!deleteResult.error) {
           this.emit({ type: 'project.deleted', collection: 'projects', data: query.filters, timestamp: Date.now() });
         }
-        return deleteResult;
+        return { data: null, error: deleteResult.error ? new Error(deleteResult.error.message) : null };
 
       case 'search':
-        return await table.select('*').ilike('project_name', `%${query.filters?.query}%`);
+        const searchResult = await table.select('*').ilike('name', `%${query.filters?.query}%`);
+        return { data: searchResult.data, error: searchResult.error ? new Error(searchResult.error.message) : null };
 
       default:
         throw new Error(`Unknown operation: ${query.operation}`);
@@ -115,22 +122,25 @@ export class DataSpace {
   /**
    * Handle samples operations
    */
-  private async handleSamples(query: DataQuery) {
+  private async handleSamples(query: DataQuery): Promise<DataSpaceResponse> {
     const table = supabase.from('samples');
 
     switch (query.operation) {
       case 'create':
-        return await table.insert(query.data).select().single();
+        const createResult = await table.insert(query.data).select().single();
+        return { data: createResult.data, error: createResult.error ? new Error(createResult.error.message) : null };
       case 'read':
-        let selectQuery = table.select('*');
+        let selectQuery2: any = table.select('*');
         if (query.filters) {
           Object.entries(query.filters).forEach(([key, value]) => {
-            selectQuery = selectQuery.eq(key, value);
+            selectQuery2 = selectQuery2.eq(key, value);
           });
         }
-        return await selectQuery;
+        const readResult = await selectQuery2;
+        return { data: readResult.data, error: readResult.error ? new Error(readResult.error.message) : null };
       case 'search':
-        return await table.select('*').or(`name.ilike.%${query.filters?.query}%,tags.cs.{${query.filters?.query}}`);
+        const searchResult = await table.select('*').or(`name.ilike.%${query.filters?.query}%,tags.cs.{${query.filters?.query}}`);
+        return { data: searchResult.data, error: searchResult.error ? new Error(searchResult.error.message) : null };
       default:
         return { data: null, error: new Error('Operation not implemented') };
     }
@@ -139,7 +149,7 @@ export class DataSpace {
   /**
    * Handle patterns operations
    */
-  private async handlePatterns(query: DataQuery) {
+  private async handlePatterns(query: DataQuery): Promise<DataSpaceResponse> {
     // Similar pattern to samples
     return { data: null, error: new Error('Patterns operations not yet implemented') };
   }
@@ -147,7 +157,7 @@ export class DataSpace {
   /**
    * Handle plugins operations
    */
-  private async handlePlugins(query: DataQuery) {
+  private async handlePlugins(query: DataQuery): Promise<DataSpaceResponse> {
     // Plugin management through DataSpace
     return { data: null, error: new Error('Plugin operations not yet implemented') };
   }
@@ -155,7 +165,7 @@ export class DataSpace {
   /**
    * Handle events operations (logging and analytics)
    */
-  private async handleEvents(query: DataQuery) {
+  private async handleEvents(query: DataQuery): Promise<DataSpaceResponse> {
     if (query.operation === 'create') {
       this.eventBuffer.push({
         type: query.data.type,

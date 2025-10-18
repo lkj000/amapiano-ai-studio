@@ -994,6 +994,36 @@ export type Database = {
         }
         Relationships: []
       }
+      musical_vectors: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           amount: number | null
@@ -1431,6 +1461,7 @@ export type Database = {
           tags: string[] | null
           updated_at: string
           user_id: string | null
+          vector_id: string | null
           waveform_data: Json | null
         }
         Insert: {
@@ -1448,6 +1479,7 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
           user_id?: string | null
+          vector_id?: string | null
           waveform_data?: Json | null
         }
         Update: {
@@ -1465,9 +1497,18 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
           user_id?: string | null
+          vector_id?: string | null
           waveform_data?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "samples_vector_id_fkey"
+            columns: ["vector_id"]
+            isOneToOne: false
+            referencedRelation: "musical_vectors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       social_posts: {
         Row: {
@@ -1683,6 +1724,53 @@ export type Database = {
           upload_limit_mb?: number | null
         }
         Relationships: []
+      }
+      system_events: {
+        Row: {
+          created_at: string | null
+          event_source: string
+          event_type: string
+          id: string
+          payload: Json | null
+          priority: string | null
+          processed: boolean | null
+          processed_at: string | null
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_source: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          priority?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_source?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          priority?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tip_transactions: {
         Row: {
@@ -1953,11 +2041,86 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_members: {
+        Row: {
+          id: string
+          joined_at: string | null
+          permissions: Json | null
+          role: string
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          id?: string
+          joined_at?: string | null
+          permissions?: Json | null
+          role?: string
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          id?: string
+          joined_at?: string | null
+          permissions?: Json | null
+          role?: string
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_members_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          owner_id?: string | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      add_musical_vector: {
+        Args: {
+          p_embedding: string
+          p_entity_id: string
+          p_entity_type: string
+          p_metadata?: Json
+        }
+        Returns: string
+      }
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
       generate_room_code: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1993,12 +2156,56 @@ export type Database = {
           visibility: string
         }[]
       }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
       }
       join_room_by_code: {
         Args: {
@@ -2007,6 +2214,14 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: unknown
       }
       process_micro_royalty: {
         Args: { p_play_value_cents?: number; p_post_id: string }
@@ -2021,6 +2236,31 @@ export type Database = {
           p_tipper_id: string
         }
         Returns: string
+      }
+      search_similar_music: {
+        Args: {
+          entity_type_filter?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          entity_id: string
+          entity_type: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
       track_analytics_event: {
         Args: {
@@ -2039,6 +2279,30 @@ export type Database = {
           p_weight?: number
         }
         Returns: undefined
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
       }
     }
     Enums: {

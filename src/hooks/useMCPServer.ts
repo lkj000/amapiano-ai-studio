@@ -74,9 +74,11 @@ export const useMCPServer = () => {
           
           // Dispatch to event processor
           const processor = getEventProcessor();
+          // Convert medium to normal priority for EventProcessor
+          const eventPriority = action.priority === 'medium' ? 'normal' : action.priority as 'critical' | 'high' | 'normal' | 'low';
           processor.dispatch({
             type: EventTypes.AI_GENERATION_COMPLETE,
-            priority: action.priority,
+            priority: eventPriority,
             payload: action,
             source: 'agent_lifecycle',
           });

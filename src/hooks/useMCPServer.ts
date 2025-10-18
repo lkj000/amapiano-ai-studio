@@ -6,6 +6,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AuraBridge } from '@/lib/AuraBridge';
 import { toast } from '@/hooks/use-toast';
+import { AgentLifecycle, type Action } from '@/lib/AgentLifecycle';
+import { getEventProcessor, EventTypes } from '@/lib/EventProcessor';
 
 interface MCPContext {
   sessionId: string;
@@ -34,9 +36,11 @@ export const useMCPServer = () => {
   const [context, setContext] = useState<MCPContext | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [agent, setAgent] = useState<AgentLifecycle | null>(null);
+  const [agentState, setAgentState] = useState<string>('idle');
 
   /**
-   * Initialize MCP session with persistent context
+   * Initialize MCP session with persistent context and Agent Lifecycle
    */
   const initializeSession = useCallback(async () => {
     try {
@@ -50,14 +54,62 @@ export const useMCPServer = () => {
       };
 
       setContext(newContext);
+      
+      // Initialize Agent Lifecycle System
+      const newAgent = new AgentLifecycle({
+        onStateChange: (state) => {
+          setAgentState(state);
+          console.log('[Agent Lifecycle] State changed:', state);
+        },
+        onAction: (action: Action) => {
+          console.log('[Agent Lifecycle] Action:', action);
+          
+          // Handle agent actions
+          if (action.type === 'suggest') {
+            toast({
+              title: "AI Suggestion",
+              description: action.params.suggestion,
+            });
+          }
+          
+          // Dispatch to event processor
+          const processor = getEventProcessor();
+          processor.dispatch({
+            type: EventTypes.AI_GENERATION_COMPLETE,
+            priority: action.priority,
+            payload: action,
+            source: 'agent_lifecycle',
+          });
+        },
+      });
+      
+      setAgent(newAgent);
       setIsInitialized(true);
       
       // Store in localStorage for session persistence
       localStorage.setItem('mcp_context', JSON.stringify(newContext));
       
+      // Setup event processor handlers
+      const processor = getEventProcessor();
+      processor.on(EventTypes.AUDIO_INPUT, 'high', (event) => {
+        newAgent.sense({
+          type: 'audio',
+          timestamp: event.timestamp,
+          payload: event.payload,
+        });
+      });
+      
+      processor.on(EventTypes.MIDI_NOTE_ON, 'high', (event) => {
+        newAgent.sense({
+          type: 'midi',
+          timestamp: event.timestamp,
+          payload: event.payload,
+        });
+      });
+      
       toast({
         title: "MCP Server Initialized",
-        description: "AI orchestration system ready",
+        description: "AI orchestration with Agent Lifecycle ready",
       });
     } catch (error: any) {
       console.error('MCP initialization error:', error);
@@ -188,6 +240,8 @@ export const useMCPServer = () => {
     context,
     isInitialized,
     isProcessing,
+    agent,
+    agentState,
     initializeSession,
     executeRequest,
     updateContext,

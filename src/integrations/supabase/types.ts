@@ -2195,6 +2195,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      is_workspace_member: {
+        Args: { _user_id: string; _workspace_id: string }
+        Returns: boolean
+      }
       ivfflat_bit_support: {
         Args: { "": unknown }
         Returns: unknown

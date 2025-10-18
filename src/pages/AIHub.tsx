@@ -8,6 +8,7 @@ import { RealtimeAIAssistant } from '@/components/RealtimeAIAssistant';
 import { EngagementAnalytics } from '@/components/EngagementAnalytics';
 import RealTimeCollaborationPanel from '@/components/RealTimeCollaborationPanel';
 import { AuraConductor } from '@/components/aura/AuraConductor';
+import { VastIntegratedOrchestrator } from '@/components/aura/VastIntegratedOrchestrator';
 import { RealtimeAudioEngine } from '@/components/RealtimeAudioEngine';
 import UnifiedVoiceToMusicEngine from '@/components/UnifiedVoiceToMusicEngine';
 import { 
@@ -147,7 +148,7 @@ export default function AIHub({ user }: AIHubProps) {
 
         {/* Main AI Hub Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="assistant" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               Assistant
@@ -171,6 +172,10 @@ export default function AIHub({ user }: AIHubProps) {
             <TabsTrigger value="conductor" className="flex items-center gap-2">
               <Crown className="w-4 h-4" />
               Conductor
+            </TabsTrigger>
+            <TabsTrigger value="vast" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              VAST
             </TabsTrigger>
           </TabsList>
 
@@ -269,6 +274,10 @@ export default function AIHub({ user }: AIHubProps) {
 
           <TabsContent value="conductor" className="space-y-6">
             <AuraConductor user={user} />
+          </TabsContent>
+
+          <TabsContent value="vast" className="space-y-6">
+            <VastIntegratedOrchestrator user={user} />
           </TabsContent>
         </Tabs>
 

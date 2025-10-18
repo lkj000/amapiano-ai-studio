@@ -1,5 +1,8 @@
 project_id = "mywijmtszelyutssormy"
 
+[functions.aura-ai-suggestions]
+verify_jwt = true
+
 [api]
 enabled = true
 port = 54321

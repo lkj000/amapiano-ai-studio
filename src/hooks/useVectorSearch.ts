@@ -44,11 +44,12 @@ export const useVectorSearch = () => {
 
     try {
       // Generate query embedding
-      const embedding = await generateEmbedding(query);
+      const embeddingArray = await generateEmbedding(query);
+      const embedding = `[${embeddingArray.join(',')}]`;
 
       // Call vector search function
       const { data, error } = await supabase.rpc('search_similar_music', {
-        query_embedding: embedding,
+        query_embedding: embedding as any,
         entity_type_filter: entityType || null,
         match_count: limit,
       });
@@ -87,12 +88,13 @@ export const useVectorSearch = () => {
     metadata: Record<string, any> = {}
   ) => {
     try {
-      const embedding = await generateEmbedding(description);
+      const embeddingArray = await generateEmbedding(description);
+      const embedding = `[${embeddingArray.join(',')}]`;
 
       const { data, error } = await supabase.rpc('add_musical_vector', {
         p_entity_type: entityType,
         p_entity_id: entityId,
-        p_embedding: embedding,
+        p_embedding: embedding as any,
         p_metadata: metadata,
       });
 

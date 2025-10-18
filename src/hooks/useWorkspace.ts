@@ -47,7 +47,7 @@ export const useWorkspace = () => {
         id: w.id,
         name: w.name,
         ownerId: w.owner_id,
-        settings: w.settings,
+        settings: (w.settings as Record<string, any>) || {},
         createdAt: w.created_at,
         updatedAt: w.updated_at,
       }));
@@ -94,7 +94,7 @@ export const useWorkspace = () => {
         id: data.id,
         name: data.name,
         ownerId: data.owner_id,
-        settings: data.settings,
+        settings: (data.settings as Record<string, any>) || {},
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
@@ -151,7 +151,7 @@ export const useWorkspace = () => {
         workspaceId: m.workspace_id,
         userId: m.user_id,
         role: m.role,
-        permissions: m.permissions,
+        permissions: (m.permissions as Record<string, any>) || {},
         joinedAt: m.joined_at,
       }));
 

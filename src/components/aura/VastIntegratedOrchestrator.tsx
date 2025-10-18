@@ -35,6 +35,8 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
   const [activeTab, setActiveTab] = useState('orchestrator');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orchestrationProgress, setOrchestrationProgress] = useState(0);
+  const [demoMode, setDemoMode] = useState(false);
+  const [lastResult, setLastResult] = useState<any>(null);
   
   // VAST Components
   const dataSpace = useDataSpace('aura-orchestrator');
@@ -103,6 +105,13 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
 
     setIsProcessing(true);
     setOrchestrationProgress(0);
+    setLastResult(null);
+
+    // Demo mode - simulate orchestration without API calls
+    if (demoMode) {
+      await runDemoOrchestration(prompt);
+      return;
+    }
 
     try {
       // Step 1: Initialize MCP Agent (10%)
@@ -183,6 +192,13 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
 
       setOrchestrationProgress(100);
 
+      // Store result for display
+      setLastResult({
+        projectName: projectData.name,
+        suggestions: suggestions.suggestions || [],
+        timestamp: new Date().toISOString(),
+      });
+
       toast({
         title: "🎉 Orchestration Complete!",
         description: `Generated with ${suggestions.suggestions?.length || 0} AI suggestions`,
@@ -201,6 +217,81 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
       toast({
         title: "Orchestration Failed",
         description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const runDemoOrchestration = async (prompt: string) => {
+    try {
+      // Simulate step-by-step processing
+      console.log('🎬 Running demo orchestration...');
+      setOrchestrationProgress(10);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('💡 Generating mock AI suggestions...');
+      setOrchestrationProgress(40);
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      console.log('🎼 Simulating orchestration...');
+      setOrchestrationProgress(70);
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      console.log('💾 Storing demo results...');
+      setOrchestrationProgress(90);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const mockSuggestions = [
+        {
+          category: 'rhythm',
+          priority: 'high',
+          title: 'Add Log Drum Pattern',
+          description: 'Implement signature amapiano log drum kick pattern',
+          implementation: 'Program deep kick on beats 1, 1.5, 2.5, 3 with variations',
+          amapiano_context: 'Essential for authentic amapiano groove',
+          confidence: 0.95
+        },
+        {
+          category: 'harmony',
+          priority: 'high',
+          title: 'Jazz Piano Chords',
+          description: 'Layer complex piano chord progressions',
+          implementation: 'Use 7th and 9th chords with syncopated rhythm',
+          amapiano_context: 'Creates harmonic richness typical of the genre',
+          confidence: 0.88
+        },
+        {
+          category: 'rhythm',
+          priority: 'medium',
+          title: 'Percussion Layers',
+          description: 'Add shakers and hi-hats for groove',
+          implementation: 'Continuous 16th note shaker with subtle variations',
+          amapiano_context: 'Drives the rhythmic feel forward',
+          confidence: 0.82
+        }
+      ];
+
+      setOrchestrationProgress(100);
+
+      setLastResult({
+        projectName: `Demo_${Date.now()}`,
+        suggestions: mockSuggestions,
+        timestamp: new Date().toISOString(),
+        demoMode: true,
+      });
+
+      toast({
+        title: "🎬 Demo Complete!",
+        description: `Generated ${mockSuggestions.length} demo suggestions`,
+      });
+
+    } catch (error) {
+      console.error('Demo orchestration error:', error);
+      toast({
+        title: "Demo Failed",
+        description: "An error occurred in demo mode",
         variant: "destructive"
       });
     } finally {
@@ -286,9 +377,31 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
         <TabsContent value="orchestrator" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>AI-Powered Orchestration</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>AI-Powered Orchestration</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant={demoMode ? "default" : "outline"}>
+                    {demoMode ? "Demo Mode" : "Live Mode"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDemoMode(!demoMode)}
+                  >
+                    Toggle
+                  </Button>
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {demoMode && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    🎬 Demo mode is active - AI orchestration will be simulated without API calls
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   Describe your amapiano track vision:
@@ -297,6 +410,7 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
                   className="w-full min-h-[100px] p-3 border rounded-md"
                   placeholder="E.g., 'Create a smooth amapiano track with deep log drums, jazzy piano chords, and a groovy bassline at 118 BPM'"
                   id="orchestration-prompt"
+                  defaultValue="Create a smooth amapiano track with deep log drums, jazzy piano chords, and a groovy bassline at 118 BPM"
                 />
               </div>
 
@@ -305,11 +419,11 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
                   const prompt = (document.getElementById('orchestration-prompt') as HTMLTextAreaElement)?.value;
                   if (prompt) runIntelligentOrchestration(prompt);
                 }}
-                disabled={isProcessing || !dataSpace.isReady}
+                disabled={isProcessing || (!demoMode && !dataSpace.isReady)}
                 className="w-full"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                {isProcessing ? 'Orchestrating...' : 'Start VAST Orchestration'}
+                {isProcessing ? 'Orchestrating...' : demoMode ? 'Run Demo Orchestration' : 'Start VAST Orchestration'}
               </Button>
 
               {isProcessing && (
@@ -318,6 +432,49 @@ export const VastIntegratedOrchestrator: React.FC<VastIntegratedOrchestratorProp
                   <p className="text-sm text-center text-muted-foreground">
                     {orchestrationProgress}% Complete
                   </p>
+                </div>
+              )}
+
+              {lastResult && !isProcessing && (
+                <div className="mt-6 p-4 bg-muted rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Orchestration Result
+                    </h4>
+                    {lastResult.demoMode && (
+                      <Badge variant="outline">Demo</Badge>
+                    )}
+                  </div>
+                  <div className="text-sm space-y-2">
+                    <p className="text-muted-foreground">
+                      Project: <span className="font-medium text-foreground">{lastResult.projectName}</span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      Suggestions: <span className="font-medium text-foreground">{lastResult.suggestions.length}</span>
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {new Date(lastResult.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+
+                  {lastResult.suggestions && lastResult.suggestions.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      <h5 className="text-sm font-medium">AI Suggestions:</h5>
+                      {lastResult.suggestions.map((suggestion: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-background rounded border">
+                          <div className="flex items-start justify-between mb-1">
+                            <h6 className="font-medium text-sm">{suggestion.title}</h6>
+                            <Badge variant={suggestion.priority === 'high' ? 'default' : 'secondary'} className="text-xs">
+                              {suggestion.priority}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-2">{suggestion.description}</p>
+                          <p className="text-xs italic text-muted-foreground">{suggestion.amapiano_context}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

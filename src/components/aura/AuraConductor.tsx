@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 import { useToast } from "@/hooks/use-toast";
 import { OrchestrationProgress } from "@/components/OrchestrationProgress";
+import { GeneratedTrackPanel } from "@/components/GeneratedTrackPanel";
 import { useDebouncedRequest } from "@/hooks/useDebouncedRequest";
 import { aiCache } from "@/utils/aiCache";
 
@@ -406,26 +407,27 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
 
       {/* Current Session */}
       {currentSession && (
-        <Card className="border-accent/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-accent" />
-              {currentSession.session_name}
-              <Badge variant={isRunning ? "default" : "secondary"}>
-                {isRunning ? "Running" : currentSession.is_active ? "Ready" : "Completed"}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              AI Orchestration Progress: {currentSession.current_task || "Ready to start"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Real-time Progress Tracking */}
-            {isRunning && orchestrationSteps.length > 0 && (
-              <OrchestrationProgress steps={orchestrationSteps} />
-            )}
+        <div className="space-y-4">
+          <Card className="border-accent/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-accent" />
+                {currentSession.session_name}
+                <Badge variant={isRunning ? "default" : "secondary"}>
+                  {isRunning ? "Running" : currentSession.is_active ? "Ready" : "Completed"}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                AI Orchestration Progress: {currentSession.current_task || "Ready to start"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Real-time Progress Tracking */}
+              {isRunning && orchestrationSteps.length > 0 && (
+                <OrchestrationProgress steps={orchestrationSteps} />
+              )}
 
-            {!isRunning && <Progress value={progress} className="h-2" />}
+              {!isRunning && <Progress value={progress} className="h-2" />}
             
             <div className="flex gap-2">
               {!isRunning && currentSession.is_active && (
@@ -465,6 +467,16 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
             )}
           </CardContent>
         </Card>
+
+        {/* Generated Track Panel */}
+        {!isRunning && !currentSession.is_active && currentSession.orchestration_config?.final_result?.final_output?.audio_url && (
+          <GeneratedTrackPanel
+            audioUrl={currentSession.orchestration_config.final_result.final_output.audio_url}
+            metadata={currentSession.orchestration_config.final_result.final_output.metadata || {}}
+            orchestrationResult={currentSession.orchestration_config.final_result}
+          />
+        )}
+      </div>
       )}
 
       {/* Sessions List */}

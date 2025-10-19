@@ -811,7 +811,14 @@ const [zoom, setZoom] = useState([100]);
       if (!file) return;
       
       try {
-        console.log('DAW: Importing MIDI file:', file.name);
+        console.log('DAW: Importing file:', file.name);
+        
+        // Check if it's an audio file (WAV, FLAC, MP3, etc.)
+        if (file.name.match(/\.(wav|flac|mp3|ogg|aac)$/i)) {
+          toast.info('This is an audio file. Use "Upload Audio" instead.');
+          console.log('DAW: Audio file detected, use audio upload instead');
+          return;
+        }
         
         // Check if it's a project file
         if (file.name.endsWith('.project')) {

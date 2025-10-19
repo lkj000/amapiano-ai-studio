@@ -355,6 +355,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             size="sm" 
                             className="flex-1" 
                             onClick={() => {
+                              console.log('[Samples] Add to DAW clicked for:', sample.name);
                               const trackData = {
                                 name: `Sample: ${sample.name}`,
                                 audioUrl: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sample.id}`,
@@ -365,13 +366,17 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                                   duration: parseInt(sample.duration) || 30
                                 }
                               };
+                              console.log('[Samples] Storing track data:', trackData);
                               localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+                              console.log('[Samples] Opening DAW window...');
                               const win = window.open('/daw', '_blank');
-                              if (!win || win.closed) {
-                                // Popup blocked – navigate in the same tab as a fallback
+                              if (!win) {
+                                console.log('[Samples] Popup blocked, redirecting in same tab');
                                 window.location.href = '/daw';
+                              } else {
+                                console.log('[Samples] DAW opened in new tab');
+                                toast.success(`🎵 "${sample.name}" sent to DAW!`);
                               }
-                              toast.success(`🎵 "${sample.name}" sent to DAW!`);
                             }}
                           >
                             <Music className="w-3 h-3 mr-1" />

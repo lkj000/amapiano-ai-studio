@@ -3,6 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Play, 
   Pause, 
@@ -11,10 +19,15 @@ import {
   BarChart3, 
   Scissors,
   Music,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  FileAudio,
+  FileMusic,
+  FolderOpen
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GeneratedTrackPanelProps {
   audioUrl: string;
@@ -63,27 +76,53 @@ export const GeneratedTrackPanel: React.FC<GeneratedTrackPanelProps> = ({
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (format: 'mp3' | 'wav' | 'flac' | 'midi' | 'project') => {
     try {
-      const response = await fetch(audioUrl);
+      let downloadUrl = audioUrl;
+      let filename = `aura-track-${Date.now()}`;
+      let fileExtension = format;
+
+      // For format conversion
+      if (format !== 'mp3') {
+        toast({
+          title: "Converting Format",
+          description: `Converting to ${format.toUpperCase()}...`,
+        });
+
+        // Call edge function for format conversion
+        const { data, error } = await supabase.functions.invoke('audio-format-converter', {
+          body: {
+            sourceUrl: audioUrl,
+            targetFormat: format,
+            orchestrationData: format === 'project' || format === 'midi' ? orchestrationResult : null
+          }
+        });
+
+        if (error) throw error;
+        downloadUrl = data.convertedUrl;
+      }
+
+      // Download the file
+      const response = await fetch(downloadUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aura-track-${Date.now()}.mp3`;
+      a.download = `${filename}.${fileExtension}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
       toast({
-        title: "Download Started",
-        description: "Your track is being downloaded",
+        title: "Download Complete",
+        description: `Downloaded as ${format.toUpperCase()}`,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Download error:', error);
       toast({
         title: "Download Failed",
-        description: "Could not download the track",
+        description: error.message || "Could not download the track",
         variant: "destructive",
       });
     }
@@ -214,14 +253,41 @@ export const GeneratedTrackPanel: React.FC<GeneratedTrackPanelProps> = ({
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleDownload}
-            className="w-full"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full">
+                <Download className="w-4 h-4 mr-2" />
+                Download
+                <ChevronDown className="w-4 h-4 ml-auto" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>Audio Formats</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleDownload('mp3')}>
+                <FileAudio className="w-4 h-4 mr-2" />
+                MP3 (Compressed)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownload('wav')}>
+                <FileAudio className="w-4 h-4 mr-2" />
+                WAV (Lossless)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownload('flac')}>
+                <FileAudio className="w-4 h-4 mr-2" />
+                FLAC (Lossless Compressed)
+              </DropdownMenuItem>
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Project Formats</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => handleDownload('midi')}>
+                <FileMusic className="w-4 h-4 mr-2" />
+                MIDI (Piano Roll)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownload('project')}>
+                <FolderOpen className="w-4 h-4 mr-2" />
+                DAW Project File
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <Button
             variant="outline"

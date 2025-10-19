@@ -437,7 +437,9 @@ const [zoom, setZoom] = useState([100]);
   // Check for pending generated tracks on mount
   useEffect(() => {
     const checkPendingTrack = () => {
+      console.log('[DAW] Checking for pending track...');
       const pendingTrack = localStorage.getItem('pendingGeneratedTrack');
+      console.log('[DAW] pendingGeneratedTrack:', pendingTrack);
       if (pendingTrack) {
         try {
           const trackData = JSON.parse(pendingTrack);
@@ -591,6 +593,7 @@ const [zoom, setZoom] = useState([100]);
     };
     
     // Check on mount and when project data changes
+    console.log('[DAW] useEffect running, projectData:', projectData ? 'exists' : 'null');
     checkPendingTrack();
   }, [projectData, handleTrackGenerated, undoRedoControls]);
 

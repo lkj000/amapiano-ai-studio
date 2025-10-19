@@ -34,12 +34,69 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
       try {
         const data = JSON.parse(pending);
         localStorage.removeItem('pendingAnalysisTrack');
+        console.log('📊 Loaded pending analysis track:', data);
         setUrl(data.url || "");
-        setTimeout(() => handleAnalyze(), 0);
-        toast.success('Loaded track for analysis');
+        setIsAnalyzing(true);
+        toast.info('🔍 Starting automatic analysis...');
+        
+        // Trigger analysis after state update
+        setTimeout(async () => {
+          try {
+            console.log('🎵 Auto-analyzing track:', data.url);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            const enhancedResult = {
+              id: Math.random().toString(36).substr(2, 9),
+              title: data.title || "Orchestrated Track",
+              artist: "Generated",
+              bpm: Math.floor(Math.random() * 40) + 100,
+              key: ['F# minor', 'C major', 'G minor', 'D major', 'A minor'][Math.floor(Math.random() * 5)],
+              genre: "Private School Amapiano",
+              duration: "4:32",
+              quality: Math.floor(Math.random() * 20) + 80,
+              stems: {
+                drums: Math.floor(Math.random() * 15) + 85,
+                bass: Math.floor(Math.random() * 15) + 85,
+                piano: Math.floor(Math.random() * 15) + 85,
+                vocals: Math.floor(Math.random() * 15) + 85,
+                other: Math.floor(Math.random() * 15) + 80
+              },
+              patterns: [
+                { type: "Chord Progression", content: "Fm - Ab - Eb - Bb", confidence: Math.floor(Math.random() * 10) + 85 },
+                { type: "Drum Pattern", content: "Classic log drum with hi-hat shuffle", confidence: Math.floor(Math.random() * 10) + 80 },
+                { type: "Bassline", content: "Deep sub-bass with rhythmic emphasis", confidence: Math.floor(Math.random() * 10) + 85 },
+                { type: "Harmonic Structure", content: "Gospel-influenced chord voicings", confidence: Math.floor(Math.random() * 10) + 90 }
+              ],
+              technicalSpecs: {
+                sampleRate: "44.1 kHz",
+                bitDepth: "24-bit",
+                channels: "Stereo",
+                dynamicRange: Math.floor(Math.random() * 10) + 60 + " dB"
+              },
+              musicalAnalysis: {
+                melody: "Sophisticated melodic development with jazz influences",
+                harmony: "Extended chord progressions with rich voicings",
+                rhythm: "Syncopated amapiano groove with log drum emphasis", 
+                timbre: "Warm, organic sound with spatial depth",
+                form: "ABABCB structure with developmental variations"
+              }
+            };
+            
+            setAnalysisResult(enhancedResult);
+            setShowAmapianorize(true);
+            setIsAnalyzing(false);
+            toast.success('✨ Auto-analysis complete!');
+            console.log('✅ Analysis completed:', enhancedResult);
+          } catch (error) {
+            console.error('❌ Auto-analysis failed:', error);
+            setIsAnalyzing(false);
+            toast.error('Analysis failed. Please try again.');
+          }
+        }, 100);
       } catch (e) {
-        console.error('Failed to prepare analysis track:', e);
+        console.error('❌ Failed to prepare analysis track:', e);
         localStorage.removeItem('pendingAnalysisTrack');
+        toast.error('Failed to load track for analysis');
       }
     }
   }, []);
@@ -50,11 +107,14 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
       return;
     }
 
+    console.log('🔍 Starting analysis for:', { url, fileName: selectedFile?.name });
     setIsAnalyzing(true);
     toast.info("🔍 Performing enhanced audio analysis...");
 
-    // Enhanced simulation with more detailed analysis
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    try {
+      // Enhanced simulation with more detailed analysis
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      console.log('⏱️ Analysis simulation complete');
 
     const enhancedResult = {
       id: Math.random().toString(36).substr(2, 9),
@@ -95,24 +155,33 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
       }
     };
 
-    setAnalysisResult(enhancedResult);
-    setIsAnalyzing(false);
-    setShowAmapianorize(true);
-    toast.success("✨ Enhanced analysis complete!");
+      setAnalysisResult(enhancedResult);
+      setIsAnalyzing(false);
+      setShowAmapianorize(true);
+      toast.success("✨ Enhanced analysis complete!");
+      console.log('✅ Analysis result:', enhancedResult);
+    } catch (error) {
+      console.error('❌ Analysis failed:', error);
+      setIsAnalyzing(false);
+      toast.error('Analysis failed. Please try again.');
+    }
   };
 
   const handleFileSelect = (file: File) => {
+    console.log('📁 File selected for analysis:', { name: file.name, size: file.size, type: file.type });
     setSelectedFile(file);
     setUrl(file.name);
     toast.success(`📁 File "${file.name}" selected for analysis`);
   };
 
   const handleBatchComplete = (results: any[]) => {
+    console.log('✅ Batch processing complete:', results);
     setBatchResults(results);
     toast.success(`Batch analysis completed! ${results.length} items processed.`);
   };
 
   const handleAmapianorizeComplete = (result: any) => {
+    console.log('🎵 Amapianorize transformation completed:', result);
     toast.success("🎵 Amapianorize transformation completed!");
     // Handle the transformed result
   };
@@ -320,13 +389,21 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                      size="sm" 
                                      className="flex-1"
                                      onClick={() => {
-                                       toast.success(`📁 ${stem} stem downloaded!`);
-                                       const element = document.createElement('a');
-                                       element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/${stem}-stem`;
-                                       element.download = `${stem}_stem.wav`;
-                                       document.body.appendChild(element);
-                                       element.click();
-                                       document.body.removeChild(element);
+                                       try {
+                                         console.log(`📥 Downloading ${stem} stem...`);
+                                         const element = document.createElement('a');
+                                         element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=${stem}-stem`;
+                                         element.download = `${stem}_stem.wav`;
+                                         element.target = '_blank';
+                                         document.body.appendChild(element);
+                                         element.click();
+                                         document.body.removeChild(element);
+                                         toast.success(`📁 ${stem} stem downloaded!`);
+                                         console.log(`✅ Download triggered for ${stem} stem`);
+                                       } catch (error) {
+                                         console.error(`❌ Failed to download ${stem} stem:`, error);
+                                         toast.error(`Failed to download ${stem} stem`);
+                                       }
                                      }}
                                    >
                                      <Download className="w-3 h-3 mr-1" />
@@ -337,9 +414,18 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                      size="sm" 
                                      className="flex-1"
                                      onClick={() => {
-                                       toast.info(`🔊 Previewing ${stem} stem...`);
-                                       const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/${stem}-stem`);
-                                       audio.play().catch(() => toast.error("Unable to preview audio"));
+                                       try {
+                                         console.log(`🔊 Previewing ${stem} stem...`);
+                                         toast.info(`🔊 Previewing ${stem} stem...`);
+                                         const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=${stem}-stem`);
+                                         audio.play().catch((error) => {
+                                           console.error(`❌ Failed to preview ${stem}:`, error);
+                                           toast.error("Unable to preview audio");
+                                         });
+                                       } catch (error) {
+                                         console.error(`❌ Preview error for ${stem}:`, error);
+                                         toast.error("Unable to preview audio");
+                                       }
                                      }}
                                    >
                                      Preview
@@ -365,23 +451,31 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                   </Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground mb-2">{pattern.content}</p>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="w-full"
-                                  onClick={() => {
-                                    toast.success(`📁 ${pattern.type} MIDI pattern exported!`);
-                                    const element = document.createElement('a');
-                                    element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/pattern-${index}.mid`;
-                                    element.download = `${pattern.type.replace(/\s+/g, '_')}.mid`;
-                                    document.body.appendChild(element);
-                                    element.click();
-                                    document.body.removeChild(element);
-                                  }}
-                                >
-                                  <FileText className="w-3 h-3 mr-1" />
-                                  Export MIDI Pattern
-                                </Button>
+                               <Button 
+                                 variant="outline" 
+                                 size="sm" 
+                                 className="w-full"
+                                 onClick={() => {
+                                   try {
+                                     console.log(`📥 Exporting MIDI pattern: ${pattern.type}`);
+                                     const element = document.createElement('a');
+                                     element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=pattern-${index}`;
+                                     element.download = `${pattern.type.replace(/\s+/g, '_')}.mid`;
+                                     element.target = '_blank';
+                                     document.body.appendChild(element);
+                                     element.click();
+                                     document.body.removeChild(element);
+                                     toast.success(`📁 ${pattern.type} MIDI pattern exported!`);
+                                     console.log(`✅ MIDI export triggered for ${pattern.type}`);
+                                   } catch (error) {
+                                     console.error(`❌ Failed to export MIDI pattern:`, error);
+                                     toast.error('Failed to export MIDI pattern');
+                                   }
+                                 }}
+                               >
+                                 <FileText className="w-3 h-3 mr-1" />
+                                 Export MIDI Pattern
+                               </Button>
                               </div>
                             ))}
                           </div>
@@ -453,11 +547,39 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                         <Separator />
                         
                         <div className="flex gap-2">
-                          <Button variant="outline" className="flex-1">
+                          <Button 
+                            variant="outline" 
+                            className="flex-1"
+                            onClick={() => {
+                              try {
+                                console.log('📥 Exporting all batch results...', batchResults);
+                                const dataStr = JSON.stringify(batchResults, null, 2);
+                                const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                                const exportFileDefaultName = `batch_results_${Date.now()}.json`;
+                                
+                                const linkElement = document.createElement('a');
+                                linkElement.setAttribute('href', dataUri);
+                                linkElement.setAttribute('download', exportFileDefaultName);
+                                linkElement.click();
+                                
+                                toast.success(`📁 Exported ${batchResults.length} results!`);
+                                console.log('✅ Batch results exported successfully');
+                              } catch (error) {
+                                console.error('❌ Failed to export batch results:', error);
+                                toast.error('Failed to export results');
+                              }
+                            }}
+                          >
                             <Download className="w-4 h-4 mr-2" />
                             Export All Results
                           </Button>
-                          <Button className="flex-1 btn-glow">
+                          <Button 
+                            className="flex-1 btn-glow"
+                            onClick={() => {
+                              console.log('🎵 Starting batch Amapianorize...', batchResults);
+                              toast.info('🎵 Batch Amapianorize coming soon!');
+                            }}
+                          >
                             <Wand2 className="w-4 h-4 mr-2" />
                             Batch Amapianorize
                           </Button>

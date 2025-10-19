@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { AuraConductor } from '@/components/aura/AuraConductor';
 import { VastIntegratedOrchestrator } from '@/components/aura/VastIntegratedOrchestrator';
 import { RealtimeAudioEngine } from '@/components/RealtimeAudioEngine';
 import UnifiedVoiceToMusicEngine from '@/components/UnifiedVoiceToMusicEngine';
+import { SourceSeparationEngine } from '@/components/ai/SourceSeparationEngine';
 import { 
   Bot, 
   TrendingUp, 
@@ -21,7 +22,8 @@ import {
   BarChart3,
   Radio,
   Sparkles,
-  Mic
+  Mic,
+  Layers
 } from 'lucide-react';
 
 interface AIHubProps {
@@ -31,6 +33,8 @@ interface AIHubProps {
 export default function AIHub({ user }: AIHubProps) {
   const [activeTab, setActiveTab] = useState('assistant');
   const [isAudioEngineEnabled, setIsAudioEngineEnabled] = useState(false);
+  const [showSeparation, setShowSeparation] = useState(false);
+  const [pendingStemUrl, setPendingStemUrl] = useState<string | null>(null);
   const [mockProjectData] = useState({
     id: 'demo-project',
     name: 'Demo Amapiano Track',
@@ -72,6 +76,23 @@ export default function AIHub({ user }: AIHubProps) {
       color: 'bg-orange-500'
     }
   ];
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tool') === 'stem-separation') {
+      try {
+        const pending = localStorage.getItem('pendingStemTrack');
+        if (pending) {
+          const data = JSON.parse(pending);
+          setPendingStemUrl(data.url);
+          localStorage.removeItem('pendingStemTrack');
+        }
+        setShowSeparation(true);
+      } catch (e) {
+        console.error('Failed to parse pendingStemTrack:', e);
+      }
+    }
+  }, []);
 
   if (!user) {
     return (
@@ -120,6 +141,20 @@ export default function AIHub({ user }: AIHubProps) {
             Advanced AI-powered tools for amapiano music production, collaboration, and analytics.
           </p>
         </div>
+
+        {showSeparation && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-primary" />
+                Stem Separation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SourceSeparationEngine initialAudioUrl={pendingStemUrl ?? undefined} autoStart={!!pendingStemUrl} />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Feature Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

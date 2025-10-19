@@ -452,6 +452,24 @@ const [zoom, setZoom] = useState([100]);
         }
       }
       
+      // Check for pending DAW import from GeneratedTrackPanel
+      const pendingDAW = localStorage.getItem('pendingDAWTrack');
+      if (pendingDAW && projectData) {
+        try {
+          const data = JSON.parse(pendingDAW);
+          localStorage.removeItem('pendingDAWTrack');
+          handleTrackGenerated({
+            name: data.metadata?.style || 'Imported Track',
+            audioUrl: data.url,
+            metadata: data.metadata,
+          });
+          toast.success('🎛️ Track loaded into DAW');
+        } catch (e) {
+          console.error('Failed to import pending DAW track:', e);
+          localStorage.removeItem('pendingDAWTrack');
+        }
+      }
+
       // Check for pending MIDI import from Voice-to-MIDI
       const pendingMIDI = localStorage.getItem('pendingMIDIImport');
       if (pendingMIDI && projectData) {

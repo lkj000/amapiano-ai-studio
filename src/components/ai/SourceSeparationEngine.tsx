@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -53,7 +53,7 @@ const INSTRUMENT_COLORS = {
   other: 'bg-gray-500'
 };
 
-export const SourceSeparationEngine = () => {
+export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoStart?: boolean; }> = ({ initialAudioUrl, autoStart }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [separationProgress, setSeparationProgress] = useState(0);
@@ -207,6 +207,28 @@ export const SourceSeparationEngine = () => {
       setIsProcessing(false);
     }
   }, [initializeAudioContext, simulateSourceSeparation, analyzeAudioPatterns, enablePatternExtraction]);
+
+  // Auto-start processing if an initial URL is provided
+  useEffect(() => {
+    const run = async () => {
+      if (autoStart && initialAudioUrl) {
+        try {
+          const resp = await fetch(initialAudioUrl);
+          if (!resp.ok) throw new Error('Failed to fetch audio for stems');
+          const blob = await resp.blob();
+          const ext = (blob.type?.split('/')[1] || 'mp3').split(';')[0];
+          const file = new File([blob], `track-${Date.now()}.${ext}`, { type: blob.type || 'audio/mpeg' });
+          await handleFileUpload(file);
+        } catch (e) {
+          toast.error("Failed to prepare track for stem separation");
+          console.error(e);
+        }
+      }
+    };
+    run();
+    // We intentionally omit handleFileUpload to avoid unnecessary re-runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAudioUrl, autoStart]);
 
   const updateStemVolume = useCallback((stemId: string, volume: number) => {
     setSeparatedStems(prev => prev.map(stem => 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,22 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [batchResults, setBatchResults] = useState<any[]>([]);
   const [showAmapianorize, setShowAmapianorize] = useState(false);
+
+  useEffect(() => {
+    const pending = localStorage.getItem('pendingAnalysisTrack');
+    if (pending) {
+      try {
+        const data = JSON.parse(pending);
+        localStorage.removeItem('pendingAnalysisTrack');
+        setUrl(data.url || "");
+        setTimeout(() => handleAnalyze(), 0);
+        toast.success('Loaded track for analysis');
+      } catch (e) {
+        console.error('Failed to prepare analysis track:', e);
+        localStorage.removeItem('pendingAnalysisTrack');
+      }
+    }
+  }, []);
 
   const handleAnalyze = async () => {
     if (!url.trim() && !selectedFile) {

@@ -9,7 +9,7 @@ const corsHeaders = {
 // Demo audio data - base64 encoded short audio files with actual audio content
 const demoAudioFiles: Record<string, { data: string; contentType: string; filename: string }> = {
   'generated-track': {
-    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYADAAC/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/', // 440hz sine wave
+    data: 'UklGRqQBAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YYADAAC/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSv7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/v7+/',
     contentType: 'audio/wav',
     filename: 'generated-track.wav'
   },
@@ -40,6 +40,47 @@ const demoAudioFiles: Record<string, { data: string; contentType: string; filena
   }
 };
 
+// Generate a simple MIDI file (Type 0, single track)
+function generateMidiPattern(patternName: string, index: number): Uint8Array {
+  // Basic MIDI file structure: MThd header + MTrk track
+  const midiData = [
+    // MThd chunk
+    0x4D, 0x54, 0x68, 0x64, // "MThd"
+    0x00, 0x00, 0x00, 0x06, // Header length (6 bytes)
+    0x00, 0x00, // Format type 0
+    0x00, 0x01, // Number of tracks (1)
+    0x00, 0x60, // Ticks per quarter note (96)
+    
+    // MTrk chunk
+    0x4D, 0x54, 0x72, 0x6B, // "MTrk"
+    0x00, 0x00, 0x00, 0x3C, // Track length (will be adjusted)
+    
+    // Set tempo (500000 microseconds per quarter note = 120 BPM)
+    0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
+    
+    // Note on events (C major chord progression)
+    0x00, 0x90, 0x3C, 0x64, // C note on
+    0x00, 0x90, 0x40, 0x64, // E note on
+    0x00, 0x90, 0x43, 0x64, // G note on
+    0x60, 0x90, 0x3C, 0x00, // C note off
+    0x00, 0x90, 0x40, 0x00, // E note off
+    0x00, 0x90, 0x43, 0x00, // G note off
+    
+    // Second chord
+    0x00, 0x90, 0x3E, 0x64, // D note on
+    0x00, 0x90, 0x41, 0x64, // F note on
+    0x00, 0x90, 0x45, 0x64, // A note on
+    0x60, 0x90, 0x3E, 0x00, // D note off
+    0x00, 0x90, 0x41, 0x00, // F note off
+    0x00, 0x90, 0x45, 0x00, // A note off
+    
+    // End of track
+    0x00, 0xFF, 0x2F, 0x00
+  ];
+  
+  return new Uint8Array(midiData);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -56,16 +97,36 @@ serve(async (req) => {
     if (!fileType) {
       fileType = url.pathname.split('/').pop();
     }
+
+    console.log(`📥 Incoming request for: ${fileType}`);
+    
+    // Handle MIDI pattern exports
+    if (fileType?.startsWith('pattern-')) {
+      const patternIndex = parseInt(fileType.replace('pattern-', ''));
+      console.log(`🎵 Generating MIDI pattern ${patternIndex}`);
+      
+      const midiData = generateMidiPattern(`Pattern ${patternIndex}`, patternIndex);
+      
+      return new Response(midiData, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'audio/midi',
+          'Content-Disposition': `attachment; filename="pattern_${patternIndex}.mid"`,
+          'Content-Length': midiData.length.toString(),
+        },
+      });
+    }
     
     // Strip -stem suffix if present (e.g., drums-stem -> drums)
     if (fileType) {
       fileType = fileType.replace(/-stem$/, '');
     }
 
-    console.log(`Requested file type: ${fileType}`);
+    console.log(`🔍 Looking for audio file: ${fileType}`);
 
     if (!fileType || !demoAudioFiles[fileType]) {
-      console.error(`File not found: ${fileType}`);
+      console.error(`❌ File not found: ${fileType}`);
+      console.error(`Available files: ${Object.keys(demoAudioFiles).join(', ')}`);
       return new Response('File not found', { 
         status: 404, 
         headers: corsHeaders 
@@ -75,7 +136,7 @@ serve(async (req) => {
     const file = demoAudioFiles[fileType];
     const audioData = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
 
-    console.log(`Serving demo audio file: ${file.filename}`);
+    console.log(`✅ Serving demo audio file: ${file.filename} (${audioData.length} bytes)`);
 
     return new Response(audioData, {
       headers: {
@@ -83,6 +144,7 @@ serve(async (req) => {
         'Content-Type': file.contentType,
         'Content-Disposition': `attachment; filename="${file.filename}"`,
         'Content-Length': audioData.length.toString(),
+        'Cache-Control': 'no-cache',
       },
     });
   } catch (error) {

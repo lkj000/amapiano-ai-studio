@@ -278,7 +278,7 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
       }
 
       // Mark session as completed with final results
-      await supabase
+      const { data: updatedSession, error: updateError } = await supabase
         .from('aura_conductor_sessions')
         .update({
           current_task: null,
@@ -289,7 +289,16 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
             completion_time: new Date().toISOString()
           }
         })
-        .eq('id', session.id);
+        .eq('id', session.id)
+        .select()
+        .single();
+
+      if (!updateError && updatedSession) {
+        setCurrentSession(updatedSession);
+      }
+
+      // Refresh sessions list
+      await fetchSessions();
 
       setIsRunning(false);
       toast({

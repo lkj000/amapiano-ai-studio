@@ -48,9 +48,24 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const fileType = url.pathname.split('/').pop();
+    
+    // Get file type from query parameter or pathname
+    let fileType = url.searchParams.get('track');
+    
+    // If not in query params, try pathname
+    if (!fileType) {
+      fileType = url.pathname.split('/').pop();
+    }
+    
+    // Strip -stem suffix if present (e.g., drums-stem -> drums)
+    if (fileType) {
+      fileType = fileType.replace(/-stem$/, '');
+    }
+
+    console.log(`Requested file type: ${fileType}`);
 
     if (!fileType || !demoAudioFiles[fileType]) {
+      console.error(`File not found: ${fileType}`);
       return new Response('File not found', { 
         status: 404, 
         headers: corsHeaders 

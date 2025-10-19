@@ -366,7 +366,11 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                                 }
                               };
                               localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
-                              window.open('/daw', '_blank');
+                              const win = window.open('/daw', '_blank');
+                              if (!win || win.closed) {
+                                // Popup blocked – navigate in the same tab as a fallback
+                                window.location.href = '/daw';
+                              }
                               toast.success(`🎵 "${sample.name}" sent to DAW!`);
                             }}
                           >

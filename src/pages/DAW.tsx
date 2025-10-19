@@ -438,14 +438,32 @@ const [zoom, setZoom] = useState([100]);
   useEffect(() => {
     const checkPendingTrack = () => {
       const pendingTrack = localStorage.getItem('pendingGeneratedTrack');
-      if (pendingTrack && projectData) {
+      if (pendingTrack) {
         try {
           const trackData = JSON.parse(pendingTrack);
           localStorage.removeItem('pendingGeneratedTrack');
           
+          // If no project exists, create a new one first
+          if (!projectData) {
+            console.log('DAW: Creating new project for pending track from Samples');
+            const newProject: DawProjectData = {
+              bpm: trackData.metadata?.bpm || 118,
+              keySignature: trackData.metadata?.key || 'F#m',
+              tracks: [],
+              masterVolume: 0.8,
+            };
+            setProjectData(newProject);
+            setProjectName("New Project");
+            // Re-queue the pending track to be processed after state update
+            setTimeout(() => {
+              localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
+            }, 100);
+            return;
+          }
+          
           // Add the track to the current project
           handleTrackGenerated(trackData);
-          toast.success(`🎵 Imported "${trackData.name}" from Generator!`);
+          toast.success(`🎵 Imported "${trackData.name}" from Samples!`);
         } catch (error) {
           console.error('Failed to import pending track:', error);
           localStorage.removeItem('pendingGeneratedTrack');
@@ -454,10 +472,29 @@ const [zoom, setZoom] = useState([100]);
       
       // Check for pending DAW import from GeneratedTrackPanel
       const pendingDAW = localStorage.getItem('pendingDAWTrack');
-      if (pendingDAW && projectData) {
+      if (pendingDAW) {
         try {
           const data = JSON.parse(pendingDAW);
           localStorage.removeItem('pendingDAWTrack');
+          
+          // If no project exists, create a new one first
+          if (!projectData) {
+            console.log('DAW: Creating new project for pending DAW track');
+            const newProject: DawProjectData = {
+              bpm: data.metadata?.bpm || 118,
+              keySignature: data.metadata?.key || 'F#m',
+              tracks: [],
+              masterVolume: 0.8,
+            };
+            setProjectData(newProject);
+            setProjectName("New Project");
+            // Re-queue the pending track
+            setTimeout(() => {
+              localStorage.setItem('pendingDAWTrack', JSON.stringify(data));
+            }, 100);
+            return;
+          }
+          
           handleTrackGenerated({
             name: data.metadata?.style || 'Imported Track',
             audioUrl: data.url,
@@ -472,11 +509,29 @@ const [zoom, setZoom] = useState([100]);
 
       // Check for pending MIDI import from Voice-to-MIDI
       const pendingMIDI = localStorage.getItem('pendingMIDIImport');
-      if (pendingMIDI && projectData) {
+      if (pendingMIDI) {
         try {
           const midiData = JSON.parse(pendingMIDI);
           console.log('DAW: Found pending MIDI import:', midiData);
           localStorage.removeItem('pendingMIDIImport');
+          
+          // If no project exists, create a new one first
+          if (!projectData) {
+            console.log('DAW: Creating new project for pending MIDI');
+            const newProject: DawProjectData = {
+              bpm: 118,
+              keySignature: 'F#m',
+              tracks: [],
+              masterVolume: 0.8,
+            };
+            setProjectData(newProject);
+            setProjectName("New Project");
+            // Re-queue the pending MIDI
+            setTimeout(() => {
+              localStorage.setItem('pendingMIDIImport', JSON.stringify(midiData));
+            }, 100);
+            return;
+          }
           
           // Convert the recorded MIDI notes to DAW format
           const notes: MidiNote[] = midiData.notes.map((note: any, index: number) => ({

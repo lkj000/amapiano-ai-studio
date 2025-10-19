@@ -804,7 +804,7 @@ const [zoom, setZoom] = useState([100]);
   const handleImportMIDI = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mid,.midi';
+    input.accept = '.mid,.midi,.project';
     
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -812,6 +812,45 @@ const [zoom, setZoom] = useState([100]);
       
       try {
         console.log('DAW: Importing MIDI file:', file.name);
+        
+        // Check if it's a project file
+        if (file.name.endsWith('.project')) {
+          toast.info('Loading project file...');
+          const text = await file.text();
+          const projectJson = JSON.parse(text);
+          
+          console.log('DAW: Loaded project data:', projectJson);
+          
+          // Convert project JSON to DAW format
+          const newProjectData: DawProjectData = {
+            bpm: projectJson.bpm || 120,
+            keySignature: projectJson.key || 'C',
+            timeSignature: '4/4',
+            masterVolume: 0.8,
+            tracks: projectJson.tracks?.map((t: any, idx: number) => ({
+              id: t.id || `track_${Date.now()}_${idx}`,
+              projectId: `project_${Date.now()}`,
+              name: t.name || `Track ${idx + 1}`,
+              type: t.type || 'audio',
+              instrument: t.instrument || 'Unknown',
+              volume: t.volume ?? 0.8,
+              pan: t.pan ?? 0,
+              solo: false,
+              mute: false,
+              color: t.color || `hsl(${(idx * 137.5) % 360}, 70%, 50%)`,
+              clips: [],
+              effects: []
+            })) || []
+          };
+          
+          setProjectData(newProjectData);
+          undoRedoControls.pushState(newProjectData, 'Imported project file');
+          
+          toast.success(`Project "${projectJson.name}" loaded successfully`);
+          return;
+        }
+        
+        // Otherwise parse as MIDI
         toast.info('Parsing MIDI file...');
         
         const { parseMIDIFile, convertToDAWFormat } = await import('@/lib/midiParser');

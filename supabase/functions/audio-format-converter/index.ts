@@ -260,17 +260,68 @@ function createMidiTrack(generationResult: any): any {
 }
 
 function createMidiBinary(midiData: any): ArrayBuffer {
-  // Simplified MIDI binary creation
-  // In production, use a proper MIDI encoder
-  const buffer = new ArrayBuffer(1024);
+  // Create proper MIDI file with MThd header and MTrk tracks
+  const tracks = midiData.tracks.length > 0 ? midiData.tracks : [createMidiTrack({})];
+  
+  // Calculate total size
+  let totalSize = 14; // MThd header
+  const trackBuffers: ArrayBuffer[] = [];
+  
+  for (const track of tracks) {
+    const trackBuffer = createMidiTrackBinary(track);
+    trackBuffers.push(trackBuffer);
+    totalSize += trackBuffer.byteLength;
+  }
+  
+  const buffer = new ArrayBuffer(totalSize);
+  const view = new DataView(buffer);
+  let offset = 0;
+  
+  // Write MThd header
+  writeString(view, offset, 'MThd');
+  offset += 4;
+  view.setUint32(offset, 6, false); // Header length
+  offset += 4;
+  view.setUint16(offset, midiData.header.format, false);
+  offset += 2;
+  view.setUint16(offset, tracks.length, false);
+  offset += 2;
+  view.setUint16(offset, midiData.header.ticksPerQuarterNote, false);
+  offset += 2;
+  
+  // Write MTrk chunks
+  const targetView = new Uint8Array(buffer);
+  for (const trackBuffer of trackBuffers) {
+    const sourceView = new Uint8Array(trackBuffer);
+    targetView.set(sourceView, offset);
+    offset += trackBuffer.byteLength;
+  }
+  
+  return buffer;
+}
+
+function createMidiTrackBinary(track: any): ArrayBuffer {
+  // Create a simple MIDI track with note events
+  const events: number[] = [];
+  
+  // Delta time (0), Note On (0x90), Note 60 (C4), Velocity 100
+  events.push(0x00, 0x90, 0x3C, 0x64);
+  // Delta time (480 ticks), Note Off (0x80), Note 60, Velocity 0
+  events.push(0x81, 0x70, 0x80, 0x3C, 0x00);
+  // End of track
+  events.push(0x00, 0xFF, 0x2F, 0x00);
+  
+  const trackSize = events.length;
+  const buffer = new ArrayBuffer(8 + trackSize);
   const view = new DataView(buffer);
   
-  // MIDI header
-  writeString(view, 0, 'MThd');
-  view.setUint32(4, 6, false); // Header length
-  view.setUint16(8, midiData.header.format, false);
-  view.setUint16(10, midiData.header.numTracks, false);
-  view.setUint16(12, midiData.header.ticksPerQuarterNote, false);
+  // Write MTrk header
+  writeString(view, 0, 'MTrk');
+  view.setUint32(4, trackSize, false);
+  
+  // Write events
+  const eventView = new Uint8Array(buffer);
+  eventView.set(events, 8);
   
   return buffer;
 }

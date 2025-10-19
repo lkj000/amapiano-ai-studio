@@ -103,14 +103,25 @@ function parseTrack(view: DataView, start: number, end: number, ticksPerBeat: nu
   let bpm: number | undefined;
   
   while (offset < end) {
-    // Read delta time
-    const deltaTime = readVariableLength(view, offset);
-    offset += deltaTime.bytesRead;
-    currentTime += deltaTime.value;
-    
-    // Read event
-    let status = view.getUint8(offset);
-    offset++;
+    try {
+      // Check if we have enough bytes for delta time
+      if (offset >= end) {
+        break;
+      }
+      
+      // Read delta time
+      const deltaTime = readVariableLength(view, offset);
+      offset += deltaTime.bytesRead;
+      currentTime += deltaTime.value;
+      
+      // Check if we have enough bytes for status byte
+      if (offset >= end) {
+        break;
+      }
+      
+      // Read event
+      let status = view.getUint8(offset);
+      offset++;
     
     // Handle running status
     if (status < 0x80) {
@@ -120,15 +131,16 @@ function parseTrack(view: DataView, start: number, end: number, ticksPerBeat: nu
       lastStatus = status;
     }
     
-    const messageType = status & 0xF0;
-    const channel = status & 0x0F;
-    
-    if (messageType === 0x90) {
-      // Note On
-      const note = view.getUint8(offset);
-      offset++;
-      const velocity = view.getUint8(offset);
-      offset++;
+      const messageType = status & 0xF0;
+      const channel = status & 0x0F;
+      
+      if (messageType === 0x90) {
+        // Note On
+        if (offset + 1 >= end) break;
+        const note = view.getUint8(offset);
+        offset++;
+        const velocity = view.getUint8(offset);
+        offset++;
       
       if (velocity > 0) {
         noteOnEvents.set(note, { timestamp: currentTime, velocity });
@@ -144,12 +156,13 @@ function parseTrack(view: DataView, start: number, end: number, ticksPerBeat: nu
           });
           noteOnEvents.delete(note);
         }
-      }
-    } else if (messageType === 0x80) {
-      // Note Off
-      const note = view.getUint8(offset);
-      offset++;
-      offset++; // Skip velocity
+        }
+      } else if (messageType === 0x80) {
+        // Note Off
+        if (offset + 1 >= end) break;
+        const note = view.getUint8(offset);
+        offset++;
+        offset++; // Skip velocity
       
       const noteOn = noteOnEvents.get(note);
       if (noteOn) {
@@ -160,40 +173,52 @@ function parseTrack(view: DataView, start: number, end: number, ticksPerBeat: nu
           duration: currentTime - noteOn.timestamp
         });
         noteOnEvents.delete(note);
+        }
+      } else if (messageType === 0xB0) {
+        // Control Change
+        if (offset + 1 >= end) break;
+        offset += 2;
+      } else if (messageType === 0xC0) {
+        // Program Change
+        if (offset >= end) break;
+        offset += 1;
+      } else if (messageType === 0xD0) {
+        // Channel Pressure
+        if (offset >= end) break;
+        offset += 1;
+      } else if (messageType === 0xE0) {
+        // Pitch Bend
+        if (offset + 1 >= end) break;
+        offset += 2;
+      } else if (status === 0xFF) {
+        // Meta event
+        if (offset >= end) break;
+        const metaType = view.getUint8(offset);
+        offset++;
+        
+        if (offset >= end) break;
+        const length = readVariableLength(view, offset);
+        offset += length.bytesRead;
+        
+        if (metaType === 0x51 && length.value === 3 && offset + 2 < end) {
+          // Tempo meta event
+          const microsecondsPerBeat = (view.getUint8(offset) << 16) | 
+                                     (view.getUint8(offset + 1) << 8) | 
+                                     view.getUint8(offset + 2);
+          bpm = Math.round(60000000 / microsecondsPerBeat);
+        }
+        
+        offset += length.value;
+      } else if (status === 0xF0 || status === 0xF7) {
+        // SysEx
+        if (offset >= end) break;
+        const length = readVariableLength(view, offset);
+        offset += length.bytesRead + length.value;
       }
-    } else if (messageType === 0xB0) {
-      // Control Change
-      offset += 2;
-    } else if (messageType === 0xC0) {
-      // Program Change
-      offset += 1;
-    } else if (messageType === 0xD0) {
-      // Channel Pressure
-      offset += 1;
-    } else if (messageType === 0xE0) {
-      // Pitch Bend
-      offset += 2;
-    } else if (status === 0xFF) {
-      // Meta event
-      const metaType = view.getUint8(offset);
-      offset++;
-      
-      const length = readVariableLength(view, offset);
-      offset += length.bytesRead;
-      
-      if (metaType === 0x51 && length.value === 3) {
-        // Tempo meta event
-        const microsecondsPerBeat = (view.getUint8(offset) << 16) | 
-                                   (view.getUint8(offset + 1) << 8) | 
-                                   view.getUint8(offset + 2);
-        bpm = Math.round(60000000 / microsecondsPerBeat);
-      }
-      
-      offset += length.value;
-    } else if (status === 0xF0 || status === 0xF7) {
-      // SysEx
-      const length = readVariableLength(view, offset);
-      offset += length.bytesRead + length.value;
+    } catch (error) {
+      console.error(`Error parsing MIDI track at offset ${offset}:`, error);
+      // Try to recover by breaking out of the loop
+      break;
     }
   }
   
@@ -209,9 +234,19 @@ function readVariableLength(view: DataView, offset: number): { value: number; by
   let byte: number;
   
   do {
+    // Check bounds before reading
+    if (offset + bytesRead >= view.byteLength) {
+      throw new Error(`readVariableLength: Offset ${offset + bytesRead} is outside bounds (length: ${view.byteLength})`);
+    }
+    
     byte = view.getUint8(offset + bytesRead);
     value = (value << 7) | (byte & 0x7F);
     bytesRead++;
+    
+    // Safety check to prevent infinite loops
+    if (bytesRead > 4) {
+      throw new Error('Invalid variable-length quantity: too many bytes');
+    }
   } while (byte & 0x80);
   
   return { value, bytesRead };

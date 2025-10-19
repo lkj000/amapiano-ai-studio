@@ -821,26 +821,43 @@ const [zoom, setZoom] = useState([100]);
           
           console.log('DAW: Loaded project data:', projectJson);
           
-          // Convert project JSON to DAW format
+          // Convert project JSON to DAW format with proper mixer structure
           const newProjectData: DawProjectData = {
             bpm: projectJson.bpm || 120,
             keySignature: projectJson.key || 'C',
             timeSignature: '4/4',
             masterVolume: 0.8,
-            tracks: projectJson.tracks?.map((t: any, idx: number) => ({
-              id: t.id || `track_${Date.now()}_${idx}`,
-              projectId: `project_${Date.now()}`,
-              name: t.name || `Track ${idx + 1}`,
-              type: t.type || 'audio',
-              instrument: t.instrument || 'Unknown',
-              volume: t.volume ?? 0.8,
-              pan: t.pan ?? 0,
-              solo: false,
-              mute: false,
-              color: t.color || `hsl(${(idx * 137.5) % 360}, 70%, 50%)`,
-              clips: [],
-              effects: []
-            })) || []
+            tracks: projectJson.tracks?.map((t: any, idx: number) => {
+              const baseTrack = {
+                id: t.id || `track_${Date.now()}_${idx}`,
+                name: t.name || `Track ${idx + 1}`,
+                type: t.type || 'audio',
+                clips: [],
+                mixer: {
+                  volume: t.volume ?? 0.8,
+                  pan: t.pan ?? 0,
+                  isMuted: false,
+                  isSolo: false,
+                  effects: []
+                },
+                isArmed: false,
+                color: t.color || `hsl(${(idx * 137.5) % 360}, 70%, 50%)`,
+                automationLanes: []
+              };
+              
+              // Add type-specific properties
+              if (t.type === 'midi') {
+                return {
+                  ...baseTrack,
+                  instrument: t.instrument || 'Piano'
+                } as DawTrackV2;
+              } else {
+                return {
+                  ...baseTrack,
+                  recordings: []
+                } as DawTrackV2;
+              }
+            }) || []
           };
           
           setProjectData(newProjectData);

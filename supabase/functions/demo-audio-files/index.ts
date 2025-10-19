@@ -169,7 +169,7 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': file.contentType,
-        'Content-Disposition': `attachment; filename="${file.filename}"`,
+        'Content-Disposition': `inline; filename="${file.filename}"`,
         'Content-Length': audioData.length.toString(),
         'Cache-Control': 'no-cache',
       },

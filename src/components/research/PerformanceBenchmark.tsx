@@ -173,10 +173,10 @@ const PerformanceBenchmark = () => {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="baseline" stroke="hsl(var(--muted-foreground))" name="Baseline" />
-              <Line type="monotone" dataKey="edge" stroke="hsl(var(--accent))" name="Edge-Only" />
-              <Line type="monotone" dataKey="cloud" stroke="hsl(var(--secondary))" name="Cloud-Only" />
-              <Line type="monotone" dataKey="hybrid" stroke="hsl(var(--primary))" strokeWidth={2} name="Hybrid (Ours)" />
+              <Line type="monotone" dataKey="baseline" stroke="#64748b" name="Baseline" />
+              <Line type="monotone" dataKey="edge" stroke="#3b82f6" name="Edge-Only" />
+              <Line type="monotone" dataKey="cloud" stroke="#10b981" name="Cloud-Only" />
+              <Line type="monotone" dataKey="hybrid" stroke="#8b5cf6" strokeWidth={2} name="Hybrid (Ours)" />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -194,8 +194,8 @@ const PerformanceBenchmark = () => {
               <PolarGrid />
               <PolarAngleAxis dataKey="metric" />
               <PolarRadiusAxis angle={90} domain={[0, 100]} />
-              <Radar name="Baseline" dataKey="baseline" stroke="hsl(var(--muted-foreground))" fill="hsl(var(--muted-foreground))" fillOpacity={0.3} />
-              <Radar name="Hybrid (Ours)" dataKey="hybrid" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.5} />
+              <Radar name="Baseline" dataKey="baseline" stroke="#64748b" fill="#64748b" fillOpacity={0.3} />
+              <Radar name="Hybrid (Ours)" dataKey="hybrid" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
               <Legend />
             </RadarChart>
           </ResponsiveContainer>

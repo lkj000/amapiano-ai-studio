@@ -156,9 +156,9 @@ const ThesisResearchDashboard = () => {
               <YAxis yAxisId="right" orientation="right" />
               <Tooltip />
               <Legend />
-              <Bar yAxisId="left" dataKey="latency" fill="hsl(var(--primary))" name="Latency (ms)" />
-              <Bar yAxisId="left" dataKey="quality" fill="hsl(var(--accent))" name="Quality Score" />
-              <Bar yAxisId="right" dataKey="throughput" fill="hsl(var(--secondary))" name="Throughput" />
+              <Bar yAxisId="left" dataKey="latency" fill="#8b5cf6" name="Latency (ms)" />
+              <Bar yAxisId="left" dataKey="quality" fill="#3b82f6" name="Quality Score" />
+              <Bar yAxisId="right" dataKey="throughput" fill="#10b981" name="Throughput" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -178,8 +178,8 @@ const ThesisResearchDashboard = () => {
               <YAxis dataKey="style" type="category" width={120} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="preservation" fill="hsl(var(--primary))" name="Preservation %" />
-              <Bar dataKey="authenticity" fill="hsl(var(--accent))" name="Authenticity %" />
+              <Bar dataKey="preservation" fill="#8b5cf6" name="Preservation %" />
+              <Bar dataKey="authenticity" fill="#3b82f6" name="Authenticity %" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

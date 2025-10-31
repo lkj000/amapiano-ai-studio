@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link } from "lucide-react";
+import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
 import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
@@ -17,6 +17,7 @@ import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { StemByStepGenerator } from "@/components/StemByStepGenerator";
 import { MoodBasedGenerator } from "@/components/MoodBasedGenerator";
 import VoiceToMIDI from "@/components/VoiceToMIDI";
+import { HighSpeedDAWEngine } from "@/components/HighSpeedDAWEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 
@@ -216,6 +217,14 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
               Generate authentic amapiano tracks with advanced AI. Use voice prompts, reference audio, or detailed descriptions to create professional-quality music with cultural authenticity.
             </p>
+          </div>
+
+          {/* High-Speed C++ WASM Engine Status */}
+          <div className="mb-6">
+            <HighSpeedDAWEngine 
+              showMetrics={true}
+              onInitialized={() => console.log('✓ High-speed engine ready for generation')}
+            />
           </div>
 
           <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-6">

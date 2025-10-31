@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { useEssentiaAnalysis, ComprehensiveAnalysis } from '@/hooks/useEssentiaAnalysis';
 import { 
   Music, Waves, Activity, Radio, AlertCircle, 
-  Fingerprint, Download, Play, Upload 
+  Fingerprint, Download, Play, Upload, Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -351,9 +351,210 @@ export const EssentiaAnalyzer: React.FC = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+              </TabsContent>
 
-          <TabsContent value="fingerprint" className="space-y-4">
+              <TabsContent value="deep-learning" className="space-y-4">
+                {analysis?.deepLearning ? (
+                  <>
+                    {analysis.deepLearning.genres && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <Music className="w-5 h-5" />
+                            Genre Classification
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {analysis.deepLearning.genres.map((genre, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="font-medium">{genre.name}</span>
+                                <span className="text-muted-foreground">
+                                  {(genre.confidence * 100).toFixed(1)}%
+                                </span>
+                              </div>
+                              {genre.subgenre && (
+                                <div className="text-xs text-muted-foreground ml-4">
+                                  → {genre.subgenre}
+                                </div>
+                              )}
+                              <Progress value={genre.confidence * 100} className="h-2" />
+                            </div>
+                          ))}
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {analysis.deepLearning.mood && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <Sparkles className="w-5 h-5" />
+                            Mood & Emotion
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <DescriptorRow 
+                              label="Primary Mood" 
+                              value={analysis.deepLearning.mood.primary}
+                            />
+                            {analysis.deepLearning.mood.secondary && (
+                              <DescriptorRow 
+                                label="Secondary" 
+                                value={analysis.deepLearning.mood.secondary}
+                              />
+                            )}
+                            <DescriptorRow 
+                              label="Valence" 
+                              value={(analysis.deepLearning.mood.valence * 100).toFixed(0) + '%'}
+                              description="Positive/Negative emotion"
+                            />
+                            <DescriptorRow 
+                              label="Arousal" 
+                              value={(analysis.deepLearning.mood.arousal * 100).toFixed(0) + '%'}
+                              description="Energy/Calmness"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium mb-2">Emotions Detected:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {analysis.deepLearning.mood.emotions.map((emotion, idx) => (
+                                <Badge key={idx} variant="secondary">{emotion}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {analysis.deepLearning.danceability && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Danceability Analysis</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">Danceability Score</span>
+                              <span>{(analysis.deepLearning.danceability.score * 100).toFixed(0)}%</span>
+                            </div>
+                            <Progress value={analysis.deepLearning.danceability.score * 100} className="h-3" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <DescriptorRow 
+                              label="Groove Factor" 
+                              value={(analysis.deepLearning.danceability.grooveFactor * 100).toFixed(0) + '%'}
+                            />
+                            <DescriptorRow 
+                              label="Complexity" 
+                              value={(analysis.deepLearning.danceability.rhythmicComplexity * 100).toFixed(0) + '%'}
+                            />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium mb-2">Compatible Dance Styles:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {analysis.deepLearning.danceability.danceStyles.map((style, idx) => (
+                                <Badge key={idx} variant="outline">{style}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {analysis.deepLearning.cultural && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">Cultural Authenticity</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">Authenticity Score</span>
+                              <span>{(analysis.deepLearning.cultural.authenticity * 100).toFixed(0)}%</span>
+                            </div>
+                            <Progress value={analysis.deepLearning.cultural.authenticity * 100} className="h-3" />
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <div className="text-sm font-medium mb-2">Traditions:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.deepLearning.cultural.traditions.map((tradition, idx) => (
+                                  <Badge key={idx} variant="secondary">{tradition}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium mb-2">Instruments:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.deepLearning.cultural.instruments.map((instrument, idx) => (
+                                  <Badge key={idx} variant="outline">{instrument}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium mb-2">Regional Markers:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.deepLearning.cultural.regionalMarkers.map((marker, idx) => (
+                                  <Badge key={idx}>{marker}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                            {analysis.deepLearning.cultural.fusionElements.length > 0 && (
+                              <div>
+                                <div className="text-sm font-medium mb-2">Fusion Elements:</div>
+                                <div className="flex flex-wrap gap-2">
+                                  {analysis.deepLearning.cultural.fusionElements.map((element, idx) => (
+                                    <Badge key={idx} variant="secondary">{element}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {analysis.deepLearning.insights && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg">AI Insights</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2 text-sm">
+                            {analysis.deepLearning.insights.map((insight, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <span className="text-primary mt-1">•</span>
+                                <span>{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between text-sm text-muted-foreground">
+                          <span>Overall Confidence</span>
+                          <Badge variant="outline">
+                            {(analysis.deepLearning.confidence * 100).toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Card>
+                    <CardContent className="pt-6 text-center text-muted-foreground">
+                      Deep learning analysis not available. Upload and analyze a file to see results.
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              <TabsContent value="fingerprint" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

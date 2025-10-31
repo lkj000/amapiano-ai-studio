@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 // Essentia-inspired audio descriptors
 export interface SpectralDescriptors {
@@ -56,6 +57,31 @@ export interface ComprehensiveAnalysis {
   rhythm: RhythmDescriptors;
   quality: AudioQuality;
   fingerprint?: AudioFingerprint;
+  deepLearning?: {
+    genres?: Array<{ name: string; confidence: number; subgenre?: string }>;
+    mood?: {
+      primary: string;
+      secondary?: string;
+      valence: number;
+      arousal: number;
+      emotions: string[];
+    };
+    danceability?: {
+      score: number;
+      grooveFactor: number;
+      danceStyles: string[];
+      rhythmicComplexity: number;
+    };
+    cultural?: {
+      authenticity: number;
+      traditions: string[];
+      instruments: string[];
+      regionalMarkers: string[];
+      fusionElements: string[];
+    };
+    confidence: number;
+    insights: string[];
+  };
   metadata: {
     duration: number;
     sampleRate: number;
@@ -424,6 +450,36 @@ export const useEssentiaAnalysis = () => {
           loudness
         }
       };
+
+      options.realtimeCallback?.(0.97);
+
+      // Phase 2: Deep learning analysis using edge function
+      try {
+        console.log('[ESSENTIA] Starting deep learning analysis...');
+        const { data: deepAnalysis, error: deepError } = await supabase.functions.invoke(
+          'essentia-deep-analysis',
+          {
+            body: {
+              audioFeatures: {
+                spectral,
+                temporal,
+                tonal,
+                rhythm,
+              },
+              analysisType: 'all',
+            },
+          }
+        );
+
+        if (deepError) {
+          console.error('[ESSENTIA] Deep learning analysis error:', deepError);
+        } else if (deepAnalysis?.success) {
+          result.deepLearning = deepAnalysis.analysis;
+          console.log('[ESSENTIA] Deep learning analysis completed');
+        }
+      } catch (error) {
+        console.error('[ESSENTIA] Deep learning analysis failed:', error);
+      }
 
       setAnalysis(result);
       options.realtimeCallback?.(1.0);

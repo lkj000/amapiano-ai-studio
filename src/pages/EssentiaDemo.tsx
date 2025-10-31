@@ -180,7 +180,7 @@ const EssentiaDemo: React.FC = () => {
                 ✓ Core spectral, temporal, tonal, and rhythm descriptors<br />
                 ✓ Audio quality analysis and fingerprinting<br />
                 ✓ Real-time analysis capabilities<br />
-                ⚠ Advanced features (deep learning models, high-level descriptors) require full Essentia integration
+                ✓ <span className="text-primary font-medium">AI Deep Learning Models</span> - Genre classification, mood detection, danceability, cultural authenticity (GPT-4o powered)
               </p>
             </div>
           </CardContent>

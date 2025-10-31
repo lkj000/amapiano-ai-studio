@@ -5,12 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Palette, Plus, Search, Download, Upload, Globe } from "lucide-react";
+import { Palette, Plus, Search, Download, Upload, Globe, FileAudio } from "lucide-react";
 
 const CulturalStyleCatalog = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    styleName: "",
+    region: "",
+    description: "",
+    characteristics: "",
+    culturalContext: "",
+    consent: false,
+    attribution: false,
+    preservation: false,
+  });
 
   const styleProfiles = [
     {
@@ -65,9 +80,43 @@ const CulturalStyleCatalog = () => {
   };
 
   const addNewStyle = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.consent || !formData.attribution || !formData.preservation) {
+      toast({
+        title: "Consent Required",
+        description: "Please agree to all ethical data collection principles",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.styleName || !formData.region || !formData.description) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
-      title: "Style Contribution",
-      description: "Open ethical data collection form",
+      title: "Style Contribution Submitted",
+      description: "Your cultural style profile will be reviewed by the research team",
+    });
+    
+    setIsDialogOpen(false);
+    setFormData({
+      styleName: "",
+      region: "",
+      description: "",
+      characteristics: "",
+      culturalContext: "",
+      consent: false,
+      attribution: false,
+      preservation: false,
     });
   };
 
@@ -273,6 +322,174 @@ const CulturalStyleCatalog = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Ethical Data Collection Form Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Contribute Cultural Style
+            </DialogTitle>
+            <DialogDescription>
+              Help preserve musical heritage by contributing authentic cultural style profiles with full ethical consent
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Basic Information</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="styleName">Style Name *</Label>
+                <Input
+                  id="styleName"
+                  placeholder="e.g., Private School Log Drum"
+                  value={formData.styleName}
+                  onChange={(e) => setFormData({ ...formData, styleName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="region">Region/Origin *</Label>
+                <Input
+                  id="region"
+                  placeholder="e.g., South Africa, Johannesburg"
+                  value={formData.region}
+                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe the musical style, its origins, and cultural significance..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="characteristics">Key Characteristics</Label>
+                <Input
+                  id="characteristics"
+                  placeholder="e.g., Syncopated rhythm, 808 kick patterns, Sub-bass emphasis (comma separated)"
+                  value={formData.characteristics}
+                  onChange={(e) => setFormData({ ...formData, characteristics: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="culturalContext">Cultural Context</Label>
+                <Textarea
+                  id="culturalContext"
+                  placeholder="Provide cultural background, traditional uses, community significance..."
+                  value={formData.culturalContext}
+                  onChange={(e) => setFormData({ ...formData, culturalContext: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div className="p-4 bg-muted rounded-lg flex items-start gap-3">
+                <FileAudio className="w-5 h-5 text-primary mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm mb-1">Audio Samples</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Upload audio samples demonstrating this style (optional, for research validation)
+                  </p>
+                  <Button variant="outline" size="sm">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Samples
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Ethical Consent */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Ethical Data Collection Consent *</h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-3 rounded-lg border">
+                  <Checkbox
+                    id="consent"
+                    checked={formData.consent}
+                    onCheckedChange={(checked) => 
+                      setFormData({ ...formData, consent: checked as boolean })
+                    }
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="consent" className="font-semibold text-sm cursor-pointer">
+                      Community Consent
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      I confirm that I have explicit consent from the cultural community to share this style profile, 
+                      or I am an authorized representative of the community.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border">
+                  <Checkbox
+                    id="attribution"
+                    checked={formData.attribution}
+                    onCheckedChange={(checked) => 
+                      setFormData({ ...formData, attribution: checked as boolean })
+                    }
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="attribution" className="font-semibold text-sm cursor-pointer">
+                      Attribution & Credit
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      I agree that contributors will be recognized and can opt for attribution in works using this style. 
+                      Cultural origins will be properly documented.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border">
+                  <Checkbox
+                    id="preservation"
+                    checked={formData.preservation}
+                    onCheckedChange={(checked) => 
+                      setFormData({ ...formData, preservation: checked as boolean })
+                    }
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="preservation" className="font-semibold text-sm cursor-pointer">
+                      Cultural Preservation
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      I understand this style will be documented with cultural context to prevent misappropriation 
+                      and ensure authentic representation in AI-generated music.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                className="flex-1"
+              >
+                Submit Contribution
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

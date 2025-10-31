@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useUnifiedMusicAnalysis } from '@/hooks/useUnifiedMusicAnalysis';
+import { useRealtimeFeatureExtraction } from '@/hooks/useRealtimeFeatureExtraction';
 import { 
   Music, Sparkles, TrendingUp, Brain, Target, 
-  FileAudio, Zap, CheckCircle 
+  FileAudio, Zap, CheckCircle, Cpu
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,6 +32,7 @@ export const UnifiedAnalysisPanel: React.FC<UnifiedAnalysisPanelProps> = ({
   const [includeTheory, setIncludeTheory] = useState(false);
   const [includeCommercial, setIncludeCommercial] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'quick' | 'comprehensive'>('comprehensive');
+  const [useWASM, setUseWASM] = useState(true);
 
   const { 
     analyzeComprehensive, 
@@ -40,6 +42,15 @@ export const UnifiedAnalysisPanel: React.FC<UnifiedAnalysisPanelProps> = ({
     analysisStage, 
     result 
   } = useUnifiedMusicAnalysis();
+
+  const wasmExtractor = useRealtimeFeatureExtraction();
+
+  // Auto-initialize WASM
+  useEffect(() => {
+    if (useWASM && !wasmExtractor.isInitialized) {
+      wasmExtractor.initialize();
+    }
+  }, [useWASM]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];

@@ -1777,6 +1777,16 @@ const [zoom, setZoom] = useState([100]);
 
             <TabsContent value="ai-assistant" className="p-4 space-y-4">
               <div>
+                {/* High-Speed C++ Engine Status */}
+                {showHighSpeedEngine && (
+                  <div className="mb-4">
+                    <HighSpeedDAWEngine 
+                      onInitialized={() => console.log('✓ High-speed C++ engine ready')}
+                      showMetrics={true}
+                    />
+                  </div>
+                )}
+
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <Wand2 className="w-4 h-4 text-primary" />
                   AI Assistant

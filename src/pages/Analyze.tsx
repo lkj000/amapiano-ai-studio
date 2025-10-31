@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Upload, Link2, Search, Zap, Music, TrendingUp, Download, Layers, BarChart3, FileText, Wand2, Sparkles } from "lucide-react";
+import { Upload, Link2, Search, Zap, Music, TrendingUp, Download, Layers, BarChart3, FileText, Wand2, Sparkles, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { BatchProcessor } from "@/components/BatchProcessor";
@@ -14,6 +14,7 @@ import { AmapianorizeEngine } from "@/components/AmapianorizeEngine";
 import { MusicAnalysisTools } from "@/components/MusicAnalysisTools";
 import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
 import { RAGKnowledgeBase } from "@/components/RAGKnowledgeBase";
+import { HighSpeedDAWEngine } from "@/components/HighSpeedDAWEngine";
 import { User } from '@supabase/supabase-js';
 
 interface AnalyzeProps {
@@ -203,6 +204,11 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
               Professional-grade analysis with AI-powered stem separation, pattern recognition, batch processing, and the revolutionary Amapianorize transformation engine.
             </p>
+          </div>
+
+          {/* High-Speed Engine Status */}
+          <div className="mb-6">
+            <HighSpeedDAWEngine showMetrics={true} />
           </div>
 
           <Tabs value={analysisMode} onValueChange={(value) => setAnalysisMode(value as typeof analysisMode)} className="mb-6">

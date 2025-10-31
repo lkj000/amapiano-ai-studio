@@ -27,7 +27,7 @@ const CulturalStyleCatalog = () => {
     preservation: false,
   });
 
-  const styleProfiles = [
+  const [styleProfiles, setStyleProfiles] = useState([
     {
       id: "amp-log-drum-001",
       name: "Private School Log Drum",
@@ -68,7 +68,7 @@ const CulturalStyleCatalog = () => {
       characteristics: ["Call-response", "Local languages", "Percussive vocals"],
       contributors: 41,
     },
-  ];
+  ]);
 
   const culturalMetrics = {
     totalStyles: 47,
@@ -102,9 +102,23 @@ const CulturalStyleCatalog = () => {
       return;
     }
 
+    // Add the new style to the catalog
+    const newStyle = {
+      id: `user-${Date.now()}`,
+      name: formData.styleName,
+      region: formData.region,
+      preservation: 85, // Default value for new submissions
+      authenticity: 85, // Default value for new submissions
+      samples: 0, // New submissions start with 0 samples
+      characteristics: formData.characteristics ? formData.characteristics.split(',').map(c => c.trim()) : [],
+      contributors: 1,
+    };
+
+    setStyleProfiles([newStyle, ...styleProfiles]);
+
     toast({
-      title: "Style Contribution Submitted",
-      description: "Your cultural style profile will be reviewed by the research team",
+      title: "Style Contribution Added",
+      description: `${formData.styleName} has been added to the catalog`,
     });
     
     setIsDialogOpen(false);

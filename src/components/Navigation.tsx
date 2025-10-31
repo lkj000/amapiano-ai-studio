@@ -54,7 +54,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     }
   };
 
-const navItems = [
+ const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
     { path: "/social", label: "Social", icon: Users },
@@ -65,6 +65,7 @@ const navItems = [
     { path: "/aura808", label: "Aura 808", icon: Music },
     { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },
+    { path: "/research", label: "Research", icon: Brain },
     { path: "/vast-demo", label: "VAST Demo", icon: Brain },
   ];
 

@@ -15,19 +15,27 @@ const EssentiaDemo: React.FC = () => {
             <h1 className="text-4xl font-bold">Essentia Music Analysis</h1>
           </div>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            Professional-grade audio analysis inspired by UPF's Essentia library. 
-            Extract 200+ music descriptors including spectral features, rhythm patterns, 
-            tonal characteristics, and audio quality metrics.
+            Professional-grade audio analysis powered by AI deep learning models. 
+            Extract 200+ music descriptors plus intelligent genre classification, mood detection,
+            danceability scoring, and cultural authenticity assessment.
           </p>
+          <div className="flex justify-center gap-2 flex-wrap">
+            <Badge variant="secondary" className="text-xs">
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI-Powered
+            </Badge>
+            <Badge variant="outline" className="text-xs">GPT-4o Models</Badge>
+            <Badge variant="outline" className="text-xs">Essentia-Inspired</Badge>
+          </div>
         </div>
 
         {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           <FeatureCard
-            icon={<Sparkles className="h-5 w-5" />}
-            title="Spectral Analysis"
-            description="Centroid, rolloff, flux, flatness, and spectral contrast across frequency bands"
-            features={['FFT-based features', 'Energy distribution', 'Timbral characteristics']}
+            icon={<Sparkles className="h-5 w-5 text-amber-500" />}
+            title="AI Deep Learning"
+            description="GPT-4o powered intelligent music understanding and classification"
+            features={['Genre & subgenre detection', 'Mood & emotion analysis', 'Cultural authenticity']}
           />
           <FeatureCard
             icon={<Zap className="h-5 w-5" />}
@@ -42,7 +50,7 @@ const EssentiaDemo: React.FC = () => {
             features={['12-bin chroma', 'Key confidence', 'Pitch analysis']}
           />
           <FeatureCard
-            icon={<Database className="h-5 w-5" />}
+            icon={<Music className="h-5 w-5" />}
             title="Rhythm Detection"
             description="BPM estimation, beat tracking, onset detection, and downbeat analysis"
             features={['Tempo estimation', 'Beat grid', 'Onset times']}

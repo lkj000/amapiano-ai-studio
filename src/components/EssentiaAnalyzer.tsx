@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 export const EssentiaAnalyzer: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
+  const [analysisStage, setAnalysisStage] = useState<string>('');
   const { analyzeAudio, isAnalyzing, analysis } = useEssentiaAnalysis();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,12 +36,29 @@ export const EssentiaAnalyzer: React.FC = () => {
     }
 
     try {
+      setProgress(0);
+      setAnalysisStage('Initializing...');
+      
       await analyzeAudio(file, {
         includeFingerprint: true,
-        realtimeCallback: setProgress
+        realtimeCallback: (p) => {
+          setProgress(p * 100);
+          if (p < 0.2) setAnalysisStage('Analyzing spectral features...');
+          else if (p < 0.4) setAnalysisStage('Analyzing temporal features...');
+          else if (p < 0.6) setAnalysisStage('Analyzing tonal features...');
+          else if (p < 0.75) setAnalysisStage('Analyzing rhythm...');
+          else if (p < 0.85) setAnalysisStage('Analyzing audio quality...');
+          else if (p < 0.97) setAnalysisStage('Generating fingerprint...');
+          else if (p < 1.0) setAnalysisStage('AI deep learning analysis...');
+          else setAnalysisStage('Complete!');
+        }
       });
+      
+      setAnalysisStage('Analysis complete with AI insights!');
     } catch (error) {
       console.error('Analysis failed:', error);
+      setAnalysisStage('');
+      toast.error('Analysis failed. Check console for details.');
     }
   };
 
@@ -110,10 +128,17 @@ export const EssentiaAnalyzer: React.FC = () => {
 
           {isAnalyzing && (
             <div className="space-y-2">
-              <Progress value={progress * 100} />
-              <p className="text-sm text-center text-muted-foreground">
-                {Math.round(progress * 100)}% complete
-              </p>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">{analysisStage}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} />
+              {progress > 97 && (
+                <p className="text-xs text-muted-foreground animate-pulse flex items-center justify-center gap-2">
+                  <Sparkles className="h-3 w-3" />
+                  Running AI models for genre, mood, and cultural analysis...
+                </p>
+              )}
             </div>
           )}
         </CardContent>

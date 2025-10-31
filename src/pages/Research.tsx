@@ -6,7 +6,7 @@ import ThesisResearchDashboard from "@/components/research/ThesisResearchDashboa
 import FederatedLearningPanel from "@/components/research/FederatedLearningPanel";
 import PerformanceBenchmark from "@/components/research/PerformanceBenchmark";
 import CulturalStyleCatalog from "@/components/research/CulturalStyleCatalog";
-
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 const Research = () => {
   const [activeTab, setActiveTab] = useState("overview");
   
@@ -48,19 +48,27 @@ const Research = () => {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">
-            <ThesisResearchDashboard />
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Overview. Please refresh.</p></Card>}>
+              <ThesisResearchDashboard />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="federated" className="mt-6">
-            <FederatedLearningPanel />
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Federated Learning. Please refresh.</p></Card>}>
+              <FederatedLearningPanel />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="benchmark" className="mt-6">
-            <PerformanceBenchmark />
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Performance Benchmark. Please refresh.</p></Card>}>
+              <PerformanceBenchmark />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="cultural" className="mt-6">
-            <CulturalStyleCatalog />
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Cultural Catalog. Please refresh.</p></Card>}>
+              <CulturalStyleCatalog />
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </div>

@@ -67,6 +67,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/ai-hub", label: "AI Hub", icon: Brain },
     { path: "/research", label: "Research", icon: Brain },
     { path: "/vast-demo", label: "VAST Demo", icon: Brain },
+    { path: "/essentia-demo", label: "Essentia", icon: Search },
   ];
 
   const isActive = (path: string) => {

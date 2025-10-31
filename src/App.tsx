@@ -23,6 +23,7 @@ import CreatorHub from "./pages/CreatorHub";
 import SocialFeed from "./pages/SocialFeed";
 import VASTDemo from "./pages/VASTDemo";
 import Research from "./pages/Research";
+import EssentiaDemo from "./pages/EssentiaDemo";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,7 @@ const App = () => {
               <Route path="/admin" element={<Admin />} />
               <Route path="/vast-demo" element={<VASTDemo />} />
               <Route path="/research" element={<Research />} />
+              <Route path="/essentia-demo" element={<EssentiaDemo />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

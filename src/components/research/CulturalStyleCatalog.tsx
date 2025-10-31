@@ -16,6 +16,8 @@ const CulturalStyleCatalog = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState<any>(null);
   const [formData, setFormData] = useState({
     styleName: "",
     region: "",
@@ -138,6 +140,18 @@ const CulturalStyleCatalog = () => {
     toast({
       title: "Catalog Exported",
       description: "Cultural style profiles saved for research",
+    });
+  };
+
+  const viewStyleDetails = (style: any) => {
+    setSelectedStyle(style);
+    setIsDetailDialogOpen(true);
+  };
+
+  const applyStyle = (style: any) => {
+    toast({
+      title: "Style Applied",
+      description: `${style.name} has been applied to your current project`,
     });
   };
 
@@ -287,10 +301,20 @@ const CulturalStyleCatalog = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => viewStyleDetails(style)}
+                >
                   View Details
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => applyStyle(style)}
+                >
                   Apply Style
                 </Button>
               </div>
@@ -499,6 +523,90 @@ const CulturalStyleCatalog = () => {
                 className="flex-1"
               >
                 Submit Contribution
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Style Details Dialog */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              {selectedStyle?.name}
+            </DialogTitle>
+            <DialogDescription className="flex items-center gap-1">
+              <Globe className="w-3 h-3" />
+              {selectedStyle?.region}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Preservation Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{selectedStyle?.preservation}%</div>
+                  <Progress value={selectedStyle?.preservation} className="mt-2" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Authenticity Score</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{selectedStyle?.authenticity}%</div>
+                  <Progress value={selectedStyle?.authenticity} className="mt-2" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-muted">
+                <div className="text-sm text-muted-foreground">Total Samples</div>
+                <div className="text-2xl font-bold mt-1">{selectedStyle?.samples}</div>
+              </div>
+              <div className="p-4 rounded-lg bg-muted">
+                <div className="text-sm text-muted-foreground">Contributors</div>
+                <div className="text-2xl font-bold mt-1">{selectedStyle?.contributors}</div>
+              </div>
+            </div>
+
+            {/* Characteristics */}
+            <div className="space-y-2">
+              <h4 className="font-semibold text-sm">Musical Characteristics</h4>
+              <div className="flex flex-wrap gap-2">
+                {selectedStyle?.characteristics.map((char: string, idx: number) => (
+                  <Badge key={idx} variant="outline">
+                    {char}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDetailDialogOpen(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  applyStyle(selectedStyle);
+                  setIsDetailDialogOpen(false);
+                }}
+                className="flex-1"
+              >
+                Apply This Style
               </Button>
             </div>
           </div>

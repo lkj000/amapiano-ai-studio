@@ -56,6 +56,7 @@ import { PluginSidebar } from '@/components/PluginSidebar';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePluginSystem } from '@/hooks/usePluginSystem';
 import { Sparkles } from 'lucide-react';
+import { HighSpeedDAWEngine } from '@/components/HighSpeedDAWEngine';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -193,6 +194,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [showAuraSidebar, setShowAuraSidebar] = useState(true);
   const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
   const [showPluginSidebar, setShowPluginSidebar] = useState(false);
+  const [showHighSpeedEngine, setShowHighSpeedEngine] = useState(true);
 const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
 const [pianoRollTime, setPianoRollTime] = useState(0);
 const pianoRollTimerRef = useRef<number | null>(null);

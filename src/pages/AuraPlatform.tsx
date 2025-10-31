@@ -7,7 +7,10 @@ import { PluginStore } from '@/components/aura/PluginStore';
 import { CommunityHub } from '@/components/aura/CommunityHub';
 import { MultiAgentOrchestrator } from '@/components/aura/MultiAgentOrchestrator';
 import { EthicalDataPledge } from '@/components/aura/EthicalDataPledge';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { User } from '@supabase/supabase-js';
+import { Brain } from 'lucide-react';
 
 interface AuraPlatformProps {
   user: User | null;
@@ -19,7 +22,7 @@ const AuraPlatform: React.FC<AuraPlatformProps> = ({ user }) => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <Tabs defaultValue="conductor" className="w-full">
-            <TabsList className="grid w-full grid-cols-7 mb-8">
+            <TabsList className="grid w-full grid-cols-8 mb-8">
               <TabsTrigger value="conductor">Conductor</TabsTrigger>
               <TabsTrigger value="orchestrator">Multi-Agent</TabsTrigger>
               <TabsTrigger value="styles">Styles</TabsTrigger>
@@ -27,6 +30,10 @@ const AuraPlatform: React.FC<AuraPlatformProps> = ({ user }) => {
               <TabsTrigger value="academy">Academy</TabsTrigger>
               <TabsTrigger value="plugins">Plugins</TabsTrigger>
               <TabsTrigger value="community">Community</TabsTrigger>
+              <TabsTrigger value="analysis" className="flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                Analysis
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="conductor" className="mt-0">
@@ -55,6 +62,25 @@ const AuraPlatform: React.FC<AuraPlatformProps> = ({ user }) => {
 
             <TabsContent value="community" className="mt-0">
               <CommunityHub user={user} />
+            </TabsContent>
+
+            <TabsContent value="analysis" className="mt-0">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    Aura Music Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <UnifiedAnalysisPanel 
+                    showOptions={true}
+                    onAnalysisComplete={(result) => {
+                      console.log('Aura analysis complete:', result);
+                    }}
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

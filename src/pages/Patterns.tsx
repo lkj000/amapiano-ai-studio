@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Download, BookOpen, Music, TrendingUp, Heart } from "lucide-react";
+import { Play, Pause, Download, BookOpen, Music, TrendingUp, Heart, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 
 interface PatternsProps {
   user: User | null;
@@ -254,9 +255,13 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
           </Card>
 
           <Tabs defaultValue="chords" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="chords">Chord Progressions</TabsTrigger>
               <TabsTrigger value="drums">Drum Patterns</TabsTrigger>
+              <TabsTrigger value="analysis" className="flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                AI Analysis
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="chords">
@@ -520,6 +525,25 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                   </Card>
                 ))}
               </div>
+            </TabsContent>
+
+            <TabsContent value="analysis">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    Pattern Analysis with AI
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <UnifiedAnalysisPanel 
+                    showOptions={true}
+                    onAnalysisComplete={(result) => {
+                      console.log('Pattern analysis complete:', result);
+                    }}
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

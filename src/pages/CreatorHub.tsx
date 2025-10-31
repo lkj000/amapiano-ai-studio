@@ -15,8 +15,10 @@ import {
   Music, 
   Users,
   TrendingUp,
-  Star
+  Star,
+  Brain
 } from 'lucide-react';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 
 interface CreatorHubProps {
   user: User | null;
@@ -107,7 +109,7 @@ const CreatorHub: React.FC<CreatorHubProps> = ({ user }) => {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Dashboard
@@ -115,6 +117,10 @@ const CreatorHub: React.FC<CreatorHubProps> = ({ user }) => {
             <TabsTrigger value="subscription" className="flex items-center gap-2">
               <Crown className="w-4 h-4" />
               Subscription
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              Analysis
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
@@ -134,6 +140,28 @@ const CreatorHub: React.FC<CreatorHubProps> = ({ user }) => {
                 // Handle subscription upgrade
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="analysis">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="w-5 h-5" />
+                  Analyze Your Tracks
+                </CardTitle>
+                <CardDescription>
+                  Get AI-powered insights into your music
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UnifiedAnalysisPanel 
+                  showOptions={true}
+                  onAnalysisComplete={(result) => {
+                    console.log('Creator Hub analysis complete:', result);
+                  }}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

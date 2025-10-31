@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Aura808LogDrum } from '@/components/plugins/Aura808LogDrum';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { usePluginSystem } from '@/hooks/usePluginSystem';
-import { Music2, Headphones, Zap, Settings } from 'lucide-react';
+import { Music2, Headphones, Zap, Settings, Brain } from 'lucide-react';
 
 export default function Aura808Demo() {
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
@@ -86,40 +88,71 @@ export default function Aura808Demo() {
         </div>
 
         {/* Demo Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Headphones className="h-5 w-5" />
-                Interactive Demo
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant={isInitialized ? 'default' : 'secondary'}>
-                  {isInitialized ? 'Audio Ready' : 'Initializing...'}
-                </Badge>
-                {audioContext && (
-                  <Badge variant="outline">
-                    {audioContext.sampleRate / 1000}kHz
-                  </Badge>
+        <Tabs defaultValue="demo" className="mb-8">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="demo">Interactive Demo</TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              Sound Analysis
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="demo">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Headphones className="h-5 w-5" />
+                    Interactive Demo
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={isInitialized ? 'default' : 'secondary'}>
+                      {isInitialized ? 'Audio Ready' : 'Initializing...'}
+                    </Badge>
+                    {audioContext && (
+                      <Badge variant="outline">
+                        {audioContext.sampleRate / 1000}kHz
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isInitialized ? (
+                  <Aura808LogDrum
+                    audioContext={audioContext}
+                    onParameterChange={handleParameterChange}
+                    trackId="demo-track"
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Initializing audio engine...</p>
+                  </div>
                 )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isInitialized ? (
-              <Aura808LogDrum
-                audioContext={audioContext}
-                onParameterChange={handleParameterChange}
-                trackId="demo-track"
-              />
-            ) : (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Initializing audio engine...</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analysis">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" />
+                  Analyze Your Sounds
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UnifiedAnalysisPanel 
+                  showOptions={true}
+                  onAnalysisComplete={(result) => {
+                    console.log('Aura808 analysis complete:', result);
+                  }}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Technical Specifications */}
         <Card>

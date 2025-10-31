@@ -23,9 +23,12 @@ import {
   Zap,
   TrendingUp,
   Cpu,
-  Network
+  Network,
+  Music
 } from 'lucide-react';
 import { WorkspaceManager } from '@/components/WorkspaceManager';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
+import { Card as UICard, CardHeader as UICardHeader, CardTitle as UICardTitle, CardContent as UICardContent } from '@/components/ui/card';
 
 export default function VASTDemo() {
   const { agent, agentState, isInitialized, initializeSession } = useMCPServer();
@@ -175,7 +178,7 @@ export default function VASTDemo() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="agent" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="agent">
               <Brain className="h-4 w-4 mr-2" />
               Agent
@@ -195,6 +198,10 @@ export default function VASTDemo() {
             <TabsTrigger value="workspace">
               <Users className="h-4 w-4 mr-2" />
               Workspaces
+            </TabsTrigger>
+            <TabsTrigger value="analysis">
+              <Music className="h-4 w-4 mr-2" />
+              Analysis
             </TabsTrigger>
           </TabsList>
 
@@ -423,6 +430,29 @@ export default function VASTDemo() {
                 )}
 
                 <WorkspaceManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Music Analysis Tab */}
+          <TabsContent value="analysis" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Music className="h-5 w-5" />
+                  VAST Music Analysis
+                </CardTitle>
+                <CardDescription>
+                  AI-powered analysis with VAST architecture integration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <UnifiedAnalysisPanel 
+                  showOptions={true}
+                  onAnalysisComplete={(result) => {
+                    console.log('VAST Demo analysis complete:', result);
+                  }}
+                />
               </CardContent>
             </Card>
           </TabsContent>

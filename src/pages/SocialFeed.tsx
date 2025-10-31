@@ -6,9 +6,10 @@ import { usePersonalizedFeed } from '@/hooks/usePersonalizedFeed';
 import { useSocialInteractions, SocialPost } from '@/hooks/useSocialFeed';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, User, Plus, HelpCircle, BarChart3 } from 'lucide-react';
+import { RefreshCw, User, Plus, HelpCircle, BarChart3, Brain } from 'lucide-react';
 import { VoiceToMusicEngine } from '@/components/VoiceToMusicEngine';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 
 interface SocialFeedProps {
   user?: any;
@@ -25,6 +26,7 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [postViewStartTime, setPostViewStartTime] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -188,6 +190,26 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <EngagementAnalytics userId={user?.id} timeframe="24h" />
+          </DialogContent>
+        </Dialog>
+        
+        <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
+          <DialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+            >
+              <Brain className="w-4 h-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <UnifiedAnalysisPanel 
+              showOptions={true}
+              onAnalysisComplete={(result) => {
+                console.log('Social Feed analysis complete:', result);
+              }}
+            />
           </DialogContent>
         </Dialog>
         

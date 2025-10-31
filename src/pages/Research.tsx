@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { GraduationCap, Activity, Database, Palette } from "lucide-react";
+import { GraduationCap, Activity, Database, Palette, Brain } from "lucide-react";
 import ThesisResearchDashboard from "@/components/research/ThesisResearchDashboard";
 import FederatedLearningPanel from "@/components/research/FederatedLearningPanel";
 import PerformanceBenchmark from "@/components/research/PerformanceBenchmark";
 import CulturalStyleCatalog from "@/components/research/CulturalStyleCatalog";
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 const Research = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -28,7 +29,7 @@ const Research = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="gap-2">
               <Activity className="w-4 h-4" />
               Overview
@@ -44,6 +45,10 @@ const Research = () => {
             <TabsTrigger value="cultural" className="gap-2">
               <Palette className="w-4 h-4" />
               Cultural Catalog
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="gap-2">
+              <Brain className="w-4 h-4" />
+              Analysis
             </TabsTrigger>
           </TabsList>
 
@@ -68,6 +73,19 @@ const Research = () => {
           <TabsContent value="cultural" className="mt-6">
             <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Cultural Catalog. Please refresh.</p></Card>}>
               <CulturalStyleCatalog />
+            </ErrorBoundary>
+          </TabsContent>
+
+          <TabsContent value="analysis" className="mt-6">
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Analysis. Please refresh.</p></Card>}>
+              <Card className="p-6">
+                <UnifiedAnalysisPanel 
+                  showOptions={true}
+                  onAnalysisComplete={(result) => {
+                    console.log('Research analysis complete:', result);
+                  }}
+                />
+              </Card>
             </ErrorBoundary>
           </TabsContent>
         </Tabs>

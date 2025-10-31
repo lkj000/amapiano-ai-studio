@@ -23,8 +23,10 @@ import {
   Radio,
   Sparkles,
   Mic,
-  Layers
+  Layers,
+  Brain
 } from 'lucide-react';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 
 interface AIHubProps {
   user: User | null;
@@ -183,7 +185,7 @@ export default function AIHub({ user }: AIHubProps) {
 
         {/* Main AI Hub Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="assistant" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               Assistant
@@ -211,6 +213,10 @@ export default function AIHub({ user }: AIHubProps) {
             <TabsTrigger value="vast" className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" />
               VAST
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-2">
+              <Brain className="w-4 h-4" />
+              Analysis
             </TabsTrigger>
           </TabsList>
 
@@ -313,6 +319,25 @@ export default function AIHub({ user }: AIHubProps) {
 
           <TabsContent value="vast" className="space-y-6">
             <VastIntegratedOrchestrator user={user} />
+          </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  AI-Powered Music Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UnifiedAnalysisPanel 
+                  showOptions={true}
+                  onAnalysisComplete={(result) => {
+                    console.log('AI Hub analysis complete:', result);
+                  }}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 

@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Pause, Download, Heart, Filter, Search, Music, Star } from "lucide-react";
+import { Play, Pause, Download, Heart, Filter, Search, Music, Star, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface SamplesProps {
   user: User | null;
@@ -19,6 +21,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
   const [selectedGenre, setSelectedGenre] = useState("all");
   const [playingSample, setPlayingSample] = useState<number | null>(null);
   const [likedSamples, setLikedSamples] = useState<Set<number>>(new Set([2, 5])); // Initialize with pre-liked samples
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const categories = [
@@ -248,9 +251,13 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
           </Card>
 
           <Tabs defaultValue="samples" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="samples">Sample Collection</TabsTrigger>
               <TabsTrigger value="artists">Artist Styles</TabsTrigger>
+              <TabsTrigger value="analysis" className="flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                AI Analysis
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="samples">
@@ -434,6 +441,25 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                   </Card>
                 ))}
               </div>
+            </TabsContent>
+
+            <TabsContent value="analysis">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    Sample Analysis with AI
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <UnifiedAnalysisPanel 
+                    showOptions={true}
+                    onAnalysisComplete={(result) => {
+                      console.log('Sample analysis complete:', result);
+                    }}
+                  />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

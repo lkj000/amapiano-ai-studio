@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link } from "lucide-react";
 import { toast } from "sonner";
 import { AIPromptParser } from "@/components/AIPromptParser";
+import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { StemByStepGenerator } from "@/components/StemByStepGenerator";
@@ -848,6 +849,21 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                             ))}
                           </div>
                         </div>
+
+                      {/* AI Analysis of Generated Track */}
+                      <div className="pt-4 border-t">
+                        <UnifiedAnalysisPanel
+                          file={generatedTrack?.audioFile}
+                          onAnalysisComplete={(analysisData) => {
+                            console.log('✅ Generated track AI analysis:', analysisData);
+                            if (analysisData.essentia?.deepLearning) {
+                              toast.success('✨ AI insights available for your track!');
+                            }
+                          }}
+                          showOptions={false}
+                          className="border-0 shadow-none"
+                        />
+                      </div>
 
                       {parsedPrompt?.instrumentation && (
                         <div className="space-y-2">

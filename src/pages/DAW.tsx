@@ -50,10 +50,12 @@ import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { cn } from '@/lib/utils';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
+import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { AuraSidebar } from '@/components/aura/AuraSidebar';
 import { PluginSidebar } from '@/components/PluginSidebar';
 import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePluginSystem } from '@/hooks/usePluginSystem';
+import { Sparkles } from 'lucide-react';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -187,6 +189,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [showRealTimeCollab, setShowRealTimeCollab] = useState(false);
   const [showAIMarketplace, setShowAIMarketplace] = useState(false);
   const [showMusicAnalysis, setShowMusicAnalysis] = useState(false);
+  const [showUnifiedAnalysis, setShowUnifiedAnalysis] = useState(false);
   const [showAuraSidebar, setShowAuraSidebar] = useState(true);
   const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
   const [showPluginSidebar, setShowPluginSidebar] = useState(false);
@@ -1792,6 +1795,15 @@ const [zoom, setZoom] = useState([100]);
                       {aiGenerateMutation.isPending ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Zap className="w-3 h-3 mr-2" />}
                       Generate
                     </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => setShowUnifiedAnalysis(!showUnifiedAnalysis)}
+                    >
+                      <Sparkles className="w-3 h-3 mr-2" />
+                      AI Track Analysis
+                    </Button>
                   </div>
                 </Card>
 
@@ -2391,6 +2403,30 @@ const [zoom, setZoom] = useState([100]);
               onTrackGenerated={handleTrackGenerated}
               className="max-w-4xl mx-auto"
               initialAudioUrl={importAudioUrl ?? undefined}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Unified AI Analysis Panel */}
+      {showUnifiedAnalysis && (
+        <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">AI Music Analysis</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowUnifiedAnalysis(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto">
+            <UnifiedAnalysisPanel 
+              onAnalysisComplete={(result) => {
+                console.log('✅ DAW track analysis complete:', result);
+                toast.success('✨ AI analysis complete!');
+              }}
+              className="max-w-3xl mx-auto"
             />
           </div>
         </div>

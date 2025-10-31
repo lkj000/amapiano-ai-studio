@@ -6,12 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Upload, Link2, Search, Zap, Music, TrendingUp, Download, Layers, BarChart3, FileText, Wand2 } from "lucide-react";
+import { Upload, Link2, Search, Zap, Music, TrendingUp, Download, Layers, BarChart3, FileText, Wand2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { BatchProcessor } from "@/components/BatchProcessor";
 import { AmapianorizeEngine } from "@/components/AmapianorizeEngine";
 import { MusicAnalysisTools } from "@/components/MusicAnalysisTools";
+import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
 import { RAGKnowledgeBase } from "@/components/RAGKnowledgeBase";
 import { User } from '@supabase/supabase-js';
 
@@ -596,6 +597,30 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
 
       {/* Advanced Music Analysis Tools */}
       <div className="mt-8">
+        <Card className="bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/20 mb-4">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <span className="font-medium">AI-Powered Analysis Now Available</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Enhanced Essentia analysis with deep learning models for genre, mood, and cultural insights
+            </p>
+          </CardContent>
+        </Card>
+        
+        <UnifiedAnalysisPanel 
+          file={selectedFile || undefined}
+          onAnalysisComplete={(analysisData) => {
+            console.log('✅ AI analysis complete:', analysisData);
+            // Update analysis result with AI insights
+            if (analysisData.essentia?.deepLearning) {
+              toast.success('✨ AI insights added to analysis!');
+            }
+          }}
+          className="mb-6"
+        />
+        
         <MusicAnalysisTools
           projectData={null}
         />

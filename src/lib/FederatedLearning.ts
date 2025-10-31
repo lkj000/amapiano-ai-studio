@@ -1,6 +1,10 @@
 /**
- * Federated Learning System - Phase 3 Enhancement
- * Learn from user patterns across workspaces without sharing raw data
+ * Federated Learning System - Doctoral Thesis Enhanced
+ * AURA-X Framework: Privacy-preserving collaborative learning
+ * 
+ * Thesis Contribution #2: Hierarchical Cultural Embeddings
+ * Enables learning from diverse users while preserving cultural authenticity
+ * and maintaining privacy through differential privacy and secure aggregation.
  */
 
 export interface UserPreferences {
@@ -11,6 +15,13 @@ export interface UserPreferences {
   workflowPatterns: string[][];
   audioSettings: Record<string, any>;
   timestamp: number;
+  // Doctoral Thesis: Cultural embeddings
+  culturalContext?: {
+    primaryGenre: string;
+    regionalInfluence: string[];
+    authenticityScore: number;
+    culturalFeatures: Record<string, number>;
+  };
 }
 
 export interface ModelUpdate {
@@ -39,6 +50,11 @@ export class FederatedLearning {
   private globalModel: GlobalModel | null = null;
   private updateInterval: number = 60000; // 1 minute
   private minContributions: number = 5;
+  
+  // Doctoral Thesis: Hierarchical Cultural Embeddings
+  private culturalEmbeddings: Map<string, number[]> = new Map();
+  private privacyBudget: number = 1.0; // Differential privacy epsilon
+  private culturalDiversityScore: number = 0;
 
   constructor(config?: {
     updateInterval?: number;
@@ -319,5 +335,146 @@ export class FederatedLearning {
    */
   clearLocalData() {
     this.localPreferences = null;
+  }
+
+  /**
+   * Doctoral Thesis: Extract Hierarchical Cultural Embeddings
+   * Preserves cultural authenticity while enabling collaborative learning
+   */
+  extractCulturalEmbeddings(
+    preferences: UserPreferences
+  ): { embedding: number[]; culturalScore: number } {
+    if (!preferences.culturalContext) {
+      return { embedding: Array(50).fill(0), culturalScore: 0.5 };
+    }
+
+    const { culturalContext } = preferences;
+    const embedding: number[] = [];
+
+    // Level 1: Genre-specific features (dimensions 0-19)
+    const genreFeatures = this.encodeGenre(culturalContext.primaryGenre);
+    embedding.push(...genreFeatures);
+
+    // Level 2: Regional influences (dimensions 20-34)
+    const regionalFeatures = this.encodeRegionalInfluence(culturalContext.regionalInfluence);
+    embedding.push(...regionalFeatures);
+
+    // Level 3: Authenticity and cultural features (dimensions 35-49)
+    const authenticityFeatures = [
+      culturalContext.authenticityScore,
+      ...Object.values(culturalContext.culturalFeatures).slice(0, 14)
+    ];
+    embedding.push(...authenticityFeatures);
+
+    // Pad to fixed size
+    while (embedding.length < 50) {
+      embedding.push(0);
+    }
+
+    return {
+      embedding: embedding.slice(0, 50),
+      culturalScore: culturalContext.authenticityScore
+    };
+  }
+
+  /**
+   * Encode genre into vector representation
+   */
+  private encodeGenre(genre: string): number[] {
+    const genreMap: Record<string, number[]> = {
+      'amapiano': [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+      'classic': [0.9, 1.0, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0],
+      'private-school': [0.8, 0.7, 1.0, 0.9, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1],
+      'vocal': [0.7, 0.6, 0.9, 1.0, 0.8, 0.5, 0.4, 0.3, 0.2, 0.1],
+      'deep': [0.6, 0.5, 0.7, 0.8, 1.0, 0.9, 0.4, 0.3, 0.2, 0.1],
+    };
+
+    const baseEncoding = genreMap[genre] || Array(10).fill(0.5);
+    return [...baseEncoding, ...Array(10).fill(0)]; // 20 dimensions total
+  }
+
+  /**
+   * Encode regional influence
+   */
+  private encodeRegionalInfluence(regions: string[]): number[] {
+    const features = Array(15).fill(0);
+    
+    const regionMap: Record<string, number> = {
+      'south-african': 0,
+      'johannesburg': 1,
+      'pretoria': 2,
+      'cape-town': 3,
+      'durban': 4,
+      'global': 5,
+      'european': 6,
+      'american': 7,
+      'african': 8,
+      'asian': 9
+    };
+
+    for (const region of regions) {
+      const idx = regionMap[region];
+      if (idx !== undefined && idx < features.length) {
+        features[idx] = 1.0;
+      }
+    }
+
+    return features;
+  }
+
+  /**
+   * Calculate cultural diversity across all models
+   */
+  calculateCulturalDiversity(): number {
+    if (this.culturalEmbeddings.size < 2) return 0;
+
+    const embeddings = Array.from(this.culturalEmbeddings.values());
+    let totalDistance = 0;
+    let comparisons = 0;
+
+    // Calculate pairwise distances
+    for (let i = 0; i < embeddings.length; i++) {
+      for (let j = i + 1; j < embeddings.length; j++) {
+        const distance = this.euclideanDistance(embeddings[i], embeddings[j]);
+        totalDistance += distance;
+        comparisons++;
+      }
+    }
+
+    this.culturalDiversityScore = comparisons > 0 ? totalDistance / comparisons : 0;
+    return this.culturalDiversityScore;
+  }
+
+  /**
+   * Euclidean distance between embeddings
+   */
+  private euclideanDistance(a: number[], b: number[]): number {
+    let sum = 0;
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      sum += Math.pow(a[i] - b[i], 2);
+    }
+    return Math.sqrt(sum);
+  }
+
+  /**
+   * Get cultural diversity metrics
+   */
+  getCulturalMetrics(): {
+    diversityScore: number;
+    embeddingsCount: number;
+    privacyBudget: number;
+  } {
+    return {
+      diversityScore: this.culturalDiversityScore,
+      embeddingsCount: this.culturalEmbeddings.size,
+      privacyBudget: this.privacyBudget
+    };
+  }
+
+  /**
+   * Update privacy budget (consumed with each query)
+   */
+  updatePrivacyBudget(epsilon: number) {
+    this.privacyBudget = Math.max(0, this.privacyBudget - epsilon);
   }
 }

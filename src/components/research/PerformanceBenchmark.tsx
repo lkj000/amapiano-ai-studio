@@ -170,7 +170,7 @@ const PerformanceBenchmark = () => {
             <LineChart data={latencyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="timestamp" />
-              <YAxis label={{ value: "Latency (ms)", angle: -90, position: "insideLeft" }} />
+              <YAxis />
               <Tooltip />
               <Legend />
               <Line type="monotone" dataKey="baseline" stroke="hsl(var(--muted-foreground))" name="Baseline" />

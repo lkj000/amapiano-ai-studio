@@ -23,12 +23,11 @@ const ThesisResearchDashboard = () => {
   ];
 
   const culturalMetrics = [
-    { style: "Log Drum", preservation: 96, authenticity: 94 },
-    { style: "Piano Motifs", preservation: 93, authenticity: 91 },
-    { style: "Bass Patterns", preservation: 95, authenticity: 93 },
-    { style: "Vocal Samples", preservation: 89, authenticity: 87 },
+    { styleLabel: "Log Drum", preservation: 96, authenticity: 94 },
+    { styleLabel: "Piano Motifs", preservation: 93, authenticity: 91 },
+    { styleLabel: "Bass Patterns", preservation: 95, authenticity: 93 },
+    { styleLabel: "Vocal Samples", preservation: 89, authenticity: 87 },
   ];
-
   const contributions = [
     {
       title: "Amapianorize Engine",
@@ -175,7 +174,7 @@ const ThesisResearchDashboard = () => {
             <BarChart data={culturalMetrics} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" domain={[0, 100]} />
-              <YAxis dataKey="style" type="category" width={120} />
+              <YAxis dataKey="styleLabel" type="category" width={120} />
               <Tooltip />
               <Legend />
               <Bar dataKey="preservation" fill="#8b5cf6" name="Preservation %" />

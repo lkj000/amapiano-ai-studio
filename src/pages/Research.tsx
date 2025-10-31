@@ -9,15 +9,17 @@ import CulturalStyleCatalog from "@/components/research/CulturalStyleCatalog";
 
 const Research = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  
+  console.log('Research page rendering, activeTab:', activeTab);
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background text-foreground pt-20 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <GraduationCap className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">Research & Development</h1>
+            <h1 className="text-3xl font-bold text-foreground">Research & Development</h1>
             <p className="text-muted-foreground">
               Full-Stack Algorithm-System Co-Design for Efficient Music Generation
             </p>

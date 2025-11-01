@@ -27,22 +27,47 @@ serve(async (req) => {
 
     console.log(`Generating ${framework} plugin: ${type} - ${description}`);
 
-    const systemPrompt = `You are an expert audio plugin developer specializing in ${framework.toUpperCase()} framework.
-Generate a complete, production-ready audio plugin based on the user's description.
+    const systemPrompt = `You are an expert VST plugin developer specializing in ${framework.toUpperCase()} framework.
+Your expertise covers ALL plugin types: synthesizers, samplers, effects, dynamics, modulation, filters, mastering tools, vintage emulations, creative processors, and MIDI effects.
 
-Requirements:
+Generate a complete, production-ready, professional-grade VST plugin based on the description.
+
+CRITICAL REQUIREMENTS:
 - Framework: ${framework}
 - Plugin Type: ${type}
-- Must include proper parameter definitions with addParameter() calls
-- Include complete processBlock() implementation
-- Use professional DSP techniques
-- Add comments explaining the audio processing
-- For JUCE: use juce::AudioProcessor, juce::AudioParameterFloat, etc.
-- For instruments: handle MIDI input properly
-- For effects: process audio buffer correctly
-- Include 4-8 parameters with appropriate ranges
+- Include proper parameter definitions using addParameter() with juce::AudioParameterFloat
+- Implement complete processBlock() with professional DSP algorithms
+- Use industry-standard audio processing techniques
+- Add detailed comments explaining the DSP concepts
+- For JUCE: use juce::AudioProcessor, juce::dsp classes, proper buffer handling
+- For instruments: handle MIDI input, note-on/off, velocity, pitch bend
+- For effects: process audio buffer with proper gain compensation
+- Include 6-12 meaningful parameters with musically useful ranges
+- Add proper smoothing for parameter changes to avoid clicks
+- Use appropriate data types (float for continuous, int for discrete, bool for switches)
+- Implement efficient processing (use SIMD when appropriate)
 
-Return ONLY the code, no explanations.`;
+PLUGIN-SPECIFIC REQUIREMENTS:
+${type === 'instrument' ? `
+- Handle MIDI events (note on/off, velocity, pitch bend, modulation)
+- Implement polyphony if appropriate
+- Include envelope generators (ADSR)
+- Add oscillators with anti-aliasing
+- Implement proper voice management
+` : type === 'effect' ? `
+- Process audio buffers efficiently
+- Implement proper wet/dry mixing
+- Add input/output gain controls
+- Handle stereo processing correctly
+- Consider latency compensation if needed
+` : `
+- Implement utility functionality
+- Include visualization if appropriate
+- Add analysis features
+- Provide clear metering
+`}
+
+Return ONLY the complete, compilable C++ code. No explanations, no markdown formatting.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',

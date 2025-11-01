@@ -16,6 +16,16 @@ export * from './multiband';
 export * from './limiter';
 export * from './chorus';
 export * from './phaser';
+export * from './flanger';
+export * from './tremolo';
+export * from './autopan';
+export * from './vocoder';
+export * from './ringmod';
+
+// Phase 2 Professional Tools
+export * from './VersionControl';
+export * from './VST3Exporter';
+export { performanceProfiler, PerformanceProfiler } from '../PerformanceProfiler';
 
 import { EQModule } from './eq';
 import { CompressorModule } from './compressor';
@@ -27,6 +37,11 @@ import { MultibandModule } from './multiband';
 import { LimiterModule } from './limiter';
 import { ChorusModule } from './chorus';
 import { PhaserModule } from './phaser';
+import { FlangerModule } from './flanger';
+import { TremoloModule } from './tremolo';
+import { AutoPanModule } from './autopan';
+import { VocoderModule } from './vocoder';
+import { RingModulatorModule } from './ringmod';
 import type { DSPModule, EffectChain } from './types';
 
 export const DSPModules: Record<string, DSPModule> = {
@@ -39,7 +54,12 @@ export const DSPModules: Record<string, DSPModule> = {
   multiband: MultibandModule,
   limiter: LimiterModule,
   chorus: ChorusModule,
-  phaser: PhaserModule
+  phaser: PhaserModule,
+  flanger: FlangerModule,
+  tremolo: TremoloModule,
+  autopan: AutoPanModule,
+  vocoder: VocoderModule,
+  ringmod: RingModulatorModule
 };
 
 export function createAmapianorizerChain(): EffectChain {

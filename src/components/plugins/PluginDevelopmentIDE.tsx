@@ -301,6 +301,34 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       });
     }
 
+    // 6) Loose AudioParameterFloat detection (ID-only, tolerant)
+    const floatLoose = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+\s*=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterFloat(?:\s*>)?\s*\(\s*"([^"]+)"\s*,/gi;
+    while ((m = floatLoose.exec(normalized)) !== null) {
+      const [, id] = m;
+      // Skip if already present from stricter matches
+      if (!params.some(x => x.id === id)) {
+        const unit = detectUnit(id);
+        let min: number | undefined;
+        let max: number | undefined;
+        let def: number | undefined;
+
+        if (/pitch|note|key/i.test(id)) { min = 24; max = 96; def = 60; }
+        else if (/time|glide|decay|attack|release|hold/i.test(id)) { min = 0; max = 2000; def = 100; }
+        else if (/freq|hz/i.test(id)) { min = 20; max = 20000; def = 2000; }
+        else { min = 0; max = 1; def = 0.5; }
+
+        pushParam({
+          id,
+          name: id.replace(/(^|_|-)([a-z])/g, (_, __, c) => c.toUpperCase()).replace(/[_-]/g, ' '),
+          type: 'float',
+          defaultValue: def,
+          ...(min !== undefined ? { min } : {}),
+          ...(max !== undefined ? { max } : {}),
+          ...(unit ? { unit } : {})
+        });
+      }
+    }
+
     // Fallback: infer parameters from class member variables if no JUCE params declared
     if (params.length === 0) {
       const toTitle = (s: string) => s

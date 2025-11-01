@@ -202,6 +202,40 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     toast.success(`Loaded template: ${template.name}`);
   };
 
+  // Auto-detect JUCE parameters from code
+  const extractJUCEParameters = (code: string): PluginParameterDef[] => {
+    const params: PluginParameterDef[] = [];
+    const paramRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+juce::AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)/g;
+    
+    let match;
+    while ((match = paramRegex.exec(code)) !== null) {
+      params.push({
+        id: match[2],
+        name: match[3],
+        type: 'float',
+        defaultValue: parseFloat(match[6]),
+        min: parseFloat(match[4]),
+        max: parseFloat(match[5]),
+        unit: match[2].includes('Time') ? 'ms' : match[2].includes('swing') || match[2].includes('shuffle') ? '%' : undefined
+      });
+    }
+    
+    return params;
+  };
+
+  // Update parameters when code changes
+  React.useEffect(() => {
+    if (currentProject.code && currentProject.framework === 'juce') {
+      const detectedParams = extractJUCEParameters(currentProject.code);
+      if (detectedParams.length > 0 && detectedParams.length !== currentProject.parameters.length) {
+        setCurrentProject(prev => ({
+          ...prev,
+          parameters: detectedParams
+        }));
+      }
+    }
+  }, [currentProject.code]);
+
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}

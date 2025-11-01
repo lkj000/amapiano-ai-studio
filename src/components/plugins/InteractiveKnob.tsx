@@ -53,37 +53,61 @@ export const InteractiveKnob: React.FC<InteractiveKnobProps> = ({
   }, []);
 
   const playFeedbackTone = (normalizedValue: number) => {
-    if (!audioContextRef.current || !gainNodeRef.current) return;
-
-    // Stop previous oscillator
-    if (oscillatorRef.current) {
-      oscillatorRef.current.stop();
+    if (!audioContextRef.current || !gainNodeRef.current) {
+      console.log('[InteractiveKnob] Audio context not ready');
+      return;
     }
 
-    // Create new oscillator
-    oscillatorRef.current = audioContextRef.current.createOscillator();
-    oscillatorRef.current.type = 'sine';
-    
-    // Map value to frequency (200Hz to 800Hz)
-    const frequency = 200 + (normalizedValue * 600);
-    oscillatorRef.current.frequency.value = frequency;
-    
-    oscillatorRef.current.connect(gainNodeRef.current);
-    
-    // Very subtle volume
-    gainNodeRef.current.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-    gainNodeRef.current.gain.linearRampToValueAtTime(0.02, audioContextRef.current.currentTime + 0.01);
-    gainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 0.05);
-    
-    oscillatorRef.current.start();
-    oscillatorRef.current.stop(audioContextRef.current.currentTime + 0.05);
+    if (audioContextRef.current.state !== 'running') {
+      console.log('[InteractiveKnob] Audio context not running:', audioContextRef.current.state);
+      return;
+    }
+
+    try {
+      // Stop previous oscillator
+      if (oscillatorRef.current) {
+        try {
+          oscillatorRef.current.stop();
+        } catch (e) {
+          // Oscillator might have already stopped
+        }
+      }
+
+      // Create new oscillator
+      oscillatorRef.current = audioContextRef.current.createOscillator();
+      oscillatorRef.current.type = 'sine';
+      
+      // Map value to frequency (200Hz to 800Hz)
+      const frequency = 200 + (normalizedValue * 600);
+      oscillatorRef.current.frequency.value = frequency;
+      
+      oscillatorRef.current.connect(gainNodeRef.current);
+      
+      // More audible volume for testing (0.1 instead of 0.02)
+      gainNodeRef.current.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+      gainNodeRef.current.gain.linearRampToValueAtTime(0.1, audioContextRef.current.currentTime + 0.01);
+      gainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 0.08);
+      
+      oscillatorRef.current.start();
+      oscillatorRef.current.stop(audioContextRef.current.currentTime + 0.08);
+      
+      console.log('[InteractiveKnob] Playing tone at', frequency.toFixed(0), 'Hz');
+    } catch (error) {
+      console.error('[InteractiveKnob] Error playing tone:', error);
+    }
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = async (e: React.MouseEvent) => {
     setIsDragging(true);
     dragStartY.current = e.clientY;
     dragStartValue.current = value;
     document.body.style.cursor = 'ns-resize';
+    
+    // Resume audio context on user interaction
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+      console.log('[InteractiveKnob] AudioContext resumed');
+    }
   };
 
   const handleMouseMove = (e: MouseEvent) => {

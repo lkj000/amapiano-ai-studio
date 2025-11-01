@@ -211,9 +211,12 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
 
+    // Remove UI-inserted parameter helper blocks to avoid duplicate/fallback values overriding constructor defaults
+    const withoutUIBlocks = stripped.replace(/\/\/\s*---\s*JUCE Parameters\s*---[\s\S]*?\/\/\s*---\s*End JUCE Parameters\s*---/gi, '');
+
     // Prefer parameters declared inside the AudioProcessor class constructor
-    const classMatch = stripped.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
-    let source = classMatch ? classMatch[2] : stripped;
+    const classMatch = withoutUIBlocks.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
+    let source = classMatch ? classMatch[2] : withoutUIBlocks;
 
     // If a class is found, further narrow to its constructor body to avoid free-standing duplicates
     if (classMatch) {

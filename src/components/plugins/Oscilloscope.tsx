@@ -18,6 +18,18 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const phaseRef = useRef(0);
+  const [resolvedColor, setResolvedColor] = useState<string>('');
+
+  // Resolve CSS variable to actual color
+  useEffect(() => {
+    if (canvasRef.current) {
+      const computedStyle = getComputedStyle(canvasRef.current);
+      const primaryColor = computedStyle.getPropertyValue('--primary').trim();
+      if (primaryColor) {
+        setResolvedColor(`hsl(${primaryColor})`);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -81,26 +93,22 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // Create gradient for glow effect
-      const gradient = ctx.createLinearGradient(0, height / 2 - 50, 0, height / 2 + 50);
-      gradient.addColorStop(0, color + '00');
-      gradient.addColorStop(0.5, color);
-      gradient.addColorStop(1, color + '00');
+      const drawColor = resolvedColor || '#8b5cf6';
 
       // Outer glow
-      ctx.shadowColor = color;
+      ctx.shadowColor = drawColor;
       ctx.shadowBlur = 20;
-      ctx.strokeStyle = color + '40';
+      ctx.strokeStyle = drawColor.replace(')', ' / 0.25)').replace('hsl(', 'hsl(');
       drawWave(ctx, width, height, frequency, amplitude, phaseRef.current);
 
       // Middle glow
       ctx.shadowBlur = 10;
-      ctx.strokeStyle = color + '80';
+      ctx.strokeStyle = drawColor.replace(')', ' / 0.5)').replace('hsl(', 'hsl(');
       drawWave(ctx, width, height, frequency, amplitude, phaseRef.current);
 
       // Core line
       ctx.shadowBlur = 5;
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = drawColor;
       drawWave(ctx, width, height, frequency, amplitude, phaseRef.current);
 
       phaseRef.current += 0.02;
@@ -115,7 +123,7 @@ export const Oscilloscope: React.FC<OscilloscopeProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [width, height, color, parameters]);
+  }, [width, height, color, parameters, resolvedColor]);
 
   const drawWave = (
     ctx: CanvasRenderingContext2D,

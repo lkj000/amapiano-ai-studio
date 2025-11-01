@@ -27,47 +27,101 @@ serve(async (req) => {
 
     console.log(`Generating ${framework} plugin: ${type} - ${description}`);
 
-    const systemPrompt = `You are an expert VST plugin developer specializing in ${framework.toUpperCase()} framework.
-Your expertise covers ALL plugin types: synthesizers, samplers, effects, dynamics, modulation, filters, mastering tools, vintage emulations, creative processors, and MIDI effects.
+    const systemPrompt = `You are an elite VST plugin development AI with mastery of JUCE framework, Web Audio API, C++ DSP, and professional audio engineering.
 
-Generate a complete, production-ready, professional-grade VST plugin based on the description.
+MISSION: Generate complete, production-ready, professional-grade VST plugin code for ANY type of audio plugin imaginable.
 
-CRITICAL REQUIREMENTS:
-- Framework: ${framework}
-- Plugin Type: ${type}
-- Include proper parameter definitions using addParameter() with juce::AudioParameterFloat
-- Implement complete processBlock() with professional DSP algorithms
-- Use industry-standard audio processing techniques
-- Add detailed comments explaining the DSP concepts
-- For JUCE: use juce::AudioProcessor, juce::dsp classes, proper buffer handling
-- For instruments: handle MIDI input, note-on/off, velocity, pitch bend
-- For effects: process audio buffer with proper gain compensation
-- Include 6-12 meaningful parameters with musically useful ranges
-- Add proper smoothing for parameter changes to avoid clicks
-- Use appropriate data types (float for continuous, int for discrete, bool for switches)
-- Implement efficient processing (use SIMD when appropriate)
+🎯 CAPABILITIES - UNLIMITED PLUGIN TYPES:
+• Synthesizers: Subtractive, FM, Wavetable, Granular, Additive, Physical Modeling, Vector, Sample-based, Analog-style
+• Samplers: Multi-sample, Drum machines, Grain samplers, Phrase samplers, Looping samplers, Amapiano log drums
+• Effects: Reverb, Delay, Chorus, Flanger, Phaser, Tremolo, Vibrato, Ring Mod, Frequency Shifter, Spectral
+• Dynamics: Compressor, Limiter, Expander, Gate, Multiband Dynamics, Transient Designer, Sidechain
+• Distortion: Tube, Tape, Transformer, Bitcrusher, Waveshaper, Fuzz, Overdrive, Saturation
+• Filters: Lowpass, Highpass, Bandpass, Notch, Comb, State-variable, Formant, Ladder, Resonant
+• EQ: Parametric, Graphic, Dynamic, Linear Phase, Vintage-style, Shelf, Bell
+• Modulation: LFO, Envelope Follower, Step Sequencer, Arpeggiator, MIDI effects, Matrix
+• Spatial: Stereo Widener, Panner, Haas, Mid-Side, Binaural, Surround
+• Creative: Vocoder, Pitch Shifter, Time Stretcher, Spectral Processor, Glitch, Granular
+• Mastering: Limiter, Multiband Compressor, Exciter, Dither, Loudness Maximizer, Clipper
+• Vintage: Analog emulations, Console emulations, Tape machines, Classic gear
+• And literally ANY other audio plugin concept!
 
-PLUGIN-SPECIFIC REQUIREMENTS:
+📋 FRAMEWORK: ${framework.toUpperCase()}
+🎛️ TYPE: ${type}
+
+CODE GENERATION REQUIREMENTS FOR JUCE:
+\`\`\`cpp
+class ${type === 'instrument' ? 'SynthProcessor' : type === 'effect' ? 'EffectProcessor' : 'UtilityProcessor'} : public juce::AudioProcessor {
+public:
+    ${type === 'instrument' ? 'SynthProcessor' : type === 'effect' ? 'EffectProcessor' : 'UtilityProcessor'}() {
+        // Initialize ALL parameters with proper ranges, units, and defaults
+        addParameter(new juce::AudioParameterFloat("param1", "Parameter Name", 
+            juce::NormalisableRange<float>(min, max, step), default));
+        // Add 6-12 musically useful parameters
+    }
+    
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override {
+        // Initialize DSP state, allocate buffers, setup filters
+    }
+    
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
+        // IMPLEMENT COMPLETE DSP PROCESSING
+        // - Handle MIDI for instruments
+        // - Process audio with professional algorithms
+        // - Add parameter smoothing
+        // - Optimize for real-time (<3ms latency)
+        // - Include proper gain staging
+    }
+    
+    // Include ALL required JUCE methods with implementations
+};
+\`\`\`
+
+🎛️ PARAMETER SPECIFICATIONS:
+• Use proper audio units: Hz, dB, ms, %, semitones, MIDI notes
+• Set musically useful ranges (e.g., cutoff: 20Hz-20kHz, resonance: 0-1)
+• Add parameter smoothing to prevent clicks/pops
+• Group related parameters (oscillator, filter, envelope, etc.)
+• Provide musical default values that sound good immediately
+
+🔧 DSP ALGORITHMS TO IMPLEMENT:
 ${type === 'instrument' ? `
-- Handle MIDI events (note on/off, velocity, pitch bend, modulation)
-- Implement polyphony if appropriate
-- Include envelope generators (ADSR)
-- Add oscillators with anti-aliasing
-- Implement proper voice management
+• Oscillators: Band-limited waveforms (saw, square, sine, triangle)
+• Filters: Moog ladder, state-variable, biquad
+• Envelopes: ADSR with exponential curves
+• Voice management: Polyphony, note stealing
+• Modulation: LFO, envelope to parameters
+• Effects: Chorus, reverb, delay
 ` : type === 'effect' ? `
-- Process audio buffers efficiently
-- Implement proper wet/dry mixing
-- Add input/output gain controls
-- Handle stereo processing correctly
-- Consider latency compensation if needed
+• Audio processing: Filtering, dynamics, saturation
+• Delay lines: Circular buffers, interpolation
+• Reverb: All-pass chains, comb filters, early reflections
+• Modulation: LFO, chorus, flanger algorithms
+• Dynamics: Peak/RMS detection, gain reduction
+• Saturation: Waveshaping, harmonic generation
 ` : `
-- Implement utility functionality
-- Include visualization if appropriate
-- Add analysis features
-- Provide clear metering
+• Analysis: FFT, spectrum, metering
+• Visualization: Waveform, spectrum display
+• Utility: Gain, pan, phase
+• Metering: Peak, RMS, LUFS
 `}
 
-Return ONLY the complete, compilable C++ code. No explanations, no markdown formatting.`;
+💎 CODE QUALITY STANDARDS:
+✅ Complete implementations - NO placeholders or TODOs
+✅ Professional variable naming (camelCase)
+✅ Comprehensive inline comments explaining DSP concepts
+✅ Optimized for real-time audio (no allocations in processBlock)
+✅ Proper buffer handling and bounds checking
+✅ Sample-rate independent processing
+✅ Anti-aliasing where needed (oscillators, pitch shifting)
+✅ Denormal protection (add small DC offset or flush-to-zero)
+✅ Proper gain staging (avoid clipping, maintain headroom)
+✅ Parameter smoothing for continuous controls
+✅ MIDI handling for instruments (note on/off, velocity, pitchbend)
+
+CRITICAL: Generate COMPLETE, PRODUCTION-READY code. Every method must be fully implemented. No "// TODO" or "// Implement this" comments. The plugin must compile and run immediately.
+
+Return ONLY the complete C++ code. No markdown, no explanations, just pure compilable code.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -79,8 +133,29 @@ Return ONLY the complete, compilable C++ code. No explanations, no markdown form
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: description }
+          { 
+            role: 'user', 
+            content: `Create a professional ${type} VST plugin:
+
+DESCRIPTION: ${description}
+
+REQUIREMENTS:
+- Generate COMPLETE, production-ready C++ code
+- Implement ALL DSP algorithms from scratch
+- Include ALL parameter definitions (6-12 parameters)
+- Add comprehensive parameter smoothing
+- Include proper audio buffer handling
+- Optimize for real-time performance (<3ms latency)
+- Add detailed inline documentation
+- Follow professional audio coding standards
+- Make it sound professional and musical
+- NO placeholders, NO TODOs - everything must be fully implemented
+
+Generate the complete plugin code now!` 
+          }
         ],
+        max_tokens: 8000,
+        temperature: 0.8
       }),
     });
 

@@ -38,11 +38,11 @@ public:
         // Register parameters
         addParameter(pitchParam = new juce::AudioParameterFloat(
             "pitch", "Pitch",
-            juce::NormalisableRange<float>(24.0f, 96.0f), 60.0f));
+            juce::NormalisableRange<float>(24.0f, 96.0f), 80.0f));
         
         addParameter(glideParam = new juce::AudioParameterFloat(
             "glide", "Glide Time",
-            juce::NormalisableRange<float>(0.0f, 1000.0f), 100.0f));
+            juce::NormalisableRange<float>(0.0f, 1000.0f), 150.0f));
         
         addParameter(knockParam = new juce::AudioParameterFloat(
             "knock", "Knock Mix",
@@ -117,8 +117,8 @@ private:
     float envelope = 0.0f;
 };`,
       parameters: [
-        { id: 'pitch', name: 'Pitch', type: 'float', defaultValue: 60, min: 24, max: 96, unit: 'MIDI' },
-        { id: 'glide', name: 'Glide Time', type: 'float', defaultValue: 100, min: 0, max: 1000, unit: 'ms' },
+        { id: 'pitch', name: 'Pitch', type: 'float', defaultValue: 80, min: 24, max: 96, unit: 'MIDI' },
+        { id: 'glide', name: 'Glide Time', type: 'float', defaultValue: 150, min: 0, max: 1000, unit: 'ms' },
         { id: 'knock', name: 'Knock Mix', type: 'float', defaultValue: 0.3, min: 0, max: 1, unit: '%' },
         { id: 'decay', name: 'Decay Time', type: 'float', defaultValue: 800, min: 50, max: 2000, unit: 'ms' },
         { id: 'sub', name: 'Sub Bass', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '%' },

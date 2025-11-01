@@ -109,6 +109,10 @@ export const CompressorModule: DSPModule = {
   id: 'compressor',
   name: 'Pumping Compressor',
   category: 'dynamics',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getCompressorParams(),
   generateCode: generateCompressorCode
 };

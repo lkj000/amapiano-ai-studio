@@ -153,6 +153,10 @@ export const GateModule: DSPModule = {
   id: 'gate',
   name: 'Rhythmic Gate',
   category: 'dynamics',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getGateParams(),
   generateCode: generateGateCode
 };

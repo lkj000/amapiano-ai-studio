@@ -114,6 +114,10 @@ export const ReverbModule: DSPModule = {
   id: 'reverb',
   name: 'Spatial Reverb',
   category: 'time',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getReverbParams(),
   generateCode: generateReverbCode
 };

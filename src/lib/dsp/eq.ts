@@ -140,6 +140,10 @@ export const EQModule: DSPModule = {
   id: 'eq',
   name: 'Amapiano EQ',
   category: 'eq',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getEQParams(),
   generateCode: generateEQCode
 };

@@ -161,6 +161,10 @@ export const DelayModule: DSPModule = {
   id: 'delay',
   name: 'Filtered Delay',
   category: 'time',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getDelayParams(),
   generateCode: generateDelayCode
 };

@@ -1,4 +1,4 @@
-// Central DSP module registry
+// Central DSP module registry - Phase 0 Enhanced
 export * from './types';
 export * from './eq';
 export * from './compressor';
@@ -7,6 +7,9 @@ export * from './reverb';
 export * from './delay';
 export * from './distortion';
 export * from './presets';
+export * from './ParameterParser';
+export * from './WasmCompiler';
+export * from './AudioContextManager';
 
 import { EQModule } from './eq';
 import { CompressorModule } from './compressor';

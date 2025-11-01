@@ -115,6 +115,10 @@ export const DistortionModule: DSPModule = {
   id: 'distortion',
   name: 'Analog Warmth',
   category: 'distortion',
+  version: '1.0.0',
+  inputs: 2,
+  outputs: 2,
+  latency: 0,
   parameters: getDistortionParams(),
   generateCode: generateDistortionCode
 };

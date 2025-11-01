@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { InteractiveKnob } from './InteractiveKnob';
 import { Oscilloscope } from './Oscilloscope';
 import { MasterOutput } from './MasterOutput';
+import { AIParameterChat } from './AIParameterChat';
 import type { PluginProject, PluginParameterDef } from './PluginDevelopmentIDE';
 
 interface PluginVisualBuilderProps {
@@ -25,6 +26,7 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
 }) => {
   const [selectedModule, setSelectedModule] = useState<string>('');
   const [parameterValues, setParameterValues] = useState<Record<string, number>>({});
+  const [showAIChat, setShowAIChat] = useState(false);
 
   const audioModules = [
     { id: 'oscillator', name: 'Oscillator', icon: Volume2, color: 'bg-blue-500' },
@@ -278,6 +280,30 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
     toast.success(`${moduleName} added with ${newParams.length} parameters`);
   };
 
+  const handleAIParameterUpdate = (parameters: Record<string, any>, explanation: string) => {
+    if (!project) return;
+
+    // Update project parameters with AI suggestions
+    const updatedParams = project.parameters.map(param => {
+      if (parameters.hasOwnProperty(param.name)) {
+        return { ...param, defaultValue: parameters[param.name] };
+      }
+      return param;
+    });
+
+    onChange({ ...project, parameters: updatedParams });
+    setParameterValues(prev => ({ ...prev, ...parameters }));
+    toast.success(explanation);
+  };
+
+  const getCurrentParameterValues = (): Record<string, any> => {
+    const values: Record<string, any> = {};
+    project?.parameters.forEach(param => {
+      values[param.name] = param.defaultValue;
+    });
+    return values;
+  };
+
   const generateCode = () => {
     // Generate code from visual design
     let code = '';
@@ -354,13 +380,35 @@ ${dspCode}
                 </p>
               </div>
             </CardTitle>
-            <Button onClick={generateCode} size="lg" className="gap-2">
-              <Zap className="h-4 w-4" />
-              Generate Code
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setShowAIChat(!showAIChat)}
+                variant={showAIChat ? "default" : "outline"}
+                size="lg"
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Assistant
+              </Button>
+              <Button onClick={generateCode} size="lg" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Generate Code
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* AI Parameter Assistant */}
+          {showAIChat && (
+            <div className="h-[400px]">
+              <AIParameterChat
+                currentParameters={getCurrentParameterValues()}
+                onParametersUpdate={handleAIParameterUpdate}
+                pluginType={project?.type || 'effect'}
+              />
+            </div>
+          )}
+          
           {/* Live Audio Visualization */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-2">

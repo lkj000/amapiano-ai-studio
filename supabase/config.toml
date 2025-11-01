@@ -69,3 +69,9 @@ verify_jwt = false
 
 [functions.essentia-deep-analysis]
 verify_jwt = false
+
+[functions.plugin-parameter-translation]
+verify_jwt = false
+
+[functions.pattern-analyzer]
+verify_jwt = false

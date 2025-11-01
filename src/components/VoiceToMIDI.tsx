@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, Square, Settings, Music2, Plus, Play } from 'lucide-react';
+import { Mic, Square, Settings, Music2, Plus, Play, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRealtimeFeatureExtraction } from '@/hooks/useRealtimeFeatureExtraction';
 
 interface MIDINote {
   note: number;
@@ -38,6 +39,16 @@ interface InstrumentPreset {
 }
 
 const VoiceToMIDI = () => {
+  // High-Speed WASM Integration
+  const wasmExtractor = useRealtimeFeatureExtraction();
+  
+  // Auto-initialize WASM engine for pitch detection
+  useEffect(() => {
+    if (!wasmExtractor.isInitialized) {
+      wasmExtractor.initialize();
+    }
+  }, []);
+  
   // Audio processing state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);

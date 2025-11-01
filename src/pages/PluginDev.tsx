@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { PluginDevelopmentIDE } from '@/components/plugins/PluginDevelopmentIDE';
 import { AIPluginChat } from '@/components/plugins/AIPluginChat';
 import { PluginMarketplace } from '@/components/marketplace/PluginMarketplace';
+import { MyPluginsDashboard } from '@/components/plugins/MyPluginsDashboard';
+import { PluginBundleCreator } from '@/components/plugins/PluginBundleCreator';
+import { SellerAnalytics } from '@/components/plugins/SellerAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Sparkles, Zap, Package, BookOpen, Rocket, Play, Wand2, Globe, Cpu, Activity, Layers, Lightbulb, MessageSquare } from 'lucide-react';
+import { Code, Sparkles, Zap, Package, BookOpen, Rocket, Play, Wand2, Globe, Cpu, Activity, Layers, Lightbulb, MessageSquare, BarChart3, PackageCheck } from 'lucide-react';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
 
 export default function PluginDev() {
@@ -417,6 +420,54 @@ export default function PluginDev() {
               </Card>
             ))}
           </div>
+        </div>
+
+        {/* Marketplace & Management Section */}
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold">Plugin Marketplace & Management</h2>
+            <p className="text-muted-foreground">Manage your plugins, create bundles, and track analytics</p>
+          </div>
+          
+          <Tabs defaultValue="browse" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="browse">Browse</TabsTrigger>
+              <TabsTrigger value="myplugins">My Plugins</TabsTrigger>
+              <TabsTrigger value="bundles">Bundles</TabsTrigger>
+              <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="submit">Submit</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="browse">
+              <PluginMarketplace />
+            </TabsContent>
+
+            <TabsContent value="myplugins">
+              <MyPluginsDashboard />
+            </TabsContent>
+
+            <TabsContent value="bundles">
+              <PluginBundleCreator />
+            </TabsContent>
+
+            <TabsContent value="analytics">
+              <SellerAnalytics />
+            </TabsContent>
+            
+            <TabsContent value="submit">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Submit to Marketplace</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    Marketplace submission feature coming soon. You'll be able to publish
+                    your plugins directly from the IDE.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Final CTA with Enhanced Design */}

@@ -17,6 +17,9 @@ import { ExpandedTemplateLibrary } from './ExpandedTemplateLibrary';
 import { AIPluginGenerator } from './AIPluginGenerator';
 import { PluginPublisher } from './PluginPublisher';
 import { PluginSubmissionModal } from '../marketplace/PluginSubmissionModal';
+import { ConversationalAIGenerator } from './ConversationalAIGenerator';
+import { SmartParameterOptimizer } from './SmartParameterOptimizer';
+import { PluginExporter } from './PluginExporter';
 import { usePluginCompiler } from '@/hooks/usePluginCompiler';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
 
@@ -641,10 +644,25 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
 
           <div className="flex-1 overflow-hidden">
             <TabsContent value="ai" className="h-full m-0 p-4">
-              <AIPluginGenerator 
-                onGenerate={handleTemplateSelect}
-                framework={currentProject.framework}
-              />
+              <ScrollArea className="h-full">
+                <div className="space-y-6">
+                  <ConversationalAIGenerator 
+                    onCodeGenerated={(code, params) => {
+                      setCurrentProject(prev => ({
+                        ...prev,
+                        code,
+                        parameters: params
+                      }));
+                      toast.success('Plugin code generated!');
+                      setActiveTab('code');
+                    }}
+                  />
+                  <AIPluginGenerator 
+                    onGenerate={handleTemplateSelect}
+                    framework={currentProject.framework}
+                  />
+                </div>
+              </ScrollArea>
             </TabsContent>
 
             <TabsContent value="templates" className="h-full m-0 p-4">
@@ -669,45 +687,57 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
             </TabsContent>
 
             <TabsContent value="parameters" className="h-full m-0 p-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sliders className="h-5 w-5" />
-                    Plugin Parameters
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-4">
-                      {currentProject.parameters.map((param, index) => (
-                        <Card key={param.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold">{param.name}</h4>
-                              <Badge>{param.type}</Badge>
-                            </div>
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <div>ID: {param.id}</div>
-                              <div>Default: {param.defaultValue}</div>
-                              {param.min !== undefined && <div>Min: {param.min}</div>}
-                              {param.max !== undefined && <div>Max: {param.max}</div>}
-                              {param.unit && <div>Unit: {param.unit}</div>}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                      
-                      {currentProject.parameters.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Sliders className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>No parameters defined yet</p>
-                          <p className="text-sm">Add parameters in the code editor or visual builder</p>
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+              <ScrollArea className="h-full">
+                <div className="space-y-6">
+                  <SmartParameterOptimizer 
+                    parameters={currentProject.parameters}
+                    onParametersOptimized={(optimizedParams) => {
+                      setCurrentProject(prev => ({
+                        ...prev,
+                        parameters: optimizedParams as PluginParameterDef[]
+                      }));
+                    }}
+                  />
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Sliders className="h-5 w-5" />
+                        Plugin Parameters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {currentProject.parameters.map((param, index) => (
+                          <Card key={param.id}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-semibold">{param.name}</h4>
+                                <Badge>{param.type}</Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <div>ID: {param.id}</div>
+                                <div>Default: {param.defaultValue}</div>
+                                {param.min !== undefined && <div>Min: {param.min}</div>}
+                                {param.max !== undefined && <div>Max: {param.max}</div>}
+                                {param.unit && <div>Unit: {param.unit}</div>}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                        
+                        {currentProject.parameters.length === 0 && (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Sliders className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                            <p>No parameters defined yet</p>
+                            <p className="text-sm">Add parameters in the code editor or visual builder</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </ScrollArea>
             </TabsContent>
 
             <TabsContent value="test" className="h-full m-0 p-4">
@@ -743,10 +773,19 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
             </TabsContent>
 
             <TabsContent value="publish" className="h-full m-0 p-4">
-              <PluginPublisher
-                project={currentProject}
-                wasmEngine={wasmEngine}
-              />
+              <ScrollArea className="h-full">
+                <div className="space-y-6">
+                  <PluginExporter 
+                    pluginCode={currentProject.code}
+                    pluginName={currentProject.name}
+                    parameters={currentProject.parameters}
+                  />
+                  <PluginPublisher
+                    project={currentProject}
+                    wasmEngine={wasmEngine}
+                  />
+                </div>
+              </ScrollArea>
             </TabsContent>
           </div>
         </Tabs>

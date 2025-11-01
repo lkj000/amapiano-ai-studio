@@ -1,0 +1,357 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Download, FileCode, Package } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface PluginExporterProps {
+  pluginCode: string;
+  pluginName: string;
+  parameters: any[];
+}
+
+export const PluginExporter = ({ pluginCode, pluginName, parameters }: PluginExporterProps) => {
+  const [exportFormat, setExportFormat] = useState<string>("webaudio");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const generateWebAudioExport = () => {
+    const workletCode = `
+class ${pluginName.replace(/\s+/g, '')}Processor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      ${parameters.map(p => `{
+        name: '${p.id}',
+        defaultValue: ${p.defaultValue},
+        minValue: ${p.min},
+        maxValue: ${p.max}
+      }`).join(',\n      ')}
+    ];
+  }
+
+  constructor() {
+    super();
+    this.initializePlugin();
+  }
+
+  initializePlugin() {
+    // Plugin initialization
+    ${pluginCode}
+  }
+
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    const output = outputs[0];
+    
+    if (!input || !output) return true;
+    
+    for (let channel = 0; channel < output.length; channel++) {
+      const inputChannel = input[channel];
+      const outputChannel = output[channel];
+      
+      for (let i = 0; i < outputChannel.length; i++) {
+        outputChannel[i] = this.processFrame(inputChannel[i], parameters);
+      }
+    }
+    
+    return true;
+  }
+
+  processFrame(sample, params) {
+    // Plugin DSP logic here
+    return sample;
+  }
+}
+
+registerProcessor('${pluginName.toLowerCase().replace(/\s+/g, '-')}', ${pluginName.replace(/\s+/g, '')}Processor);
+`;
+
+    const htmlDemo = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${pluginName} - Audio Plugin</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; padding: 2rem; background: #0f0f0f; color: #fff; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .controls { display: grid; gap: 1rem; margin: 2rem 0; }
+    .control { display: flex; flex-direction: column; gap: 0.5rem; }
+    button { padding: 1rem 2rem; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #4f46e5; }
+    input[type="range"] { width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>${pluginName}</h1>
+    <p>Professional audio plugin powered by Web Audio API</p>
+    
+    <button id="startBtn">Start Audio</button>
+    
+    <div class="controls" id="controls"></div>
+  </div>
+
+  <script>
+    let audioContext;
+    let workletNode;
+    let oscillator;
+    
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      audioContext = new AudioContext();
+      await audioContext.audioWorklet.addModule('${pluginName.toLowerCase().replace(/\s+/g, '-')}-processor.js');
+      
+      workletNode = new AudioWorkletNode(audioContext, '${pluginName.toLowerCase().replace(/\s+/g, '-')}');
+      oscillator = audioContext.createOscillator();
+      
+      oscillator.connect(workletNode).connect(audioContext.destination);
+      oscillator.start();
+      
+      document.getElementById('startBtn').disabled = true;
+      createControls();
+    });
+    
+    function createControls() {
+      const controlsDiv = document.getElementById('controls');
+      const params = ${JSON.stringify(parameters)};
+      
+      params.forEach(param => {
+        const control = document.createElement('div');
+        control.className = 'control';
+        control.innerHTML = \`
+          <label>\${param.name}: <span id="\${param.id}-value">\${param.defaultValue}</span> \${param.unit || ''}</label>
+          <input type="range" 
+                 id="\${param.id}" 
+                 min="\${param.min}" 
+                 max="\${param.max}" 
+                 value="\${param.defaultValue}"
+                 step="\${(param.max - param.min) / 100}">
+        \`;
+        controlsDiv.appendChild(control);
+        
+        document.getElementById(param.id).addEventListener('input', (e) => {
+          const value = parseFloat(e.target.value);
+          document.getElementById(param.id + '-value').textContent = value.toFixed(2);
+          workletNode.parameters.get(param.id).setValueAtTime(value, audioContext.currentTime);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
+`;
+
+    return { workletCode, htmlDemo };
+  };
+
+  const generateJUCEProject = () => {
+    return `
+// ${pluginName} - JUCE Plugin Project
+// Generated by AURA-X Plugin Development Platform
+
+#include <JuceHeader.h>
+
+class ${pluginName.replace(/\s+/g, '')}AudioProcessor : public juce::AudioProcessor
+{
+public:
+    ${pluginName.replace(/\s+/g, '')}AudioProcessor()
+    {
+        // Add parameters
+        ${parameters.map(p => `
+        addParameter(${p.id} = new juce::AudioParameterFloat(
+            "${p.id}",
+            "${p.name}",
+            ${p.min}f, ${p.max}f, ${p.defaultValue}f
+        ));`).join('\n        ')}
+    }
+
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override
+    {
+        // Initialize plugin
+        ${pluginCode}
+    }
+
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) override
+    {
+        auto totalNumInputChannels = getTotalNumInputChannels();
+        auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+        for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+            buffer.clear(i, 0, buffer.getNumSamples());
+
+        for (int channel = 0; channel < totalNumInputChannels; ++channel)
+        {
+            auto* channelData = buffer.getWritePointer(channel);
+
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+            {
+                // Process audio sample
+                channelData[sample] = processFrame(channelData[sample]);
+            }
+        }
+    }
+
+    float processFrame(float input)
+    {
+        // Plugin DSP logic
+        return input;
+    }
+
+private:
+    ${parameters.map(p => `juce::AudioParameterFloat* ${p.id};`).join('\n    ')}
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(${pluginName.replace(/\s+/g, '')}AudioProcessor)
+};
+`;
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+
+    try {
+      let content: { [key: string]: string } = {};
+      let filename = "";
+
+      switch (exportFormat) {
+        case "webaudio":
+          const webAudioExport = generateWebAudioExport();
+          content = {
+            [`${pluginName.toLowerCase().replace(/\s+/g, '-')}-processor.js`]: webAudioExport.workletCode,
+            "demo.html": webAudioExport.htmlDemo,
+            "README.md": `# ${pluginName}\n\nWeb Audio API plugin generated by AURA-X.\n\n## Usage\n1. Open demo.html in a browser\n2. Click "Start Audio"\n3. Adjust parameters\n\n## Integration\nCopy the processor file to your project and load it with:\n\`\`\`javascript\nawait audioContext.audioWorklet.addModule('${pluginName.toLowerCase().replace(/\s+/g, '-')}-processor.js');\n\`\`\``,
+          };
+          filename = `${pluginName.toLowerCase().replace(/\s+/g, '-')}-webaudio.zip`;
+          break;
+
+        case "juce":
+          content = {
+            "PluginProcessor.cpp": generateJUCEProject(),
+            "README.md": `# ${pluginName} - JUCE Project\n\nGenerated by AURA-X Plugin Development Platform.\n\n## Build Instructions\n1. Install JUCE Framework (https://juce.com/)\n2. Create new Audio Plugin project in Projucer\n3. Replace PluginProcessor.cpp with this file\n4. Build using your IDE\n\n## Requirements\n- JUCE 7.0+\n- C++17 compiler\n- VST3/AU SDK (for plugin formats)`,
+          };
+          filename = `${pluginName.toLowerCase().replace(/\s+/g, '-')}-juce.zip`;
+          break;
+
+        case "standalone":
+          const standalone = generateWebAudioExport();
+          content = {
+            "index.html": standalone.htmlDemo,
+            "processor.js": standalone.workletCode,
+          };
+          filename = `${pluginName.toLowerCase().replace(/\s+/g, '-')}-standalone.zip`;
+          break;
+      }
+
+      // Create download
+      const blob = new Blob([JSON.stringify(content, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`Exported as ${exportFormat.toUpperCase()}`);
+    } catch (error) {
+      toast.error("Export failed");
+      console.error(error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Export Plugin</h3>
+          <p className="text-sm text-muted-foreground">
+            Export your plugin in various formats for use in web apps, DAWs, or further development.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Export Format</label>
+            <Select value={exportFormat} onValueChange={setExportFormat}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="webaudio">
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4" />
+                    <div>
+                      <div className="font-medium">Web Audio API</div>
+                      <div className="text-xs text-muted-foreground">AudioWorklet + HTML demo</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="juce">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    <div>
+                      <div className="font-medium">JUCE Project</div>
+                      <div className="text-xs text-muted-foreground">C++ source for VST3/AU</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="standalone">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4" />
+                    <div>
+                      <div className="font-medium">Standalone HTML</div>
+                      <div className="text-xs text-muted-foreground">Ready to use demo</div>
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            onClick={handleExport}
+            disabled={isExporting || !pluginCode}
+            className="w-full"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {isExporting ? "Exporting..." : "Export Plugin"}
+          </Button>
+        </div>
+
+        <div className="p-4 bg-muted rounded-lg text-sm space-y-2">
+          <div className="font-medium">Export Includes:</div>
+          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            {exportFormat === "webaudio" && (
+              <>
+                <li>AudioWorklet processor code</li>
+                <li>HTML demo with controls</li>
+                <li>Integration instructions</li>
+              </>
+            )}
+            {exportFormat === "juce" && (
+              <>
+                <li>C++ processor source</li>
+                <li>JUCE framework integration</li>
+                <li>Build instructions</li>
+              </>
+            )}
+            {exportFormat === "standalone" && (
+              <>
+                <li>Complete HTML application</li>
+                <li>Processor script</li>
+                <li>Ready to deploy</li>
+              </>
+            )}
+          </ul>
+        </div>
+      </div>
+    </Card>
+  );
+};

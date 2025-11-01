@@ -202,15 +202,26 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     toast.success(`Loaded template: ${template.name}`);
   };
 
-  // Auto-detect JUCE parameters from code (supports juce::AudioParameterFloat and AudioParameterFloat)
+  // Auto-detect JUCE parameters from code (multiline-safe)
   const extractJUCEParameters = (code: string): PluginParameterDef[] => {
     const params: PluginParameterDef[] = [];
-    const floatRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+(?:juce::)?AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)\s*\)/g;
+    
+    // Remove line breaks and extra spaces for easier parsing
+    const normalized = code.replace(/\s+/g, ' ');
+    
+    // Match addParameter calls with AudioParameterFloat
+    const floatRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+(?:juce::)?AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)\s*\)/gi;
     
     let match;
-    while ((match = floatRegex.exec(code)) !== null) {
+    while ((match = floatRegex.exec(normalized)) !== null) {
       const id = match[2];
-      const unit = /^(glide|decay)/i.test(id) ? 'ms' : /^(swing|shuffle)/i.test(id) ? '%' : undefined;
+      let unit: string | undefined;
+      
+      // Smart unit detection
+      if (/time|glide|decay/i.test(id)) unit = 'ms';
+      else if (/swing|shuffle|mix|level|bass|drive|knock|sub/i.test(id)) unit = '%';
+      else if (/pitch|note/i.test(id)) unit = 'MIDI';
+      
       params.push({
         id,
         name: match[3],
@@ -222,6 +233,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       });
     }
     
+    console.log(`Detected ${params.length} parameters:`, params.map(p => p.id));
     return params;
   };
 

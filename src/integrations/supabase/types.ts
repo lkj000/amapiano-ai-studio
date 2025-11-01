@@ -1156,6 +1156,194 @@ export type Database = {
         }
         Relationships: []
       }
+      plugin_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_category_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_category_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_category_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plugin_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "plugin_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plugin_downloads: {
+        Row: {
+          download_type: string
+          downloaded_at: string
+          id: string
+          plugin_id: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          download_type?: string
+          downloaded_at?: string
+          id?: string
+          plugin_id: string
+          user_id: string
+          version: string
+        }
+        Update: {
+          download_type?: string
+          downloaded_at?: string
+          id?: string
+          plugin_id?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plugin_downloads_plugin_id_fkey"
+            columns: ["plugin_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plugin_reviews: {
+        Row: {
+          content: string
+          created_at: string
+          helpful_count: number | null
+          id: string
+          plugin_id: string
+          rating: number
+          title: string
+          updated_at: string
+          user_id: string
+          verified_purchase: boolean | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          helpful_count?: number | null
+          id?: string
+          plugin_id: string
+          rating: number
+          title: string
+          updated_at?: string
+          user_id: string
+          verified_purchase?: boolean | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          helpful_count?: number | null
+          id?: string
+          plugin_id?: string
+          rating?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+          verified_purchase?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plugin_reviews_plugin_id_fkey"
+            columns: ["plugin_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plugin_submissions: {
+        Row: {
+          approval_status: string
+          binary_url: string | null
+          changelog: string | null
+          created_at: string
+          id: string
+          marketplace_item_id: string | null
+          plugin_data: Json
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          submitted_at: string
+          submitter_id: string
+          updated_at: string
+          version: string
+          vst3_url: string | null
+          wasm_url: string | null
+        }
+        Insert: {
+          approval_status?: string
+          binary_url?: string | null
+          changelog?: string | null
+          created_at?: string
+          id?: string
+          marketplace_item_id?: string | null
+          plugin_data?: Json
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          submitted_at?: string
+          submitter_id: string
+          updated_at?: string
+          version?: string
+          vst3_url?: string | null
+          wasm_url?: string | null
+        }
+        Update: {
+          approval_status?: string
+          binary_url?: string | null
+          changelog?: string | null
+          created_at?: string
+          id?: string
+          marketplace_item_id?: string | null
+          plugin_data?: Json
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          submitted_at?: string
+          submitter_id?: string
+          updated_at?: string
+          version?: string
+          vst3_url?: string | null
+          wasm_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plugin_submissions_marketplace_item_id_fkey"
+            columns: ["marketplace_item_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           content: string
@@ -1443,6 +1631,38 @@ export type Database = {
           usage_count?: number | null
         }
         Relationships: []
+      }
+      review_helpfulness: {
+        Row: {
+          created_at: string
+          id: string
+          is_helpful: boolean
+          review_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_helpful: boolean
+          review_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_helpful?: boolean
+          review_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_helpfulness_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "plugin_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       room_participants: {
         Row: {
@@ -2275,14 +2495,7 @@ export type Database = {
         }
         Returns: string
       }
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
-      generate_room_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_room_code: { Args: never; Returns: string }
       get_personalized_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {
@@ -2314,44 +2527,12 @@ export type Database = {
           visibility: string
         }[]
       }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
       }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
@@ -2361,18 +2542,6 @@ export type Database = {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
       }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       join_room_by_code: {
         Args: {
           p_participant_name: string
@@ -2380,14 +2549,6 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
       }
       process_micro_royalty: {
         Args: { p_play_value_cents?: number; p_post_id: string }
@@ -2416,18 +2577,6 @@ export type Database = {
           similarity: number
         }[]
       }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       track_analytics_event: {
         Args: {
           p_event_data?: Json
@@ -2445,30 +2594,6 @@ export type Database = {
           p_weight?: number
         }
         Returns: undefined
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
       }
     }
     Enums: {

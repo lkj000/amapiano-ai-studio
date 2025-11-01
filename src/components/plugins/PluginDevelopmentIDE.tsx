@@ -16,6 +16,7 @@ import { PluginTester } from './PluginTester';
 import { ExpandedTemplateLibrary } from './ExpandedTemplateLibrary';
 import { AIPluginGenerator } from './AIPluginGenerator';
 import { PluginPublisher } from './PluginPublisher';
+import { PluginSubmissionModal } from '../marketplace/PluginSubmissionModal';
 import { usePluginCompiler } from '@/hooks/usePluginCompiler';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
 
@@ -80,6 +81,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
   const [isCompiling, setIsCompiling] = useState(false);
   const [compilationLog, setCompilationLog] = useState<string[]>([]);
   const [testResults, setTestResults] = useState<any>(null);
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
 
   useEffect(() => {
     if (audioContext) {
@@ -566,11 +568,11 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
             <Button
               variant="default"
               size="sm"
-              onClick={handlePublish}
-              disabled={!currentProject.compiled}
+              onClick={() => setShowSubmissionModal(true)}
+              disabled={!currentProject.compiled || !currentProject.code}
             >
               <Upload className="h-4 w-4 mr-2" />
-              Publish
+              Submit to Marketplace
             </Button>
 
             {onClose && (
@@ -749,6 +751,17 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
           </div>
         </Tabs>
       </div>
+
+      {/* Marketplace Submission Modal */}
+      <PluginSubmissionModal
+        open={showSubmissionModal}
+        onClose={() => setShowSubmissionModal(false)}
+        pluginData={currentProject.code ? {
+          code: currentProject.code,
+          parameters: currentProject.parameters,
+          framework: currentProject.framework
+        } : undefined}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PluginDevelopmentIDE } from '@/components/plugins/PluginDevelopmentIDE';
 import { AIPluginChat } from '@/components/plugins/AIPluginChat';
+import { PluginMarketplace } from '@/components/marketplace/PluginMarketplace';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

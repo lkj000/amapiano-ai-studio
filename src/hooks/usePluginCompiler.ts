@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { compilationService, type CompilationRequest } from '@/lib/CompilationService';
 
 interface CompilerOptions {
   code: string;
@@ -12,12 +12,12 @@ interface CompilerOptions {
 interface CompilationResult {
   success: boolean;
   binary?: ArrayBuffer;
+  vst3Binary?: ArrayBuffer;
+  auBinary?: ArrayBuffer;
   errors: string[];
   warnings: string[];
   compilationTime: number;
   performance: string;
-  vst3Binary?: ArrayBuffer;
-  auBinary?: ArrayBuffer;
   manifest?: PluginManifest;
 }
 
@@ -48,90 +48,56 @@ export function usePluginCompiler(audioContext: AudioContext | null) {
     const startTime = performance.now();
 
     try {
-      // Validate code
-      if (!options.code.trim()) {
+      console.log('[usePluginCompiler] Starting REAL compilation...');
+      
+      // Validate code first
+      const validationErrors = await compilationService.validateCode(
+        options.code, 
+        options.framework
+      );
+      
+      if (validationErrors.length > 0) {
         return {
           success: false,
-          errors: ['No code provided'],
+          errors: validationErrors,
           warnings: [],
-          compilationTime: 0,
-          performance: 'N/A'
-        };
-      }
-
-      // Simulate WASM compilation
-      await new Promise(resolve => setTimeout(resolve, options.useWASM ? 12 : 50));
-
-      // Check for basic syntax errors
-      const errors: string[] = [];
-      const warnings: string[] = [];
-
-      if (options.framework === 'juce') {
-        // JUCE validation
-        if (!options.code.includes('class')) {
-          errors.push('JUCE plugin must define a class');
-        }
-        if (!options.code.includes('processBlock')) {
-          warnings.push('No processBlock method found');
-        }
-      } else if (options.framework === 'web-audio') {
-        // Web Audio validation
-        if (!options.code.includes('audioContext')) {
-          warnings.push('Consider using audioContext for better compatibility');
-        }
-      }
-
-      if (errors.length > 0) {
-        return {
-          success: false,
-          errors,
-          warnings,
           compilationTime: performance.now() - startTime,
           performance: 'N/A'
         };
       }
 
-      // Generate mock binary (in real implementation, this would use Emscripten)
-      const mockBinary = new ArrayBuffer(1024 * 50); // 50KB WASM binary
-      const vst3Binary = new ArrayBuffer(1024 * 120); // 120KB VST3 binary
-      const auBinary = new ArrayBuffer(1024 * 110); // 110KB Audio Unit binary
-      const compilationTime = performance.now() - startTime;
-
-      // Generate plugin manifest
-      const manifest: PluginManifest = {
-        name: options.pluginType.charAt(0).toUpperCase() + options.pluginType.slice(1) + ' Plugin',
-        version: '1.0.0',
-        manufacturer: 'AURA-X Platform',
+      // Prepare compilation request
+      const request: CompilationRequest = {
+        code: options.code,
+        pluginName: 'MyPlugin',
         pluginType: options.pluginType,
-        category: options.pluginType === 'instrument' ? 'Instrument' : 'Effect',
-        uid: `AURA${Date.now().toString(36)}`,
-        parameters: options.parameters.map(p => ({
-          id: p.id || 'param',
-          name: p.name || 'Parameter',
-          type: p.type || 'float',
-          defaultValue: p.defaultValue ?? 0.5,
-          ...(p.min !== undefined && { min: p.min }),
-          ...(p.max !== undefined && { max: p.max }),
-          ...(p.unit && { unit: p.unit })
-        }))
+        framework: options.framework === 'custom' ? 'juce' : options.framework,
+        parameters: options.parameters,
+        targets: ['wasm', 'vst3', 'au']
       };
 
+      // Call real compilation service
+      const serviceResult = await compilationService.compilePlugin(request);
+
+      // Convert to hook result format
       const result: CompilationResult = {
-        success: true,
-        binary: mockBinary,
-        vst3Binary: vst3Binary,
-        auBinary: auBinary,
-        manifest: manifest,
-        errors: [],
-        warnings,
-        compilationTime,
-        performance: options.useWASM ? 'Professional Grade' : 'Standard'
+        success: serviceResult.success,
+        binary: serviceResult.binaries.wasm ? serviceResult.binaries.wasm.buffer as ArrayBuffer : undefined,
+        vst3Binary: serviceResult.binaries.vst3 ? serviceResult.binaries.vst3.buffer as ArrayBuffer : undefined,
+        auBinary: serviceResult.binaries.au ? serviceResult.binaries.au.buffer as ArrayBuffer : undefined,
+        errors: serviceResult.errors,
+        warnings: serviceResult.warnings,
+        compilationTime: serviceResult.performanceMetrics?.compilationTime || 0,
+        performance: options.useWASM ? 'Professional Grade' : 'Standard',
+        manifest: serviceResult.manifest
       };
 
       setLastResult(result);
+      console.log('[usePluginCompiler] Compilation complete:', result.success);
       return result;
 
     } catch (error: any) {
+      console.error('[usePluginCompiler] Compilation error:', error);
       return {
         success: false,
         errors: [error.message || 'Compilation failed'],
@@ -145,7 +111,8 @@ export function usePluginCompiler(audioContext: AudioContext | null) {
   }, [audioContext]);
 
   const compileJUCEToWASM = useCallback(async (juceCode: string): Promise<CompilationResult> => {
-    // Specialized JUCE to WASM compiler
+    console.log('[usePluginCompiler] Compiling JUCE to WASM...');
+    
     return compile({
       code: juceCode,
       framework: 'juce',

@@ -487,15 +487,15 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
               <Code className="h-6 w-6 text-primary" />
               <div>
                 <h2 className="text-xl font-bold">Plugin Development IDE</h2>
-                <p className="text-sm text-muted-foreground">
-                  {currentProject.name} • {currentProject.framework.toUpperCase()}
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <span>{currentProject.name} • {currentProject.framework.toUpperCase()}</span>
                   {wasmEngine.isInitialized && (
-                    <Badge variant="default" className="ml-2 bg-gradient-to-r from-cyan-500 to-blue-500">
+                    <Badge variant="default" className="bg-gradient-to-r from-cyan-500 to-blue-500">
                       <Zap className="h-3 w-3 mr-1" />
                       C++ WASM
                     </Badge>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </div>

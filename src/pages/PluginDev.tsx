@@ -396,6 +396,7 @@ export default function PluginDev() {
               <Button 
                 size="lg" 
                 variant="outline"
+                onClick={() => window.open('https://docs.lovable.dev', '_blank')}
                 className="text-lg px-10 py-7 h-auto hover:bg-primary/10 transition-all"
               >
                 <BookOpen className="mr-2 h-5 w-5" />

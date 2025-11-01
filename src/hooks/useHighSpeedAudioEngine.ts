@@ -102,9 +102,10 @@ export const useHighSpeedAudioEngine = () => {
       console.log('[useHighSpeedAudioEngine] ✓ Initialized successfully');
     } catch (error) {
       console.error('[useHighSpeedAudioEngine] Initialization failed:', error);
-      toast.error('Failed to initialize audio engine', {
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.info('[useHighSpeedAudioEngine] Continuing in JavaScript fallback mode');
+      console.info('[useHighSpeedAudioEngine] WASM features disabled - UI will show simulation mode');
+      // Don't set error state or show error toast - just continue with simulation mode
+      setState(prev => ({ ...prev, isInitialized: false }));
     }
   }, [state.isInitialized]);
 

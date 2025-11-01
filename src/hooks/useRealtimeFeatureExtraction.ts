@@ -70,7 +70,10 @@ export const useRealtimeFeatureExtraction = () => {
       console.log('[RealtimeExtraction] ✓ Initialized');
     } catch (error) {
       console.error('[RealtimeExtraction] Initialization failed:', error);
-      toast.error('Failed to initialize feature extraction');
+      console.info('[RealtimeExtraction] Continuing with basic JavaScript analysis');
+      console.info('[RealtimeExtraction] WASM features disabled - basic features only');
+      // Don't set error or show error toast - just continue with simulation mode
+      setState(prev => ({ ...prev, isInitialized: false }));
     }
   }, [state.isInitialized]);
 

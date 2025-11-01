@@ -119,7 +119,12 @@ private:
       parameters: [
         { id: 'pitch', name: 'Pitch', type: 'float', defaultValue: 60, min: 24, max: 96, unit: 'MIDI' },
         { id: 'glide', name: 'Glide Time', type: 'float', defaultValue: 100, min: 0, max: 1000, unit: 'ms' },
-        { id: 'knock', name: 'Knock Mix', type: 'float', defaultValue: 0.3, min: 0, max: 1, unit: '%' }
+        { id: 'knock', name: 'Knock Mix', type: 'float', defaultValue: 0.3, min: 0, max: 1, unit: '%' },
+        { id: 'decay', name: 'Decay Time', type: 'float', defaultValue: 800, min: 50, max: 2000, unit: 'ms' },
+        { id: 'sub', name: 'Sub Bass', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '%' },
+        { id: 'swing', name: 'Swing Amount', type: 'float', defaultValue: 0, min: 0, max: 1, unit: '%' },
+        { id: 'bass', name: 'Bass Drive', type: 'float', defaultValue: 0.4, min: 0, max: 1, unit: '%' },
+        { id: 'shuffle', name: 'Shuffle', type: 'float', defaultValue: 0, min: 0, max: 1, unit: '%' }
       ]
     },
     {

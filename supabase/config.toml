@@ -64,5 +64,8 @@ verify_jwt = false
 [functions.voice-to-text]
 verify_jwt = false
 
+[functions.ai-plugin-generator]
+verify_jwt = false
+
 [functions.essentia-deep-analysis]
 verify_jwt = false

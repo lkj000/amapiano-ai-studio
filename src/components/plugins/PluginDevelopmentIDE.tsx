@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 import { PluginCodeEditor } from './PluginCodeEditor';
 import { PluginVisualBuilder } from './PluginVisualBuilder';
 import { PluginTester } from './PluginTester';
-import { PluginTemplateLibrary } from './PluginTemplateLibrary';
+import { ExpandedTemplateLibrary } from './ExpandedTemplateLibrary';
+import { AIPluginGenerator } from './AIPluginGenerator';
 import { PluginPublisher } from './PluginPublisher';
 import { usePluginCompiler } from '@/hooks/usePluginCompiler';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
@@ -496,6 +497,10 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
           <TabsList className="w-full justify-start rounded-none border-b bg-muted/50">
+            <TabsTrigger value="ai" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              AI Generate
+            </TabsTrigger>
             <TabsTrigger value="templates" className="gap-2">
               <Book className="h-4 w-4" />
               Templates
@@ -527,8 +532,15 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
           </TabsList>
 
           <div className="flex-1 overflow-hidden">
+            <TabsContent value="ai" className="h-full m-0 p-4">
+              <AIPluginGenerator 
+                onGenerate={handleTemplateSelect}
+                framework={currentProject.framework}
+              />
+            </TabsContent>
+
             <TabsContent value="templates" className="h-full m-0 p-4">
-              <PluginTemplateLibrary onSelectTemplate={handleTemplateSelect} />
+              <ExpandedTemplateLibrary onSelectTemplate={handleTemplateSelect} />
             </TabsContent>
 
             <TabsContent value="code" className="h-full m-0">

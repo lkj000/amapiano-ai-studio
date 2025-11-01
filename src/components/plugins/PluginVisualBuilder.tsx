@@ -30,6 +30,20 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
     { id: 'lfo', name: 'LFO', icon: Grid3x3, color: 'bg-orange-500' },
     { id: 'gain', name: 'Gain', icon: Volume2, color: 'bg-red-500' },
     { id: 'delay', name: 'Delay', icon: Grid3x3, color: 'bg-cyan-500' },
+    { id: 'reverb', name: 'Reverb', icon: Volume2, color: 'bg-teal-500' },
+    { id: 'compressor', name: 'Compressor', icon: SlidersIcon, color: 'bg-pink-500' },
+    { id: 'distortion', name: 'Distortion', icon: Grid3x3, color: 'bg-red-600' },
+    { id: 'chorus', name: 'Chorus', icon: Volume2, color: 'bg-indigo-500' },
+    { id: 'phaser', name: 'Phaser', icon: Grid3x3, color: 'bg-violet-500' },
+    { id: 'flanger', name: 'Flanger', icon: Volume2, color: 'bg-fuchsia-500' },
+    { id: 'eq', name: 'EQ', icon: SlidersIcon, color: 'bg-amber-500' },
+    { id: 'limiter', name: 'Limiter', icon: Volume2, color: 'bg-rose-500' },
+    { id: 'gate', name: 'Gate', icon: Grid3x3, color: 'bg-lime-500' },
+    { id: 'vocoder', name: 'Vocoder', icon: Volume2, color: 'bg-sky-500' },
+    { id: 'sampler', name: 'Sampler', icon: Grid3x3, color: 'bg-emerald-500' },
+    { id: 'arpeggiator', name: 'Arpeggiator', icon: Grid3x3, color: 'bg-yellow-500' },
+    { id: 'waveshaper', name: 'Waveshaper', icon: Volume2, color: 'bg-orange-600' },
+    { id: 'ring-mod', name: 'Ring Mod', icon: Grid3x3, color: 'bg-purple-600' },
   ];
 
   const addParameter = () => {

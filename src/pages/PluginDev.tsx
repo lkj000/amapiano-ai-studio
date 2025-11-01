@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Navigation from '@/components/Navigation';
 import { PluginDevelopmentIDE } from '@/components/plugins/PluginDevelopmentIDE';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,8 +34,6 @@ export default function PluginDev() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navigation user={null} />
-      
       <main className="container mx-auto px-4 py-8 space-y-16">
         {/* Hero Section with Animated Background */}
         <div className="relative text-center space-y-6 py-16">

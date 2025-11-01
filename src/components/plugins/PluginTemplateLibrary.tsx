@@ -34,8 +34,50 @@ export const PluginTemplateLibrary: React.FC<PluginTemplateLibraryProps> = ({
       code: `// AURA Amapiano Log Drum - JUCE Plugin
 class AmapianoLogDrum : public juce::AudioProcessor {
 public:
+    AmapianoLogDrum() {
+        // Register parameters
+        addParameter(pitchParam = new juce::AudioParameterFloat(
+            "pitch", "Pitch",
+            juce::NormalisableRange<float>(24.0f, 96.0f), 60.0f));
+        
+        addParameter(glideParam = new juce::AudioParameterFloat(
+            "glide", "Glide Time",
+            juce::NormalisableRange<float>(0.0f, 1000.0f), 100.0f));
+        
+        addParameter(knockParam = new juce::AudioParameterFloat(
+            "knock", "Knock Mix",
+            juce::NormalisableRange<float>(0.0f, 1.0f), 0.3f));
+        
+        addParameter(decayParam = new juce::AudioParameterFloat(
+            "decay", "Decay Time",
+            juce::NormalisableRange<float>(50.0f, 2000.0f), 800.0f));
+        
+        addParameter(subParam = new juce::AudioParameterFloat(
+            "sub", "Sub Bass",
+            juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
+        
+        addParameter(swingParam = new juce::AudioParameterFloat(
+            "swing", "Swing Amount",
+            juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+        
+        addParameter(bassParam = new juce::AudioParameterFloat(
+            "bass", "Bass Drive",
+            juce::NormalisableRange<float>(0.0f, 1.0f), 0.4f));
+        
+        addParameter(shuffleParam = new juce::AudioParameterFloat(
+            "shuffle", "Shuffle",
+            juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));
+    }
+
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override {
         auto numSamples = buffer.getNumSamples();
+        
+        // Get parameter values
+        float pitch = *pitchParam;
+        float glideTime = *glideParam;
+        float knockMix = *knockParam;
+        float decay = *decayParam;
+        float sub = *subParam;
         
         for (const auto metadata : midi) {
             auto message = metadata.getMessage();
@@ -57,10 +99,14 @@ public:
     }
     
 private:
-    float pitch = 60.0f;
-    float glideTime = 100.0f;
-    float knockMix = 0.3f;
-    float decayTime = 800.0f;
+    juce::AudioParameterFloat* pitchParam;
+    juce::AudioParameterFloat* glideParam;
+    juce::AudioParameterFloat* knockParam;
+    juce::AudioParameterFloat* decayParam;
+    juce::AudioParameterFloat* subParam;
+    juce::AudioParameterFloat* swingParam;
+    juce::AudioParameterFloat* bassParam;
+    juce::AudioParameterFloat* shuffleParam;
     
     float generateSample() {
         // 808 log drum synthesis

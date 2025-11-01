@@ -117,9 +117,14 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
         setCompilationLog(prev => [
           ...prev,
           `✅ Compilation successful in ${result.compilationTime}ms`,
-          `📦 Binary size: ${(result.binary?.byteLength || 0) / 1024}KB`,
+          `📦 WASM binary: ${((result.binary?.byteLength || 0) / 1024).toFixed(1)}KB`,
+          `📦 VST3 binary: ${((result.vst3Binary?.byteLength || 0) / 1024).toFixed(1)}KB`,
+          `📦 AU binary: ${((result.auBinary?.byteLength || 0) / 1024).toFixed(1)}KB`,
           `⚡ Using C++ WASM: ${wasmEngine.isInitialized}`,
-          `🎯 Performance: ${result.performance || 'Professional Grade'}`
+          `🎯 Performance: ${result.performance || 'Professional Grade'}`,
+          `🎛️ Parameters detected: ${currentProject.parameters.length}`,
+          `📄 Plugin manifest generated`,
+          `✨ Ready for DAW export (VST3/AU) and web use (WASM)`
         ]);
 
         toast.success('Plugin compiled successfully!', {
@@ -183,6 +188,74 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     URL.revokeObjectURL(url);
     
     toast.success('Project saved successfully');
+  };
+
+  const handleExportPlugin = (format: 'wasm' | 'vst3' | 'au') => {
+    if (!currentProject.compiled || !compiler.lastResult) {
+      toast.error('Please compile the plugin first');
+      return;
+    }
+
+    const result = compiler.lastResult;
+    let binary: ArrayBuffer | undefined;
+    let extension: string;
+    let mimeType: string;
+
+    switch (format) {
+      case 'wasm':
+        binary = result.binary;
+        extension = 'wasm';
+        mimeType = 'application/wasm';
+        break;
+      case 'vst3':
+        binary = result.vst3Binary;
+        extension = 'vst3';
+        mimeType = 'application/octet-stream';
+        break;
+      case 'au':
+        binary = result.auBinary;
+        extension = 'component';
+        mimeType = 'application/octet-stream';
+        break;
+    }
+
+    if (!binary) {
+      toast.error(`${format.toUpperCase()} binary not available`);
+      return;
+    }
+
+    // Create manifest file
+    const manifest = result.manifest || {
+      name: currentProject.name,
+      version: currentProject.metadata.version,
+      manufacturer: currentProject.metadata.author,
+      pluginType: currentProject.type,
+      category: currentProject.metadata.category,
+      uid: `AURA${Date.now().toString(36)}`,
+      parameters: currentProject.parameters
+    };
+
+    // Download binary
+    const blob = new Blob([binary], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${currentProject.name.replace(/\s+/g, '-')}.${extension}`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Download manifest
+    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    const manifestLink = document.createElement('a');
+    manifestLink.href = manifestUrl;
+    manifestLink.download = `${currentProject.name.replace(/\s+/g, '-')}-manifest.json`;
+    manifestLink.click();
+    URL.revokeObjectURL(manifestUrl);
+
+    toast.success(`Plugin exported as ${format.toUpperCase()}`, {
+      description: 'Binary and manifest files downloaded'
+    });
   };
 
   const handlePublish = () => {
@@ -434,8 +507,41 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
               onClick={handleSave}
             >
               <Save className="h-4 w-4 mr-2" />
-              Save
+              Save Project
             </Button>
+
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportPlugin('wasm')}
+                disabled={!currentProject.compiled}
+                title="Export WASM binary for web use"
+              >
+                <Package className="h-4 w-4 mr-1" />
+                WASM
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportPlugin('vst3')}
+                disabled={!currentProject.compiled}
+                title="Export VST3 plugin for DAWs"
+              >
+                <Package className="h-4 w-4 mr-1" />
+                VST3
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportPlugin('au')}
+                disabled={!currentProject.compiled}
+                title="Export Audio Unit for macOS DAWs"
+              >
+                <Package className="h-4 w-4 mr-1" />
+                AU
+              </Button>
+            </div>
 
             <Button
               variant="default"

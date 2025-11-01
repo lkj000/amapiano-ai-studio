@@ -64,8 +64,21 @@ public:
         // Initialize DSP state, allocate buffers, setup filters
     }
     
+    void releaseResources() override {
+        // Clean up resources
+    }
+    
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
-        // IMPLEMENT COMPLETE DSP PROCESSING
+        // ⚠️ CRITICAL: This method is MANDATORY - plugin will not compile without it
+        juce::ScopedNoDenormals noDenormals;
+        auto totalNumInputChannels  = getTotalNumInputChannels();
+        auto totalNumOutputChannels = getTotalNumOutputChannels();
+        
+        // Clear unused channels
+        for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+            buffer.clear(i, 0, buffer.getNumSamples());
+        
+        // IMPLEMENT COMPLETE DSP PROCESSING HERE:
         // - Handle MIDI for instruments
         // - Process audio with professional algorithms
         // - Add parameter smoothing
@@ -73,9 +86,28 @@ public:
         // - Include proper gain staging
     }
     
-    // Include ALL required JUCE methods with implementations
+    // Include ALL other required JUCE methods
+    const juce::String getName() const override { return "PluginName"; }
+    bool acceptsMidi() const override { return ${type === 'instrument' ? 'true' : 'false'}; }
+    bool producesMidi() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return {}; }
+    void changeProgramName(int, const juce::String&) override {}
+    void getStateInformation(juce::MemoryBlock&) override {}
+    void setStateInformation(const void*, int) override {}
+    
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool hasEditor() const override { return false; }
 };
 \`\`\`
+
+⚠️ CRITICAL REQUIREMENT: The processBlock method signature MUST be EXACTLY:
+void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override;
+
+This is NON-NEGOTIABLE. Without it, the plugin will fail to compile.
 
 🎛️ PARAMETER SPECIFICATIONS:
 • Use proper audio units: Hz, dB, ms, %, semitones, MIDI notes
@@ -178,7 +210,48 @@ Generate the complete plugin code now!`
     }
 
     const data = await response.json();
-    const generatedCode = data.choices[0].message.content;
+    let generatedCode = data.choices[0].message.content;
+
+    // Validate that processBlock exists
+    if (!generatedCode.includes('void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)')) {
+      console.warn('Generated code missing processBlock - injecting default implementation');
+      
+      // Find the class definition and inject processBlock
+      const classMatch = generatedCode.match(/class\s+(\w+)\s*:\s*public\s+juce::AudioProcessor/);
+      if (classMatch) {
+        const className = classMatch[1];
+        const processBlockImpl = `
+    void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
+        juce::ScopedNoDenormals noDenormals;
+        auto totalNumInputChannels  = getTotalNumInputChannels();
+        auto totalNumOutputChannels = getTotalNumOutputChannels();
+        
+        // Clear unused channels
+        for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+            buffer.clear(i, 0, buffer.getNumSamples());
+        
+        // Process audio (pass-through for now)
+        for (int channel = 0; channel < totalNumInputChannels; ++channel) {
+            auto* channelData = buffer.getWritePointer(channel);
+            // TODO: Add your DSP processing here
+        }
+    }`;
+        
+        // Try to inject after prepareToPlay
+        if (generatedCode.includes('void prepareToPlay')) {
+          generatedCode = generatedCode.replace(
+            /(void prepareToPlay[^}]+})/,
+            `$1\n${processBlockImpl}`
+          );
+        } else {
+          // Inject before the closing brace of the class
+          const lastBrace = generatedCode.lastIndexOf('};');
+          if (lastBrace !== -1) {
+            generatedCode = generatedCode.slice(0, lastBrace) + processBlockImpl + '\n' + generatedCode.slice(lastBrace);
+          }
+        }
+      }
+    }
 
     // Extract plugin name from description or generate one
     const words = description.split(' ').slice(0, 3);

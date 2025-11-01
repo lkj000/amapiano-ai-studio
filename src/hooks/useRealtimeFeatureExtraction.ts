@@ -44,6 +44,11 @@ export const useRealtimeFeatureExtraction = () => {
     };
   }, []);
 
+  // Dummy initialize for backwards compatibility (already auto-initialized)
+  const initialize = useCallback(async () => {
+    console.log('[Hook] Feature extractor already initialized on mount');
+  }, []);
+
   const extractFeatures = useCallback(
     async (audioBuffer: AudioBuffer) => {
       if (!extractor || !isInitialized || isProcessing) return null;
@@ -86,11 +91,6 @@ export const useRealtimeFeatureExtraction = () => {
     },
     [extractor, isInitialized]
   );
-
-  // Dummy initialize for backwards compatibility (already auto-initialized)
-  const initialize = useCallback(async () => {
-    console.log('[Hook] Feature extractor already initialized on mount');
-  }, []);
 
   // Dummy batchExtract for backwards compatibility
   const batchExtract = useCallback(async (audioBuffer: AudioBuffer, onProgress?: (progress: number) => void) => {

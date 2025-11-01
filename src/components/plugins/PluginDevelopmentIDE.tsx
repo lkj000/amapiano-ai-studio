@@ -20,6 +20,12 @@ import { PluginSubmissionModal } from '../marketplace/PluginSubmissionModal';
 import { ConversationalAIGenerator } from './ConversationalAIGenerator';
 import { SmartParameterOptimizer } from './SmartParameterOptimizer';
 import { PluginExporter } from './PluginExporter';
+import { PluginTestSuite } from './PluginTestSuite';
+import { MLPluginOptimizer } from './MLPluginOptimizer';
+import { PluginStyleTransfer } from './PluginStyleTransfer';
+import { PluginChainOrchestrator } from './PluginChainOrchestrator';
+import { EnterprisePluginManager } from './EnterprisePluginManager';
+import { DAWIntegrationHub } from './DAWIntegrationHub';
 import { usePluginCompiler } from '@/hooks/usePluginCompiler';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
 
@@ -630,7 +636,27 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
             </TabsTrigger>
             <TabsTrigger value="test" className="gap-2" disabled={!currentProject.compiled}>
               <TestTube className="h-4 w-4" />
-              Test
+              Test Suite
+            </TabsTrigger>
+            <TabsTrigger value="optimize" className="gap-2">
+              <Zap className="h-4 w-4" />
+              ML Optimizer
+            </TabsTrigger>
+            <TabsTrigger value="style" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Style Transfer
+            </TabsTrigger>
+            <TabsTrigger value="chain" className="gap-2">
+              <Code className="h-4 w-4" />
+              Plugin Chain
+            </TabsTrigger>
+            <TabsTrigger value="enterprise" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Enterprise
+            </TabsTrigger>
+            <TabsTrigger value="daw" className="gap-2">
+              <Settings className="h-4 w-4" />
+              DAW Integration
             </TabsTrigger>
             <TabsTrigger value="console" className="gap-2">
               <Terminal className="h-4 w-4" />
@@ -741,12 +767,48 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
             </TabsContent>
 
             <TabsContent value="test" className="h-full m-0 p-4">
-              <PluginTester
-                project={currentProject}
-                audioContext={audioContext}
-                wasmEngine={wasmEngine}
-                testResults={testResults}
-              />
+              <ScrollArea className="h-full">
+                <PluginTestSuite 
+                  pluginCode={currentProject.code} 
+                  pluginName={currentProject.name} 
+                />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="optimize" className="h-full m-0 p-4">
+              <ScrollArea className="h-full">
+                <MLPluginOptimizer 
+                  pluginCode={currentProject.code} 
+                  onCodeUpdate={(code) => setCurrentProject(prev => ({ ...prev, code }))} 
+                />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="style" className="h-full m-0 p-4">
+              <ScrollArea className="h-full">
+                <PluginStyleTransfer 
+                  sourcePlugin={currentProject.code} 
+                  onTransferComplete={(code) => setCurrentProject(prev => ({ ...prev, code }))} 
+                />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="chain" className="h-full m-0 p-4">
+              <ScrollArea className="h-full">
+                <PluginChainOrchestrator />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="enterprise" className="h-full m-0 p-4">
+              <ScrollArea className="h-full">
+                <EnterprisePluginManager />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="daw" className="h-full m-0 p-4">
+              <ScrollArea className="h-full">
+                <DAWIntegrationHub />
+              </ScrollArea>
             </TabsContent>
 
             <TabsContent value="console" className="h-full m-0 p-4">

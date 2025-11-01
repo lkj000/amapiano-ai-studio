@@ -202,38 +202,106 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     toast.success(`Loaded template: ${template.name}`);
   };
 
-  // Auto-detect JUCE parameters from code (multiline-safe)
+  // Auto-detect JUCE parameters from code (robust, multiline-safe, APVTS-compatible)
   const extractJUCEParameters = (code: string): PluginParameterDef[] => {
     const params: PluginParameterDef[] = [];
-    
-    // Remove line breaks and extra spaces for easier parsing
-    const normalized = code.replace(/\s+/g, ' ');
-    
-    // Match addParameter calls with AudioParameterFloat
-    const floatRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+(?:juce::)?AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)\s*\)/gi;
-    
-    let match;
-    while ((match = floatRegex.exec(normalized)) !== null) {
-      const id = match[2];
-      let unit: string | undefined;
-      
-      // Smart unit detection
-      if (/time|glide|decay/i.test(id)) unit = 'ms';
-      else if (/swing|shuffle|mix|level|bass|drive|knock|sub/i.test(id)) unit = '%';
-      else if (/pitch|note/i.test(id)) unit = 'MIDI';
-      
-      params.push({
+
+    // Strip comments and normalize whitespace
+    const stripped = code
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    const normalized = stripped.replace(/\s+/g, ' ');
+
+    const pushParam = (p: PluginParameterDef) => {
+      if (!params.some(x => x.id === p.id)) params.push(p);
+    };
+
+    const detectUnit = (id: string): string | undefined => {
+      if (/time|glide|decay|attack|release|hold/i.test(id)) return 'ms';
+      if (/freq|hz/i.test(id)) return 'Hz';
+      if (/gain|level|mix|amount|drive|bass|treble|knock|sub|swing|shuffle/i.test(id)) return '%';
+      if (/pitch|note|key/i.test(id)) return 'MIDI';
+      if (/tempo|bpm/i.test(id)) return 'BPM';
+      return undefined;
+    };
+
+    let m: RegExpExecArray | null;
+
+    // 1) AudioParameterFloat with NormalisableRange
+    const floatWithRange = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterFloat(?:\s*>)?\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([-+]?\d*\.?\d+)f?\s*,\s*([-+]?\d*\.?\d+)f?(?:\s*,\s*[-+]?\d*\.?\d+f?)?\s*\)\s*,\s*([-+]?\d*\.?\d+)f?\s*\)\s*\)?\s*\)/gi;
+    while ((m = floatWithRange.exec(normalized)) !== null) {
+      const [, id, name, min, max, def] = m;
+      pushParam({
         id,
-        name: match[3],
+        name,
         type: 'float',
-        defaultValue: parseFloat(match[6]),
-        min: parseFloat(match[4]),
-        max: parseFloat(match[5]),
-        unit
+        defaultValue: parseFloat(def),
+        min: parseFloat(min),
+        max: parseFloat(max),
+        unit: detectUnit(id)
       });
     }
-    
-    console.log(`Detected ${params.length} parameters:`, params.map(p => p.id));
+
+    // 2) AudioParameterFloat with min,max,default (no NormalisableRange)
+    const floatSimple = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterFloat(?:\s*>)?\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*([-+]?\d*\.?\d+)f?\s*,\s*([-+]?\d*\.?\d+)f?\s*,\s*([-+]?\d*\.?\d+)f?\s*\)\s*\)?\s*\)/gi;
+    while ((m = floatSimple.exec(normalized)) !== null) {
+      const [, id, name, min, max, def] = m;
+      pushParam({
+        id,
+        name,
+        type: 'float',
+        defaultValue: parseFloat(def),
+        min: parseFloat(min),
+        max: parseFloat(max),
+        unit: detectUnit(id)
+      });
+    }
+
+    // 3) AudioParameterInt
+    const intPattern = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterInt(?:\s*>)?\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s*\)?\s*\)/gi;
+    while ((m = intPattern.exec(normalized)) !== null) {
+      const [, id, name, min, max, def] = m;
+      pushParam({
+        id,
+        name,
+        type: 'int',
+        defaultValue: parseInt(def, 10),
+        min: parseInt(min, 10),
+        max: parseInt(max, 10),
+        unit: detectUnit(id)
+      });
+    }
+
+    // 4) AudioParameterBool
+    const boolPattern = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterBool(?:\s*>)?\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(true|false)\s*\)\s*\)?\s*\)/gi;
+    while ((m = boolPattern.exec(normalized)) !== null) {
+      const [, id, name, def] = m;
+      pushParam({
+        id,
+        name,
+        type: 'bool',
+        defaultValue: def === 'true'
+      });
+    }
+
+    // 5) AudioParameterChoice (basic StringArray { "a", "b" } parsing)
+    const choicePattern = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterChoice(?:\s*>)?\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?StringArray\s*{([^}]*)}\s*,\s*(\d+)\s*\)\s*\)?\s*\)/gi;
+    while ((m = choicePattern.exec(normalized)) !== null) {
+      const [, id, name, arrayBody, defIndex] = m;
+      const options = arrayBody
+        .split(',')
+        .map(s => s.trim().replace(/^\"|\"$/g, ''))
+        .filter(Boolean);
+      pushParam({
+        id,
+        name,
+        type: 'enum',
+        defaultValue: parseInt(defIndex, 10),
+        options
+      });
+    }
+
+    console.log(`[IDE] Detected ${params.length} parameters:`, params.map(p => p.id));
     return params;
   };
 

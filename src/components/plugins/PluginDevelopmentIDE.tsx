@@ -211,9 +211,19 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
 
-    // Prefer parameters declared inside the AudioProcessor class body (constructor)
+    // Prefer parameters declared inside the AudioProcessor class constructor
     const classMatch = stripped.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
-    const source = classMatch ? classMatch[2] : stripped;
+    let source = classMatch ? classMatch[2] : stripped;
+
+    // If a class is found, further narrow to its constructor body to avoid free-standing duplicates
+    if (classMatch) {
+      const className = classMatch[1];
+      const ctorRegex = new RegExp(`${className}\\s*\\([^)]*\\)\\s*{([\\s\\S]*?)}`, 'm');
+      const ctorMatch = source.match(ctorRegex);
+      if (ctorMatch) {
+        source = ctorMatch[1];
+      }
+    }
 
     // Normalize whitespace for robust regex
     const normalized = source.replace(/\s+/g, ' ');

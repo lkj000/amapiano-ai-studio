@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileCode, Zap, BookOpen, Copy, Check } from 'lucide-react';
+import { FileCode, Zap, BookOpen, Copy, Check, Sliders } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PluginCodeEditorProps {
@@ -27,6 +27,13 @@ export const PluginCodeEditor: React.FC<PluginCodeEditorProps> = ({
     setCopied(true);
     toast.success('Code copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleInsertJUCEParams = () => {
+    const className = value.match(/class\s+(\w+)/)?.[1] || 'MyPlugin';
+    const snippet = `\n// --- JUCE Parameters ---\n${className}() {\n    addParameter(pitchParam = new juce::AudioParameterFloat("pitch", "Pitch", juce::NormalisableRange<float>(24.0f, 96.0f), 60.0f));\n    addParameter(glideParam = new juce::AudioParameterFloat("glide", "Glide Time", juce::NormalisableRange<float>(0.0f, 1000.0f), 100.0f));\n    addParameter(knockParam = new juce::AudioParameterFloat("knock", "Knock Mix", juce::NormalisableRange<float>(0.0f, 1.0f), 0.3f));\n    addParameter(decayParam = new juce::AudioParameterFloat("decay", "Decay Time", juce::NormalisableRange<float>(50.0f, 2000.0f), 800.0f));\n    addParameter(subParam = new juce::AudioParameterFloat("sub", "Sub Bass", juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));\n    addParameter(swingParam = new juce::AudioParameterFloat("swing", "Swing Amount", juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));\n    addParameter(bassParam = new juce::AudioParameterFloat("bass", "Bass Drive", juce::NormalisableRange<float>(0.0f, 1.0f), 0.4f));\n    addParameter(shuffleParam = new juce::AudioParameterFloat("shuffle", "Shuffle", juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f));\n}\n// --- End JUCE Parameters ---\n`;
+    onChange(value + '\n' + snippet);
+    toast.success('Inserted JUCE parameter block');
   };
 
   const getFrameworkDocs = () => {
@@ -172,6 +179,12 @@ this.osc.frequency.value = 440;`
                 )}
               </CardTitle>
               <div className="flex gap-2">
+                {framework === 'juce' && (
+                  <Button variant="outline" size="sm" onClick={handleInsertJUCEParams} title="Insert JUCE parameter block">
+                    <Sliders className="h-4 w-4 mr-1" />
+                    Params
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={handleCopy}>
                   {copied ? (
                     <Check className="h-4 w-4" />

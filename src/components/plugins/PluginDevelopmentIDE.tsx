@@ -206,11 +206,17 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
   const extractJUCEParameters = (code: string): PluginParameterDef[] => {
     const params: PluginParameterDef[] = [];
 
-    // Strip comments and normalize whitespace
+    // Strip comments
     const stripped = code
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
-    const normalized = stripped.replace(/\s+/g, ' ');
+
+    // Prefer parameters declared inside the AudioProcessor class body (constructor)
+    const classMatch = stripped.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
+    const source = classMatch ? classMatch[2] : stripped;
+
+    // Normalize whitespace for robust regex
+    const normalized = source.replace(/\s+/g, ' ');
 
     const pushParam = (p: PluginParameterDef) => {
       if (!params.some(x => x.id === p.id)) params.push(p);

@@ -202,39 +202,42 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     toast.success(`Loaded template: ${template.name}`);
   };
 
-  // Auto-detect JUCE parameters from code
+  // Auto-detect JUCE parameters from code (supports juce::AudioParameterFloat and AudioParameterFloat)
   const extractJUCEParameters = (code: string): PluginParameterDef[] => {
     const params: PluginParameterDef[] = [];
-    const paramRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+juce::AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)/g;
+    const floatRegex = /addParameter\s*\(\s*(\w+)\s*=\s*new\s+(?:juce::)?AudioParameterFloat\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*(?:juce::)?NormalisableRange<float>\s*\(\s*([\d.]+)f?\s*,\s*([\d.]+)f?\s*(?:,\s*[\d.]+f?)?\s*\)\s*,\s*([\d.]+)f?\s*\)\s*\)/g;
     
     let match;
-    while ((match = paramRegex.exec(code)) !== null) {
+    while ((match = floatRegex.exec(code)) !== null) {
+      const id = match[2];
+      const unit = /^(glide|decay)/i.test(id) ? 'ms' : /^(swing|shuffle)/i.test(id) ? '%' : undefined;
       params.push({
-        id: match[2],
+        id,
         name: match[3],
         type: 'float',
         defaultValue: parseFloat(match[6]),
         min: parseFloat(match[4]),
         max: parseFloat(match[5]),
-        unit: match[2].includes('Time') ? 'ms' : match[2].includes('swing') || match[2].includes('shuffle') ? '%' : undefined
+        unit
       });
     }
     
     return params;
   };
 
-  // Update parameters when code changes
-  React.useEffect(() => {
-    if (currentProject.code && currentProject.framework === 'juce') {
-      const detectedParams = extractJUCEParameters(currentProject.code);
-      if (detectedParams.length > 0 && detectedParams.length !== currentProject.parameters.length) {
+  // Update parameters when code changes or when viewing the Parameters tab
+  useEffect(() => {
+    if (currentProject.framework === 'juce') {
+      const detected = extractJUCEParameters(currentProject.code || '');
+      const changed = JSON.stringify(detected) !== JSON.stringify(currentProject.parameters);
+      if (detected.length > 0 && changed) {
         setCurrentProject(prev => ({
           ...prev,
-          parameters: detectedParams
+          parameters: detected
         }));
       }
     }
-  }, [currentProject.code]);
+  }, [currentProject.code, activeTab]);
 
   return (
     <div className="h-full flex flex-col bg-background">

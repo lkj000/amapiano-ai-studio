@@ -206,17 +206,17 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
   const extractJUCEParameters = (code: string): PluginParameterDef[] => {
     const params: PluginParameterDef[] = [];
 
+    // Remove UI helper blocks BEFORE stripping comments (so markers still exist)
+    const codeWithoutUIBlocks = code.replace(/\/\/\s*---\s*JUCE Parameters\s*---[\s\S]*?\/\/\s*---\s*End JUCE Parameters\s*---/gi, '');
+
     // Strip comments
-    const stripped = code
+    const stripped = codeWithoutUIBlocks
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
 
-    // Remove UI-inserted parameter helper blocks to avoid duplicate/fallback values overriding constructor defaults
-    const withoutUIBlocks = stripped.replace(/\/\/\s*---\s*JUCE Parameters\s*---[\s\S]*?\/\/\s*---\s*End JUCE Parameters\s*---/gi, '');
-
     // Prefer parameters declared inside the AudioProcessor class constructor
-    const classMatch = withoutUIBlocks.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
-    let source = classMatch ? classMatch[2] : withoutUIBlocks;
+    const classMatch = stripped.match(/class\s+(\w+)\s*:\s*public\s+(?:juce::)?AudioProcessor\s*{([\s\S]*?)}\s*;/);
+    let source = classMatch ? classMatch[2] : stripped;
 
     // If a class is found, further narrow to its constructor body to avoid free-standing duplicates
     if (classMatch) {
@@ -230,7 +230,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
 
     // Normalize whitespace for robust regex
     const normalized = source.replace(/\s+/g, ' ');
-    const normalizedAll = withoutUIBlocks.replace(/\s+/g, ' ');
+    const normalizedAll = stripped.replace(/\s+/g, ' ');
 
     const pushParam = (p: PluginParameterDef) => {
       if (!params.some(x => x.id === p.id)) params.push(p);

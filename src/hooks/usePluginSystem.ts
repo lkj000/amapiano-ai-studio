@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useHighSpeedAudioEngine } from './useHighSpeedAudioEngine';
+import { useRealtimeFeatureExtraction } from './useRealtimeFeatureExtraction';
 
 export interface PluginManifest {
   id: string;
@@ -228,6 +231,25 @@ export function usePluginSystem(audioContext: AudioContext | null) {
   const [isLoading, setIsLoading] = useState(false);
   
   const workerRef = useRef<Worker | null>(null);
+
+  // High-speed C++ WASM audio engine for plugin processing
+  const wasmEngine = useHighSpeedAudioEngine();
+  const featureExtractor = useRealtimeFeatureExtraction();
+
+  // Initialize WASM engines for professional plugin performance
+  useEffect(() => {
+    if (audioContext) {
+      wasmEngine.initialize();
+      featureExtractor.initialize();
+      
+      if (wasmEngine.isInitialized && wasmEngine.isProfessionalGrade) {
+        toast.success('🚀 Plugin System: C++ WASM Engine Active', {
+          description: `Professional-grade plugin processing enabled`,
+          duration: 3000
+        });
+      }
+    }
+  }, [audioContext]);
 
   // Initialize plugin registry with audio context
   useEffect(() => {

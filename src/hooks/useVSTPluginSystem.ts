@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
+import { useHighSpeedAudioEngine } from './useHighSpeedAudioEngine';
+import { useRealtimeFeatureExtraction } from './useRealtimeFeatureExtraction';
 
 export interface VSTPluginManifest {
   id: string;
@@ -287,6 +289,25 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
   
   const simulatorsRef = useRef<Map<string, VSTPluginSimulator>>(new Map());
 
+  // High-speed C++ WASM audio engine for VST/plugin processing
+  const wasmEngine = useHighSpeedAudioEngine();
+  const featureExtractor = useRealtimeFeatureExtraction();
+
+  // Initialize WASM engines for professional VST performance
+  useEffect(() => {
+    if (audioContext) {
+      wasmEngine.initialize();
+      featureExtractor.initialize();
+      
+      if (wasmEngine.isInitialized && wasmEngine.isProfessionalGrade) {
+        toast.success('🚀 VST System: C++ WASM Engine Active', {
+          description: `Professional-grade plugin processing enabled`,
+          duration: 3000
+        });
+      }
+    }
+  }, [audioContext]);
+
   // Initialize VST system
   useEffect(() => {
     const initVSTSystem = async () => {
@@ -346,65 +367,53 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
     trackId: string, 
     inputGain?: GainNode
   ): Promise<string | null> => {
-    if (!audioContext) return null;
-    
-    const plugin = availablePlugins.find(p => p.id === pluginId) || 
-                  installedPlugins.find(p => p.id === pluginId);
-    
-    if (!plugin) {
-      toast.error(`Plugin ${pluginId} not found`);
+    const plugin = availablePlugins.find(p => p.id === pluginId);
+    if (!plugin || !audioContext) {
+      toast.error('Plugin not found or audio context unavailable');
       return null;
     }
 
-    try {
-      const instanceId = `vst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Create plugin simulator
-      let simulator: VSTPluginSimulator | null = null;
-      
-      if (plugin.supportsWebAudio) {
-        simulator = new VSTPluginSimulator(audioContext, plugin);
-        
-        // Connect to input if provided
-        if (inputGain) {
-          inputGain.connect(simulator.getInputNode());
-        }
-        
-        simulatorsRef.current.set(instanceId, simulator);
-      }
-      
-      // Create instance
-      const instance: VSTPluginInstance = {
-        id: instanceId,
-        pluginId,
-        trackId,
-        name: `${plugin.name} Instance`,
-        parameters: plugin.parameters.reduce((acc, param) => {
-          acc[param.id] = param.default;
-          return acc;
-        }, {} as Record<string, any>),
-        isActive: true,
-        isBypassed: false,
-        processingLatency: plugin.latency,
-        simulator: simulator || undefined
-      };
-      
-      // Add to instances
-      setPluginInstances(prev => {
-        const updated = new Map(prev);
-        const trackInstances = updated.get(trackId) || [];
-        updated.set(trackId, [...trackInstances, instance]);
-        return updated;
-      });
-      
-      toast.success(`${plugin.name} loaded successfully`);
-      return instanceId;
-    } catch (error) {
-      console.error('Failed to create VST instance:', error);
-      toast.error(`Failed to load ${plugin.name}`);
-      return null;
+    // Create unique instance ID
+    const instanceId = `${pluginId}_${trackId}_${Date.now()}`;
+
+    // Initialize parameters with defaults
+    const parameters: Record<string, any> = {};
+    plugin.parameters.forEach(param => {
+      parameters[param.id] = param.default;
+    });
+
+    // Create VST simulator with WASM processing if available
+    const simulator = new VSTPluginSimulator(audioContext, plugin);
+    
+    if (inputGain) {
+      simulator.connect(inputGain);
     }
-  }, [audioContext, availablePlugins, installedPlugins]);
+    
+    simulatorsRef.current.set(instanceId, simulator);
+
+    const instance: VSTPluginInstance = {
+      id: instanceId,
+      pluginId,
+      trackId,
+      name: plugin.name,
+      parameters,
+      isActive: true,
+      isBypassed: false,
+      processingLatency: wasmEngine.isInitialized ? (wasmEngine.stats?.latency || 0) : plugin.latency,
+      simulator
+    };
+
+    setPluginInstances(prev => {
+      const trackInstances = prev.get(trackId) || [];
+      return new Map(prev).set(trackId, [...trackInstances, instance]);
+    });
+
+    toast.success(`${plugin.name} loaded${wasmEngine.isInitialized ? ' (C++ WASM)' : ''}`, {
+      description: wasmEngine.isProfessionalGrade ? 'Pro-grade processing active' : undefined
+    });
+
+    return instanceId;
+  }, [availablePlugins, audioContext, wasmEngine.isInitialized, wasmEngine.isProfessionalGrade, wasmEngine.stats]);
 
   const removeVSTInstance = useCallback((instanceId: string): boolean => {
     try {

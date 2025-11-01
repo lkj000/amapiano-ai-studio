@@ -230,6 +230,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
 
     // Normalize whitespace for robust regex
     const normalized = source.replace(/\s+/g, ' ');
+    const normalizedAll = withoutUIBlocks.replace(/\s+/g, ' ');
 
     const pushParam = (p: PluginParameterDef) => {
       if (!params.some(x => x.id === p.id)) params.push(p);
@@ -322,7 +323,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
 
     // 6) Loose AudioParameterFloat detection (ID-only, tolerant)
     const floatLoose = /(?:addParameter|createAndAddParameter|layout\.add)\s*\(\s*(?:[\w:]+\s*=\s*new\s+|(?:std::)?make_unique\s*<\s*)?(?:juce::)?AudioParameterFloat(?:\s*>)?\s*\(\s*"([^"]+)"\s*,/gi;
-    while ((m = floatLoose.exec(normalized)) !== null) {
+    while ((m = floatLoose.exec(normalizedAll)) !== null) {
       const [, id] = m;
       // Skip if already present from stricter matches
       if (!params.some(x => x.id === id)) {

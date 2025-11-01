@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, Loader2, Lightbulb } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { SmartTemplatesSection } from './SmartTemplatesSection';
+import type { SmartTemplate } from './SmartTemplateCard';
 import type { PluginProject } from './PluginDevelopmentIDE';
 
 interface AIPluginGeneratorProps {
@@ -187,107 +190,189 @@ export const AIPluginGenerator: React.FC<AIPluginGeneratorProps> = ({
     }
   };
 
+  const handleGenerateFromTemplate = async (template: SmartTemplate, customParams?: Record<string, number>) => {
+    setIsGenerating(true);
+    const loadingToast = toast.loading(`🪄 Generating ${template.name}...`);
+
+    try {
+      // Build enhanced description with custom parameters if provided
+      let enhancedPrompt = template.prompt;
+      if (customParams) {
+        enhancedPrompt += '\n\nCustom Parameter Overrides:\n';
+        Object.entries(customParams).forEach(([key, value]) => {
+          const paramConfig = template.defaultParams[key];
+          if (paramConfig) {
+            enhancedPrompt += `- ${paramConfig.label}: ${value}${paramConfig.unit}\n`;
+          }
+        });
+      }
+
+      const { data, error } = await supabase.functions.invoke('ai-plugin-generator', {
+        body: { 
+          description: enhancedPrompt,
+          type: 'effect', // Smart templates are primarily effects
+          framework,
+          isTemplate: true,
+          templateName: template.name
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('429')) {
+          toast.error('Rate limit reached. Please wait a moment.', { id: loadingToast });
+        } else if (error.message.includes('402')) {
+          toast.error('AI credits exhausted. Please add more credits.', { id: loadingToast });
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success(`✨ ${template.name} generated successfully!`, { 
+        id: loadingToast,
+        description: 'Your Smart Template plugin is ready to use'
+      });
+      
+      onGenerate({
+        name: data.name,
+        type: 'effect',
+        framework: data.framework,
+        code: data.code,
+        metadata: {
+          ...data.metadata,
+          isSmartTemplate: true,
+          templateId: template.id
+        },
+        parameters: []
+      });
+
+    } catch (error) {
+      console.error('Template generation error:', error);
+      toast.error('Failed to generate plugin. Please try again.', { id: loadingToast });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            AI VST Plugin Generator - Unlimited Types
-          </CardTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            Generate any VST plugin imaginable using AI. From synthesizers to effects, mastering tools to creative processors - describe it and AI will build it.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Plugin Type</Label>
-              <Select value={pluginType} onValueChange={(v: any) => setPluginType(v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="instrument">Instrument / Synthesizer</SelectItem>
-                  <SelectItem value="effect">Audio Effect</SelectItem>
-                  <SelectItem value="utility">Utility / Tool</SelectItem>
-                </SelectContent>
-              </Select>
+    <Tabs defaultValue="generate" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="generate">AI Generate</TabsTrigger>
+        <TabsTrigger value="templates">
+          <Sparkles className="w-4 h-4 mr-2" />
+          Smart Templates
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="generate" className="space-y-6 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              AI VST Plugin Generator - Unlimited Types
+            </CardTitle>
+            <CardDescription className="mt-2">
+              Generate any VST plugin imaginable using AI. From synthesizers to effects, mastering tools to creative processors - describe it and AI will build it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Plugin Type</Label>
+                <Select value={pluginType} onValueChange={(v: any) => setPluginType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="instrument">Instrument / Synthesizer</SelectItem>
+                    <SelectItem value="effect">Audio Effect</SelectItem>
+                    <SelectItem value="utility">Utility / Tool</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Category Filter</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {Object.entries(categories).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Category Filter</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {Object.entries(categories).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Describe Your Plugin</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Example: Create a vintage analog filter with resonance, cutoff, and drive controls..."
+                className="min-h-[120px]"
+                disabled={isGenerating}
+              />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Describe Your Plugin</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Example: Create a vintage analog filter with resonance, cutoff, and drive controls..."
-              className="min-h-[120px]"
-              disabled={isGenerating}
-            />
-          </div>
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !description.trim()}
+              className="w-full"
+              size="lg"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating Plugin...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Plugin
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
 
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating || !description.trim()}
-            className="w-full"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating Plugin...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate Plugin
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-4 w-4" />
+              {selectedCategory === 'all' ? 'Example Prompts (All Categories)' : `${categories[selectedCategory]} Examples`}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2 pr-4">
+                {examples.map((example, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start text-left h-auto py-2 px-3"
+                    onClick={() => setDescription(example)}
+                    disabled={isGenerating}
+                  >
+                    <span className="text-xs">{example}</span>
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lightbulb className="h-4 w-4" />
-            {selectedCategory === 'all' ? 'Example Prompts (All Categories)' : `${categories[selectedCategory]} Examples`}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-2 pr-4">
-              {examples.map((example, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start text-left h-auto py-2 px-3"
-                  onClick={() => setDescription(example)}
-                  disabled={isGenerating}
-                >
-                  <span className="text-xs">{example}</span>
-                </Button>
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
-      </Card>
-    </div>
+      <TabsContent value="templates" className="mt-6">
+        <SmartTemplatesSection
+          onGenerateFromTemplate={handleGenerateFromTemplate}
+          isGenerating={isGenerating}
+          userPrompt={description}
+        />
+      </TabsContent>
+    </Tabs>
   );
 };

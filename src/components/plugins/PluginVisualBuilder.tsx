@@ -5,9 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Grid3x3, Plus, Trash2, Zap, Volume2, Sliders as SlidersIcon } from 'lucide-react';
+import { Grid3x3, Plus, Trash2, Zap, Volume2, Sliders as SlidersIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { InteractiveKnob } from './InteractiveKnob';
+import { Oscilloscope } from './Oscilloscope';
+import { MasterOutput } from './MasterOutput';
 import type { PluginProject, PluginParameterDef } from './PluginDevelopmentIDE';
 
 interface PluginVisualBuilderProps {
@@ -22,6 +24,7 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
   wasmEnabled
 }) => {
   const [selectedModule, setSelectedModule] = useState<string>('');
+  const [parameterValues, setParameterValues] = useState<Record<string, number>>({});
 
   const audioModules = [
     { id: 'oscillator', name: 'Oscillator', icon: Volume2, color: 'bg-blue-500' },
@@ -115,47 +118,126 @@ ${project.parameters.map(p => `        this.${p.id} = ${p.defaultValue};`).join(
     toast.success('Code generated from visual design');
   };
 
+  // Get parameter values for visualization
+  const getParameterValues = () => {
+    return project.parameters.map(param => ({
+      value: parameterValues[param.id] ?? param.defaultValue,
+      min: param.min || 0,
+      max: param.max || 1
+    }));
+  };
+
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="space-y-6">
+      {/* Hero Section */}
+      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Grid3x3 className="h-5 w-5" />
-              Visual Plugin Builder
-              {wasmEnabled && (
-                <Badge variant="default" className="bg-gradient-to-r from-cyan-500 to-blue-500">
-                  <Zap className="h-3 w-3 mr-1" />
-                  WASM
-                </Badge>
-              )}
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <div className="p-2 rounded-lg bg-primary/10 backdrop-blur">
+                <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  Interactive Visual Builder
+                  {wasmEnabled && (
+                    <Badge variant="default" className="bg-gradient-to-r from-cyan-500 to-blue-500">
+                      <Zap className="h-3 w-3 mr-1" />
+                      WASM
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground font-normal mt-1">
+                  Design your plugin with real-time visualization and auditory feedback
+                </p>
+              </div>
             </CardTitle>
-            <Button onClick={generateCode}>
+            <Button onClick={generateCode} size="lg" className="gap-2">
+              <Zap className="h-4 w-4" />
               Generate Code
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {/* Live Audio Visualization */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="lg:col-span-2">
+              <Oscilloscope 
+                width={600} 
+                height={200}
+                parameters={getParameterValues()}
+              />
+            </div>
+            <div>
+              <MasterOutput />
+            </div>
+          </div>
+
+          {/* Interactive Control Surface */}
+          {project.parameters.length > 0 && (
+            <Card className="mb-6 bg-gradient-to-br from-background to-muted/20 border-primary/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <SlidersIcon className="h-5 w-5 text-primary" />
+                  Interactive Controls
+                  <Badge variant="outline" className="ml-2">
+                    Drag to adjust
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 p-6">
+                  {project.parameters.slice(0, 8).map((param) => (
+                    <InteractiveKnob
+                      key={param.id}
+                      value={parameterValues[param.id] ?? param.defaultValue}
+                      min={param.min || 0}
+                      max={param.max || 1}
+                      label={param.name}
+                      unit={param.unit}
+                      onChange={(value) => {
+                        setParameterValues(prev => ({ ...prev, [param.id]: value }));
+                        updateParameter(param.id, { defaultValue: value });
+                      }}
+                    />
+                  ))}
+                </div>
+                {project.parameters.length > 8 && (
+                  <div className="text-center text-sm text-muted-foreground mt-4">
+                    Showing first 8 parameters. See full list below.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Module Palette */}
           <div className="mb-6">
-            <Label className="mb-2 block">Audio Modules</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <Label className="mb-3 text-base font-semibold flex items-center gap-2">
+              <Grid3x3 className="h-4 w-4" />
+              Audio Modules
+            </Label>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {audioModules.map(module => {
                 const IconComponent = module.icon;
+                const isSelected = selectedModule === module.id;
                 return (
                   <Card
                     key={module.id}
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    className={`cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg ${
+                      isSelected ? 'ring-2 ring-primary shadow-lg shadow-primary/20' : ''
+                    }`}
                     onClick={() => {
                       setSelectedModule(module.id);
-                      toast.info(`Selected: ${module.name}`);
+                      toast.success(`Selected: ${module.name}`);
                     }}
                   >
-                    <CardContent className="p-3 flex items-center gap-2">
-                      <div className={`${module.color} p-2 rounded`}>
-                        <IconComponent className="h-4 w-4 text-white" />
+                    <CardContent className="p-4 flex flex-col items-center gap-2 text-center">
+                      <div className={`${module.color} p-3 rounded-lg shadow-md`}>
+                        <IconComponent className="h-5 w-5 text-white" />
                       </div>
-                      <span className="text-sm font-medium">{module.name}</span>
+                      <span className="text-xs font-medium">{module.name}</span>
                     </CardContent>
                   </Card>
                 );
@@ -163,12 +245,15 @@ ${project.parameters.map(p => `        this.${p.id} = ${p.defaultValue};`).join(
             </div>
           </div>
 
-          {/* Parameters Section */}
+          {/* Parameters Configuration */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label>Parameters</Label>
-              <Button size="sm" onClick={addParameter}>
-                <Plus className="h-4 w-4 mr-1" />
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <SlidersIcon className="h-4 w-4" />
+                Parameter Configuration
+              </Label>
+              <Button size="sm" onClick={addParameter} className="gap-2">
+                <Plus className="h-4 w-4" />
                 Add Parameter
               </Button>
             </div>

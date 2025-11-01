@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { PluginDevelopmentIDE } from '@/components/plugins/PluginDevelopmentIDE';
+import { AIPluginChat } from '@/components/plugins/AIPluginChat';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Code, Sparkles, Zap, Package, BookOpen, Rocket, Play, Wand2, Globe, Cpu, Activity, Layers, Lightbulb } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Code, Sparkles, Zap, Package, BookOpen, Rocket, Play, Wand2, Globe, Cpu, Activity, Layers, Lightbulb, MessageSquare } from 'lucide-react';
 import { useHighSpeedAudioEngine } from '@/hooks/useHighSpeedAudioEngine';
 
 export default function PluginDev() {
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [showIDE, setShowIDE] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const wasmEngine = useHighSpeedAudioEngine();
 
   useEffect(() => {
@@ -28,6 +31,38 @@ export default function PluginDev() {
           audioContext={audioContext}
           onClose={() => setShowIDE(false)}
         />
+      </div>
+    );
+  }
+
+  if (showAIChat) {
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <MessageSquare className="h-8 w-8 text-primary" />
+                AI Plugin Chat
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Describe your plugin in natural language, and I'll generate the code
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setShowAIChat(false)}>
+              Back to Overview
+            </Button>
+          </div>
+          <div className="h-[calc(100vh-200px)]">
+            <AIPluginChat 
+              onPluginGenerated={(plugin) => {
+                console.log('Plugin generated:', plugin);
+                setShowAIChat(false);
+                setShowIDE(true);
+              }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -64,11 +99,21 @@ export default function PluginDev() {
             <div className="flex gap-4 justify-center items-center flex-wrap animate-fade-in">
               <Button 
                 size="lg" 
-                onClick={() => setShowIDE(true)}
+                onClick={() => setShowAIChat(true)}
                 className="text-lg px-8 py-6 h-auto bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
+                <Sparkles className="mr-2 h-5 w-5" />
+                AI Plugin Chat
+              </Button>
+
+              <Button 
+                size="lg" 
+                onClick={() => setShowIDE(true)}
+                variant="outline"
+                className="text-lg px-8 py-6 h-auto hover:bg-primary/10 transition-all"
+              >
                 <Code className="mr-2 h-5 w-5" />
-                Launch Plugin IDE
+                Open IDE
               </Button>
               
               <Button 

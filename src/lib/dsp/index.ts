@@ -1,4 +1,4 @@
-// Central DSP module registry - Phase 0 Enhanced
+// Central DSP module registry - Phase 0, 1 & 2 Enhanced
 export * from './types';
 export * from './eq';
 export * from './compressor';
@@ -10,6 +10,12 @@ export * from './presets';
 export * from './ParameterParser';
 export * from './WasmCompiler';
 export * from './AudioContextManager';
+export * from './ParameterOptimizer';
+// Phase 2 Advanced DSP Modules
+export * from './multiband';
+export * from './limiter';
+export * from './chorus';
+export * from './phaser';
 
 import { EQModule } from './eq';
 import { CompressorModule } from './compressor';
@@ -17,6 +23,10 @@ import { GateModule } from './gate';
 import { ReverbModule } from './reverb';
 import { DelayModule } from './delay';
 import { DistortionModule } from './distortion';
+import { MultibandModule } from './multiband';
+import { LimiterModule } from './limiter';
+import { ChorusModule } from './chorus';
+import { PhaserModule } from './phaser';
 import type { DSPModule, EffectChain } from './types';
 
 export const DSPModules: Record<string, DSPModule> = {
@@ -25,7 +35,11 @@ export const DSPModules: Record<string, DSPModule> = {
   gate: GateModule,
   reverb: ReverbModule,
   delay: DelayModule,
-  distortion: DistortionModule
+  distortion: DistortionModule,
+  multiband: MultibandModule,
+  limiter: LimiterModule,
+  chorus: ChorusModule,
+  phaser: PhaserModule
 };
 
 export function createAmapianorizerChain(): EffectChain {

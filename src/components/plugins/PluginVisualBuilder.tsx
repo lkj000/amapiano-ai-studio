@@ -49,6 +49,187 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
     { id: 'ring-mod', name: 'Ring Mod', icon: Grid3x3, color: 'bg-purple-600' },
   ];
 
+  // Define parameters for each module type
+  const getModuleParameters = (moduleId: string): PluginParameterDef[] => {
+    const timestamp = Date.now();
+    const paramMap: Record<string, PluginParameterDef[]> = {
+      oscillator: [
+        { id: `freq_${timestamp}`, name: 'Frequency', type: 'float', defaultValue: 440, min: 20, max: 20000, unit: 'Hz' },
+        { id: `wave_${timestamp}`, name: 'Waveform', type: 'enum', defaultValue: 0, min: 0, max: 3, unit: '' },
+        { id: `detune_${timestamp}`, name: 'Detune', type: 'float', defaultValue: 0, min: -100, max: 100, unit: 'cents' },
+      ],
+      filter: [
+        { id: `cutoff_${timestamp}`, name: 'Cutoff', type: 'float', defaultValue: 1000, min: 20, max: 20000, unit: 'Hz' },
+        { id: `resonance_${timestamp}`, name: 'Resonance', type: 'float', defaultValue: 1, min: 0.1, max: 30, unit: 'Q' },
+        { id: `type_${timestamp}`, name: 'Filter Type', type: 'enum', defaultValue: 0, min: 0, max: 3, unit: '' },
+      ],
+      envelope: [
+        { id: `attack_${timestamp}`, name: 'Attack', type: 'float', defaultValue: 0.01, min: 0.001, max: 2, unit: 's' },
+        { id: `decay_${timestamp}`, name: 'Decay', type: 'float', defaultValue: 0.1, min: 0.001, max: 2, unit: 's' },
+        { id: `sustain_${timestamp}`, name: 'Sustain', type: 'float', defaultValue: 0.7, min: 0, max: 1, unit: '' },
+        { id: `release_${timestamp}`, name: 'Release', type: 'float', defaultValue: 0.5, min: 0.001, max: 5, unit: 's' },
+      ],
+      lfo: [
+        { id: `rate_${timestamp}`, name: 'Rate', type: 'float', defaultValue: 2, min: 0.01, max: 20, unit: 'Hz' },
+        { id: `depth_${timestamp}`, name: 'Depth', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+        { id: `wave_${timestamp}`, name: 'Waveform', type: 'enum', defaultValue: 0, min: 0, max: 3, unit: '' },
+      ],
+      gain: [
+        { id: `gain_${timestamp}`, name: 'Gain', type: 'float', defaultValue: 1, min: 0, max: 2, unit: '' },
+        { id: `pan_${timestamp}`, name: 'Pan', type: 'float', defaultValue: 0, min: -1, max: 1, unit: '' },
+      ],
+      delay: [
+        { id: `time_${timestamp}`, name: 'Delay Time', type: 'float', defaultValue: 0.25, min: 0.001, max: 2, unit: 's' },
+        { id: `feedback_${timestamp}`, name: 'Feedback', type: 'float', defaultValue: 0.3, min: 0, max: 0.95, unit: '' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 0.3, min: 0, max: 1, unit: '' },
+      ],
+      reverb: [
+        { id: `roomsize_${timestamp}`, name: 'Room Size', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+        { id: `damping_${timestamp}`, name: 'Damping', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 0.3, min: 0, max: 1, unit: '' },
+      ],
+      compressor: [
+        { id: `threshold_${timestamp}`, name: 'Threshold', type: 'float', defaultValue: -24, min: -60, max: 0, unit: 'dB' },
+        { id: `ratio_${timestamp}`, name: 'Ratio', type: 'float', defaultValue: 4, min: 1, max: 20, unit: ':1' },
+        { id: `attack_${timestamp}`, name: 'Attack', type: 'float', defaultValue: 0.003, min: 0.0001, max: 1, unit: 's' },
+        { id: `release_${timestamp}`, name: 'Release', type: 'float', defaultValue: 0.25, min: 0.01, max: 3, unit: 's' },
+      ],
+      distortion: [
+        { id: `drive_${timestamp}`, name: 'Drive', type: 'float', defaultValue: 10, min: 0, max: 100, unit: 'dB' },
+        { id: `tone_${timestamp}`, name: 'Tone', type: 'float', defaultValue: 3000, min: 100, max: 10000, unit: 'Hz' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 1, min: 0, max: 1, unit: '' },
+      ],
+      chorus: [
+        { id: `rate_${timestamp}`, name: 'Rate', type: 'float', defaultValue: 1.5, min: 0.1, max: 10, unit: 'Hz' },
+        { id: `depth_${timestamp}`, name: 'Depth', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+      ],
+      phaser: [
+        { id: `rate_${timestamp}`, name: 'Rate', type: 'float', defaultValue: 0.5, min: 0.01, max: 10, unit: 'Hz' },
+        { id: `depth_${timestamp}`, name: 'Depth', type: 'float', defaultValue: 0.7, min: 0, max: 1, unit: '' },
+        { id: `feedback_${timestamp}`, name: 'Feedback', type: 'float', defaultValue: 0.3, min: 0, max: 0.95, unit: '' },
+      ],
+      flanger: [
+        { id: `rate_${timestamp}`, name: 'Rate', type: 'float', defaultValue: 0.3, min: 0.01, max: 10, unit: 'Hz' },
+        { id: `depth_${timestamp}`, name: 'Depth', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+        { id: `feedback_${timestamp}`, name: 'Feedback', type: 'float', defaultValue: 0.5, min: 0, max: 0.95, unit: '' },
+      ],
+      eq: [
+        { id: `low_${timestamp}`, name: 'Low', type: 'float', defaultValue: 0, min: -12, max: 12, unit: 'dB' },
+        { id: `mid_${timestamp}`, name: 'Mid', type: 'float', defaultValue: 0, min: -12, max: 12, unit: 'dB' },
+        { id: `high_${timestamp}`, name: 'High', type: 'float', defaultValue: 0, min: -12, max: 12, unit: 'dB' },
+      ],
+      limiter: [
+        { id: `threshold_${timestamp}`, name: 'Threshold', type: 'float', defaultValue: -3, min: -20, max: 0, unit: 'dB' },
+        { id: `release_${timestamp}`, name: 'Release', type: 'float', defaultValue: 0.01, min: 0.001, max: 1, unit: 's' },
+      ],
+      gate: [
+        { id: `threshold_${timestamp}`, name: 'Threshold', type: 'float', defaultValue: -40, min: -60, max: 0, unit: 'dB' },
+        { id: `attack_${timestamp}`, name: 'Attack', type: 'float', defaultValue: 0.001, min: 0.0001, max: 0.1, unit: 's' },
+        { id: `release_${timestamp}`, name: 'Release', type: 'float', defaultValue: 0.1, min: 0.01, max: 2, unit: 's' },
+      ],
+      vocoder: [
+        { id: `bands_${timestamp}`, name: 'Bands', type: 'int', defaultValue: 16, min: 4, max: 32, unit: '' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 1, min: 0, max: 1, unit: '' },
+      ],
+      sampler: [
+        { id: `pitch_${timestamp}`, name: 'Pitch', type: 'float', defaultValue: 0, min: -24, max: 24, unit: 'semitones' },
+        { id: `loop_${timestamp}`, name: 'Loop', type: 'bool', defaultValue: 0, min: 0, max: 1, unit: '' },
+      ],
+      arpeggiator: [
+        { id: `rate_${timestamp}`, name: 'Rate', type: 'float', defaultValue: 8, min: 1, max: 32, unit: 'steps' },
+        { id: `octaves_${timestamp}`, name: 'Octaves', type: 'int', defaultValue: 1, min: 1, max: 4, unit: '' },
+      ],
+      waveshaper: [
+        { id: `amount_${timestamp}`, name: 'Amount', type: 'float', defaultValue: 20, min: 0, max: 100, unit: '' },
+        { id: `oversample_${timestamp}`, name: 'Oversample', type: 'enum', defaultValue: 1, min: 0, max: 2, unit: '' },
+      ],
+      'ring-mod': [
+        { id: `freq_${timestamp}`, name: 'Frequency', type: 'float', defaultValue: 440, min: 20, max: 5000, unit: 'Hz' },
+        { id: `mix_${timestamp}`, name: 'Wet/Dry', type: 'float', defaultValue: 0.5, min: 0, max: 1, unit: '' },
+      ],
+    };
+    return paramMap[moduleId] || [];
+  };
+
+  // Generate DSP code for each module type
+  const generateModuleDSP = (moduleId: string, params: PluginParameterDef[], framework: string): string => {
+    if (framework === 'juce') {
+      const dspMap: Record<string, string> = {
+        oscillator: `    // Oscillator DSP
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
+        auto* channelData = buffer.getWritePointer(channel);
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+            float phase = (float)sample / buffer.getNumSamples();
+            channelData[sample] = std::sin(2.0f * M_PI * ${params[0]?.id || 'freq'} * phase);
+        }
+    }`,
+        filter: `    // Filter DSP
+    filterProcessor.setCoefficients(
+        juce::IIRCoefficients::makeLowPass(
+            getSampleRate(), 
+            ${params[0]?.id || 'cutoff'}, 
+            ${params[1]?.id || 'resonance'}
+        )
+    );
+    filterProcessor.process(juce::dsp::ProcessContextReplacing<float>(buffer));`,
+        gain: `    // Gain DSP
+    buffer.applyGain(${params[0]?.id || 'gain'});`,
+        delay: `    // Delay DSP
+    delayLine.setDelay(${params[0]?.id || 'time'} * getSampleRate());
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel) {
+        auto* data = buffer.getWritePointer(channel);
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+            float delayed = delayLine.popSample(channel);
+            float output = data[sample] + delayed * ${params[1]?.id || 'feedback'};
+            delayLine.pushSample(channel, output);
+            data[sample] = data[sample] * (1.0f - ${params[2]?.id || 'mix'}) + delayed * ${params[2]?.id || 'mix'};
+        }
+    }`,
+      };
+      return dspMap[moduleId] || `    // ${moduleId} processing`;
+    } else {
+      const dspMap: Record<string, string> = {
+        oscillator: `    process(input, output) {
+        const osc = this.audioContext.createOscillator();
+        osc.frequency.value = this.${params[0]?.id || 'freq'};
+        osc.type = ['sine', 'square', 'sawtooth', 'triangle'][this.${params[1]?.id || 'wave'} || 0];
+        osc.connect(output);
+        osc.start();
+    }`,
+        filter: `    process(input, output) {
+        const filter = this.audioContext.createBiquadFilter();
+        filter.frequency.value = this.${params[0]?.id || 'cutoff'};
+        filter.Q.value = this.${params[1]?.id || 'resonance'};
+        input.connect(filter);
+        filter.connect(output);
+    }`,
+        gain: `    process(input, output) {
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.value = this.${params[0]?.id || 'gain'};
+        input.connect(gainNode);
+        gainNode.connect(output);
+    }`,
+        delay: `    process(input, output) {
+        const delay = this.audioContext.createDelay();
+        const feedback = this.audioContext.createGain();
+        const wet = this.audioContext.createGain();
+        
+        delay.delayTime.value = this.${params[0]?.id || 'time'};
+        feedback.gain.value = this.${params[1]?.id || 'feedback'};
+        wet.gain.value = this.${params[2]?.id || 'mix'};
+        
+        input.connect(delay);
+        delay.connect(feedback);
+        feedback.connect(delay);
+        delay.connect(wet);
+        wet.connect(output);
+    }`,
+      };
+      return dspMap[moduleId] || `    // ${moduleId} processing`;
+    }
+  };
+
   const addParameter = () => {
     const newParam: PluginParameterDef = {
       id: `param_${Date.now()}`,
@@ -85,22 +266,44 @@ export const PluginVisualBuilder: React.FC<PluginVisualBuilderProps> = ({
     });
   };
 
+  const addModuleToProject = (moduleId: string) => {
+    const newParams = getModuleParameters(moduleId);
+    const moduleName = audioModules.find(m => m.id === moduleId)?.name || moduleId;
+    
+    onChange({
+      ...project,
+      parameters: [...project.parameters, ...newParams]
+    });
+    
+    toast.success(`${moduleName} added with ${newParams.length} parameters`);
+  };
+
   const generateCode = () => {
     // Generate code from visual design
     let code = '';
 
     if (project.framework === 'juce') {
+      const dspCode = selectedModule ? generateModuleDSP(selectedModule, project.parameters, 'juce') : 
+        project.parameters.map(p => `        // Process ${p.name}`).join('\n');
+      
       code = `// Auto-generated JUCE plugin
 class ${project.name.replace(/\s+/g, '')}Plugin : public juce::AudioProcessor {
 public:
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override {
-        // Generated DSP code
-${project.parameters.map(p => `        // Process ${p.name}`).join('\n')}
+${dspCode}
     }
+
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override {
+        // Initialize DSP components
+    }
+
 private:
-${project.parameters.map(p => `    float ${p.id} = ${p.defaultValue}f;`).join('\n')}
+${project.parameters.map(p => `    ${p.type === 'int' ? 'int' : 'float'} ${p.id} = ${p.defaultValue}${p.type === 'float' ? 'f' : ''};`).join('\n')}
 };`;
     } else {
+      const dspCode = selectedModule ? generateModuleDSP(selectedModule, project.parameters, 'webaudio') :
+        '        // Generated processing code';
+        
       code = `// Auto-generated Web Audio plugin
 class ${project.name.replace(/\s+/g, '')}Plugin {
     constructor(audioContext) {
@@ -108,9 +311,7 @@ class ${project.name.replace(/\s+/g, '')}Plugin {
 ${project.parameters.map(p => `        this.${p.id} = ${p.defaultValue};`).join('\n')}
     }
 
-    process(input, output) {
-        // Generated processing code
-    }
+${dspCode}
 }`;
     }
 
@@ -230,7 +431,7 @@ ${project.parameters.map(p => `        this.${p.id} = ${p.defaultValue};`).join(
                     }`}
                     onClick={() => {
                       setSelectedModule(module.id);
-                      toast.success(`Selected: ${module.name}`);
+                      addModuleToProject(module.id);
                     }}
                   >
                     <CardContent className="p-4 flex flex-col items-center gap-2 text-center">

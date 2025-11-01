@@ -5,6 +5,10 @@ import { PluginMarketplace } from '@/components/marketplace/PluginMarketplace';
 import { MyPluginsDashboard } from '@/components/plugins/MyPluginsDashboard';
 import { PluginBundleCreator } from '@/components/plugins/PluginBundleCreator';
 import { SellerAnalytics } from '@/components/plugins/SellerAnalytics';
+import { PluginSubmissionForm } from '@/components/plugins/PluginSubmissionForm';
+import { AIPluginRecommendations } from '@/components/plugins/AIPluginRecommendations';
+import { AutomatedQAPipeline } from '@/components/plugins/AutomatedQAPipeline';
+import { PluginSocialFeatures } from '@/components/plugins/PluginSocialFeatures';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -451,21 +455,24 @@ export default function PluginDev() {
             </TabsContent>
 
             <TabsContent value="analytics">
-              <SellerAnalytics />
+              <div className="space-y-6">
+                <SellerAnalytics />
+                
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">AI Recommendations</h3>
+                    <AIPluginRecommendations />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Quality Assurance</h3>
+                    <AutomatedQAPipeline />
+                  </div>
+                </div>
+              </div>
             </TabsContent>
             
             <TabsContent value="submit">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Submit to Marketplace</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Marketplace submission feature coming soon. You'll be able to publish
-                    your plugins directly from the IDE.
-                  </p>
-                </CardContent>
-              </Card>
+              <PluginSubmissionForm />
             </TabsContent>
           </Tabs>
         </div>

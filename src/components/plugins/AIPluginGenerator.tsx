@@ -57,7 +57,7 @@ export const AIPluginGenerator: React.FC<AIPluginGeneratorProps> = ({
       "Build a granular sampler with time-stretching and pitch-shifting"
     ],
     effect: [
-      "Create an Amapianorizer that adds Amapiano vibes to any track with pumping, gating, EQ, and rhythmic effects",
+      "Create an Amapianorizer - an all-in-one multi-effect designed to instantly give any sound the characteristic groove, pump, and low-end of Amapiano",
       "Create a multi-stage tube amplifier with preamp, power amp, and cab sim",
       "Build a convolution reverb with impulse response loading",
       "Design a spectral processor with frequency-domain effects",
@@ -106,7 +106,7 @@ export const AIPluginGenerator: React.FC<AIPluginGeneratorProps> = ({
       "Create a formant filter with vowel morphing"
     ],
     creative: [
-      "Create an Amapianorizer effect that transforms any track into Amapiano style with EQ, pumping compression, rhythmic gating, reverb, and swing",
+      "Create an Amapianorizer - an all-in-one multi-effect designed to instantly give any sound the characteristic groove, pump, and low-end of Amapiano",
       "Build a vocoder with 32 bands and synthesis options",
       "Create a spectral freeze effect with harmonic locking",
       "Design a granular cloudifier with random grain distribution",

@@ -27,7 +27,7 @@ export const AIParameterChat: React.FC<AIParameterChatProps> = ({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `Hi! I'm your audio engineering assistant. Tell me how you want to adjust the ${pluginType} - use natural language like "make it punchier", "add more space", or "classic Amapiano vibe".`
+      content: `Hi! I'm your audio engineering assistant for the ${pluginType === 'amapianorizer' ? 'Amapianorizer - an all-in-one multi-effect designed to instantly give any sound the characteristic groove, pump, and low-end of Amapiano' : pluginType}. Tell me how you want to adjust it - use natural language like "make it punchier", "add more space", or "classic Amapiano vibe".`
     }
   ]);
   const [input, setInput] = useState('');

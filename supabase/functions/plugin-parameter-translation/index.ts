@@ -28,6 +28,8 @@ serve(async (req) => {
     const systemPrompt = `You are an expert audio engineer specializing in ${pluginType} effects. 
 Your job is to translate natural language requests into precise parameter adjustments.
 
+The Amapianorizer is an all-in-one multi-effect designed to instantly give any sound the characteristic groove, pump, and low-end of Amapiano music.
+
 Available parameters and their meanings:
 
 EQ Module:

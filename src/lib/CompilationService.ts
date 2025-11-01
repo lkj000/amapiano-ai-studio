@@ -47,8 +47,16 @@ export class CompilationService {
     console.log('[CompilationService] Starting real compilation:', request.pluginName);
 
     try {
-      const { data, error } = await supabase.functions.invoke('compile-cpp-plugin', {
-        body: request
+      const { data, error } = await supabase.functions.invoke('compile-wasm-plugin', {
+        body: {
+          code: request.code,
+          pluginName: request.pluginName,
+          framework: request.framework,
+          parameters: request.parameters,
+          optimizationLevel: 'O2',
+          enableSIMD: true,
+          enableThreads: false
+        }
       });
 
       if (error) {
@@ -62,29 +70,21 @@ export class CompilationService {
       // Convert base64 binaries back to Uint8Array
       const result: CompilationResult = {
         success: data.success,
-        pluginName: data.pluginName,
+        pluginName: request.pluginName,
         binaries: {},
         manifest: data.manifest,
-        logs: data.logs,
-        warnings: data.warnings,
-        errors: data.errors,
+        logs: data.buildLog || [],
+        warnings: [],
+        errors: [],
         performanceMetrics: {
-          compilationTime: performance.now() - startTime
+          compilationTime: data.manifest?.compilationTime || (performance.now() - startTime)
         }
       };
 
-      // Convert binary data
-      if (data.binaries.wasm) {
-        result.binaries.wasm = this.base64ToUint8Array(data.binaries.wasm);
+      // Convert WASM binary data
+      if (data.wasm) {
+        result.binaries.wasm = this.base64ToUint8Array(data.wasm);
         result.performanceMetrics!.wasmSize = result.binaries.wasm.length;
-      }
-      if (data.binaries.vst3) {
-        result.binaries.vst3 = this.base64ToUint8Array(data.binaries.vst3);
-        result.performanceMetrics!.vst3Size = result.binaries.vst3.length;
-      }
-      if (data.binaries.au) {
-        result.binaries.au = this.base64ToUint8Array(data.binaries.au);
-        result.performanceMetrics!.auSize = result.binaries.au.length;
       }
 
       console.log('[CompilationService] Compilation successful:', {

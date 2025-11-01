@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Zap, TrendingUp, Settings2, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface OptimizationSuggestion {
   id: string;
@@ -28,11 +29,33 @@ export function MLPluginOptimizer({ pluginCode = "", onCodeUpdate }: MLPluginOpt
 
   const analyzePlugin = async () => {
     setIsAnalyzing(true);
-    toast.info("ML models analyzing your plugin...");
+    toast.info("AI analyzing your plugin code...");
     
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Call ML optimization edge function
+      const { data, error } = await supabase.functions.invoke('ml-plugin-optimizer', {
+        body: {
+          pluginCode: pluginCode,
+          optimizationType: 'all'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.suggestions) {
+        setSuggestions(data.suggestions);
+        setIsAnalyzing(false);
+        toast.success(`Found ${data.suggestions.length} optimization opportunities!`);
+        return;
+      }
+    } catch (error) {
+      console.error('ML optimization error:', error);
+      toast.error('AI analysis failed, using fallback analysis');
+    }
     
-    // Simulate ML-powered analysis
+    // Fallback to rule-based analysis
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const newSuggestions: OptimizationSuggestion[] = [
       {
         id: 'perf1',

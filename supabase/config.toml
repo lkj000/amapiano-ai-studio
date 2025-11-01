@@ -84,3 +84,6 @@ verify_jwt = false
 
 [functions.ml-plugin-optimizer]
 verify_jwt = false
+
+[functions.compile-cpp-plugin]
+verify_jwt = false

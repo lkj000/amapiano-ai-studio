@@ -468,7 +468,7 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
     if (currentProject.framework === 'juce') {
       const detected = extractJUCEParameters(currentProject.code || '');
       const changed = JSON.stringify(detected) !== JSON.stringify(currentProject.parameters);
-      if (detected.length > 0 && changed) {
+      if (changed) {
         setCurrentProject(prev => ({
           ...prev,
           parameters: detected

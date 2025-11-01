@@ -301,10 +301,46 @@ export const PluginDevelopmentIDE: React.FC<PluginDevelopmentIDEProps> = ({
       });
     }
 
+    // Fallback: infer parameters from class member variables if no JUCE params declared
+    if (params.length === 0) {
+      const toTitle = (s: string) => s
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/_/g, ' ')
+        .replace(/^\w/, (c) => c.toUpperCase());
+
+      const tryPushFloat = (id: string, defStr: string) => {
+        const def = parseFloat(defStr);
+        let min: number | undefined;
+        let max: number | undefined;
+        const unit = detectUnit(id);
+
+        if (/time|glide|decay|attack|release|hold/i.test(id)) { min = 0; max = 2000; }
+        else if (/freq|hz/i.test(id)) { min = 20; max = 20000; }
+        else if (/gain|level|mix|amount|drive|bass|treble|knock|sub|swing|shuffle/i.test(id)) { min = 0; max = 1; }
+        else if (/pitch|note|key/i.test(id)) { min = 24; max = 96; }
+
+        pushParam({
+          id,
+          name: toTitle(id),
+          type: 'float',
+          defaultValue: def,
+          ...(min !== undefined ? { min } : {}),
+          ...(max !== undefined ? { max } : {}),
+          ...(unit ? { unit } : {})
+        });
+      };
+
+      // Match floats/doubles like: float glideTime = 100.0f; or double cutoff = 2000.0;
+      const varRegex = /\b(?:float|double)\s+([a-zA-Z_]\w*)\s*=\s*([-+]?\d*\.?\d+)f?\s*;/g;
+      let vm: RegExpExecArray | null;
+      while ((vm = varRegex.exec(normalized)) !== null) {
+        tryPushFloat(vm[1], vm[2]);
+      }
+    }
+
     console.log(`[IDE] Detected ${params.length} parameters:`, params.map(p => p.id));
     return params;
   };
-
   // Update parameters when code changes or when viewing the Parameters tab
   useEffect(() => {
     if (currentProject.framework === 'juce') {

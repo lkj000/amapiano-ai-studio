@@ -22,6 +22,7 @@ export const AIPluginGenerator: React.FC<AIPluginGeneratorProps> = ({
   onGenerate,
   framework
 }) => {
+  // Smart Templates integration enabled
   const [description, setDescription] = useState('');
   const [pluginType, setPluginType] = useState<'instrument' | 'effect' | 'utility'>('effect');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

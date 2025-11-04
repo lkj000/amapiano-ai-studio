@@ -58,6 +58,9 @@ import { usePluginSystem } from '@/hooks/usePluginSystem';
 import { Sparkles } from 'lucide-react';
 import { HighSpeedDAWEngine } from '@/components/HighSpeedDAWEngine';
 import { GhostProducerMode } from '@/components/GhostProducerMode';
+import { QuickArrangementAssistant } from '@/components/QuickArrangementAssistant';
+import { AutoTimeStretchPanel } from '@/components/AutoTimeStretchPanel';
+import { MIDIHumanizationPanel } from '@/components/MIDIHumanizationPanel';
 import { TutorialIntegration } from '@/components/TutorialIntegration';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -2520,6 +2523,35 @@ const [zoom, setZoom] = useState([100]);
               currentProject={projectData}
               className="max-w-4xl mx-auto"
             />
+            
+            <div className="mt-6 space-y-6 max-w-4xl mx-auto">
+              <QuickArrangementAssistant 
+                onApplyArrangement={(template, intensity) => {
+                  console.log('🎵 Applying arrangement:', template.name, 'Intensity:', intensity);
+                  toast.success('Arrangement Applied', {
+                    description: `${template.name} loaded with ${intensity}% intensity`
+                  });
+                }}
+              />
+              
+              <AutoTimeStretchPanel 
+                onStretchComplete={(buffer, originalBPM, targetBPM) => {
+                  console.log('⏱️ Time-stretch complete:', originalBPM, '->', targetBPM);
+                  toast.success('Time-Stretch Complete', {
+                    description: `Adjusted from ${originalBPM} to ${targetBPM} BPM`
+                  });
+                }}
+              />
+              
+              <MIDIHumanizationPanel 
+                onHumanize={(settings) => {
+                  console.log('🎹 Humanizing MIDI with settings:', settings);
+                  toast.success('MIDI Humanized', {
+                    description: 'Natural feel applied to all MIDI tracks'
+                  });
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

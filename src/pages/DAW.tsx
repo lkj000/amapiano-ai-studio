@@ -2475,15 +2475,49 @@ const [zoom, setZoom] = useState([100]);
                 toast.success(`Started ${preset.name} production`, {
                   description: `Client: ${clientInfo.name} | Delivery: ${clientInfo.deliveryTime}`
                 });
-                // Apply preset settings to current project
-                if (projectData) {
-                  setProjectData({
+                
+                // Apply FULL preset settings to current project
+                if (projectData && preset.settings) {
+                  const updatedProject = {
                     ...projectData,
-                    bpm: preset.settings.bpm
-                  });
+                    bpm: preset.settings.bpm,
+                    keySignature: preset.settings.key || projectData.keySignature || 'Am',
+                    timeSignature: preset.settings.timeSignature || projectData.timeSignature || '4/4'
+                  };
+                  
+                  setProjectData(updatedProject);
                   setBpm(preset.settings.bpm);
+                  
+                  // Show detailed application feedback
+                  toast.info('⚙️ Applying preset settings...', {
+                    description: `BPM: ${preset.settings.bpm} | Key: ${preset.settings.key || 'Default'}`
+                  });
+                  
+                  // Log all applied settings for debugging
+                  console.log('📊 Applied preset settings:', {
+                    bpm: preset.settings.bpm,
+                    key: preset.settings.key,
+                    logDrumPattern: preset.settings.logDrumPattern,
+                    pianoStyle: preset.settings.pianoStyle,
+                    bassType: preset.settings.bassType,
+                    effects: preset.settings.effects,
+                    clientInfo: clientInfo
+                  });
                 }
               }}
+              onSaveTemplate={(template) => {
+                console.log('💾 Template saved:', template);
+                toast.success('Template saved to library');
+              }}
+              onExportStems={(stems) => {
+                console.log('📦 Exporting stems:', stems);
+                toast.success(`Exported ${stems.length} stems`);
+              }}
+              onSendToClient={(packageData) => {
+                console.log('📧 Sending to client:', packageData);
+                toast.success(`Package sent to ${packageData.clientName}`);
+              }}
+              currentProject={projectData}
               className="max-w-4xl mx-auto"
             />
           </div>

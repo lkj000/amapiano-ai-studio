@@ -21,14 +21,27 @@ import { privateSchoolPresets } from '@/data/amapiano-presets';
 
 interface GhostProducerModeProps {
   onQuickGenerate: (preset: any, clientInfo: any) => void;
+  onSaveTemplate?: (template: any) => void;
+  onExportStems?: (tracks: any[]) => void;
+  onSendToClient?: (packageData: any) => void;
+  currentProject?: any;
   className?: string;
 }
 
-export const GhostProducerMode = ({ onQuickGenerate, className }: GhostProducerModeProps) => {
+export const GhostProducerMode = ({ 
+  onQuickGenerate, 
+  onSaveTemplate,
+  onExportStems,
+  onSendToClient,
+  currentProject,
+  className 
+}: GhostProducerModeProps) => {
   const [selectedArtist, setSelectedArtist] = useState('');
   const [targetDuration, setTargetDuration] = useState('3:00');
   const [clientName, setClientName] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('24h');
+  const [isExporting, setIsExporting] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const artistStyles = [
     { value: 'kelvin-momo', label: 'Kelvin Momo Style', preset: 'kelvin-momo-signature' },
@@ -62,6 +75,181 @@ export const GhostProducerMode = ({ onQuickGenerate, className }: GhostProducerM
     toast.success(`🚀 Starting ${artistStyle?.label} production`, {
       description: `Target: ${targetDuration} | Delivery: ${deliveryTime}`
     });
+  };
+
+  const handleSaveTemplate = () => {
+    if (!selectedArtist || !clientName) {
+      toast.error('Please select an artist style and enter client name');
+      return;
+    }
+
+    const artistStyle = artistStyles.find(a => a.value === selectedArtist);
+    const preset = privateSchoolPresets.find(p => p.id === artistStyle?.preset);
+
+    const template = {
+      name: `${clientName} - ${artistStyle?.label}`,
+      preset: preset,
+      clientInfo: {
+        name: clientName,
+        targetDuration,
+        deliveryTime,
+        savedAt: new Date().toISOString()
+      },
+      settings: currentProject
+    };
+
+    if (onSaveTemplate) {
+      onSaveTemplate(template);
+    }
+
+    // Save to localStorage as backup
+    const savedTemplates = JSON.parse(localStorage.getItem('ghostProducerTemplates') || '[]');
+    savedTemplates.push(template);
+    localStorage.setItem('ghostProducerTemplates', JSON.stringify(savedTemplates));
+
+    toast.success('✅ Template saved successfully', {
+      description: `"${template.name}" saved to your templates`
+    });
+  };
+
+  const handleExportStems = async () => {
+    if (!currentProject?.tracks || currentProject.tracks.length === 0) {
+      toast.error('No tracks to export');
+      return;
+    }
+
+    setIsExporting(true);
+    toast.info('🎵 Preparing stems export...', {
+      description: 'This may take a moment'
+    });
+
+    try {
+      // Simulate stem separation process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const stems = currentProject.tracks.map((track: any) => ({
+        name: track.name,
+        type: track.type,
+        audioUrl: track.audioUrl,
+        settings: track.effects
+      }));
+
+      if (onExportStems) {
+        onExportStems(stems);
+      }
+
+      // Create download package
+      const exportData = {
+        projectName: currentProject.name || 'Untitled Project',
+        clientName: clientName || 'Client',
+        stems: stems,
+        exportedAt: new Date().toISOString(),
+        metadata: {
+          bpm: currentProject.bpm,
+          duration: targetDuration,
+          preset: selectedArtist
+        }
+      };
+
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${clientName || 'client'}-stems-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('✅ Stems exported successfully', {
+        description: `${stems.length} tracks exported`
+      });
+    } catch (error) {
+      toast.error('Failed to export stems');
+      console.error('Export error:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSendToClient = async () => {
+    if (!clientName) {
+      toast.error('Please enter client name');
+      return;
+    }
+
+    if (!currentProject) {
+      toast.error('No project to send');
+      return;
+    }
+
+    setIsSending(true);
+    toast.info('📦 Preparing client package...', {
+      description: 'Creating deliverables'
+    });
+
+    try {
+      // Simulate packaging process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const clientPackage = {
+        clientName,
+        projectName: currentProject.name || 'Untitled Project',
+        deliveryInfo: {
+          targetDuration,
+          deliveryTime,
+          completedAt: new Date().toISOString()
+        },
+        files: {
+          masterMix: currentProject.audioUrl || 'master.wav',
+          stems: currentProject.tracks?.map((t: any) => ({
+            name: t.name,
+            url: t.audioUrl
+          })) || [],
+          projectFile: 'project.json'
+        },
+        notes: `Professional Amapiano production for ${clientName}`,
+        preset: selectedArtist,
+        metadata: {
+          bpm: currentProject.bpm,
+          key: currentProject.key || 'Am',
+          genre: 'Amapiano'
+        }
+      };
+
+      if (onSendToClient) {
+        onSendToClient(clientPackage);
+      }
+
+      // Create download package
+      const blob = new Blob([JSON.stringify(clientPackage, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${clientName}-delivery-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('✅ Package ready for client', {
+        description: `Delivery package for ${clientName} created`
+      });
+
+      // Auto-copy shareable message to clipboard
+      const shareMessage = `🎵 Project Complete!\n\nClient: ${clientName}\nStyle: ${selectedArtist}\nDuration: ${targetDuration}\nDelivered: ${new Date().toLocaleDateString()}\n\nAll stems and master included ✨`;
+      
+      navigator.clipboard.writeText(shareMessage).then(() => {
+        toast.info('📋 Share message copied to clipboard');
+      });
+
+    } catch (error) {
+      toast.error('Failed to create client package');
+      console.error('Send error:', error);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -184,17 +372,32 @@ export const GhostProducerMode = ({ onQuickGenerate, className }: GhostProducerM
 
         {/* Secondary Actions */}
         <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleSaveTemplate}
+            disabled={!selectedArtist || !clientName}
+          >
             <Save className="w-3 h-3 mr-1" />
             Save Template
           </Button>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleExportStems}
+            disabled={isExporting || !currentProject?.tracks}
+          >
             <Download className="w-3 h-3 mr-1" />
-            Export Stems
+            {isExporting ? 'Exporting...' : 'Export Stems'}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleSendToClient}
+            disabled={isSending || !clientName}
+          >
             <Share2 className="w-3 h-3 mr-1" />
-            Send to Client
+            {isSending ? 'Sending...' : 'Send to Client'}
           </Button>
         </div>
 

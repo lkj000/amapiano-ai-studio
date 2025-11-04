@@ -19,10 +19,14 @@ import {
   Sliders,
   Sparkles,
   Clock,
-  Zap
+  Zap,
+  BookOpen
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeFeatureExtraction } from "@/hooks/useRealtimeFeatureExtraction";
+import { privateSchoolPresets, getPresetById } from "@/data/amapiano-presets";
+import { StockPluginsBadge } from "@/components/StockPluginsBadge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AmapianorizeProps {
   sourceAnalysisId?: string;
@@ -40,6 +44,8 @@ export const AmapianorizeEngine = ({ sourceAnalysisId, onTransformComplete, clas
   const [isTransforming, setIsTransforming] = useState(false);
   const [transformProgress, setTransformProgress] = useState(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>("");
+  const [showTutorials, setShowTutorials] = useState(false);
   
   // High-Speed WASM Integration
   const wasmExtractor = useRealtimeFeatureExtraction();
@@ -186,6 +192,7 @@ export const AmapianorizeEngine = ({ sourceAnalysisId, onTransformComplete, clas
               C++ WASM
             </Badge>
           )}
+          <StockPluginsBadge variant="badge" />
           <Badge variant="secondary" className="ml-auto">
             <Sparkles className="w-3 h-3 mr-1" />
             AI-Powered
@@ -212,27 +219,87 @@ export const AmapianorizeEngine = ({ sourceAnalysisId, onTransformComplete, clas
 
         {sourceAnalysisId && (
           <>
-            {/* Target Genre */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Target Amapiano Style</label>
-              <Select value={targetGenre} onValueChange={setTargetGenre}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="classic">Classic Amapiano</SelectItem>
-                  <SelectItem value="private-school">Private School Amapiano</SelectItem>
-                  <SelectItem value="vocal">Vocal Amapiano</SelectItem>
-                  <SelectItem value="deep">Deep Amapiano</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {targetGenre === "classic" && "Traditional amapiano with log drums and soulful piano"}
-                {targetGenre === "private-school" && "Sophisticated, jazz-influenced with live instrumentation"}
-                {targetGenre === "vocal" && "Emphasizes vocal elements and harmonies"}
-                {targetGenre === "deep" && "Underground sound with deeper, darker elements"}
-              </p>
-            </div>
+            <Tabs defaultValue="styles" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="styles">Styles</TabsTrigger>
+                <TabsTrigger value="presets">Presets</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="styles" className="space-y-4">
+                {/* Target Genre */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Target Amapiano Style</label>
+                  <Select value={targetGenre} onValueChange={setTargetGenre}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="classic">Classic Amapiano</SelectItem>
+                      <SelectItem value="private-school">Private School Amapiano</SelectItem>
+                      <SelectItem value="vocal">Vocal Amapiano</SelectItem>
+                      <SelectItem value="deep">Deep Amapiano</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {targetGenre === "classic" && "Traditional amapiano with log drums and soulful piano"}
+                    {targetGenre === "private-school" && "Sophisticated, jazz-influenced with live instrumentation"}
+                    {targetGenre === "vocal" && "Emphasizes vocal elements and harmonies"}
+                    {targetGenre === "deep" && "Underground sound with deeper, darker elements"}
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="presets" className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Professional Presets</label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowTutorials(!showTutorials)}
+                    >
+                      <BookOpen className="w-4 h-4 mr-1" />
+                      Tutorials
+                    </Button>
+                  </div>
+                  <Select value={selectedPreset} onValueChange={(value) => {
+                    setSelectedPreset(value);
+                    const preset = getPresetById(value);
+                    if (preset) {
+                      toast.success(`Loaded: ${preset.name}`, {
+                        description: preset.description
+                      });
+                    }
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a preset..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Custom Settings</SelectItem>
+                      {privateSchoolPresets.map(preset => (
+                        <SelectItem key={preset.id} value={preset.id}>
+                          {preset.name} - {preset.artist}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedPreset && selectedPreset !== 'none' && (
+                    <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs text-muted-foreground">
+                        {getPresetById(selectedPreset)?.description}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {getPresetById(selectedPreset)?.tags.map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-[10px]">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
 
             {/* Transformation Intensity */}
             <div className="space-y-3">

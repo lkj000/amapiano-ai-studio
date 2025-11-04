@@ -87,3 +87,6 @@ verify_jwt = false
 
 [functions.compile-cpp-plugin]
 verify_jwt = false
+
+[functions.amapiano-subgenre-ai]
+verify_jwt = false

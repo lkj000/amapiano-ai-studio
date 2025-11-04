@@ -57,6 +57,8 @@ import { useFeatureFlags } from '@/hooks/useFeatureFlags';
 import { usePluginSystem } from '@/hooks/usePluginSystem';
 import { Sparkles } from 'lucide-react';
 import { HighSpeedDAWEngine } from '@/components/HighSpeedDAWEngine';
+import { GhostProducerMode } from '@/components/GhostProducerMode';
+import { TutorialIntegration } from '@/components/TutorialIntegration';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -195,6 +197,8 @@ export default function DawPage({ user }: DawPageProps) {
   const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
   const [showPluginSidebar, setShowPluginSidebar] = useState(false);
   const [showHighSpeedEngine, setShowHighSpeedEngine] = useState(true);
+  const [showGhostProducer, setShowGhostProducer] = useState(false);
+  const [showTutorials, setShowTutorials] = useState(false);
 const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
 const [pianoRollTime, setPianoRollTime] = useState(0);
 const pianoRollTimerRef = useRef<number | null>(null);
@@ -1704,6 +1708,14 @@ const [zoom, setZoom] = useState([100]);
               <Gamepad2 className="w-4 h-4 mr-2" />
               Plugins
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowGhostProducer(!showGhostProducer)} className={showGhostProducer ? 'bg-primary/20 text-primary' : ''}>
+              <Zap className="w-4 h-4 mr-2" />
+              Ghost Producer
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowTutorials(!showTutorials)} className={showTutorials ? 'bg-primary/20 text-primary' : ''}>
+              <BookOpen className="w-4 h-4 mr-2" />
+              Tutorials
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
               <Settings className="w-4 h-4" />
             </Button>
@@ -2439,6 +2451,66 @@ const [zoom, setZoom] = useState([100]);
                 toast.success('✨ AI analysis complete!');
               }}
               className="max-w-3xl mx-auto"
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Ghost Producer Mode */}
+      {showGhostProducer && (
+        <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Ghost Producer Mode</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowGhostProducer(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto">
+            <GhostProducerMode
+              onQuickGenerate={(preset, clientInfo) => {
+                console.log('🚀 Ghost Producer: Quick generate', preset, clientInfo);
+                toast.success(`Started ${preset.name} production`, {
+                  description: `Client: ${clientInfo.name} | Delivery: ${clientInfo.deliveryTime}`
+                });
+                // Apply preset settings to current project
+                if (projectData) {
+                  setProjectData({
+                    ...projectData,
+                    bpm: preset.settings.bpm
+                  });
+                  setBpm(preset.settings.bpm);
+                }
+              }}
+              className="max-w-4xl mx-auto"
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Tutorial Integration */}
+      {showTutorials && (
+        <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-lg flex flex-col">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold">Tutorial Library</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setShowTutorials(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto">
+            <TutorialIntegration
+              contextHints={[
+                selectedTrack?.type === 'midi' ? (selectedTrack as any).instrument || '' : '',
+                selectedTrack?.name || '',
+                'amapiano',
+                'production'
+              ]}
+              className="max-w-4xl mx-auto"
             />
           </div>
         </div>

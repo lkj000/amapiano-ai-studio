@@ -8,14 +8,57 @@ import { User, Sparkles } from 'lucide-react';
 
 interface MIDIHumanizationPanelProps {
   onHumanize?: (settings: any) => void;
+  audioContext?: AudioContext;
   className?: string;
 }
 
 export function MIDIHumanizationPanel({ 
   onHumanize,
+  audioContext,
   className 
 }: MIDIHumanizationPanelProps) {
-  const { settings, updateSettings, applyGrooveTemplate } = useMIDIHumanization();
+  const { 
+    settings, 
+    updateSettings, 
+    previewHumanization, 
+    compareOriginalVsHumanized,
+    isPlaying 
+  } = useMIDIHumanization();
+
+  // Generate demo MIDI notes for preview
+  const generateDemoNotes = () => {
+    const notes = [];
+    const scale = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
+    
+    for (let i = 0; i < 16; i++) {
+      notes.push({
+        note: scale[i % 8],
+        velocity: 100,
+        time: i * 0.25,
+        duration: 0.2
+      });
+    }
+    
+    return notes;
+  };
+
+  const handlePreview = async () => {
+    if (!audioContext) {
+      return;
+    }
+
+    const demoNotes = generateDemoNotes();
+    await previewHumanization(demoNotes, audioContext);
+  };
+
+  const handleCompare = () => {
+    const originalNotes = generateDemoNotes();
+    const { humanize } = useMIDIHumanization();
+    const humanizedNotes = humanize(originalNotes);
+    const comparison = compareOriginalVsHumanized(originalNotes, humanizedNotes);
+    
+    console.log('Humanization Comparison:', comparison);
+  };
 
   return (
     <Card className={className}>
@@ -98,14 +141,25 @@ export function MIDIHumanizationPanel({
             </Select>
           </div>
 
-          <Button 
-            onClick={() => onHumanize?.(settings)}
-            className="w-full"
-            size="lg"
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            Apply Humanization
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handlePreview}
+              disabled={isPlaying || !audioContext}
+              variant="secondary"
+              className="w-full"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isPlaying ? 'Playing...' : 'Preview'}
+            </Button>
+            
+            <Button 
+              onClick={() => onHumanize?.(settings)}
+              className="w-full"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Apply
+            </Button>
+          </div>
         </div>
 
         <div className="pt-4 border-t space-y-2">

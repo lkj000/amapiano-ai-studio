@@ -23,6 +23,8 @@ const DEFAULT_SETTINGS: HumanizationSettings = {
 
 export function useMIDIHumanization() {
   const [settings, setSettings] = useState<HumanizationSettings>(DEFAULT_SETTINGS);
+  const [previewNotes, setPreviewNotes] = useState<MIDINote[] | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const humanize = useCallback((notes: MIDINote[]): MIDINote[] => {
     return notes.map((note, index) => {
@@ -74,10 +76,73 @@ export function useMIDIHumanization() {
     setSettings(prev => ({ ...prev, ...partial }));
   }, []);
 
+  const previewHumanization = useCallback(async (
+    notes: MIDINote[],
+    audioContext: AudioContext
+  ) => {
+    const humanizedNotes = humanize(notes);
+    setPreviewNotes(humanizedNotes);
+    setIsPlaying(true);
+
+    // Play preview using Web Audio API
+    humanizedNotes.forEach((note) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Convert MIDI note to frequency
+      const frequency = 440 * Math.pow(2, (note.note - 69) / 12);
+      oscillator.frequency.value = frequency;
+      
+      // Apply velocity to gain
+      const velocity = note.velocity / 127;
+      gainNode.gain.setValueAtTime(velocity * 0.3, audioContext.currentTime + note.time);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + note.time + note.duration);
+      
+      oscillator.start(audioContext.currentTime + note.time);
+      oscillator.stop(audioContext.currentTime + note.time + note.duration);
+    });
+
+    // Calculate total duration
+    const totalDuration = Math.max(...humanizedNotes.map(n => n.time + n.duration));
+    
+    setTimeout(() => {
+      setIsPlaying(false);
+      setPreviewNotes(null);
+    }, totalDuration * 1000);
+
+    return humanizedNotes;
+  }, [humanize]);
+
+  const compareOriginalVsHumanized = useCallback((
+    originalNotes: MIDINote[],
+    humanizedNotes: MIDINote[]
+  ) => {
+    const timingDiff = humanizedNotes.map((h, i) => 
+      Math.abs(h.time - originalNotes[i].time)
+    );
+    const velocityDiff = humanizedNotes.map((h, i) => 
+      Math.abs(h.velocity - originalNotes[i].velocity)
+    );
+    
+    return {
+      avgTimingDiff: timingDiff.reduce((a, b) => a + b, 0) / timingDiff.length,
+      avgVelocityDiff: velocityDiff.reduce((a, b) => a + b, 0) / velocityDiff.length,
+      maxTimingDiff: Math.max(...timingDiff),
+      maxVelocityDiff: Math.max(...velocityDiff)
+    };
+  }, []);
+
   return {
     settings,
     updateSettings,
     humanize,
-    applyGrooveTemplate
+    applyGrooveTemplate,
+    previewHumanization,
+    compareOriginalVsHumanized,
+    previewNotes,
+    isPlaying
   };
 }

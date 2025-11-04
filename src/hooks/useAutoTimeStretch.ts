@@ -8,8 +8,18 @@ interface TimeStretchResult {
   stretchRatio: number;
 }
 
+interface TimelineTrack {
+  id: string;
+  name: string;
+  audioBuffer: AudioBuffer;
+  startTime: number;
+  originalBPM: number;
+  currentBPM: number;
+}
+
 export function useAutoTimeStretch() {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processedTracks, setProcessedTracks] = useState<TimelineTrack[]>([]);
   const { toast } = useToast();
 
   const detectTempo = useCallback((audioBuffer: AudioBuffer): number => {
@@ -107,9 +117,43 @@ export function useAutoTimeStretch() {
     }
   }, [detectTempo, toast]);
 
+  const addToTimeline = useCallback((
+    stretchedBuffer: AudioBuffer,
+    originalBPM: number,
+    targetBPM: number,
+    trackName: string = 'Time-Stretched Audio'
+  ): TimelineTrack => {
+    const track: TimelineTrack = {
+      id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: trackName,
+      audioBuffer: stretchedBuffer,
+      startTime: 0,
+      originalBPM,
+      currentBPM: targetBPM
+    };
+    
+    setProcessedTracks(prev => [...prev, track]);
+    
+    return track;
+  }, []);
+
+  const removeFromTimeline = useCallback((trackId: string) => {
+    setProcessedTracks(prev => prev.filter(t => t.id !== trackId));
+  }, []);
+
+  const updateTrackPosition = useCallback((trackId: string, startTime: number) => {
+    setProcessedTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, startTime } : t
+    ));
+  }, []);
+
   return {
     timeStretch,
     detectTempo,
-    isProcessing
+    isProcessing,
+    processedTracks,
+    addToTimeline,
+    removeFromTimeline,
+    updateTrackPosition
   };
 }

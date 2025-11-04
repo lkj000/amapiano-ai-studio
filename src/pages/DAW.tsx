@@ -2535,15 +2535,23 @@ const [zoom, setZoom] = useState([100]);
               />
               
               <AutoTimeStretchPanel 
+                audioContext={getAudioContext()}
                 onStretchComplete={(buffer, originalBPM, targetBPM) => {
                   console.log('⏱️ Time-stretch complete:', originalBPM, '->', targetBPM);
                   toast.success('Time-Stretch Complete', {
                     description: `Adjusted from ${originalBPM} to ${targetBPM} BPM`
                   });
                 }}
+                onAddToTimeline={(trackId, buffer, bpm) => {
+                  console.log('🎵 Adding to timeline:', trackId, bpm);
+                  toast.success('Added to Timeline', {
+                    description: 'Track ready for arrangement'
+                  });
+                }}
               />
               
               <MIDIHumanizationPanel 
+                audioContext={getAudioContext()}
                 onHumanize={(settings) => {
                   console.log('🎹 Humanizing MIDI with settings:', settings);
                   toast.success('MIDI Humanized', {

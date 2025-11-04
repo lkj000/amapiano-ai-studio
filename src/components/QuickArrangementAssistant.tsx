@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
-import { Zap, Music, Clock, Sparkles } from 'lucide-react';
+import { useArrangementTemplates } from '@/hooks/useArrangementTemplates';
+import { Zap, Music, Clock, Sparkles, Download, Upload, Save, Trash2 } from 'lucide-react';
 
 interface ArrangementSection {
   name: string;
@@ -69,9 +71,22 @@ export function QuickArrangementAssistant({
   const [selectedTemplate, setSelectedTemplate] = useState<string>('Private School');
   const [intensity, setIntensity] = useState([70]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
   const { toast } = useToast();
+  
+  const {
+    templates,
+    isLoading,
+    isSaving,
+    saveToLocal,
+    saveToDatabase,
+    deleteTemplate,
+    exportTemplate,
+    importTemplate
+  } = useArrangementTemplates();
 
-  const currentTemplate = AMAPIANO_TEMPLATES.find(t => t.name === selectedTemplate);
+  const currentTemplate = templates.find(t => t.name === selectedTemplate);
 
   const handleApplyArrangement = async () => {
     if (!currentTemplate) return;
@@ -93,6 +108,57 @@ export function QuickArrangementAssistant({
     }
   };
 
+  const handleSaveAsNew = async () => {
+    if (!newTemplateName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a template name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!currentTemplate) return;
+
+    const newTemplate = {
+      ...currentTemplate,
+      name: newTemplateName
+    };
+
+    const saved = saveToLocal(newTemplate);
+    if (saved) {
+      setNewTemplateName('');
+      setShowSaveDialog(false);
+    }
+  };
+
+  const handleSaveToCloud = async () => {
+    if (!currentTemplate) return;
+    await saveToDatabase(currentTemplate, false);
+  };
+
+  const handleExport = () => {
+    if (!currentTemplate) return;
+    exportTemplate(currentTemplate);
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await importTemplate(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const handleDelete = async (templateId?: string) => {
+    if (!templateId) return;
+    
+    const confirmed = window.confirm('Delete this template?');
+    if (confirmed) {
+      await deleteTemplate(templateId);
+    }
+  };
+
   const estimatedTime = currentTemplate ? Math.round(currentTemplate.totalBars / 4 * 2) : 0; // seconds at 120 BPM
 
   return (
@@ -106,15 +172,44 @@ export function QuickArrangementAssistant({
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Template</Label>
+            <div className="flex items-center justify-between">
+              <Label>Template</Label>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={!currentTemplate}
+                  className="h-7 w-7 p-0"
+                >
+                  <Download className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => document.getElementById('import-template')?.click()}
+                  className="h-7 w-7 p-0"
+                >
+                  <Upload className="h-3 w-3" />
+                </Button>
+                <input
+                  id="import-template"
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </div>
+            </div>
             <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {AMAPIANO_TEMPLATES.map(template => (
-                  <SelectItem key={template.name} value={template.name}>
+                {templates.map((template, idx) => (
+                  <SelectItem key={`${template.name}_${idx}`} value={template.name}>
                     {template.name} ({template.totalBars} bars)
+                    {template.author && ' 🔒'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -157,24 +252,72 @@ export function QuickArrangementAssistant({
             </p>
           </div>
 
-          <Button 
-            onClick={handleApplyArrangement} 
-            disabled={isGenerating}
-            className="w-full"
-            size="lg"
-          >
-            {isGenerating ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              onClick={handleApplyArrangement} 
+              disabled={isGenerating}
+              className="col-span-2"
+              size="lg"
+            >
+              {isGenerating ? (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Apply Arrangement
+                </>
+              )}
+            </Button>
+
+            {!showSaveDialog ? (
               <>
-                <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowSaveDialog(true)}
+                  disabled={isSaving}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save As New
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleSaveToCloud}
+                  disabled={isSaving || !currentTemplate}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save to Cloud
+                </Button>
               </>
             ) : (
-              <>
-                <Zap className="mr-2 h-4 w-4" />
-                Apply Arrangement
-              </>
+              <div className="col-span-2 space-y-2">
+                <Input
+                  placeholder="New template name"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveAsNew}
+                    disabled={!newTemplateName.trim()}
+                    className="flex-1"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowSaveDialog(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             )}
-          </Button>
+          </div>
         </div>
 
         <div className="pt-4 border-t space-y-2">

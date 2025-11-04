@@ -61,6 +61,10 @@ import { GhostProducerMode } from '@/components/GhostProducerMode';
 import { QuickArrangementAssistant } from '@/components/QuickArrangementAssistant';
 import { AutoTimeStretchPanel } from '@/components/AutoTimeStretchPanel';
 import { MIDIHumanizationPanel } from '@/components/MIDIHumanizationPanel';
+import { WaveformVisualization } from '@/components/WaveformVisualization';
+import { PercussionLayeringPanel } from '@/components/PercussionLayeringPanel';
+import { BassLayeringPanel } from '@/components/BassLayeringPanel';
+import { LogDrumDesignerPanel } from '@/components/LogDrumDesignerPanel';
 import { TutorialIntegration } from '@/components/TutorialIntegration';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -2533,30 +2537,47 @@ const [zoom, setZoom] = useState([100]);
                   });
                 }}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                <PercussionLayeringPanel 
+                  onExport={(layers) => {
+                    console.log('🥁 Exporting percussion:', layers);
+                    toast.success('Percussion Exported');
+                  }}
+                />
+                <BassLayeringPanel 
+                  onExport={(config) => {
+                    console.log('🔊 Exporting bass:', config);
+                    toast.success('Bass Configuration Saved');
+                  }}
+                />
+              </div>
+
+              <LogDrumDesignerPanel 
+                onExport={(settings) => {
+                  console.log('🪘 Exporting log drum:', settings);
+                  toast.success('Log Drum Preset Saved');
+                }}
+              />
               
               <AutoTimeStretchPanel 
                 audioContext={getAudioContext()}
-                onStretchComplete={(buffer, originalBPM, targetBPM) => {
-                  console.log('⏱️ Time-stretch complete:', originalBPM, '->', targetBPM);
-                  toast.success('Time-Stretch Complete', {
-                    description: `Adjusted from ${originalBPM} to ${targetBPM} BPM`
+                onStretchComplete={(buffer, originalBPM, targetBPM, trackName) => {
+                  console.log('⏱️ Time-stretch complete:', trackName, originalBPM, '->', targetBPM);
+                  toast.success('Added to Timeline', {
+                    description: `${trackName}: ${originalBPM}→${targetBPM} BPM`
                   });
                 }}
                 onAddToTimeline={(trackId, buffer, bpm) => {
-                  console.log('🎵 Adding to timeline:', trackId, bpm);
-                  toast.success('Added to Timeline', {
-                    description: 'Track ready for arrangement'
-                  });
+                  console.log('🎵 Timeline track:', trackId, bpm);
                 }}
               />
               
               <MIDIHumanizationPanel 
                 audioContext={getAudioContext()}
                 onHumanize={(settings) => {
-                  console.log('🎹 Humanizing MIDI with settings:', settings);
-                  toast.success('MIDI Humanized', {
-                    description: 'Natural feel applied to all MIDI tracks'
-                  });
+                  console.log('🎹 MIDI humanized:', settings);
+                  toast.success('MIDI Humanized');
                 }}
               />
             </div>

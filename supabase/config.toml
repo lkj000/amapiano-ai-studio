@@ -90,3 +90,6 @@ verify_jwt = false
 
 [functions.amapiano-subgenre-ai]
 verify_jwt = false
+
+[functions.preset-recommendations]
+verify_jwt = false

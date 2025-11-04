@@ -27,6 +27,7 @@ import { useRealtimeFeatureExtraction } from "@/hooks/useRealtimeFeatureExtracti
 import { privateSchoolPresets, getPresetById } from "@/data/amapiano-presets";
 import { StockPluginsBadge } from "@/components/StockPluginsBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SmartPresetRecommendations } from "@/components/SmartPresetRecommendations";
 
 interface AmapianorizeProps {
   sourceAnalysisId?: string;
@@ -220,9 +221,10 @@ export const AmapianorizeEngine = ({ sourceAnalysisId, onTransformComplete, clas
         {sourceAnalysisId && (
           <>
             <Tabs defaultValue="styles" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="styles">Styles</TabsTrigger>
                 <TabsTrigger value="presets">Presets</TabsTrigger>
+                <TabsTrigger value="ai">AI Picks</TabsTrigger>
               </TabsList>
               
               <TabsContent value="styles" className="space-y-4">
@@ -298,6 +300,24 @@ export const AmapianorizeEngine = ({ sourceAnalysisId, onTransformComplete, clas
                     </div>
                   )}
                 </div>
+              </TabsContent>
+              
+              <TabsContent value="ai" className="space-y-4">
+                <SmartPresetRecommendations
+                  userId="current-user" // This should come from auth context
+                  onPresetSelect={(presetId) => {
+                    setSelectedPreset(presetId);
+                    const preset = getPresetById(presetId);
+                    if (preset) {
+                      // Apply preset settings
+                      setTargetGenre(preset.category);
+                      setIntensity([preset.settings.intensity]);
+                      toast.success(`AI Selected: ${preset.name}`, {
+                        description: `${preset.artist} - ${preset.description}`
+                      });
+                    }
+                  }}
+                />
               </TabsContent>
             </Tabs>
 

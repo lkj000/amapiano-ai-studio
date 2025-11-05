@@ -1192,6 +1192,72 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_anomalies: {
+        Row: {
+          anomaly_type: string
+          description: string
+          detected_at: string | null
+          id: string
+          metrics: Json | null
+          resolved_at: string | null
+          severity: string
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          anomaly_type: string
+          description: string
+          detected_at?: string | null
+          id?: string
+          metrics?: Json | null
+          resolved_at?: string | null
+          severity: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          anomaly_type?: string
+          description?: string
+          detected_at?: string | null
+          id?: string
+          metrics?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      performance_metrics: {
+        Row: {
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          metric_type: string
+          user_id: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          metric_type: string
+          user_id?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          metric_type?: string
+          user_id?: string | null
+          value?: number
+        }
+        Relationships: []
+      }
       plugin_categories: {
         Row: {
           created_at: string

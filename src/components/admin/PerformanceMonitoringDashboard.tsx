@@ -32,7 +32,10 @@ import { useState, useEffect } from 'react';
 import { useWasmAcceleratedGeneration } from '@/hooks/useWasmAcceleratedGeneration';
 import { usePerformanceAlerts } from '@/hooks/usePerformanceAlerts';
 import { useCostTracking } from '@/hooks/useCostTracking';
+import { useRealtimePerformanceMonitoring } from '@/hooks/useRealtimePerformanceMonitoring';
+import { useStripeBilling } from '@/hooks/useStripeBilling';
 import { Button } from '@/components/ui/button';
+import { Download, RefreshCw } from 'lucide-react';
 
 interface PerformanceAlert {
   id: string;
@@ -53,6 +56,8 @@ export function PerformanceMonitoringDashboard() {
     costCritical: 95,
   });
   const costTracking = useCostTracking(1000);
+  const realtimeMonitoring = useRealtimePerformanceMonitoring();
+  const stripeBilling = useStripeBilling({ billingThreshold: 50, autoInvoice: true });
   
   const costMetrics = costTracking.getMetrics();
   const wasmSavings = costTracking.getSavingsFromWASM();
@@ -108,23 +113,48 @@ export function PerformanceMonitoringDashboard() {
           <p className="text-muted-foreground">Real-time system metrics and health monitoring</p>
         </div>
         <div className="flex items-center gap-2">
-          {isReady ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => realtimeMonitoring.detectAnomalies('latency', 24)}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Detect Anomalies
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => realtimeMonitoring.generateReport('csv', 30)}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => stripeBilling.openBillingPortal()}
+          >
+            <DollarSign className="h-4 w-4 mr-2" />
+            Billing
+          </Button>
+          {realtimeMonitoring.isConnected ? (
             <Badge className="bg-green-500 gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              System Healthy
+              Live
             </Badge>
           ) : (
-            <Badge variant="destructive" className="gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Initializing
+            <Badge variant="outline" className="gap-1">
+              <Activity className="h-3 w-3" />
+              Connecting...
             </Badge>
           )}
         </div>
       </div>
 
       {/* Alerts */}
-      {alertsHook.alerts.length > 0 && (
+      {(alertsHook.alerts.length > 0 || realtimeMonitoring.anomalies.length > 0) && (
         <div className="space-y-2">
+          {/* Local alerts */}
           {alertsHook.alerts.map(alert => (
             <Alert key={alert.id} variant={alert.severity === 'critical' ? 'destructive' : 'default'}>
               <AlertTriangle className="h-4 w-4" />
@@ -138,6 +168,33 @@ export function PerformanceMonitoringDashboard() {
                 >
                   Dismiss
                 </Button>
+              </AlertDescription>
+            </Alert>
+          ))}
+          
+          {/* Realtime anomalies from ML detection */}
+          {realtimeMonitoring.anomalies.filter(a => a.status === 'active').map(anomaly => (
+            <Alert key={anomaly.id} variant={anomaly.severity === 'critical' ? 'destructive' : 'default'}>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>ML Detected: {anomaly.anomaly_type.toUpperCase()}</AlertTitle>
+              <AlertDescription className="flex items-center justify-between">
+                <span>{anomaly.description}</span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => realtimeMonitoring.acknowledgeAnomaly(anomaly.id)}
+                  >
+                    Acknowledge
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => realtimeMonitoring.resolveAnomaly(anomaly.id)}
+                  >
+                    Resolve
+                  </Button>
+                </div>
               </AlertDescription>
             </Alert>
           ))}
@@ -373,6 +430,21 @@ export function PerformanceMonitoringDashboard() {
                   <span className="text-sm font-medium">Total generations:</span>
                   <span className="text-sm font-medium">{costMetrics.totalGenerations}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Current billing:</span>
+                  <span className="text-sm font-medium">
+                    ${stripeBilling.costMetrics.monthCost.toFixed(2)}
+                  </span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => stripeBilling.openBillingPortal()}
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Manage Billing
+                </Button>
               </div>
             </CardContent>
           </Card>

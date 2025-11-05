@@ -93,3 +93,12 @@ verify_jwt = false
 
 [functions.preset-recommendations]
 verify_jwt = false
+
+[functions.detect-performance-anomalies]
+verify_jwt = true
+
+[functions.generate-performance-report]
+verify_jwt = true
+
+[functions.record-generation-cost]
+verify_jwt = true

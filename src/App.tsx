@@ -25,6 +25,7 @@ import VASTDemo from "./pages/VASTDemo";
 import Research from "./pages/Research";
 import EssentiaDemo from "./pages/EssentiaDemo";
 import PluginDev from "./pages/PluginDev";
+import AudioEditor from "./pages/AudioEditor";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +124,7 @@ const App = () => {
               <Route path="/research" element={<Research />} />
               <Route path="/essentia-demo" element={<EssentiaDemo />} />
               <Route path="/plugin-dev" element={<PluginDev />} />
+              <Route path="/audio-editor" element={<AudioEditor user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

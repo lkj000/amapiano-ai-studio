@@ -29,7 +29,8 @@ import {
   Brain,
   Users,
   DollarSign,
-  Shield
+  Shield,
+  Radio
 } from "lucide-react";
 
 interface NavigationProps {
@@ -54,7 +55,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     }
   };
 
- const navItems = [
+  const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
     { path: "/social", label: "Social", icon: Users },
@@ -62,6 +63,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },
     { path: "/daw", label: "DAW", icon: Volume2 },
+    { path: "/audio-editor", label: "Audio Editor", icon: Radio },
     { path: "/aura808", label: "Aura 808", icon: Music },
     { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },

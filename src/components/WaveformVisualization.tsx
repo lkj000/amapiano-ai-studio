@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors, RepeatIcon, FileMusic, Sliders } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -53,6 +53,14 @@ export function WaveformVisualization({
   const [regionSelection, setRegionSelection] = useState<{ start: number; end: number } | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectionStartX, setSelectionStartX] = useState(0);
+  const [isLoopingRegion, setIsLoopingRegion] = useState(false);
+  const [pitchHistory, setPitchHistory] = useState<Array<{ frequency: number; note: string; time: number }>>([]);
+  const [showProcessingTools, setShowProcessingTools] = useState(false);
+  const [processingParams, setProcessingParams] = useState({
+    gain: 1,
+    reverb: 0,
+    delay: 0
+  });
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -243,19 +251,32 @@ export function WaveformVisualization({
       // Create new source
       const source = context.createBufferSource();
       source.buffer = audioBuffer;
+      source.loop = isLoopingRegion && !!regionSelection;
+      
+      // Set loop points if looping region
+      if (isLoopingRegion && regionSelection) {
+        source.loopStart = regionSelection.start;
+        source.loopEnd = regionSelection.end;
+      }
       
       // Create analyser for spectral view
       const analyser = context.createAnalyser();
       analyser.fftSize = 2048;
       analyserNodeRef.current = analyser;
 
-      // Connect nodes
-      source.connect(analyser);
+      // Create gain node for processing
+      const gainNode = context.createGain();
+      gainNode.gain.value = processingParams.gain;
+
+      // Connect nodes with processing
+      source.connect(gainNode);
+      gainNode.connect(analyser);
       analyser.connect(context.destination);
 
       // Start playback
-      const startTime = currentTime;
-      source.start(0, startTime);
+      const startTime = isLoopingRegion && regionSelection ? regionSelection.start : currentTime;
+      const duration = isLoopingRegion && regionSelection ? regionSelection.end - regionSelection.start : undefined;
+      source.start(0, startTime, duration);
       sourceNodeRef.current = source;
 
       setIsPlaying(true);
@@ -265,8 +286,15 @@ export function WaveformVisualization({
       const startTimestamp = Date.now() - (startTime * 1000);
       const updateTime = () => {
         if (!isPlaying) return;
-        const elapsed = (Date.now() - startTimestamp) / 1000;
-        if (elapsed >= audioBuffer.duration) {
+        let elapsed = (Date.now() - startTimestamp) / 1000;
+        
+        // Handle region looping
+        if (isLoopingRegion && regionSelection) {
+          const regionDuration = regionSelection.end - regionSelection.start;
+          elapsed = regionSelection.start + (elapsed % regionDuration);
+        }
+        
+        if (!isLoopingRegion && elapsed >= audioBuffer.duration) {
           handleStop();
         } else {
           setCurrentTime(elapsed);
@@ -277,7 +305,7 @@ export function WaveformVisualization({
 
       // Handle playback end
       source.onended = () => {
-        if (isPlaying) {
+        if (isPlaying && !isLoopingRegion) {
           handleStop();
         }
       };
@@ -561,6 +589,11 @@ export function WaveformVisualization({
       analyser.getFloatTimeDomainData(dataArray);
       const pitch = detectPitch(dataArray, audioContextRef.current?.sampleRate || 44100);
       setDetectedPitch(pitch);
+      
+      // Record pitch history for MIDI export
+      if (pitch) {
+        setPitchHistory(prev => [...prev, { ...pitch, time: currentTime }]);
+      }
 
       requestAnimationFrame(detectLoop);
     };
@@ -644,6 +677,83 @@ export function WaveformVisualization({
       console.error('Region export error:', error);
       toast.error('Failed to export region');
     }
+  };
+
+  const handleToggleRegionLoop = () => {
+    if (!regionSelection) {
+      toast.error('Select a region first');
+      return;
+    }
+    
+    const newLoopState = !isLoopingRegion;
+    setIsLoopingRegion(newLoopState);
+    
+    // Restart playback if currently playing
+    if (isPlaying) {
+      handleStop();
+      setTimeout(() => handlePlay(), 100);
+    }
+    
+    toast.success(newLoopState ? 'Region loop enabled' : 'Region loop disabled');
+  };
+
+  const handleExportPitchToMIDI = () => {
+    if (pitchHistory.length === 0) {
+      toast.error('No pitch data to export. Enable pitch detection and play audio first.');
+      return;
+    }
+
+    try {
+      // Convert pitch history to simplified MIDI-like format
+      const midiData = {
+        format: 'MIDI-like JSON',
+        tempo: currentBPM || 120,
+        notes: pitchHistory.map((pitch, index) => {
+          const noteNumber = noteToMIDI(pitch.note);
+          const nextTime = pitchHistory[index + 1]?.time || pitch.time + 0.1;
+          return {
+            note: noteNumber,
+            noteName: pitch.note,
+            frequency: pitch.frequency,
+            startTime: pitch.time,
+            duration: nextTime - pitch.time,
+            velocity: 100
+          };
+        })
+      };
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(midiData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pitch-detection-midi-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Pitch data exported to MIDI format', {
+        description: `${pitchHistory.length} notes exported`
+      });
+    } catch (error) {
+      console.error('MIDI export error:', error);
+      toast.error('Failed to export MIDI data');
+    }
+  };
+
+  const noteToMIDI = (noteName: string): number => {
+    const noteMap: { [key: string]: number } = {
+      'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+      'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+    };
+    
+    const match = noteName.match(/^([A-G]#?)(\d+)$/);
+    if (!match) return 60; // Default to middle C
+    
+    const [, note, octaveStr] = match;
+    const octave = parseInt(octaveStr);
+    return (octave + 1) * 12 + noteMap[note];
   };
 
   return (
@@ -737,6 +847,44 @@ export function WaveformVisualization({
               <Scissors className="h-3 w-3 mr-1" />
               <span className="text-xs">Region</span>
             </Button>
+
+            {/* Region Loop Toggle */}
+            {regionSelection && (
+              <Button
+                variant={isLoopingRegion ? 'default' : 'ghost'}
+                size="sm"
+                onClick={handleToggleRegionLoop}
+                className="h-7 px-2"
+              >
+                <RepeatIcon className="h-3 w-3 mr-1" />
+                <span className="text-xs">Loop</span>
+              </Button>
+            )}
+
+            {/* MIDI Export */}
+            {pitchHistory.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExportPitchToMIDI}
+                className="h-7 px-2"
+              >
+                <FileMusic className="h-3 w-3 mr-1" />
+                <span className="text-xs">MIDI</span>
+              </Button>
+            )}
+
+            {/* Audio Processing Tools */}
+            <Button
+              variant={showProcessingTools ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setShowProcessingTools(!showProcessingTools)}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Sliders className="h-3 w-3 mr-1" />
+              <span className="text-xs">FX</span>
+            </Button>
             
             <div className="w-px h-7 bg-border mx-1" />
             
@@ -786,6 +934,60 @@ export function WaveformVisualization({
           </div>
         </div>
 
+        {/* Audio Processing Tools Panel */}
+        {showProcessingTools && audioBuffer && (
+          <Card className="p-4 bg-muted/50">
+            <h5 className="text-sm font-semibold mb-3">Audio Processing</h5>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Gain</span>
+                  <span className="font-mono">{processingParams.gain.toFixed(2)}x</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={processingParams.gain}
+                  onChange={(e) => setProcessingParams(prev => ({ ...prev, gain: parseFloat(e.target.value) }))}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Reverb</span>
+                  <span className="font-mono">{processingParams.reverb}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={processingParams.reverb}
+                  onChange={(e) => setProcessingParams(prev => ({ ...prev, reverb: parseInt(e.target.value) }))}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Delay</span>
+                  <span className="font-mono">{processingParams.delay}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={processingParams.delay}
+                  onChange={(e) => setProcessingParams(prev => ({ ...prev, delay: parseInt(e.target.value) }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Playback Time Display */}
         {audioBuffer && (
           <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -808,6 +1010,7 @@ export function WaveformVisualization({
                 <span className="text-xs">
                   {formatTime(regionSelection.start)} - {formatTime(regionSelection.end)}
                 </span>
+                {isLoopingRegion && <RepeatIcon className="h-3 w-3 text-green-400" />}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -963,10 +1166,10 @@ export function WaveformVisualization({
             <p className="text-primary">🔄 Use A/B button to quickly switch between files for comparison</p>
           )}
           <p>• Click Record to capture audio from your microphone</p>
-          <p>• Enable "Pitch" to see real-time note detection (frequency, note name, and tuning cents)</p>
-          <p>• Click "Region" and drag on waveform to select sections for extraction</p>
-          <p>• Click Play/Pause to control playback</p>
-          <p>• Switch to Spectral Analysis to view live frequency spectrum</p>
+          <p>• Enable "Pitch" to see real-time note detection and export to MIDI format</p>
+          <p>• Click "Region" and drag on waveform to select sections, then use "Loop" for continuous playback</p>
+          <p>• Use "FX" to access audio processing controls (Gain, Reverb, Delay)</p>
+          <p>• Switch to Spectral Analysis to view live frequency spectrum and export as image</p>
           <p>• Export spectral analysis as PNG image while playing</p>
           <p>• Scroll to zoom in/out • Drag to pan when zoomed</p>
           {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}

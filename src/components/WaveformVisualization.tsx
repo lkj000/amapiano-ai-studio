@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -48,6 +48,11 @@ export function WaveformVisualization({
   const [viewType, setViewType] = useState<'waveform' | 'spectral'>('waveform');
   const [isRecording, setIsRecording] = useState(false);
   const [abMode, setAbMode] = useState<'A' | 'B'>('A');
+  const [detectedPitch, setDetectedPitch] = useState<{ frequency: number; note: string; cents: number } | null>(null);
+  const [showPitchDetection, setShowPitchDetection] = useState(false);
+  const [regionSelection, setRegionSelection] = useState<{ start: number; end: number } | null>(null);
+  const [isSelectingRegion, setIsSelectingRegion] = useState(false);
+  const [selectionStartX, setSelectionStartX] = useState(0);
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -370,7 +375,10 @@ export function WaveformVisualization({
     if (viewType === 'spectral' && isPlaying && analyserNodeRef.current) {
       drawSpectralAnalysis();
     }
-  }, [viewType, isPlaying]);
+    if (showPitchDetection && isPlaying) {
+      startPitchDetection();
+    }
+  }, [viewType, isPlaying, showPitchDetection]);
 
   const handleStartRecording = async () => {
     try {
@@ -482,6 +490,162 @@ export function WaveformVisualization({
     });
   };
 
+  // Pitch detection using autocorrelation
+  const detectPitch = (dataArray: Float32Array, sampleRate: number): { frequency: number; note: string; cents: number } | null => {
+    const SIZE = dataArray.length;
+    let rms = 0;
+    
+    // Calculate RMS to check if there's enough signal
+    for (let i = 0; i < SIZE; i++) {
+      rms += dataArray[i] * dataArray[i];
+    }
+    rms = Math.sqrt(rms / SIZE);
+    
+    if (rms < 0.01) return null; // Not enough signal
+    
+    // Autocorrelation
+    const correlations = new Array(SIZE);
+    for (let lag = 0; lag < SIZE; lag++) {
+      let sum = 0;
+      for (let i = 0; i < SIZE - lag; i++) {
+        sum += dataArray[i] * dataArray[i + lag];
+      }
+      correlations[lag] = sum;
+    }
+    
+    // Find the first peak after the initial correlation
+    let maxCorrelation = 0;
+    let maxLag = 0;
+    let lastValue = 1;
+    
+    for (let lag = 1; lag < SIZE; lag++) {
+      const value = correlations[lag];
+      if (value > maxCorrelation && value > correlations[lag - 1] && value > correlations[lag + 1]) {
+        maxCorrelation = value;
+        maxLag = lag;
+      }
+      if (value < 0 && lastValue >= 0) break;
+      lastValue = value;
+    }
+    
+    if (maxLag === 0) return null;
+    
+    const frequency = sampleRate / maxLag;
+    
+    // Convert frequency to note
+    const noteStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const A4 = 440;
+    const C0 = A4 * Math.pow(2, -4.75);
+    const halfSteps = 12 * Math.log2(frequency / C0);
+    const noteIndex = Math.round(halfSteps) % 12;
+    const octave = Math.floor(halfSteps / 12);
+    const cents = Math.round((halfSteps - Math.round(halfSteps)) * 100);
+    
+    return {
+      frequency: Math.round(frequency * 10) / 10,
+      note: `${noteStrings[noteIndex]}${octave}`,
+      cents
+    };
+  };
+
+  const startPitchDetection = () => {
+    if (!analyserNodeRef.current) return;
+
+    const analyser = analyserNodeRef.current;
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Float32Array(bufferLength);
+
+    const detectLoop = () => {
+      if (!showPitchDetection || !isPlaying) return;
+
+      analyser.getFloatTimeDomainData(dataArray);
+      const pitch = detectPitch(dataArray, audioContextRef.current?.sampleRate || 44100);
+      setDetectedPitch(pitch);
+
+      requestAnimationFrame(detectLoop);
+    };
+
+    detectLoop();
+  };
+
+  // Region selection handlers
+  const handleMouseDownRegion = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !audioBuffer) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    setSelectionStartX(x);
+    setIsSelectingRegion(true);
+  };
+
+  const handleMouseMoveRegion = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isSelectingRegion || !canvasRef.current || !audioBuffer) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    
+    const startRatio = Math.min(selectionStartX, x) / width;
+    const endRatio = Math.max(selectionStartX, x) / width;
+    
+    setRegionSelection({
+      start: startRatio * audioBuffer.duration,
+      end: endRatio * audioBuffer.duration
+    });
+  };
+
+  const handleMouseUpRegion = () => {
+    setIsSelectingRegion(false);
+    if (regionSelection) {
+      toast.success('Region selected', {
+        description: `${formatTime(regionSelection.start)} - ${formatTime(regionSelection.end)}`
+      });
+    }
+  };
+
+  const handleClearRegion = () => {
+    setRegionSelection(null);
+    toast.info('Region cleared');
+  };
+
+  const handleExportRegion = () => {
+    if (!regionSelection || !audioBuffer || !audioContextRef.current) {
+      toast.error('No region selected');
+      return;
+    }
+
+    try {
+      const startSample = Math.floor(regionSelection.start * audioBuffer.sampleRate);
+      const endSample = Math.floor(regionSelection.end * audioBuffer.sampleRate);
+      const length = endSample - startSample;
+
+      // Create new buffer for the region
+      const newBuffer = audioContextRef.current.createBuffer(
+        audioBuffer.numberOfChannels,
+        length,
+        audioBuffer.sampleRate
+      );
+
+      // Copy data for each channel
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const oldData = audioBuffer.getChannelData(channel);
+        const newData = newBuffer.getChannelData(channel);
+        for (let i = 0; i < length; i++) {
+          newData[i] = oldData[startSample + i];
+        }
+      }
+
+      toast.success('Region extracted', {
+        description: `Duration: ${formatTime(regionSelection.end - regionSelection.start)}`
+      });
+
+      // You could add functionality here to download or use the extracted region
+    } catch (error) {
+      console.error('Region export error:', error);
+      toast.error('Failed to export region');
+    }
+  };
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
@@ -543,6 +707,38 @@ export function WaveformVisualization({
                 <div className="w-px h-7 bg-border mx-1" />
               </>
             )}
+
+            {/* Pitch Detection Toggle */}
+            <Button
+              variant={showPitchDetection ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setShowPitchDetection(!showPitchDetection)}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Music2 className="h-3 w-3 mr-1" />
+              <span className="text-xs">Pitch</span>
+            </Button>
+
+            {/* Region Selection Toggle */}
+            <Button
+              variant={regionSelection ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                if (regionSelection) {
+                  handleClearRegion();
+                } else {
+                  toast.info('Drag on waveform to select region');
+                }
+              }}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Scissors className="h-3 w-3 mr-1" />
+              <span className="text-xs">Region</span>
+            </Button>
+            
+            <div className="w-px h-7 bg-border mx-1" />
             
             <Button
               variant={viewMode === 'comparison' ? 'default' : 'ghost'}
@@ -594,6 +790,34 @@ export function WaveformVisualization({
         {audioBuffer && (
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{formatTime(currentTime)}</span>
+            {detectedPitch && showPitchDetection && (
+              <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full">
+                <Music2 className="h-3 w-3" />
+                <span className="font-mono font-bold">{detectedPitch.note}</span>
+                <span className="text-xs opacity-75">{detectedPitch.frequency}Hz</span>
+                {detectedPitch.cents !== 0 && (
+                  <span className="text-xs opacity-75">
+                    {detectedPitch.cents > 0 ? '+' : ''}{detectedPitch.cents}¢
+                  </span>
+                )}
+              </div>
+            )}
+            {regionSelection && (
+              <div className="flex items-center gap-2 bg-green-500/10 text-green-500 px-3 py-1 rounded-full">
+                <Scissors className="h-3 w-3" />
+                <span className="text-xs">
+                  {formatTime(regionSelection.start)} - {formatTime(regionSelection.end)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportRegion}
+                  className="h-5 px-2 text-xs"
+                >
+                  Extract
+                </Button>
+              </div>
+            )}
             <span>{formatTime(duration || audioBuffer.duration)}</span>
           </div>
         )}
@@ -654,6 +878,8 @@ export function WaveformVisualization({
                 height={mode === 'comparison' ? 300 : 200}
                 onWheel={handleWheel}
                 onMouseMove={handleMouseMove}
+                onMouseDown={handleMouseDownRegion}
+                onMouseUp={handleMouseUpRegion}
                 className="w-full cursor-move"
               />
               {zoom > 1 && (
@@ -667,6 +893,16 @@ export function WaveformVisualization({
                 <div 
                   className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
                   style={{ left: `${(currentTime / audioBuffer.duration) * 100}%` }}
+                />
+              )}
+              {/* Region selection overlay */}
+              {regionSelection && audioBuffer && (
+                <div
+                  className="absolute top-0 bottom-0 bg-green-500/20 border-l-2 border-r-2 border-green-500 z-5"
+                  style={{
+                    left: `${(regionSelection.start / audioBuffer.duration) * 100}%`,
+                    width: `${((regionSelection.end - regionSelection.start) / audioBuffer.duration) * 100}%`
+                  }}
                 />
               )}
             </div>
@@ -727,6 +963,8 @@ export function WaveformVisualization({
             <p className="text-primary">🔄 Use A/B button to quickly switch between files for comparison</p>
           )}
           <p>• Click Record to capture audio from your microphone</p>
+          <p>• Enable "Pitch" to see real-time note detection (frequency, note name, and tuning cents)</p>
+          <p>• Click "Region" and drag on waveform to select sections for extraction</p>
           <p>• Click Play/Pause to control playback</p>
           <p>• Switch to Spectral Analysis to view live frequency spectrum</p>
           <p>• Export spectral analysis as PNG image while playing</p>

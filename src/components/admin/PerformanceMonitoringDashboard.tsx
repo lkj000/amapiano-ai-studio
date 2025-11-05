@@ -41,6 +41,8 @@ import { PerformanceTestingPanel } from './PerformanceTestingPanel';
 import { NotificationSettingsPanel } from './NotificationSettingsPanel';
 import { PerformanceBaselinesPanel } from './PerformanceBaselinesPanel';
 import { AutoRemediationPanel } from './AutoRemediationPanel';
+import { PerformanceOnboardingWizard } from './PerformanceOnboardingWizard';
+import { usePerformanceDemoData } from '@/hooks/usePerformanceDemoData';
 
 interface PerformanceAlert {
   id: string;
@@ -63,6 +65,7 @@ export function PerformanceMonitoringDashboard() {
   const costTracking = useCostTracking(1000);
   const realtimeMonitoring = useRealtimePerformanceMonitoring();
   const stripeBilling = useStripeBilling({ billingThreshold: 50, autoInvoice: true });
+  const demoData = usePerformanceDemoData();
   
   const costMetrics = costTracking.getMetrics();
   const wasmSavings = costTracking.getSavingsFromWASM();
@@ -110,9 +113,16 @@ export function PerformanceMonitoringDashboard() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <>
+      <PerformanceOnboardingWizard
+        open={demoData.showOnboarding}
+        onClose={demoData.completeOnboarding}
+        onGenerateDemoData={demoData.generateDemoData}
+      />
+      
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Performance Monitoring</h1>
           <p className="text-muted-foreground">Real-time system metrics and health monitoring</p>
@@ -142,6 +152,16 @@ export function PerformanceMonitoringDashboard() {
             <DollarSign className="h-4 w-4 mr-2" />
             Billing
           </Button>
+          {!demoData.hasDemoData && realtimeMonitoring.metrics.length === 0 && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={demoData.generateDemoData}
+              disabled={demoData.isGenerating}
+            >
+              {demoData.isGenerating ? 'Generating...' : 'Generate Demo Data'}
+            </Button>
+          )}
           {realtimeMonitoring.isConnected ? (
             <Badge className="bg-green-500 gap-1">
               <CheckCircle2 className="h-3 w-3" />
@@ -576,6 +596,7 @@ export function PerformanceMonitoringDashboard() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   );
 }

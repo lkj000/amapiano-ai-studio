@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ArrangementSection {
   name: string;
@@ -65,21 +66,49 @@ export function useArrangementTemplates() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  // Load templates from localStorage
+  // Load templates from Supabase + localStorage
   useEffect(() => {
-    const loadLocalTemplates = () => {
+    const loadAllTemplates = async () => {
+      setIsLoading(true);
       try {
+        // Load from Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: cloudTemplates } = await supabase
+            .from('arrangement_templates')
+            .select('*')
+            .or(`user_id.eq.${user.id},is_public.eq.true`)
+            .order('created_at', { ascending: false });
+
+          if (cloudTemplates) {
+            const formatted = cloudTemplates.map(t => ({
+              id: t.id,
+              name: t.name,
+              sections: t.sections as any,
+              totalBars: t.total_bars,
+              genre: t.genre || undefined,
+              author: t.user_id,
+              createdAt: t.created_at,
+              isPublic: t.is_public
+            }));
+            setTemplates(prev => [...prev, ...formatted]);
+          }
+        }
+
+        // Load from localStorage
         const stored = localStorage.getItem('arrangement_templates');
         if (stored) {
           const localTemplates = JSON.parse(stored);
           setTemplates(prev => [...prev, ...localTemplates]);
         }
       } catch (error) {
-        console.error('Failed to load local templates:', error);
+        console.error('Failed to load templates:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadLocalTemplates();
+    loadAllTemplates();
   }, []);
 
   // Save template locally
@@ -115,21 +144,84 @@ export function useArrangementTemplates() {
     }
   }, [toast]);
 
-  // Placeholder for cloud save
+  // Cloud save to Supabase
   const saveToDatabase = useCallback(async (
     template: ArrangementTemplate,
     isPublic: boolean = false
   ) => {
-    toast({
-      title: "Cloud Save Coming Soon",
-      description: "Database integration will be added next",
-    });
-    return false;
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to save to cloud",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('arrangement_templates')
+        .insert([{
+          user_id: user.id,
+          name: template.name,
+          sections: template.sections as any,
+          total_bars: template.totalBars,
+          genre: template.genre,
+          is_public: isPublic
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const formatted: ArrangementTemplate = {
+        id: data.id,
+        name: data.name,
+        sections: data.sections as any,
+        totalBars: data.total_bars,
+        genre: data.genre || undefined,
+        author: data.user_id,
+        createdAt: data.created_at,
+        isPublic: data.is_public
+      };
+
+      setTemplates(prev => [...prev, formatted]);
+
+      toast({
+        title: "Saved to Cloud",
+        description: `"${template.name}" saved successfully`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to save to cloud:', error);
+      toast({
+        title: "Cloud Save Failed",
+        description: "Falling back to local storage",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   }, [toast]);
 
-  // Delete template
+  // Delete template (cloud + local)
   const deleteTemplate = useCallback(async (templateId: string) => {
     try {
+      // Try cloud first
+      if (templateId && !templateId.startsWith('local_') && !templateId.startsWith('imported_')) {
+        const { error } = await supabase
+          .from('arrangement_templates')
+          .delete()
+          .eq('id', templateId);
+
+        if (error) throw error;
+      }
+
+      // Delete from localStorage
       const stored = localStorage.getItem('arrangement_templates');
       if (stored) {
         const existing = JSON.parse(stored);
@@ -147,6 +239,11 @@ export function useArrangementTemplates() {
       return true;
     } catch (error) {
       console.error('Failed to delete template:', error);
+      toast({
+        title: "Delete Failed",
+        description: "Could not remove template",
+        variant: "destructive",
+      });
       return false;
     }
   }, [toast]);

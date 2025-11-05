@@ -312,6 +312,42 @@ export type Database = {
         }
         Relationships: []
       }
+      arrangement_templates: {
+        Row: {
+          created_at: string | null
+          genre: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          sections: Json
+          total_bars: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          sections: Json
+          total_bars: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          sections?: Json
+          total_bars?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       artist_licenses: {
         Row: {
           artist_id: string
@@ -2070,6 +2106,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      time_stretched_tracks: {
+        Row: {
+          audio_data: string | null
+          created_at: string | null
+          id: string
+          original_bpm: number
+          project_id: string | null
+          start_time: number | null
+          target_bpm: number
+          track_name: string
+          user_id: string
+          waveform_peaks: Json | null
+        }
+        Insert: {
+          audio_data?: string | null
+          created_at?: string | null
+          id?: string
+          original_bpm: number
+          project_id?: string | null
+          start_time?: number | null
+          target_bpm: number
+          track_name: string
+          user_id: string
+          waveform_peaks?: Json | null
+        }
+        Update: {
+          audio_data?: string | null
+          created_at?: string | null
+          id?: string
+          original_bpm?: number
+          project_id?: string | null
+          start_time?: number | null
+          target_bpm?: number
+          track_name?: string
+          user_id?: string
+          waveform_peaks?: Json | null
+        }
+        Relationships: []
       }
       tip_transactions: {
         Row: {

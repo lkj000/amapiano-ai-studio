@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBassLayering } from '@/hooks/useBassLayering';
-import { Waves, Sparkles, AlertCircle, CheckCircle } from 'lucide-react';
+import { Waves, Sparkles, AlertCircle, CheckCircle, Play } from 'lucide-react';
 
 interface BassLayeringPanelProps {
   onExport?: (config: any) => void;
@@ -28,7 +28,8 @@ export function BassLayeringPanel({ onExport, className }: BassLayeringPanelProp
     updateSubBass,
     updateMidBass,
     updateTopBass,
-    setStereoWidth
+    setStereoWidth,
+    playBassSound
   } = useBassLayering();
 
   const phaseAnalysis = analyzePhaseAlignment();
@@ -245,14 +246,36 @@ export function BassLayeringPanel({ onExport, className }: BassLayeringPanelProp
           </div>
         </div>
 
-        <div className="pt-4 border-t space-y-2">
-          <p className="text-xs font-medium">Features:</p>
-          <ul className="text-xs text-muted-foreground space-y-1">
-            <li>• Automatic phase alignment</li>
-            <li>• Frequency gap detection</li>
-            <li>• Genre-optimized presets</li>
-            <li>• Professional stereo control</li>
-          </ul>
+        <div className="pt-4 border-t space-y-4">
+          <div>
+            <p className="text-xs font-medium mb-2">Features:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              <li>• Automatic phase alignment</li>
+              <li>• Frequency gap detection</li>
+              <li>• Genre-optimized presets</li>
+              <li>• Professional stereo control</li>
+            </ul>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button 
+              variant="default"
+              onClick={() => playBassSound(60)}
+              className="flex-1"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Preview Bass
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => onExport?.({ subBass, midBass, topBass, stereoWidth })}
+              className="flex-1"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Export Config
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

@@ -250,6 +250,85 @@ export function useBassLayering() {
     setTopBass(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // Real-time 3-layer bass synthesis
+  const playBassSound = useCallback((note: number = 60, audioContext?: AudioContext) => {
+    if (!audioContext) {
+      audioContext = new AudioContext();
+    }
+
+    const now = audioContext.currentTime;
+    const frequency = 440 * Math.pow(2, (note - 69) / 12);
+
+    // Create 3 oscillators for sub, mid, top
+    const layers = [
+      { ...subBass, freq: frequency * (subBass.frequency / 50) },
+      { ...midBass, freq: frequency * (midBass.frequency / 100) },
+      { ...topBass, freq: frequency * (topBass.frequency / 200) }
+    ];
+
+    const masterGain = audioContext.createGain();
+    masterGain.gain.value = 0.7;
+
+    layers.forEach((layer, idx) => {
+      const osc = audioContext!.createOscillator();
+      const gain = audioContext!.createGain();
+      const filter = audioContext!.createBiquadFilter();
+      const panner = audioContext!.createStereoPanner();
+
+      // Oscillator setup
+      osc.type = idx === 0 ? 'sine' : idx === 1 ? 'triangle' : 'sawtooth';
+      osc.frequency.value = layer.freq;
+
+      // Phase offset
+      osc.detune.value = (layer.phase / 360) * 100;
+
+      // Filter setup
+      filter.type = 'lowpass';
+      filter.frequency.value = layer.filter.cutoff;
+      filter.Q.value = layer.filter.resonance * 10;
+
+      // Stereo width (sub=mono, mid=narrow, top=wide)
+      const panAmount = (idx / 2) * stereoWidth * (Math.random() - 0.5);
+      panner.pan.value = panAmount;
+
+      // ADSR Envelope
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(
+        layer.volume,
+        now + layer.envelope.attack
+      );
+      gain.gain.linearRampToValueAtTime(
+        layer.volume * layer.envelope.sustain,
+        now + layer.envelope.attack + layer.envelope.decay
+      );
+      gain.gain.setValueAtTime(
+        layer.volume * layer.envelope.sustain,
+        now + layer.envelope.attack + layer.envelope.decay + 0.5
+      );
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + layer.envelope.attack + layer.envelope.decay + layer.envelope.release + 0.5
+      );
+
+      // Connect: osc -> filter -> panner -> gain -> master
+      osc.connect(filter);
+      filter.connect(panner);
+      panner.connect(gain);
+      gain.connect(masterGain);
+
+      // Play
+      osc.start(now);
+      osc.stop(now + layer.envelope.attack + layer.envelope.decay + layer.envelope.release + 0.6);
+    });
+
+    masterGain.connect(audioContext.destination);
+
+    toast({
+      title: "3-Layer Bass",
+      description: `Playing ${Math.round(frequency)}Hz`,
+    });
+  }, [subBass, midBass, topBass, stereoWidth, toast]);
+
   return {
     subBass,
     midBass,
@@ -266,6 +345,7 @@ export function useBassLayering() {
     updateSubBass,
     updateMidBass,
     updateTopBass,
-    setStereoWidth
+    setStereoWidth,
+    playBassSound
   };
 }

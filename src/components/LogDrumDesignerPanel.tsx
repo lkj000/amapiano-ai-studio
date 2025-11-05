@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLogDrumDesigner } from '@/hooks/useLogDrumDesigner';
-import { Drum, Sparkles, Plus, Trash2 } from 'lucide-react';
+import { Drum, Sparkles, Plus, Trash2, Play } from 'lucide-react';
 
 interface LogDrumDesignerPanelProps {
   onExport?: (settings: any) => void;
@@ -27,7 +27,8 @@ export function LogDrumDesignerPanel({ onExport, className }: LogDrumDesignerPan
     removeVelocityLayer,
     updateVelocityLayer,
     autoTuneVelocityLayers,
-    analyzeCharacter
+    analyzeCharacter,
+    playLogDrumSound
   } = useLogDrumDesigner();
 
   return (
@@ -257,14 +258,36 @@ export function LogDrumDesignerPanel({ onExport, className }: LogDrumDesignerPan
           </div>
         </div>
 
-        <div className="pt-4 border-t space-y-2">
-          <p className="text-xs font-medium">Features:</p>
-          <ul className="text-xs text-muted-foreground space-y-1">
-            <li>• ADSR envelope control</li>
-            <li>• Pitch envelope modulation</li>
-            <li>• Multi-velocity layering</li>
-            <li>• Authentic Amapiano character</li>
-          </ul>
+        <div className="pt-4 border-t space-y-4">
+          <div>
+            <p className="text-xs font-medium mb-2">Features:</p>
+            <ul className="text-xs text-muted-foreground space-y-1">
+              <li>• ADSR envelope control</li>
+              <li>• Pitch envelope modulation</li>
+              <li>• Multi-velocity layering</li>
+              <li>• Authentic Amapiano character</li>
+            </ul>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button 
+              variant="default"
+              onClick={() => playLogDrumSound(100)}
+              className="flex-1"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              Preview Sound
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => onExport?.(settings)}
+              className="flex-1"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Export Preset
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

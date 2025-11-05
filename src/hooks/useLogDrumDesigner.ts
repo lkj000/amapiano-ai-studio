@@ -275,6 +275,79 @@ export function useLogDrumDesigner() {
     return description;
   }, [settings.character]);
 
+  // Real-time audio synthesis
+  const playLogDrumSound = useCallback((velocity: number = 100, audioContext?: AudioContext) => {
+    if (!audioContext) {
+      audioContext = new AudioContext();
+    }
+
+    const now = audioContext.currentTime;
+    const { envelope, pitchEnvelope, character, basePitch } = settings;
+    
+    // Select velocity layer
+    const normalizedVelocity = velocity;
+    const layer = settings.velocityLayers.reduce((closest, current) => {
+      return Math.abs(current.velocity - normalizedVelocity) < Math.abs(closest.velocity - normalizedVelocity)
+        ? current
+        : closest;
+    });
+
+    // Create oscillator with pitch envelope
+    const osc = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const filterNode = audioContext.createBiquadFilter();
+
+    // Pitch envelope
+    osc.frequency.setValueAtTime(layer.pitch, now);
+    osc.frequency.exponentialRampToValueAtTime(
+      basePitch,
+      now + pitchEnvelope.decay
+    );
+
+    // Character filter (simulates woodiness/resonance)
+    filterNode.type = 'bandpass';
+    filterNode.frequency.value = basePitch * (1 + character.woodiness);
+    filterNode.Q.value = 10 * character.resonance;
+
+    // ADSR Envelope
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(
+      layer.volume * layer.brightness,
+      now + envelope.attack
+    );
+    gainNode.gain.linearRampToValueAtTime(
+      layer.volume * envelope.sustain,
+      now + envelope.attack + envelope.decay
+    );
+    gainNode.gain.setValueAtTime(
+      layer.volume * envelope.sustain,
+      now + envelope.attack + envelope.decay + 0.1
+    );
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.001,
+      now + envelope.attack + envelope.decay + envelope.release
+    );
+
+    // Apply dampening (simulates muting)
+    const dampeningNode = audioContext.createGain();
+    dampeningNode.gain.value = 1 - character.dampening * 0.5;
+
+    // Connect nodes
+    osc.connect(filterNode);
+    filterNode.connect(dampeningNode);
+    dampeningNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Play
+    osc.start(now);
+    osc.stop(now + envelope.attack + envelope.decay + envelope.release + 0.1);
+
+    toast({
+      title: "Log Drum Sound",
+      description: `Playing at ${Math.round(basePitch)}Hz`,
+    });
+  }, [settings, toast]);
+
   return {
     settings,
     selectedPreset,
@@ -290,6 +363,7 @@ export function useLogDrumDesigner() {
     removeVelocityLayer,
     updateVelocityLayer,
     autoTuneVelocityLayers,
-    analyzeCharacter
+    analyzeCharacter,
+    playLogDrumSound
   };
 }

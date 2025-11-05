@@ -2529,6 +2529,8 @@ const [zoom, setZoom] = useState([100]);
             />
             
             <div className="mt-6 space-y-6 max-w-4xl mx-auto">
+              <WaveformVisualization />
+
               <QuickArrangementAssistant 
                 onApplyArrangement={(template, intensity) => {
                   console.log('🎵 Applying arrangement:', template.name, 'Intensity:', intensity);

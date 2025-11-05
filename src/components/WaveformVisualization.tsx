@@ -1871,52 +1871,172 @@ export function WaveformVisualization({
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h4 className="font-semibold">Waveform Analyzer</h4>
-            {isProcessing && (
-              <span className="text-xs text-muted-foreground animate-pulse">Processing...</span>
-            )}
+        <Tabs defaultValue="file" className="w-full">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="font-semibold">Waveform Analyzer</h4>
+              {isProcessing && (
+                <span className="text-xs text-muted-foreground animate-pulse">Processing...</span>
+              )}
+            </div>
+            
+            {/* Essential Controls - Always Visible */}
+            <div className="flex gap-1 flex-wrap">
+              {/* Recording */}
+              <Button
+                variant={isRecording ? 'destructive' : 'ghost'}
+                size="sm"
+                onClick={isRecording ? handleStopRecording : handleStartRecording}
+                className="h-7 px-2"
+              >
+                <Mic className="h-3 w-3 mr-1" />
+                <span className="text-xs">{isRecording ? 'Stop' : 'Record'}</span>
+              </Button>
+
+              <div className="w-px h-7 bg-border mx-1" />
+              
+              {/* Playback */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePlay}
+                className="h-7 w-7 p-0"
+                disabled={!audioBuffer}
+              >
+                {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStop}
+                className="h-7 w-7 p-0"
+                disabled={!audioBuffer}
+              >
+                <Square className="h-3 w-3" />
+              </Button>
+              
+              <div className="w-px h-7 bg-border mx-1" />
+
+              {/* View Controls */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleZoom(0.5)}
+                className="h-7 w-7 p-0"
+              >
+                <ZoomIn className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleZoom(-0.5)}
+                className="h-7 w-7 p-0"
+              >
+                <ZoomOut className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetView}
+                className="h-7 w-7 p-0"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-1">
-            {/* Recording Controls */}
-            <Button
-              variant={isRecording ? 'destructive' : 'ghost'}
-              size="sm"
-              onClick={isRecording ? handleStopRecording : handleStartRecording}
-              className="h-7 px-2"
-            >
-              <Mic className="h-3 w-3 mr-1" />
-              <span className="text-xs">{isRecording ? 'Stop' : 'Record'}</span>
-            </Button>
 
-            <div className="w-px h-7 bg-border mx-1" />
-            
-            {/* Playback Controls */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePlay}
-              className="h-7 w-7 p-0"
-              disabled={!audioBuffer}
-            >
-              {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStop}
-              className="h-7 w-7 p-0"
-              disabled={!audioBuffer}
-            >
-              <Square className="h-3 w-3" />
-            </Button>
-            
-            <div className="w-px h-7 bg-border mx-1" />
+          {/* Tabs for Features */}
+          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
+            <TabsTrigger value="file" className="text-xs">File</TabsTrigger>
+            <TabsTrigger value="view" className="text-xs">View</TabsTrigger>
+            <TabsTrigger value="edit" className="text-xs">Edit</TabsTrigger>
+            <TabsTrigger value="analysis" className="text-xs">Analysis</TabsTrigger>
+            <TabsTrigger value="advanced" className="text-xs">Advanced</TabsTrigger>
+          </TabsList>
 
-            {/* A/B Comparison */}
-            {uploadedAudioBuffer && comparisonAudioBuffer && (
-              <>
+          {/* File Tab */}
+          <TabsContent value="file" className="mt-2">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-7 px-2"
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                <span className="text-xs">Upload</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('batch-file-input')?.click()}
+                className="h-7 px-2"
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                <span className="text-xs">Batch</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={saveProject}
+                className="h-7 px-2"
+              >
+                <Save className="h-3 w-3 mr-1" />
+                <span className="text-xs">Save</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => document.getElementById('project-file-input')?.click()}
+                className="h-7 px-2"
+              >
+                <FolderOpen className="h-3 w-3 mr-1" />
+                <span className="text-xs">Load</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleExportAudio('wav')}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                <span className="text-xs">Export WAV</span>
+              </Button>
+              
+              {/* Hidden inputs */}
+              <input
+                id="batch-file-input"
+                type="file"
+                accept="audio/*"
+                multiple
+                onChange={handleBatchFileSelect}
+                className="hidden"
+              />
+              <input
+                id="project-file-input"
+                type="file"
+                accept="application/json"
+                onChange={loadProject}
+                className="hidden"
+              />
+            </div>
+          </TabsContent>
+
+          {/* View Tab */}
+          <TabsContent value="view" className="mt-2">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant={viewMode === 'comparison' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={toggleComparisonMode}
+                className="h-7 px-2"
+                disabled={!uploadedAudioBuffer}
+              >
+                <GitCompare className="h-3 w-3 mr-1" />
+                <span className="text-xs">Compare</span>
+              </Button>
+              {uploadedAudioBuffer && comparisonAudioBuffer && (
                 <Button
                   variant={abMode === 'A' ? 'default' : 'ghost'}
                   size="sm"
@@ -1926,418 +2046,299 @@ export function WaveformVisualization({
                   <Repeat className="h-3 w-3 mr-1" />
                   <span className="text-xs">A/B: {abMode}</span>
                 </Button>
-                <div className="w-px h-7 bg-border mx-1" />
-              </>
-            )}
-
-            {/* Pitch Detection Toggle */}
-            <Button
-              variant={showPitchDetection ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setShowPitchDetection(!showPitchDetection)}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Music2 className="h-3 w-3 mr-1" />
-              <span className="text-xs">Pitch</span>
-            </Button>
-
-            {/* Region Selection Toggle */}
-            <Button
-              variant={regionSelection ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                if (regionSelection) {
-                  handleClearRegion();
-                } else {
-                  toast.info('Drag on waveform to select region');
-                }
-              }}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Scissors className="h-3 w-3 mr-1" />
-              <span className="text-xs">Region</span>
-            </Button>
-
-            {/* Region Loop Toggle */}
-            {regionSelection && (
+              )}
               <Button
-                variant={isLoopingRegion ? 'default' : 'ghost'}
+                variant={showAdvancedSpectrum ? 'default' : 'ghost'}
                 size="sm"
-                onClick={handleToggleRegionLoop}
+                onClick={() => setShowAdvancedSpectrum(!showAdvancedSpectrum)}
                 className="h-7 px-2"
               >
-                <RepeatIcon className="h-3 w-3 mr-1" />
-                <span className="text-xs">Loop</span>
+                <BarChart3 className="h-3 w-3 mr-1" />
+                <span className="text-xs">Spectrum</span>
               </Button>
-            )}
+              <Button
+                variant={viewType === 'spectral' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewType(viewType === 'waveform' ? 'spectral' : 'waveform')}
+                className="h-7 px-2"
+              >
+                <Activity className="h-3 w-3 mr-1" />
+                <span className="text-xs">{viewType === 'waveform' ? 'Spectral' : 'Waveform'}</span>
+              </Button>
+            </div>
+          </TabsContent>
 
-            {/* MIDI Export */}
-            {pitchHistory.length > 0 && (
+          {/* Edit Tab */}
+          <TabsContent value="edit" className="mt-2">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant={showProcessingTools ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setShowProcessingTools(!showProcessingTools)}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Sliders className="h-3 w-3 mr-1" />
+                <span className="text-xs">FX</span>
+              </Button>
+              <Button
+                variant={showEQ ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setShowEQ(!showEQ)}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <BarChart3 className="h-3 w-3 mr-1" />
+                <span className="text-xs">EQ</span>
+              </Button>
+              <Button
+                variant={regionSelection ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  if (regionSelection) {
+                    handleClearRegion();
+                  } else {
+                    toast.info('Drag on waveform to select region');
+                  }
+                }}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Scissors className="h-3 w-3 mr-1" />
+                <span className="text-xs">Region</span>
+              </Button>
+              {regionSelection && (
+                <Button
+                  variant={isLoopingRegion ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={handleToggleRegionLoop}
+                  className="h-7 px-2"
+                >
+                  <RepeatIcon className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Loop</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleExportPitchToMIDI}
+                onClick={() => {
+                  setTimeStretch(1);
+                  setPitchShift(0);
+                  toast.success('Reset time/pitch');
+                }}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                <span className="text-xs">Time/Pitch</span>
+              </Button>
+              <Button
+                variant={isRecordingAutomation ? 'destructive' : 'ghost'}
+                size="sm"
+                onClick={isRecordingAutomation ? handleStopAutomationRecording : handleStartAutomationRecording}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Circle className={isRecordingAutomation ? 'h-3 w-3 mr-1 animate-pulse' : 'h-3 w-3 mr-1'} />
+                <span className="text-xs">Automation</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={undo}
+                className="h-7 px-2"
+                disabled={historyIndex <= 0}
+              >
+                <Undo2 className="h-3 w-3 mr-1" />
+                <span className="text-xs">Undo</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={redo}
+                className="h-7 px-2"
+                disabled={historyIndex >= editHistory.length - 1}
+              >
+                <Redo2 className="h-3 w-3 mr-1" />
+                <span className="text-xs">Redo</span>
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* Analysis Tab */}
+          <TabsContent value="analysis" className="mt-2">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant={showPitchDetection ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setShowPitchDetection(!showPitchDetection)}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Music2 className="h-3 w-3 mr-1" />
+                <span className="text-xs">Pitch</span>
+              </Button>
+              <Button
+                variant={showBeatDetection ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  if (audioBuffer) {
+                    detectBeats(audioBuffer);
+                    setShowBeatDetection(true);
+                  } else {
+                    toast.error('Load audio first');
+                  }
+                }}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Radio className="h-3 w-3 mr-1" />
+                <span className="text-xs">Beats</span>
+              </Button>
+              <Button
+                variant={showLoudness ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  if (audioBuffer) {
+                    calculateLoudness(audioBuffer);
+                  } else {
+                    toast.error('Load audio first');
+                  }
+                }}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Gauge className="h-3 w-3 mr-1" />
+                <span className="text-xs">LUFS</span>
+              </Button>
+              {pitchHistory.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportPitchToMIDI}
+                  className="h-7 px-2"
+                >
+                  <FileMusic className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Export MIDI</span>
+                </Button>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Advanced Tab */}
+          <TabsContent value="advanced" className="mt-2">
+            <div className="flex gap-1 flex-wrap">
+              <Button
+                variant={isCollaborationEnabled ? 'default' : 'ghost'}
+                size="sm"
+                onClick={isCollaborationEnabled ? disableCollaboration : enableCollaboration}
                 className="h-7 px-2"
               >
-                <FileMusic className="h-3 w-3 mr-1" />
-                <span className="text-xs">MIDI</span>
+                <Users className="h-3 w-3 mr-1" />
+                <span className="text-xs">{collaborators.length > 0 ? `Collab (${collaborators.length})` : 'Collab'}</span>
               </Button>
-            )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={removeVocals}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Headphones className="h-3 w-3 mr-1" />
+                <span className="text-xs">Remove Vocals</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStemSeparation}
+                className="h-7 px-2"
+                disabled={!audioBuffer || isSeparatingStems}
+              >
+                <Split className="h-3 w-3 mr-1" />
+                <span className="text-xs">{isSeparatingStems ? 'Separating...' : 'Stems'}</span>
+              </Button>
+              <Button
+                variant={tracks.length > 0 ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => {
+                  if (audioBuffer && uploadedFileName) {
+                    addTrack(audioBuffer, uploadedFileName);
+                  } else {
+                    toast.error('Load audio first');
+                  }
+                }}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Layers className="h-3 w-3 mr-1" />
+                <span className="text-xs">Multi-Track</span>
+              </Button>
+              <Button
+                variant={midiEnabled ? 'default' : 'ghost'}
+                size="sm"
+                onClick={enableMIDI}
+                className="h-7 px-2"
+              >
+                <Piano className="h-3 w-3 mr-1" />
+                <span className="text-xs">MIDI Input</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleAIMastering}
+                className="h-7 px-2"
+                disabled={!audioBuffer || isMastering || !loudnessData}
+              >
+                <Wand2 className="h-3 w-3 mr-1" />
+                <span className="text-xs">{isMastering ? 'Analyzing...' : 'AI Master'}</span>
+              </Button>
+              <Button
+                variant={showPresetManager ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setShowPresetManager(!showPresetManager)}
+                className="h-7 px-2"
+              >
+                <BookOpen className="h-3 w-3 mr-1" />
+                <span className="text-xs">Presets</span>
+              </Button>
+              <Button
+                variant={sidechainEnabled ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSidechainEnabled(!sidechainEnabled)}
+                className="h-7 px-2"
+                disabled={!audioBuffer}
+              >
+                <Link2 className="h-3 w-3 mr-1" />
+                <span className="text-xs">Sidechain</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (tracks.length >= 2) {
+                    applyCrossfade(tracks[0].id, tracks[1].id);
+                  } else {
+                    toast.error('Add at least 2 tracks first');
+                  }
+                }}
+                className="h-7 px-2"
+                disabled={tracks.length < 2}
+              >
+                <Merge className="h-3 w-3 mr-1" />
+                <span className="text-xs">Crossfade</span>
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
 
-            {/* Beat Detection */}
-            <Button
-              variant={showBeatDetection ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                if (audioBuffer) {
-                  detectBeats(audioBuffer);
-                  setShowBeatDetection(true);
-                } else {
-                  toast.error('Load audio first');
-                }
-              }}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Radio className="h-3 w-3 mr-1" />
-              <span className="text-xs">Beats</span>
-            </Button>
-
-            {/* Loudness Analysis */}
-            <Button
-              variant={showLoudness ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                if (audioBuffer) {
-                  calculateLoudness(audioBuffer);
-                } else {
-                  toast.error('Load audio first');
-                }
-              }}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Gauge className="h-3 w-3 mr-1" />
-              <span className="text-xs">LUFS</span>
-            </Button>
-
-            {/* Multi-Track Toggle */}
-            <Button
-              variant={tracks.length > 0 ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                if (audioBuffer && uploadedFileName) {
-                  addTrack(audioBuffer, uploadedFileName);
-                } else {
-                  toast.error('Load audio first');
-                }
-              }}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Layers className="h-3 w-3 mr-1" />
-              <span className="text-xs">Track</span>
-            </Button>
-
-            {/* Audio Processing Tools */}
-            <Button
-              variant={showProcessingTools ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setShowProcessingTools(!showProcessingTools)}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Sliders className="h-3 w-3 mr-1" />
-              <span className="text-xs">FX</span>
-            </Button>
-
-            <div className="w-px h-7 bg-border mx-1" />
-
-            {/* Time/Pitch Controls */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setTimeStretch(1);
-                setPitchShift(0);
-                toast.success('Reset time/pitch');
-              }}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Clock className="h-3 w-3 mr-1" />
-              <span className="text-xs">T/P</span>
-            </Button>
-
-            {/* Automation Recording */}
-            <Button
-              variant={isRecordingAutomation ? 'destructive' : 'ghost'}
-              size="sm"
-              onClick={isRecordingAutomation ? handleStopAutomationRecording : handleStartAutomationRecording}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Circle className={isRecordingAutomation ? 'h-3 w-3 mr-1 animate-pulse' : 'h-3 w-3 mr-1'} />
-              <span className="text-xs">Auto</span>
-            </Button>
-
-            {/* Export Audio */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleExportAudio('wav')}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Download className="h-3 w-3 mr-1" />
-              <span className="text-xs">WAV</span>
-            </Button>
-
-            {/* Stem Separation */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStemSeparation}
-              className="h-7 px-2"
-              disabled={!audioBuffer || isSeparatingStems}
-            >
-              <Split className="h-3 w-3 mr-1" />
-              <span className="text-xs">{isSeparatingStems ? 'Separating...' : 'Stems'}</span>
-            </Button>
-
-            <div className="w-px h-7 bg-border mx-1" />
-
-            {/* Crossfade */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (tracks.length >= 2) {
-                  applyCrossfade(tracks[0].id, tracks[1].id);
-                } else {
-                  toast.error('Add at least 2 tracks first');
-                }
-              }}
-              className="h-7 px-2"
-              disabled={tracks.length < 2}
-            >
-              <Merge className="h-3 w-3 mr-1" />
-              <span className="text-xs">Fade</span>
-            </Button>
-
-            {/* Visual EQ */}
-            <Button
-              variant={showEQ ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setShowEQ(!showEQ)}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <BarChart3 className="h-3 w-3 mr-1" />
-              <span className="text-xs">EQ</span>
-            </Button>
-
-            {/* Preset Manager */}
-            <Button
-              variant={showPresetManager ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setShowPresetManager(!showPresetManager)}
-              className="h-7 px-2"
-            >
-              <BookOpen className="h-3 w-3 mr-1" />
-              <span className="text-xs">Presets</span>
-            </Button>
-
-            {/* Sidechain */}
-            <Button
-              variant={sidechainEnabled ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setSidechainEnabled(!sidechainEnabled)}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Link2 className="h-3 w-3 mr-1" />
-              <span className="text-xs">SC</span>
-            </Button>
-
-            <div className="w-px h-7 bg-border mx-1" />
-
-            {/* Undo/Redo */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={undo}
-              className="h-7 w-7 p-0"
-              disabled={historyIndex <= 0}
-            >
-              <Undo2 className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={redo}
-              className="h-7 w-7 p-0"
-              disabled={historyIndex >= editHistory.length - 1}
-            >
-              <Redo2 className="h-3 w-3" />
-            </Button>
-
-            {/* AI Mastering */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleAIMastering}
-              className="h-7 px-2"
-              disabled={!audioBuffer || isMastering || !loudnessData}
-            >
-              <Wand2 className="h-3 w-3 mr-1" />
-              <span className="text-xs">{isMastering ? 'Analyzing...' : 'AI Master'}</span>
-            </Button>
-
-            {/* MIDI Input */}
-            <Button
-              variant={midiEnabled ? 'default' : 'ghost'}
-              size="sm"
-              onClick={enableMIDI}
-              className="h-7 px-2"
-            >
-              <Piano className="h-3 w-3 mr-1" />
-              <span className="text-xs">MIDI</span>
-            </Button>
-
-            {/* Advanced Spectrum */}
-            <Button
-              variant={showAdvancedSpectrum ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setShowAdvancedSpectrum(!showAdvancedSpectrum)}
-              className="h-7 px-2"
-            >
-              <BarChart3 className="h-3 w-3 mr-1" />
-              <span className="text-xs">Spectrum</span>
-            </Button>
-
-            <div className="w-px h-7 bg-border mx-1" />
-
-            {/* Batch Processing */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => document.getElementById('batch-file-input')?.click()}
-              className="h-7 px-2"
-            >
-              <Zap className="h-3 w-3 mr-1" />
-              <span className="text-xs">Batch</span>
-            </Button>
-
-            {/* Save/Load Project */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={saveProject}
-              className="h-7 px-2"
-            >
-              <Save className="h-3 w-3 mr-1" />
-              <span className="text-xs">Save</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => document.getElementById('project-file-input')?.click()}
-              className="h-7 px-2"
-            >
-              <FolderOpen className="h-3 w-3 mr-1" />
-              <span className="text-xs">Load</span>
-            </Button>
-
-            {/* Collaboration */}
-            <Button
-              variant={isCollaborationEnabled ? 'default' : 'ghost'}
-              size="sm"
-              onClick={isCollaborationEnabled ? disableCollaboration : enableCollaboration}
-              className="h-7 px-2"
-            >
-              <Users className="h-3 w-3 mr-1" />
-              <span className="text-xs">{collaborators.length > 0 ? `${collaborators.length}` : 'Collab'}</span>
-            </Button>
-
-            {/* Vocal Removal */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={removeVocals}
-              className="h-7 px-2"
-              disabled={!audioBuffer}
-            >
-              <Headphones className="h-3 w-3 mr-1" />
-              <span className="text-xs">Vocals</span>
-            </Button>
-
-            {/* Hidden file inputs */}
-            <input
-              id="batch-file-input"
-              type="file"
-              accept="audio/*"
-              multiple
-              onChange={handleBatchFileSelect}
-              className="hidden"
-            />
-            <input
-              id="project-file-input"
-              type="file"
-              accept="application/json"
-              onChange={loadProject}
-              className="hidden"
-            />
-            
-            <div className="w-px h-7 bg-border mx-1" />
-            
-            <Button
-              variant={viewMode === 'comparison' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={toggleComparisonMode}
-              className="h-7 px-2"
-              disabled={!uploadedAudioBuffer}
-            >
-              <GitCompare className="h-3 w-3 mr-1" />
-              <span className="text-xs">Compare</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="h-7 px-2"
-            >
-              <Upload className="h-3 w-3 mr-1" />
-              <span className="text-xs">Upload</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleZoom(0.5)}
-              className="h-7 w-7 p-0"
-            >
-              <ZoomIn className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleZoom(-0.5)}
-              className="h-7 w-7 p-0"
-            >
-              <ZoomOut className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetView}
-              className="h-7 w-7 p-0"
-            >
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
+        {/* File Upload Input (Hidden) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={(e) => handleFileUpload(e, viewMode === 'comparison' && !!uploadedAudioBuffer)}
+          className="hidden"
+        />
 
         {/* Batch Processing Panel */}
         {batchFiles.length > 0 && (
@@ -2961,15 +2962,6 @@ export function WaveformVisualization({
             <span>{formatTime(duration || audioBuffer.duration)}</span>
           </div>
         )}
-
-        {/* File Upload Input (Hidden) */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*"
-          onChange={(e) => handleFileUpload(e, viewMode === 'comparison' && !!uploadedAudioBuffer)}
-          className="hidden"
-        />
 
         {/* Uploaded Files Info */}
         {(uploadedFileName || comparisonFileName) && (

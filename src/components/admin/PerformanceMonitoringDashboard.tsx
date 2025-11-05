@@ -39,6 +39,8 @@ import { Button } from '@/components/ui/button';
 import { Download, RefreshCw } from 'lucide-react';
 import { PerformanceTestingPanel } from './PerformanceTestingPanel';
 import { NotificationSettingsPanel } from './NotificationSettingsPanel';
+import { PerformanceBaselinesPanel } from './PerformanceBaselinesPanel';
+import { AutoRemediationPanel } from './AutoRemediationPanel';
 
 interface PerformanceAlert {
   id: string;
@@ -311,6 +313,8 @@ export function PerformanceMonitoringDashboard() {
       <Tabs defaultValue="testing" className="space-y-4">
         <TabsList>
           <TabsTrigger value="testing">Testing</TabsTrigger>
+          <TabsTrigger value="baselines">Baselines</TabsTrigger>
+          <TabsTrigger value="remediation">Auto-Remediation</TabsTrigger>
           <TabsTrigger value="notifications">
             <Settings className="h-4 w-4 mr-2" />
             Notifications
@@ -324,6 +328,14 @@ export function PerformanceMonitoringDashboard() {
 
         <TabsContent value="testing">
           <PerformanceTestingPanel />
+        </TabsContent>
+        
+        <TabsContent value="baselines">
+          <PerformanceBaselinesPanel />
+        </TabsContent>
+        
+        <TabsContent value="remediation">
+          <AutoRemediationPanel />
         </TabsContent>
         
         <TabsContent value="notifications">

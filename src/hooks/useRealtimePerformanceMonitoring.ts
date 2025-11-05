@@ -41,6 +41,15 @@ export function useRealtimePerformanceMonitoring() {
 
     const setupRealtimeConnection = async () => {
       try {
+        // Check authentication first
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          console.warn('[Realtime] User not authenticated, skipping setup');
+          setIsConnected(false);
+          return;
+        }
+
         // Subscribe to performance metrics changes
         metricsChannel = supabase
           .channel('performance-monitoring')
@@ -90,30 +99,27 @@ export function useRealtimePerformanceMonitoring() {
         setChannel(metricsChannel);
 
         // Load initial metrics
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: recentMetrics } = await supabase
-            .from('performance_metrics')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(100);
+        const { data: recentMetrics } = await supabase
+          .from('performance_metrics')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-          if (recentMetrics) {
-            setMetrics(recentMetrics.reverse() as PerformanceMetric[]);
-          }
+        if (recentMetrics) {
+          setMetrics(recentMetrics.reverse() as PerformanceMetric[]);
+        }
 
-          const { data: activeAnomalies } = await supabase
-            .from('performance_anomalies')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('detected_at', { ascending: false })
-            .limit(50);
+        const { data: activeAnomalies } = await supabase
+          .from('performance_anomalies')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('detected_at', { ascending: false })
+          .limit(50);
 
-          if (activeAnomalies) {
-            setAnomalies(activeAnomalies as PerformanceAnomaly[]);
-          }
+        if (activeAnomalies) {
+          setAnomalies(activeAnomalies as PerformanceAnomaly[]);
         }
       } catch (error) {
         console.error('[Realtime] Setup error:', error);

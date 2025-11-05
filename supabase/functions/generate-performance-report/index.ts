@@ -81,7 +81,7 @@ serve(async (req) => {
     const totalCost = costMetrics.reduce((sum, m) => sum + m.value, 0);
 
     const wasmSavings = jsMetrics.reduce((sum, m) => {
-      const jsC cost = m.value * 0.0029; // JS cost per second
+      const jsCost = m.value * 0.0029; // JS cost per second
       const wasmCost = m.value * 0.001; // WASM cost per second
       return sum + (jsCost - wasmCost);
     }, 0);

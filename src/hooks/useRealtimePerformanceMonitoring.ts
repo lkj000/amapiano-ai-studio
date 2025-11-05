@@ -159,6 +159,8 @@ export function useRealtimePerformanceMonitoring() {
 
   const acknowledgeAnomaly = useCallback(async (anomalyId: string) => {
     try {
+      const anomaly = anomalies.find(a => a.id === anomalyId);
+      
       const { error } = await supabase
         .from('performance_anomalies')
         .update({ status: 'acknowledged' })
@@ -167,10 +169,24 @@ export function useRealtimePerformanceMonitoring() {
       if (error) throw error;
 
       console.log('[Realtime] Anomaly acknowledged:', anomalyId);
+      
+      // Send notification for critical anomalies
+      if (anomaly && anomaly.severity === 'critical' && anomaly.status === 'active') {
+        try {
+          await supabase.functions.invoke('send-performance-alert', {
+            body: {
+              anomaly_id: anomalyId,
+              notification_type: 'email'
+            }
+          });
+        } catch (notifyError) {
+          console.error('[Realtime] Failed to send notification:', notifyError);
+        }
+      }
     } catch (error) {
       console.error('[Realtime] Error acknowledging anomaly:', error);
     }
-  }, []);
+  }, [anomalies]);
 
   const resolveAnomaly = useCallback(async (anomalyId: string) => {
     try {

@@ -25,7 +25,8 @@ import {
   Clock,
   Cpu,
   Database,
-  BarChart3
+  BarChart3,
+  Settings
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
@@ -36,6 +37,8 @@ import { useRealtimePerformanceMonitoring } from '@/hooks/useRealtimePerformance
 import { useStripeBilling } from '@/hooks/useStripeBilling';
 import { Button } from '@/components/ui/button';
 import { Download, RefreshCw } from 'lucide-react';
+import { PerformanceTestingPanel } from './PerformanceTestingPanel';
+import { NotificationSettingsPanel } from './NotificationSettingsPanel';
 
 interface PerformanceAlert {
   id: string;
@@ -305,14 +308,27 @@ export function PerformanceMonitoringDashboard() {
       </div>
 
       {/* Detailed Metrics */}
-      <Tabs defaultValue="latency" className="space-y-4">
+      <Tabs defaultValue="testing" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="testing">Testing</TabsTrigger>
+          <TabsTrigger value="notifications">
+            <Settings className="h-4 w-4 mr-2" />
+            Notifications
+          </TabsTrigger>
           <TabsTrigger value="latency">Latency Trends</TabsTrigger>
           <TabsTrigger value="throughput">Throughput</TabsTrigger>
           <TabsTrigger value="costs">Cost Analysis</TabsTrigger>
           <TabsTrigger value="savings">WASM Savings</TabsTrigger>
           <TabsTrigger value="system">System Health</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="testing">
+          <PerformanceTestingPanel />
+        </TabsContent>
+        
+        <TabsContent value="notifications">
+          <NotificationSettingsPanel />
+        </TabsContent>
 
         <TabsContent value="latency" className="space-y-4">
           <Card>

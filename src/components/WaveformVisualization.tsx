@@ -180,6 +180,11 @@ export function WaveformVisualization({
   }, [setCanvasRef]);
 
   useEffect(() => {
+    console.log('🔄 Waveform effect triggered:', {
+      hasBuffer: !!audioBuffer,
+      mode,
+      duration: audioBuffer?.duration
+    });
     if (audioBuffer && mode === 'single') {
       generateWaveform(audioBuffer);
     }
@@ -207,9 +212,17 @@ export function WaveformVisualization({
   }, [mode, originalAudioBuffer, audioBuffer, originalBPM, currentBPM, generateWaveform, drawComparison]);
 
   useEffect(() => {
+    console.log('🎨 Draw effect triggered:', {
+      mode,
+      hasWaveformData: !!waveformData,
+      hasCanvas: !!canvasRef.current,
+      currentBPM,
+      zoom
+    });
     if (mode === 'single' && waveformData && canvasRef.current && currentBPM) {
       const markers = generateBPMMarkers(currentBPM, waveformData.duration);
       drawWaveform(canvasRef.current, waveformData.peaks, '#3b82f6', markers, currentBPM);
+      console.log('✅ Waveform drawn');
     }
   }, [mode, waveformData, currentBPM, zoom, generateBPMMarkers, drawWaveform]);
 
@@ -553,18 +566,33 @@ export function WaveformVisualization({
           const audioContext = new AudioContext();
           const buffer = await audioContext.decodeAudioData(arrayBuffer);
           
+          console.log('🎤 Recording decoded:', {
+            duration: buffer.duration,
+            sampleRate: buffer.sampleRate,
+            numberOfChannels: buffer.numberOfChannels
+          });
+          
           // Detect BPM
           const bpm = detectTempo(buffer);
+          console.log('🎵 BPM detected:', bpm);
           
           setUploadedAudioBuffer(buffer);
           setUploadedFileName(`Recording ${new Date().toLocaleTimeString()}`);
           setDetectedBPM(bpm);
           
+          // Force waveform regeneration
+          setTimeout(() => {
+            console.log('🌊 Triggering waveform generation');
+            if (canvasRef.current && buffer) {
+              generateWaveform(buffer);
+            }
+          }, 100);
+          
           toast.success('Recording saved', {
             description: `Detected ${bpm} BPM`
           });
         } catch (error) {
-          console.error('Failed to process recording:', error);
+          console.error('❌ Failed to process recording:', error);
           toast.error('Failed to process recording');
         }
 

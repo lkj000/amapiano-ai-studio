@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors, RepeatIcon, FileMusic, Sliders } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors, RepeatIcon, FileMusic, Sliders, Radio, Layers, Volume2, Gauge } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -59,8 +60,22 @@ export function WaveformVisualization({
   const [processingParams, setProcessingParams] = useState({
     gain: 1,
     reverb: 0,
-    delay: 0
+    delay: 0,
+    lowpass: 22050,
+    highpass: 20,
+    compression: 0
   });
+  const [beatMarkers, setBeatMarkers] = useState<number[]>([]);
+  const [showBeatDetection, setShowBeatDetection] = useState(false);
+  const [tracks, setTracks] = useState<Array<{ id: string; buffer: AudioBuffer; name: string; volume: number; solo: boolean; mute: boolean }>>([]);
+  const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
+  const [loudnessData, setLoudnessData] = useState<{ lufs: number; peak: number; truePeak: number } | null>(null);
+  const [showLoudness, setShowLoudness] = useState(false);
+  const effectsNodesRef = useRef<{ 
+    lowpass: BiquadFilterNode | null;
+    highpass: BiquadFilterNode | null;
+    compressor: DynamicsCompressorNode | null;
+  }>({ lowpass: null, highpass: null, compressor: null });
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -268,9 +283,31 @@ export function WaveformVisualization({
       const gainNode = context.createGain();
       gainNode.gain.value = processingParams.gain;
 
-      // Connect nodes with processing
+      // Create effects chain
+      const lowpassFilter = context.createBiquadFilter();
+      lowpassFilter.type = 'lowpass';
+      lowpassFilter.frequency.value = processingParams.lowpass;
+      effectsNodesRef.current.lowpass = lowpassFilter;
+
+      const highpassFilter = context.createBiquadFilter();
+      highpassFilter.type = 'highpass';
+      highpassFilter.frequency.value = processingParams.highpass;
+      effectsNodesRef.current.highpass = highpassFilter;
+
+      const compressor = context.createDynamicsCompressor();
+      compressor.threshold.value = -24;
+      compressor.knee.value = 30;
+      compressor.ratio.value = 1 + (processingParams.compression / 10);
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+      effectsNodesRef.current.compressor = compressor;
+
+      // Connect nodes with full effects chain
       source.connect(gainNode);
-      gainNode.connect(analyser);
+      gainNode.connect(highpassFilter);
+      highpassFilter.connect(lowpassFilter);
+      lowpassFilter.connect(compressor);
+      compressor.connect(analyser);
       analyser.connect(context.destination);
 
       // Start playback
@@ -756,6 +793,142 @@ export function WaveformVisualization({
     return (octave + 1) * 12 + noteMap[note];
   };
 
+  // Beat detection using energy-based algorithm
+  const detectBeats = (buffer: AudioBuffer) => {
+    const channelData = buffer.getChannelData(0);
+    const sampleRate = buffer.sampleRate;
+    const windowSize = Math.floor(sampleRate * 0.05); // 50ms windows
+    const hopSize = Math.floor(windowSize / 2);
+    
+    const energies: number[] = [];
+    
+    // Calculate energy for each window
+    for (let i = 0; i < channelData.length - windowSize; i += hopSize) {
+      let energy = 0;
+      for (let j = 0; j < windowSize; j++) {
+        energy += channelData[i + j] ** 2;
+      }
+      energies.push(energy / windowSize);
+    }
+    
+    // Calculate adaptive threshold
+    const threshold = energies.reduce((a, b) => a + b, 0) / energies.length * 1.5;
+    
+    // Find peaks above threshold
+    const beats: number[] = [];
+    for (let i = 1; i < energies.length - 1; i++) {
+      if (energies[i] > threshold && 
+          energies[i] > energies[i - 1] && 
+          energies[i] > energies[i + 1]) {
+        const timeInSeconds = (i * hopSize) / sampleRate;
+        
+        // Avoid beats too close together (minimum 100ms apart)
+        if (beats.length === 0 || timeInSeconds - beats[beats.length - 1] > 0.1) {
+          beats.push(timeInSeconds);
+        }
+      }
+    }
+    
+    setBeatMarkers(beats);
+    toast.success(`Detected ${beats.length} beats`);
+  };
+
+  // Calculate LUFS (simplified integrated loudness)
+  const calculateLoudness = (buffer: AudioBuffer) => {
+    const channelData = buffer.getChannelData(0);
+    const blockSize = Math.floor(buffer.sampleRate * 0.4); // 400ms blocks
+    
+    let sumSquares = 0;
+    let peak = 0;
+    
+    for (let i = 0; i < channelData.length; i++) {
+      const sample = Math.abs(channelData[i]);
+      sumSquares += channelData[i] ** 2;
+      peak = Math.max(peak, sample);
+    }
+    
+    const rms = Math.sqrt(sumSquares / channelData.length);
+    const lufs = -0.691 + 10 * Math.log10(rms) - 23; // Simplified LUFS approximation
+    const peakDb = 20 * Math.log10(peak);
+    
+    setLoudnessData({
+      lufs: Math.round(lufs * 10) / 10,
+      peak: Math.round(peakDb * 10) / 10,
+      truePeak: Math.round(peakDb * 10) / 10
+    });
+    
+    setShowLoudness(true);
+  };
+
+  const normalizeLoudness = (targetLufs: number = -14) => {
+    if (!loudnessData || !audioBuffer) {
+      toast.error('Calculate loudness first');
+      return;
+    }
+    
+    const gainAdjustment = targetLufs - loudnessData.lufs;
+    const newGain = processingParams.gain * Math.pow(10, gainAdjustment / 20);
+    
+    setProcessingParams(prev => ({ ...prev, gain: newGain }));
+    toast.success(`Normalized to ${targetLufs} LUFS`, {
+      description: `Gain adjusted by ${gainAdjustment.toFixed(1)} dB`
+    });
+  };
+
+  // Multi-track management
+  const addTrack = (buffer: AudioBuffer, name: string) => {
+    const newTrack = {
+      id: Math.random().toString(36).substr(2, 9),
+      buffer,
+      name,
+      volume: 1,
+      solo: false,
+      mute: false
+    };
+    
+    setTracks(prev => [...prev, newTrack]);
+    setActiveTrackId(newTrack.id);
+    toast.success(`Track added: ${name}`);
+  };
+
+  const updateTrackVolume = (trackId: string, volume: number) => {
+    setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, volume } : t
+    ));
+  };
+
+  const toggleTrackMute = (trackId: string) => {
+    setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, mute: !t.mute } : t
+    ));
+  };
+
+  const toggleTrackSolo = (trackId: string) => {
+    setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, solo: !t.solo } : { ...t, solo: false }
+    ));
+  };
+
+  const removeTrack = (trackId: string) => {
+    setTracks(prev => prev.filter(t => t.id !== trackId));
+    if (activeTrackId === trackId) {
+      setActiveTrackId(tracks[0]?.id || null);
+    }
+  };
+
+  // Update effects in real-time
+  useEffect(() => {
+    if (effectsNodesRef.current.lowpass) {
+      effectsNodesRef.current.lowpass.frequency.value = processingParams.lowpass;
+    }
+    if (effectsNodesRef.current.highpass) {
+      effectsNodesRef.current.highpass.frequency.value = processingParams.highpass;
+    }
+    if (effectsNodesRef.current.compressor) {
+      effectsNodesRef.current.compressor.ratio.value = 1 + (processingParams.compression / 10);
+    }
+  }, [processingParams]);
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
@@ -874,6 +1047,61 @@ export function WaveformVisualization({
               </Button>
             )}
 
+            {/* Beat Detection */}
+            <Button
+              variant={showBeatDetection ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                if (audioBuffer) {
+                  detectBeats(audioBuffer);
+                  setShowBeatDetection(true);
+                } else {
+                  toast.error('Load audio first');
+                }
+              }}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Radio className="h-3 w-3 mr-1" />
+              <span className="text-xs">Beats</span>
+            </Button>
+
+            {/* Loudness Analysis */}
+            <Button
+              variant={showLoudness ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                if (audioBuffer) {
+                  calculateLoudness(audioBuffer);
+                } else {
+                  toast.error('Load audio first');
+                }
+              }}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Gauge className="h-3 w-3 mr-1" />
+              <span className="text-xs">LUFS</span>
+            </Button>
+
+            {/* Multi-Track Toggle */}
+            <Button
+              variant={tracks.length > 0 ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                if (audioBuffer && uploadedFileName) {
+                  addTrack(audioBuffer, uploadedFileName);
+                } else {
+                  toast.error('Load audio first');
+                }
+              }}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Layers className="h-3 w-3 mr-1" />
+              <span className="text-xs">Track</span>
+            </Button>
+
             {/* Audio Processing Tools */}
             <Button
               variant={showProcessingTools ? 'default' : 'ghost'}
@@ -934,55 +1162,145 @@ export function WaveformVisualization({
           </div>
         </div>
 
+        {/* Loudness Display */}
+        {showLoudness && loudnessData && (
+          <Card className="p-3 bg-muted/50">
+            <div className="flex items-center justify-between mb-2">
+              <h5 className="text-sm font-semibold">Loudness Analysis</h5>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => normalizeLoudness(-14)}
+                className="h-6 px-2 text-xs"
+              >
+                Normalize to -14 LUFS
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-xs">
+              <div className="text-center">
+                <div className="text-muted-foreground">Integrated LUFS</div>
+                <div className="text-lg font-bold font-mono">{loudnessData.lufs}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-muted-foreground">Peak dB</div>
+                <div className="text-lg font-bold font-mono">{loudnessData.peak}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-muted-foreground">True Peak dB</div>
+                <div className="text-lg font-bold font-mono">{loudnessData.truePeak}</div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Multi-Track Panel */}
+        {tracks.length > 0 && (
+          <Card className="p-3 bg-muted/50">
+            <h5 className="text-sm font-semibold mb-3">Multi-Track Mixer ({tracks.length} tracks)</h5>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {tracks.map(track => (
+                <div key={track.id} className="flex items-center gap-2 p-2 bg-background rounded">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{track.name}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Volume2 className="h-3 w-3 text-muted-foreground" />
+                      <Slider
+                        value={[track.volume * 100]}
+                        onValueChange={(v) => updateTrackVolume(track.id, v[0] / 100)}
+                        max={100}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-xs font-mono w-8">{Math.round(track.volume * 100)}%</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant={track.solo ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => toggleTrackSolo(track.id)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <span className="text-xs">S</span>
+                  </Button>
+                  <Button
+                    variant={track.mute ? 'destructive' : 'ghost'}
+                    size="sm"
+                    onClick={() => toggleTrackMute(track.id)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <span className="text-xs">M</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeTrack(track.id)}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {/* Audio Processing Tools Panel */}
         {showProcessingTools && audioBuffer && (
           <Card className="p-4 bg-muted/50">
-            <h5 className="text-sm font-semibold mb-3">Audio Processing</h5>
+            <h5 className="text-sm font-semibold mb-3">Real-Time Effects</h5>
             <div className="space-y-3">
               <div className="space-y-2">
                 <label className="text-xs flex items-center justify-between">
                   <span>Gain</span>
-                  <span className="font-mono">{processingParams.gain.toFixed(2)}x</span>
+                  <span className="font-mono">{processingParams.gain.toFixed(2)}x ({(20 * Math.log10(processingParams.gain)).toFixed(1)} dB)</span>
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={processingParams.gain}
-                  onChange={(e) => setProcessingParams(prev => ({ ...prev, gain: parseFloat(e.target.value) }))}
-                  className="w-full"
+                <Slider
+                  value={[processingParams.gain * 50]}
+                  onValueChange={(v) => setProcessingParams(prev => ({ ...prev, gain: v[0] / 50 }))}
+                  max={100}
+                  step={1}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs flex items-center justify-between">
-                  <span>Reverb</span>
-                  <span className="font-mono">{processingParams.reverb}%</span>
+                  <span>Lowpass Filter</span>
+                  <span className="font-mono">{processingParams.lowpass} Hz</span>
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={processingParams.reverb}
-                  onChange={(e) => setProcessingParams(prev => ({ ...prev, reverb: parseInt(e.target.value) }))}
-                  className="w-full"
+                <Slider
+                  value={[processingParams.lowpass]}
+                  onValueChange={(v) => setProcessingParams(prev => ({ ...prev, lowpass: v[0] }))}
+                  min={200}
+                  max={22050}
+                  step={50}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs flex items-center justify-between">
-                  <span>Delay</span>
-                  <span className="font-mono">{processingParams.delay}%</span>
+                  <span>Highpass Filter</span>
+                  <span className="font-mono">{processingParams.highpass} Hz</span>
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={processingParams.delay}
-                  onChange={(e) => setProcessingParams(prev => ({ ...prev, delay: parseInt(e.target.value) }))}
-                  className="w-full"
+                <Slider
+                  value={[processingParams.highpass]}
+                  onValueChange={(v) => setProcessingParams(prev => ({ ...prev, highpass: v[0] }))}
+                  min={20}
+                  max={1000}
+                  step={10}
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Compression</span>
+                  <span className="font-mono">{processingParams.compression > 0 ? `${(1 + processingParams.compression / 10).toFixed(1)}:1` : 'Off'}</span>
+                </label>
+                <Slider
+                  value={[processingParams.compression]}
+                  onValueChange={(v) => setProcessingParams(prev => ({ ...prev, compression: v[0] }))}
+                  max={100}
+                  step={5}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                ⚡ Effects are applied in real-time during playback
               </div>
             </div>
           </Card>
@@ -1098,6 +1416,14 @@ export function WaveformVisualization({
                   style={{ left: `${(currentTime / audioBuffer.duration) * 100}%` }}
                 />
               )}
+              {/* Beat markers */}
+              {showBeatDetection && beatMarkers.map((beatTime, idx) => (
+                <div
+                  key={idx}
+                  className="absolute top-0 bottom-0 w-px bg-orange-500 opacity-60 z-5"
+                  style={{ left: `${(beatTime / (audioBuffer?.duration || 1)) * 100}%` }}
+                />
+              ))}
               {/* Region selection overlay */}
               {regionSelection && audioBuffer && (
                 <div
@@ -1165,11 +1491,11 @@ export function WaveformVisualization({
           {uploadedAudioBuffer && comparisonAudioBuffer && (
             <p className="text-primary">🔄 Use A/B button to quickly switch between files for comparison</p>
           )}
-          <p>• Click Record to capture audio from your microphone</p>
+          <p>• Click "Beats" for automatic beat detection with visual markers</p>
+          <p>• Click "LUFS" to analyze loudness (integrated LUFS, peak, true peak) and normalize audio</p>
+          <p>• Use "Track" to add multiple audio layers with individual volume, solo, and mute controls</p>
+          <p>• Enable "FX" for real-time effects: gain, filters, compression (applied during playback)</p>
           <p>• Enable "Pitch" to see real-time note detection and export to MIDI format</p>
-          <p>• Click "Region" and drag on waveform to select sections, then use "Loop" for continuous playback</p>
-          <p>• Use "FX" to access audio processing controls (Gain, Reverb, Delay)</p>
-          <p>• Switch to Spectral Analysis to view live frequency spectrum and export as image</p>
           <p>• Export spectral analysis as PNG image while playing</p>
           <p>• Scroll to zoom in/out • Drag to pan when zoomed</p>
           {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}

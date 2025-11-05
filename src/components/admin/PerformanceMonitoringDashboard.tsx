@@ -30,6 +30,9 @@ import {
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
 import { useWasmAcceleratedGeneration } from '@/hooks/useWasmAcceleratedGeneration';
+import { usePerformanceAlerts } from '@/hooks/usePerformanceAlerts';
+import { useCostTracking } from '@/hooks/useCostTracking';
+import { Button } from '@/components/ui/button';
 
 interface PerformanceAlert {
   id: string;
@@ -41,7 +44,19 @@ interface PerformanceAlert {
 
 export function PerformanceMonitoringDashboard() {
   const { metrics, averageMetrics, currentStats, isReady, wasmEnabled } = useWasmAcceleratedGeneration();
-  const [alerts, setAlerts] = useState<PerformanceAlert[]>([]);
+  const alertsHook = usePerformanceAlerts({
+    latencyWarning: 250,
+    latencyCritical: 400,
+    cpuWarning: 75,
+    cpuCritical: 90,
+    costWarning: 80,
+    costCritical: 95,
+  });
+  const costTracking = useCostTracking(1000);
+  
+  const costMetrics = costTracking.getMetrics();
+  const wasmSavings = costTracking.getSavingsFromWASM();
+  const optimizationSuggestions = costTracking.getOptimizationSuggestions();
   
   // Calculate real-time metrics
   const latencyTrend = metrics.slice(-20).map((m, i) => ({
@@ -64,43 +79,17 @@ export function PerformanceMonitoringDashboard() {
 
   // Monitor for alerts
   useEffect(() => {
-    const newAlerts: PerformanceAlert[] = [];
-
     // Check latency
-    if (averageMetrics.avgLatency > 300) {
-      newAlerts.push({
-        id: 'latency-high',
-        severity: 'warning',
-        title: 'High Latency Detected',
-        description: `Average latency (${averageMetrics.avgLatency.toFixed(0)}ms) exceeds target (180ms)`,
-        timestamp: Date.now()
-      });
+    if (averageMetrics.avgLatency > 0) {
+      alertsHook.checkLatency(averageMetrics.avgLatency);
     }
 
-    // Check WASM availability
-    if (!wasmEnabled) {
-      newAlerts.push({
-        id: 'wasm-disabled',
-        severity: 'info',
-        title: 'WASM Acceleration Disabled',
-        description: 'Enable WASM for 2-5x performance improvement',
-        timestamp: Date.now()
-      });
-    }
+    // Check CPU
+    alertsHook.checkCPU(currentStats.cpuLoad);
 
-    // Check CPU load
-    if (currentStats.cpuLoad > 80) {
-      newAlerts.push({
-        id: 'cpu-high',
-        severity: 'critical',
-        title: 'High CPU Load',
-        description: `CPU load at ${currentStats.cpuLoad.toFixed(0)}% - consider scaling`,
-        timestamp: Date.now()
-      });
-    }
-
-    setAlerts(newAlerts);
-  }, [averageMetrics, wasmEnabled, currentStats]);
+    // Check costs
+    alertsHook.checkCost(costMetrics.totalCost, costMetrics.budget);
+  }, [averageMetrics, currentStats, costMetrics, alertsHook]);
 
   const getLatencyBadge = () => {
     const latency = averageMetrics.avgLatency;
@@ -134,13 +123,22 @@ export function PerformanceMonitoringDashboard() {
       </div>
 
       {/* Alerts */}
-      {alerts.length > 0 && (
+      {alertsHook.alerts.length > 0 && (
         <div className="space-y-2">
-          {alerts.map(alert => (
+          {alertsHook.alerts.map(alert => (
             <Alert key={alert.id} variant={alert.severity === 'critical' ? 'destructive' : 'default'}>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>{alert.title}</AlertTitle>
-              <AlertDescription>{alert.description}</AlertDescription>
+              <AlertDescription className="flex items-center justify-between">
+                <span>{alert.description}</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => alertsHook.dismissAlert(alert.id)}
+                >
+                  Dismiss
+                </Button>
+              </AlertDescription>
             </Alert>
           ))}
         </div>
@@ -224,20 +222,27 @@ export function PerformanceMonitoringDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">CPU Load</CardTitle>
-            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Monthly Costs</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {currentStats.cpuLoad.toFixed(0)}%
+              ${costMetrics.monthCost.toFixed(2)}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Current system load
-            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge 
+                variant={costMetrics.budgetUsedPercent > 90 ? "destructive" : "outline"}
+              >
+                {costMetrics.budgetUsedPercent.toFixed(0)}% of budget
+              </Badge>
+            </div>
             <Progress 
-              value={currentStats.cpuLoad} 
+              value={costMetrics.budgetUsedPercent} 
               className="mt-2"
             />
+            <p className="text-xs text-muted-foreground mt-2">
+              Remaining: ${costMetrics.budgetRemaining.toFixed(2)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -248,6 +253,7 @@ export function PerformanceMonitoringDashboard() {
           <TabsTrigger value="latency">Latency Trends</TabsTrigger>
           <TabsTrigger value="throughput">Throughput</TabsTrigger>
           <TabsTrigger value="costs">Cost Analysis</TabsTrigger>
+          <TabsTrigger value="savings">WASM Savings</TabsTrigger>
           <TabsTrigger value="system">System Health</TabsTrigger>
         </TabsList>
 
@@ -296,23 +302,116 @@ export function PerformanceMonitoringDashboard() {
         </TabsContent>
 
         <TabsContent value="costs" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Today</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">${costMetrics.todayCost.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">This Week</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">${costMetrics.weekCost.toFixed(2)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Projected Monthly</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">${costMetrics.estimatedMonthlyTotal.toFixed(2)}</p>
+                {costMetrics.estimatedMonthlyTotal > costMetrics.budget && (
+                  <Badge variant="destructive" className="mt-2">
+                    Over Budget
+                  </Badge>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
-              <CardTitle>Cost Trends</CardTitle>
-              <CardDescription>Daily generation costs (last 7 days)</CardDescription>
+              <CardTitle>Cost Optimization</CardTitle>
+              <CardDescription>Suggestions to reduce costs</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {optimizationSuggestions.length > 0 ? (
+                optimizationSuggestions.map((suggestion, i) => (
+                  <Alert key={i}>
+                    <AlertDescription>{suggestion}</AlertDescription>
+                  </Alert>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Cost efficiency is optimal. No suggestions at this time.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cost Breakdown</CardTitle>
+              <CardDescription>Average cost: ${costMetrics.avgCostPerGeneration.toFixed(4)} per generation</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={costData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="cost" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" name="Cost ($)" />
-                  <Line type="monotone" dataKey="budget" stroke="hsl(var(--destructive))" strokeDasharray="5 5" name="Budget ($)" />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm">WASM-accelerated:</span>
+                  <span className="text-sm font-medium">$0.001/second</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm">JavaScript fallback:</span>
+                  <span className="text-sm font-medium">$0.0029/second</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <span className="text-sm font-medium">Total generations:</span>
+                  <span className="text-sm font-medium">{costMetrics.totalGenerations}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="savings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>WASM Acceleration Savings</CardTitle>
+              <CardDescription>Cost savings from using WASM instead of JavaScript</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Total Savings</p>
+                  <p className="text-2xl font-bold text-green-500">
+                    ${wasmSavings.savings.toFixed(2)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Savings Percent</p>
+                  <p className="text-2xl font-bold text-green-500">
+                    {wasmSavings.savingsPercent.toFixed(1)}%
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">WASM Generations</p>
+                  <p className="text-2xl font-bold">
+                    {wasmSavings.wasmGenerations}
+                  </p>
+                </div>
+              </div>
+              
+              <Alert>
+                <AlertDescription>
+                  By using WASM acceleration, you've saved ${wasmSavings.savings.toFixed(2)} 
+                  ({wasmSavings.savingsPercent.toFixed(0)}% reduction) compared to JavaScript-only processing.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>

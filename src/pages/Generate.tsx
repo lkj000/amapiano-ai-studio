@@ -20,12 +20,14 @@ import VoiceToMIDI from "@/components/VoiceToMIDI";
 import { HighSpeedDAWEngine } from "@/components/HighSpeedDAWEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
+import { useWasmAcceleratedGeneration } from "@/hooks/useWasmAcceleratedGeneration";
 
 interface GenerateProps {
   user: User | null;
 }
 
 const Generate: React.FC<GenerateProps> = ({ user }) => {
+  const { isReady: wasmReady, averageMetrics, engineType } = useWasmAcceleratedGeneration();
   const [prompt, setPrompt] = useState("");
   const [genre, setGenre] = useState("classic");
   const [bpm, setBpm] = useState([118]);
@@ -210,13 +212,20 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-gradient-primary mb-4">
-              AI Music Generation & Transformation
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Generate authentic amapiano tracks with advanced AI. Use voice prompts, reference audio, or detailed descriptions to create professional-quality music with cultural authenticity.
+          {/* Title Section */}
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight">AI Music Generation</h1>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Create professional amapiano tracks using advanced AI technology
             </p>
+            {wasmReady && (
+              <div className="flex items-center justify-center gap-2">
+                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                  <Cpu className="w-3 h-3 mr-1" />
+                  {engineType} - {averageMetrics.avgSpeedup > 0 ? `${averageMetrics.avgSpeedup.toFixed(1)}x faster` : 'Ready'}
+                </Badge>
+              </div>
+            )}
           </div>
 
           {/* High-Speed C++ WASM Engine Status */}

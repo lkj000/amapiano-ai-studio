@@ -30,7 +30,8 @@ import {
   Users,
   DollarSign,
   Shield,
-  Radio
+  Radio,
+  Activity
 } from "lucide-react";
 
 interface NavigationProps {
@@ -70,6 +71,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/research", label: "Research", icon: Brain },
     { path: "/vast-demo", label: "VAST Demo", icon: Brain },
     { path: "/essentia-demo", label: "Essentia", icon: Search },
+    { path: "/performance", label: "Performance", icon: Activity },
   ];
 
   const isActive = (path: string) => {

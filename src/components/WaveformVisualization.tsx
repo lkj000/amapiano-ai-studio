@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -24,7 +25,12 @@ export function WaveformVisualization({
   className
 }: WaveformVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const spectralCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   
   // Local state for uploaded files
   const [uploadedAudioBuffer, setUploadedAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -34,6 +40,10 @@ export function WaveformVisualization({
   const [detectedBPM, setDetectedBPM] = useState<number | null>(null);
   const [comparisonBPM, setComparisonBPM] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'single' | 'comparison'>(externalMode);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [viewType, setViewType] = useState<'waveform' | 'spectral'>('waveform');
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -180,6 +190,167 @@ export function WaveformVisualization({
     }
   };
 
+  const handlePlay = () => {
+    if (!audioBuffer) {
+      toast.error('No audio loaded');
+      return;
+    }
+
+    if (isPlaying) {
+      handlePause();
+      return;
+    }
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      const context = audioContextRef.current;
+      
+      // Stop existing playback
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.stop();
+        sourceNodeRef.current.disconnect();
+      }
+
+      // Create new source
+      const source = context.createBufferSource();
+      source.buffer = audioBuffer;
+      
+      // Create analyser for spectral view
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 2048;
+      analyserNodeRef.current = analyser;
+
+      // Connect nodes
+      source.connect(analyser);
+      analyser.connect(context.destination);
+
+      // Start playback
+      const startTime = currentTime;
+      source.start(0, startTime);
+      sourceNodeRef.current = source;
+
+      setIsPlaying(true);
+      setDuration(audioBuffer.duration);
+
+      // Update current time
+      const startTimestamp = Date.now() - (startTime * 1000);
+      const updateTime = () => {
+        if (!isPlaying) return;
+        const elapsed = (Date.now() - startTimestamp) / 1000;
+        if (elapsed >= audioBuffer.duration) {
+          handleStop();
+        } else {
+          setCurrentTime(elapsed);
+          animationFrameRef.current = requestAnimationFrame(updateTime);
+        }
+      };
+      updateTime();
+
+      // Handle playback end
+      source.onended = () => {
+        if (isPlaying) {
+          handleStop();
+        }
+      };
+
+      // Start spectral visualization if in spectral view
+      if (viewType === 'spectral') {
+        drawSpectralAnalysis();
+      }
+
+    } catch (error) {
+      console.error('Playback error:', error);
+      toast.error('Failed to play audio');
+    }
+  };
+
+  const handlePause = () => {
+    if (sourceNodeRef.current) {
+      sourceNodeRef.current.stop();
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    setIsPlaying(false);
+  };
+
+  const handleStop = () => {
+    handlePause();
+    setCurrentTime(0);
+  };
+
+  const drawSpectralAnalysis = () => {
+    if (!spectralCanvasRef.current || !analyserNodeRef.current) return;
+
+    const canvas = spectralCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const analyser = analyserNodeRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      if (!isPlaying) return;
+
+      animationFrameRef.current = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      const width = canvas.width;
+      const height = canvas.height;
+
+      // Clear with fade effect
+      ctx.fillStyle = 'rgba(26, 26, 26, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw frequency bars
+      const barWidth = width / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * height;
+        
+        // Color based on frequency intensity
+        const hue = (i / bufferLength) * 240; // Blue to red spectrum
+        const intensity = dataArray[i] / 255;
+        ctx.fillStyle = `hsla(${hue}, 100%, ${50 + intensity * 50}%, ${intensity})`;
+        
+        ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+        x += barWidth;
+      }
+    };
+
+    draw();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.stop();
+        sourceNodeRef.current.disconnect();
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Update spectral visualization when view changes
+  useEffect(() => {
+    if (viewType === 'spectral' && isPlaying && analyserNodeRef.current) {
+      drawSpectralAnalysis();
+    }
+  }, [viewType, isPlaying]);
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
@@ -191,6 +362,28 @@ export function WaveformVisualization({
             )}
           </div>
           <div className="flex gap-1">
+            {/* Playback Controls */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePlay}
+              className="h-7 w-7 p-0"
+              disabled={!audioBuffer}
+            >
+              {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleStop}
+              className="h-7 w-7 p-0"
+              disabled={!audioBuffer}
+            >
+              <Square className="h-3 w-3" />
+            </Button>
+            
+            <div className="w-px h-7 bg-border mx-1" />
+            
             <Button
               variant={viewMode === 'comparison' ? 'default' : 'ghost'}
               size="sm"
@@ -237,6 +430,14 @@ export function WaveformVisualization({
           </div>
         </div>
 
+        {/* Playback Time Display */}
+        {audioBuffer && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration || audioBuffer.duration)}</span>
+          </div>
+        )}
+
         {/* File Upload Input (Hidden) */}
         <input
           ref={fileInputRef}
@@ -276,22 +477,60 @@ export function WaveformVisualization({
           </div>
         )}
 
-        <div className="relative bg-[#1a1a1a] rounded-lg overflow-hidden border border-border">
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={mode === 'comparison' ? 300 : 200}
-            onWheel={handleWheel}
-            onMouseMove={handleMouseMove}
-            className="w-full cursor-move"
-          />
-          {zoom > 1 && (
-            <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
-              <Move className="h-3 w-3" />
-              <span>Drag to pan</span>
+        <Tabs value={viewType} onValueChange={(v) => setViewType(v as 'waveform' | 'spectral')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="waveform">Waveform</TabsTrigger>
+            <TabsTrigger value="spectral">
+              <Activity className="w-3 h-3 mr-1" />
+              Spectral Analysis
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="waveform" className="mt-4">
+            <div className="relative bg-[#1a1a1a] rounded-lg overflow-hidden border border-border">
+              <canvas
+                ref={canvasRef}
+                width={800}
+                height={mode === 'comparison' ? 300 : 200}
+                onWheel={handleWheel}
+                onMouseMove={handleMouseMove}
+                className="w-full cursor-move"
+              />
+              {zoom > 1 && (
+                <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+                  <Move className="h-3 w-3" />
+                  <span>Drag to pan</span>
+                </div>
+              )}
+              {/* Playhead indicator */}
+              {isPlaying && audioBuffer && (
+                <div 
+                  className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
+                  style={{ left: `${(currentTime / audioBuffer.duration) * 100}%` }}
+                />
+              )}
             </div>
-          )}
-        </div>
+          </TabsContent>
+          
+          <TabsContent value="spectral" className="mt-4">
+            <div className="relative bg-[#1a1a1a] rounded-lg overflow-hidden border border-border">
+              <canvas
+                ref={spectralCanvasRef}
+                width={800}
+                height={300}
+                className="w-full"
+              />
+              {!isPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Activity className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Press Play to view live frequency spectrum</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         {mode === 'comparison' && originalBPM && currentBPM && (
           <div className="flex items-center justify-between text-sm">
@@ -313,6 +552,8 @@ export function WaveformVisualization({
           {audioBuffer && !originalAudioBuffer && viewMode === 'single' && (
             <p className="text-primary">🔀 Click "Compare" then upload a second file to see before/after visualization</p>
           )}
+          <p>• Click Play/Pause to control playback</p>
+          <p>• Switch to Spectral Analysis to view live frequency spectrum</p>
           <p>• Scroll to zoom in/out</p>
           <p>• Drag to pan when zoomed</p>
           {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}
@@ -321,4 +562,10 @@ export function WaveformVisualization({
       </div>
     </Card>
   );
+}
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }

@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors, RepeatIcon, FileMusic, Sliders, Radio, Layers, Volume2, Gauge, Clock, Music, Circle, Split } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat, Music2, Scissors, RepeatIcon, FileMusic, Sliders, Radio, Layers, Volume2, Gauge, Clock, Music, Circle, Split, Merge, BarChart3, Save, BookOpen, Link2 } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -83,6 +83,25 @@ export function WaveformVisualization({
   const [isPlayingAutomation, setIsPlayingAutomation] = useState(false);
   const automationStartTimeRef = useRef<number>(0);
   const [isSeparatingStems, setIsSeparatingStems] = useState(false);
+  const [crossfadeDuration, setCrossfadeDuration] = useState(0.5); // seconds
+  const [showEQ, setShowEQ] = useState(false);
+  const [eqBands, setEqBands] = useState([
+    { freq: 100, gain: 0, q: 1 },
+    { freq: 500, gain: 0, q: 1 },
+    { freq: 2000, gain: 0, q: 1 },
+    { freq: 8000, gain: 0, q: 1 }
+  ]);
+  const eqNodesRef = useRef<BiquadFilterNode[]>([]);
+  const [effectPresets, setEffectPresets] = useState<Array<{ name: string; params: typeof processingParams; eq: typeof eqBands }>>([]);
+  const [showPresetManager, setShowPresetManager] = useState(false);
+  const [sidechainEnabled, setSidechainEnabled] = useState(false);
+  const [sidechainParams, setSidechainParams] = useState({
+    threshold: -20,
+    ratio: 4,
+    attack: 0.003,
+    release: 0.25
+  });
+  const sidechainAnalyserRef = useRef<AnalyserNode | null>(null);
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -306,19 +325,46 @@ export function WaveformVisualization({
       effectsNodesRef.current.highpass = highpassFilter;
 
       const compressor = context.createDynamicsCompressor();
-      compressor.threshold.value = -24;
+      compressor.threshold.value = sidechainEnabled ? sidechainParams.threshold : -24;
       compressor.knee.value = 30;
-      compressor.ratio.value = 1 + (processingParams.compression / 10);
-      compressor.attack.value = 0.003;
-      compressor.release.value = 0.25;
+      compressor.ratio.value = sidechainEnabled ? sidechainParams.ratio : (1 + (processingParams.compression / 10));
+      compressor.attack.value = sidechainEnabled ? sidechainParams.attack : 0.003;
+      compressor.release.value = sidechainEnabled ? sidechainParams.release : 0.25;
       effectsNodesRef.current.compressor = compressor;
 
-      // Connect nodes with full effects chain
+      // Create EQ chain
+      eqNodesRef.current = eqBands.map((band, index) => {
+        const filter = context.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = band.freq;
+        filter.gain.value = band.gain;
+        filter.Q.value = band.q;
+        return filter;
+      });
+
+      // Connect nodes with full effects chain including EQ
       source.connect(gainNode);
       gainNode.connect(highpassFilter);
       highpassFilter.connect(lowpassFilter);
-      lowpassFilter.connect(compressor);
+      
+      // Chain EQ filters
+      let currentNode: AudioNode = lowpassFilter;
+      eqNodesRef.current.forEach(eqNode => {
+        currentNode.connect(eqNode);
+        currentNode = eqNode;
+      });
+      
+      currentNode.connect(compressor);
       compressor.connect(analyser);
+      
+      // Add sidechain analyser
+      if (sidechainEnabled) {
+        const sidechainAnalyser = context.createAnalyser();
+        sidechainAnalyser.fftSize = 256;
+        sidechainAnalyserRef.current = sidechainAnalyser;
+        compressor.connect(sidechainAnalyser);
+      }
+      
       analyser.connect(context.destination);
 
       // Start playback
@@ -1153,6 +1199,106 @@ export function WaveformVisualization({
     }
   };
 
+  // Crossfade between tracks
+  const applyCrossfade = async (track1Id: string, track2Id: string) => {
+    const track1 = tracks.find(t => t.id === track1Id);
+    const track2 = tracks.find(t => t.id === track2Id);
+    
+    if (!track1 || !track2 || !audioContextRef.current) {
+      toast.error('Select two tracks for crossfade');
+      return;
+    }
+
+    try {
+      const context = audioContextRef.current;
+      const fadeSamples = Math.floor(crossfadeDuration * track1.buffer.sampleRate);
+      
+      // Create new buffer with crossfade
+      const length = Math.max(track1.buffer.length, track2.buffer.length);
+      const crossfaded = context.createBuffer(
+        track1.buffer.numberOfChannels,
+        length,
+        track1.buffer.sampleRate
+      );
+
+      for (let channel = 0; channel < crossfaded.numberOfChannels; channel++) {
+        const output = crossfaded.getChannelData(channel);
+        const input1 = track1.buffer.getChannelData(channel);
+        const input2 = track2.buffer.getChannelData(channel);
+
+        // Fade out track1, fade in track2
+        for (let i = 0; i < fadeSamples && i < input1.length && i < input2.length; i++) {
+          const fadeOut = 1 - (i / fadeSamples);
+          const fadeIn = i / fadeSamples;
+          output[i] = (input1[i] * fadeOut) + (input2[i] * fadeIn);
+        }
+
+        // Continue with track2
+        for (let i = fadeSamples; i < length; i++) {
+          output[i] = i < input2.length ? input2[i] : 0;
+        }
+      }
+
+      addTrack(crossfaded, `Crossfade ${crossfadeDuration}s`);
+      toast.success('Crossfade applied');
+    } catch (error) {
+      console.error('Crossfade error:', error);
+      toast.error('Failed to apply crossfade');
+    }
+  };
+
+  // EQ Band update
+  const updateEQBand = (index: number, updates: Partial<typeof eqBands[0]>) => {
+    setEqBands(prev => prev.map((band, i) => 
+      i === index ? { ...band, ...updates } : band
+    ));
+    
+    // Update EQ nodes in real-time
+    if (eqNodesRef.current[index]) {
+      const node = eqNodesRef.current[index];
+      if (updates.freq !== undefined) node.frequency.value = updates.freq;
+      if (updates.gain !== undefined) node.gain.value = updates.gain;
+      if (updates.q !== undefined) node.Q.value = updates.q;
+    }
+  };
+
+  // Preset management
+  const savePreset = (name: string) => {
+    const preset = {
+      name,
+      params: { ...processingParams },
+      eq: [...eqBands]
+    };
+    setEffectPresets(prev => [...prev, preset]);
+    toast.success(`Preset "${name}" saved`);
+  };
+
+  const loadPreset = (preset: typeof effectPresets[0]) => {
+    setProcessingParams(preset.params);
+    setEqBands(preset.eq);
+    toast.success(`Preset "${preset.name}" loaded`);
+  };
+
+  const deletePreset = (index: number) => {
+    const name = effectPresets[index].name;
+    setEffectPresets(prev => prev.filter((_, i) => i !== index));
+    toast.success(`Preset "${name}" deleted`);
+  };
+
+  const exportPresets = () => {
+    const json = JSON.stringify(effectPresets, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `effect-presets-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Presets exported');
+  };
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
@@ -1391,6 +1537,61 @@ export function WaveformVisualization({
               <Split className="h-3 w-3 mr-1" />
               <span className="text-xs">{isSeparatingStems ? 'Separating...' : 'Stems'}</span>
             </Button>
+
+            <div className="w-px h-7 bg-border mx-1" />
+
+            {/* Crossfade */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (tracks.length >= 2) {
+                  applyCrossfade(tracks[0].id, tracks[1].id);
+                } else {
+                  toast.error('Add at least 2 tracks first');
+                }
+              }}
+              className="h-7 px-2"
+              disabled={tracks.length < 2}
+            >
+              <Merge className="h-3 w-3 mr-1" />
+              <span className="text-xs">Fade</span>
+            </Button>
+
+            {/* Visual EQ */}
+            <Button
+              variant={showEQ ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setShowEQ(!showEQ)}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <BarChart3 className="h-3 w-3 mr-1" />
+              <span className="text-xs">EQ</span>
+            </Button>
+
+            {/* Preset Manager */}
+            <Button
+              variant={showPresetManager ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setShowPresetManager(!showPresetManager)}
+              className="h-7 px-2"
+            >
+              <BookOpen className="h-3 w-3 mr-1" />
+              <span className="text-xs">Presets</span>
+            </Button>
+
+            {/* Sidechain */}
+            <Button
+              variant={sidechainEnabled ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setSidechainEnabled(!sidechainEnabled)}
+              className="h-7 px-2"
+              disabled={!audioBuffer}
+            >
+              <Link2 className="h-3 w-3 mr-1" />
+              <span className="text-xs">SC</span>
+            </Button>
             
             <div className="w-px h-7 bg-border mx-1" />
             
@@ -1439,6 +1640,199 @@ export function WaveformVisualization({
             </Button>
           </div>
         </div>
+
+        {/* Visual Parametric EQ */}
+        {showEQ && audioBuffer && (
+          <Card className="p-4 bg-muted/50">
+            <h5 className="text-sm font-semibold mb-3">4-Band Parametric EQ</h5>
+            <div className="space-y-4">
+              {eqBands.map((band, index) => (
+                <div key={index} className="space-y-2 p-3 bg-background rounded-lg">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span>Band {index + 1}</span>
+                    <span className="font-mono">{band.freq}Hz {band.gain > 0 ? '+' : ''}{band.gain}dB</span>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Frequency</label>
+                    <Slider
+                      value={[band.freq]}
+                      onValueChange={(v) => updateEQBand(index, { freq: v[0] })}
+                      min={20}
+                      max={20000}
+                      step={10}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Gain</label>
+                    <Slider
+                      value={[band.gain + 24]}
+                      onValueChange={(v) => updateEQBand(index, { gain: v[0] - 24 })}
+                      min={0}
+                      max={48}
+                      step={0.5}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground">Q (Width)</label>
+                    <Slider
+                      value={[band.q * 10]}
+                      onValueChange={(v) => updateEQBand(index, { q: v[0] / 10 })}
+                      min={1}
+                      max={100}
+                      step={1}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Preset Manager */}
+        {showPresetManager && (
+          <Card className="p-4 bg-muted/50">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="text-sm font-semibold">Effect Presets</h5>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const name = prompt('Enter preset name:');
+                    if (name) savePreset(name);
+                  }}
+                  className="h-6 px-2 text-xs"
+                >
+                  <Save className="h-3 w-3 mr-1" />
+                  Save
+                </Button>
+                {effectPresets.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportPresets}
+                    className="h-6 px-2 text-xs"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Export
+                  </Button>
+                )}
+              </div>
+            </div>
+            {effectPresets.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                No presets saved. Adjust effects and click Save to create a preset.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {effectPresets.map((preset, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-background rounded">
+                    <span className="text-sm font-medium">{preset.name}</span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => loadPreset(preset)}
+                        className="h-6 px-2 text-xs"
+                      >
+                        Load
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deletePreset(index)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Sidechain Compression */}
+        {sidechainEnabled && audioBuffer && (
+          <Card className="p-4 bg-muted/50">
+            <h5 className="text-sm font-semibold mb-3">Sidechain Compression</h5>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Threshold</span>
+                  <span className="font-mono">{sidechainParams.threshold} dB</span>
+                </label>
+                <Slider
+                  value={[sidechainParams.threshold + 60]}
+                  onValueChange={(v) => setSidechainParams(prev => ({ ...prev, threshold: v[0] - 60 }))}
+                  max={60}
+                  step={1}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Ratio</span>
+                  <span className="font-mono">{sidechainParams.ratio}:1</span>
+                </label>
+                <Slider
+                  value={[sidechainParams.ratio]}
+                  onValueChange={(v) => setSidechainParams(prev => ({ ...prev, ratio: v[0] }))}
+                  min={1}
+                  max={20}
+                  step={0.5}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Attack</span>
+                  <span className="font-mono">{(sidechainParams.attack * 1000).toFixed(1)} ms</span>
+                </label>
+                <Slider
+                  value={[sidechainParams.attack * 1000]}
+                  onValueChange={(v) => setSidechainParams(prev => ({ ...prev, attack: v[0] / 1000 }))}
+                  min={0.1}
+                  max={100}
+                  step={0.1}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs flex items-center justify-between">
+                  <span>Release</span>
+                  <span className="font-mono">{(sidechainParams.release * 1000).toFixed(0)} ms</span>
+                </label>
+                <Slider
+                  value={[sidechainParams.release * 1000]}
+                  onValueChange={(v) => setSidechainParams(prev => ({ ...prev, release: v[0] / 1000 }))}
+                  min={10}
+                  max={1000}
+                  step={10}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground">
+                🎚️ Ducking effect: Audio automatically reduces when above threshold
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Crossfade Settings */}
+        {tracks.length >= 2 && (
+          <Card className="p-3 bg-muted/50">
+            <div className="flex items-center justify-between">
+              <h5 className="text-sm font-semibold">Crossfade Duration</h5>
+              <span className="text-xs font-mono">{crossfadeDuration.toFixed(2)}s</span>
+            </div>
+            <Slider
+              value={[crossfadeDuration * 100]}
+              onValueChange={(v) => setCrossfadeDuration(v[0] / 100)}
+              min={10}
+              max={500}
+              step={10}
+              className="mt-2"
+            />
+          </Card>
+        )}
 
         {/* Time-Stretch & Pitch-Shift Controls */}
         {audioBuffer && (
@@ -1857,8 +2251,11 @@ export function WaveformVisualization({
           <p>• Click "T/P" to adjust time-stretch (speed) and pitch-shift independently</p>
           <p>• Use "Auto" to record parameter automation - adjust knobs while playing to capture movements</p>
           <p>• Click "WAV" to export your audio with all effects applied as high-quality WAV file</p>
-          <p>• Use "Stems" to separate audio into bass, vocal, and high-frequency layers (frequency-based)</p>
-          <p>• Enable "Pitch" to see real-time note detection and export to MIDI format</p>
+          <p>• Use "Stems" to separate audio into bass, vocal, and high-frequency layers</p>
+          <p>• Click "Fade" to create smooth crossfade transitions between tracks</p>
+          <p>• Enable "EQ" for 4-band parametric equalizer with frequency, gain, and Q controls</p>
+          <p>• Use "Presets" to save and load your favorite effect chains and settings</p>
+          <p>• Enable "SC" for sidechain compression with adjustable ducking parameters</p>
           <p>• Export spectral analysis as PNG image while playing</p>
           <p>• Scroll to zoom in/out • Drag to pan when zoomed</p>
           {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}

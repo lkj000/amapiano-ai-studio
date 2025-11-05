@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Move, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
+import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
+import { toast } from 'sonner';
 
 interface WaveformVisualizationProps {
   audioBuffer?: AudioBuffer;
@@ -14,14 +16,27 @@ interface WaveformVisualizationProps {
 }
 
 export function WaveformVisualization({
-  audioBuffer,
-  originalAudioBuffer,
-  originalBPM,
-  currentBPM,
-  mode = 'single',
+  audioBuffer: externalAudioBuffer,
+  originalAudioBuffer: externalOriginalAudioBuffer,
+  originalBPM: externalOriginalBPM,
+  currentBPM: externalCurrentBPM,
+  mode: externalMode = 'single',
   className
 }: WaveformVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Local state for uploaded files
+  const [uploadedAudioBuffer, setUploadedAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [comparisonAudioBuffer, setComparisonAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [comparisonFileName, setComparisonFileName] = useState<string | null>(null);
+  const [detectedBPM, setDetectedBPM] = useState<number | null>(null);
+  const [comparisonBPM, setComparisonBPM] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'single' | 'comparison'>(externalMode);
+  
+  const { detectTempo } = useAutoTimeStretch();
+  
   const {
     waveformData,
     isProcessing,
@@ -35,6 +50,13 @@ export function WaveformVisualization({
     resetView,
     setCanvasRef
   } = useWaveformVisualization();
+
+  // Use external or uploaded audio
+  const audioBuffer = externalAudioBuffer || uploadedAudioBuffer;
+  const originalAudioBuffer = externalOriginalAudioBuffer || comparisonAudioBuffer;
+  const currentBPM = externalCurrentBPM || detectedBPM;
+  const originalBPM = externalOriginalBPM || comparisonBPM;
+  const mode = externalMode || viewMode;
 
   useEffect(() => {
     if (canvasRef.current) {
@@ -92,17 +114,102 @@ export function WaveformVisualization({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isComparison: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Please upload an audio file');
+      return;
+    }
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioContext = new AudioContext();
+      const buffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Detect BPM
+      const bpm = detectTempo(buffer);
+      
+      if (isComparison) {
+        setComparisonAudioBuffer(buffer);
+        setComparisonFileName(file.name);
+        setComparisonBPM(bpm);
+        setViewMode('comparison');
+        toast.success(`Comparison file loaded: ${file.name}`, {
+          description: `Detected ${bpm} BPM`
+        });
+      } else {
+        setUploadedAudioBuffer(buffer);
+        setUploadedFileName(file.name);
+        setDetectedBPM(bpm);
+        toast.success(`File loaded: ${file.name}`, {
+          description: `Detected ${bpm} BPM`
+        });
+      }
+    } catch (error) {
+      console.error('Failed to process audio file:', error);
+      toast.error('Failed to process audio file');
+    }
+
+    // Reset input
+    e.target.value = '';
+  };
+
+  const clearUploadedFile = (isComparison: boolean = false) => {
+    if (isComparison) {
+      setComparisonAudioBuffer(null);
+      setComparisonFileName(null);
+      setComparisonBPM(null);
+      if (!uploadedAudioBuffer) {
+        setViewMode('single');
+      }
+    } else {
+      setUploadedAudioBuffer(null);
+      setUploadedFileName(null);
+      setDetectedBPM(null);
+    }
+  };
+
+  const toggleComparisonMode = () => {
+    if (viewMode === 'single' && uploadedAudioBuffer) {
+      setViewMode('comparison');
+      toast.info('Upload a second file to compare');
+    } else {
+      setViewMode('single');
+    }
+  };
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h4 className="font-semibold">Waveform Viewer</h4>
+            <h4 className="font-semibold">Waveform Analyzer</h4>
             {isProcessing && (
               <span className="text-xs text-muted-foreground animate-pulse">Processing...</span>
             )}
           </div>
           <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'comparison' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={toggleComparisonMode}
+              className="h-7 px-2"
+              disabled={!uploadedAudioBuffer}
+            >
+              <GitCompare className="h-3 w-3 mr-1" />
+              <span className="text-xs">Compare</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-7 px-2"
+            >
+              <Upload className="h-3 w-3 mr-1" />
+              <span className="text-xs">Upload</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -129,6 +236,45 @@ export function WaveformVisualization({
             </Button>
           </div>
         </div>
+
+        {/* File Upload Input (Hidden) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={(e) => handleFileUpload(e, viewMode === 'comparison' && !!uploadedAudioBuffer)}
+          className="hidden"
+        />
+
+        {/* Uploaded Files Info */}
+        {(uploadedFileName || comparisonFileName) && (
+          <div className="flex flex-wrap gap-2">
+            {uploadedFileName && (
+              <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm">
+                <span className="font-medium">{uploadedFileName}</span>
+                {detectedBPM && <span className="text-xs opacity-75">{detectedBPM} BPM</span>}
+                <button
+                  onClick={() => clearUploadedFile(false)}
+                  className="hover:bg-primary/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            {comparisonFileName && viewMode === 'comparison' && (
+              <div className="flex items-center gap-2 bg-green-500/10 text-green-500 px-3 py-1 rounded-full text-sm">
+                <span className="font-medium">{comparisonFileName}</span>
+                {comparisonBPM && <span className="text-xs opacity-75">{comparisonBPM} BPM</span>}
+                <button
+                  onClick={() => clearUploadedFile(true)}
+                  className="hover:bg-green-500/20 rounded-full p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="relative bg-[#1a1a1a] rounded-lg overflow-hidden border border-border">
           <canvas
@@ -161,9 +307,16 @@ export function WaveformVisualization({
         )}
 
         <div className="text-xs text-muted-foreground space-y-1">
+          {!audioBuffer && (
+            <p className="text-primary">📁 Click "Upload" to analyze your audio files with automatic BPM detection</p>
+          )}
+          {audioBuffer && !originalAudioBuffer && viewMode === 'single' && (
+            <p className="text-primary">🔀 Click "Compare" then upload a second file to see before/after visualization</p>
+          )}
           <p>• Scroll to zoom in/out</p>
           <p>• Drag to pan when zoomed</p>
-          {currentBPM && <p>• Orange markers show bar positions</p>}
+          {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}
+          {mode === 'comparison' && <p>• Red (top) = original, Green (bottom) = processed</p>}
         </div>
       </div>
     </Card>

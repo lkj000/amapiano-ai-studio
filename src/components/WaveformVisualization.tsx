@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity } from 'lucide-react';
+import { ZoomIn, ZoomOut, Move, RotateCcw, Upload, X, GitCompare, Play, Pause, Square, Activity, Mic, Download, Repeat } from 'lucide-react';
 import { useWaveformVisualization } from '@/hooks/useWaveformVisualization';
 import { useAutoTimeStretch } from '@/hooks/useAutoTimeStretch';
 import { toast } from 'sonner';
@@ -31,6 +31,8 @@ export function WaveformVisualization({
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   
   // Local state for uploaded files
   const [uploadedAudioBuffer, setUploadedAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -44,6 +46,8 @@ export function WaveformVisualization({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [viewType, setViewType] = useState<'waveform' | 'spectral'>('waveform');
+  const [isRecording, setIsRecording] = useState(false);
+  const [abMode, setAbMode] = useState<'A' | 'B'>('A');
   
   const { detectTempo } = useAutoTimeStretch();
   
@@ -61,10 +65,27 @@ export function WaveformVisualization({
     setCanvasRef
   } = useWaveformVisualization();
 
-  // Use external or uploaded audio
-  const audioBuffer = externalAudioBuffer || uploadedAudioBuffer;
+  // Helper functions for A/B mode
+  const getCurrentBuffer = () => {
+    if (abMode === 'A') {
+      return externalAudioBuffer || uploadedAudioBuffer;
+    } else {
+      return externalOriginalAudioBuffer || comparisonAudioBuffer;
+    }
+  };
+
+  const getCurrentBPM = () => {
+    if (abMode === 'A') {
+      return externalCurrentBPM || detectedBPM;
+    } else {
+      return externalOriginalBPM || comparisonBPM;
+    }
+  };
+
+  // Use external or uploaded audio (with A/B mode support)
+  const audioBuffer = getCurrentBuffer();
   const originalAudioBuffer = externalOriginalAudioBuffer || comparisonAudioBuffer;
-  const currentBPM = externalCurrentBPM || detectedBPM;
+  const currentBPM = getCurrentBPM();
   const originalBPM = externalOriginalBPM || comparisonBPM;
   const mode = externalMode || viewMode;
 
@@ -351,6 +372,116 @@ export function WaveformVisualization({
     }
   }, [viewType, isPlaying]);
 
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        try {
+          const audioContext = new AudioContext();
+          const buffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          // Detect BPM
+          const bpm = detectTempo(buffer);
+          
+          setUploadedAudioBuffer(buffer);
+          setUploadedFileName(`Recording ${new Date().toLocaleTimeString()}`);
+          setDetectedBPM(bpm);
+          
+          toast.success('Recording saved', {
+            description: `Detected ${bpm} BPM`
+          });
+        } catch (error) {
+          console.error('Failed to process recording:', error);
+          toast.error('Failed to process recording');
+        }
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      toast.info('Recording started', {
+        description: 'Click Stop Recording when done'
+      });
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      toast.error('Failed to access microphone');
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleExportSpectral = () => {
+    if (!spectralCanvasRef.current) {
+      toast.error('No spectral data to export');
+      return;
+    }
+
+    try {
+      spectralCanvasRef.current.toBlob((blob) => {
+        if (!blob) {
+          toast.error('Failed to create image');
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `spectral-analysis-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success('Spectral analysis exported', {
+          description: 'Saved as PNG image'
+        });
+      }, 'image/png');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export image');
+    }
+  };
+
+  const handleAbToggle = () => {
+    if (!uploadedAudioBuffer || !comparisonAudioBuffer) {
+      toast.error('Load two files first for A/B comparison');
+      return;
+    }
+
+    // Stop current playback
+    if (isPlaying) {
+      handlePause();
+    }
+
+    // Switch between A and B
+    const newMode = abMode === 'A' ? 'B' : 'A';
+    setAbMode(newMode);
+
+    toast.info(`Now playing: ${newMode}`, {
+      description: newMode === 'A' ? uploadedFileName || 'File A' : comparisonFileName || 'File B'
+    });
+  };
+
   return (
     <Card className={className}>
       <div className="p-4 space-y-4">
@@ -362,6 +493,19 @@ export function WaveformVisualization({
             )}
           </div>
           <div className="flex gap-1">
+            {/* Recording Controls */}
+            <Button
+              variant={isRecording ? 'destructive' : 'ghost'}
+              size="sm"
+              onClick={isRecording ? handleStopRecording : handleStartRecording}
+              className="h-7 px-2"
+            >
+              <Mic className="h-3 w-3 mr-1" />
+              <span className="text-xs">{isRecording ? 'Stop' : 'Record'}</span>
+            </Button>
+
+            <div className="w-px h-7 bg-border mx-1" />
+            
             {/* Playback Controls */}
             <Button
               variant="ghost"
@@ -383,6 +527,22 @@ export function WaveformVisualization({
             </Button>
             
             <div className="w-px h-7 bg-border mx-1" />
+
+            {/* A/B Comparison */}
+            {uploadedAudioBuffer && comparisonAudioBuffer && (
+              <>
+                <Button
+                  variant={abMode === 'A' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={handleAbToggle}
+                  className="h-7 px-2"
+                >
+                  <Repeat className="h-3 w-3 mr-1" />
+                  <span className="text-xs">A/B: {abMode}</span>
+                </Button>
+                <div className="w-px h-7 bg-border mx-1" />
+              </>
+            )}
             
             <Button
               variant={viewMode === 'comparison' ? 'default' : 'ghost'}
@@ -528,6 +688,17 @@ export function WaveformVisualization({
                   </div>
                 </div>
               )}
+              {isPlaying && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleExportSpectral}
+                  className="absolute top-2 right-2"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  Export Image
+                </Button>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -547,15 +718,19 @@ export function WaveformVisualization({
 
         <div className="text-xs text-muted-foreground space-y-1">
           {!audioBuffer && (
-            <p className="text-primary">📁 Click "Upload" to analyze your audio files with automatic BPM detection</p>
+            <p className="text-primary">📁 Upload audio files or click "Record" to capture audio with automatic BPM detection</p>
           )}
           {audioBuffer && !originalAudioBuffer && viewMode === 'single' && (
-            <p className="text-primary">🔀 Click "Compare" then upload a second file to see before/after visualization</p>
+            <p className="text-primary">🔀 Click "Compare" then upload a second file for before/after visualization</p>
           )}
+          {uploadedAudioBuffer && comparisonAudioBuffer && (
+            <p className="text-primary">🔄 Use A/B button to quickly switch between files for comparison</p>
+          )}
+          <p>• Click Record to capture audio from your microphone</p>
           <p>• Click Play/Pause to control playback</p>
           <p>• Switch to Spectral Analysis to view live frequency spectrum</p>
-          <p>• Scroll to zoom in/out</p>
-          <p>• Drag to pan when zoomed</p>
+          <p>• Export spectral analysis as PNG image while playing</p>
+          <p>• Scroll to zoom in/out • Drag to pan when zoomed</p>
           {currentBPM && <p>• Orange markers show bar positions at {currentBPM} BPM</p>}
           {mode === 'comparison' && <p>• Red (top) = original, Green (bottom) = processed</p>}
         </div>

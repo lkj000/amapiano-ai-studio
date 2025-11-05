@@ -1228,6 +1228,105 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_benchmarks: {
+        Row: {
+          benchmark_name: string
+          created_at: string | null
+          description: string | null
+          id: string
+          industry_average: number
+          last_updated: string | null
+          metric_type: string
+          percentile_50: number
+          percentile_75: number
+          percentile_90: number
+          percentile_95: number
+          percentile_99: number
+          source: string | null
+          unit: string
+        }
+        Insert: {
+          benchmark_name: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          industry_average: number
+          last_updated?: string | null
+          metric_type: string
+          percentile_50: number
+          percentile_75: number
+          percentile_90: number
+          percentile_95: number
+          percentile_99: number
+          source?: string | null
+          unit: string
+        }
+        Update: {
+          benchmark_name?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          industry_average?: number
+          last_updated?: string | null
+          metric_type?: string
+          percentile_50?: number
+          percentile_75?: number
+          percentile_90?: number
+          percentile_95?: number
+          percentile_99?: number
+          source?: string | null
+          unit?: string
+        }
+        Relationships: []
+      }
+      performance_comments: {
+        Row: {
+          anomaly_id: string | null
+          comment_text: string
+          created_at: string | null
+          id: string
+          mentions: Json | null
+          metric_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          anomaly_id?: string | null
+          comment_text: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          metric_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          anomaly_id?: string | null
+          comment_text?: string
+          created_at?: string | null
+          id?: string
+          mentions?: Json | null
+          metric_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_comments_anomaly_id_fkey"
+            columns: ["anomaly_id"]
+            isOneToOne: false
+            referencedRelation: "performance_anomalies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_comments_metric_id_fkey"
+            columns: ["metric_id"]
+            isOneToOne: false
+            referencedRelation: "performance_metrics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       performance_metrics: {
         Row: {
           created_at: string | null

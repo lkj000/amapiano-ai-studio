@@ -26,7 +26,9 @@ import {
   Cpu,
   Database,
   BarChart3,
-  Settings
+  Settings,
+  Award,
+  Users
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useState, useEffect } from 'react';
@@ -42,6 +44,8 @@ import { NotificationSettingsPanel } from './NotificationSettingsPanel';
 import { PerformanceBaselinesPanel } from './PerformanceBaselinesPanel';
 import { AutoRemediationPanel } from './AutoRemediationPanel';
 import { PerformanceOnboardingWizard } from './PerformanceOnboardingWizard';
+import { PerformanceBenchmarkPanel } from './PerformanceBenchmarkPanel';
+import { TeamCollaborationPanel } from './TeamCollaborationPanel';
 import { usePerformanceDemoData } from '@/hooks/usePerformanceDemoData';
 
 interface PerformanceAlert {
@@ -334,6 +338,14 @@ export function PerformanceMonitoringDashboard() {
         <TabsList>
           <TabsTrigger value="testing">Testing</TabsTrigger>
           <TabsTrigger value="baselines">Baselines</TabsTrigger>
+          <TabsTrigger value="benchmarking">
+            <Award className="h-4 w-4 mr-2" />
+            Benchmarking
+          </TabsTrigger>
+          <TabsTrigger value="collaboration">
+            <Users className="h-4 w-4 mr-2" />
+            Team
+          </TabsTrigger>
           <TabsTrigger value="remediation">Auto-Remediation</TabsTrigger>
           <TabsTrigger value="notifications">
             <Settings className="h-4 w-4 mr-2" />
@@ -352,6 +364,14 @@ export function PerformanceMonitoringDashboard() {
         
         <TabsContent value="baselines">
           <PerformanceBaselinesPanel />
+        </TabsContent>
+        
+        <TabsContent value="benchmarking">
+          <PerformanceBenchmarkPanel />
+        </TabsContent>
+        
+        <TabsContent value="collaboration">
+          <TeamCollaborationPanel />
         </TabsContent>
         
         <TabsContent value="remediation">

@@ -869,6 +869,57 @@ export type Database = {
         }
         Relationships: []
       }
+      distributed_inference_jobs: {
+        Row: {
+          cloud_node_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          edge_node_id: string | null
+          error_message: string | null
+          id: string
+          input_data: Json | null
+          job_type: string
+          metrics: Json | null
+          output_data: Json | null
+          priority: number | null
+          started_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          cloud_node_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          edge_node_id?: string | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          job_type: string
+          metrics?: Json | null
+          output_data?: Json | null
+          priority?: number | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          cloud_node_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          edge_node_id?: string | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          job_type?: string
+          metrics?: Json | null
+          output_data?: Json | null
+          priority?: number | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       duet_collaborations: {
         Row: {
           collaboration_type: string | null
@@ -1764,6 +1815,48 @@ export type Database = {
           },
         ]
       }
+      quantized_models: {
+        Row: {
+          bit_precision: number
+          created_at: string | null
+          id: string
+          inference_speedup: number | null
+          model_data: Json | null
+          model_name: string
+          original_size_mb: number
+          quality_score: number | null
+          quantization_method: string
+          quantized_size_mb: number
+          updated_at: string | null
+        }
+        Insert: {
+          bit_precision: number
+          created_at?: string | null
+          id?: string
+          inference_speedup?: number | null
+          model_data?: Json | null
+          model_name: string
+          original_size_mb: number
+          quality_score?: number | null
+          quantization_method: string
+          quantized_size_mb: number
+          updated_at?: string | null
+        }
+        Update: {
+          bit_precision?: number
+          created_at?: string | null
+          id?: string
+          inference_speedup?: number | null
+          model_data?: Json | null
+          model_name?: string
+          original_size_mb?: number
+          quality_score?: number | null
+          quantization_method?: string
+          quantized_size_mb?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       remix_royalties: {
         Row: {
           created_at: string
@@ -2095,6 +2188,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sparse_inference_cache: {
+        Row: {
+          activation_data: string | null
+          cache_key: string
+          created_at: string | null
+          expires_at: string | null
+          hit_count: number | null
+          id: string
+          last_accessed: string | null
+          session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          activation_data?: string | null
+          cache_key: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_accessed?: string | null
+          session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          activation_data?: string | null
+          cache_key?: string
+          created_at?: string | null
+          expires_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_accessed?: string | null
+          session_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       style_profiles: {
         Row: {
@@ -2735,6 +2864,7 @@ export type Database = {
         }
         Returns: string
       }
+      clean_expired_cache: { Args: never; Returns: undefined }
       generate_room_code: { Args: never; Returns: string }
       get_personalized_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
@@ -2773,6 +2903,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_cache_hit: {
+        Args: { p_cache_key: string; p_session_id: string }
+        Returns: undefined
       }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }

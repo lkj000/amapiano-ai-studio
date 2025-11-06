@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Zap, Gauge, Package, TrendingDown, Download } from "lucide-react";
 import { toast } from "sonner";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { useModelQuantizer } from "@/hooks/useModelQuantizer";
+import type { QuantizationMethod } from "@/lib/research/ModelQuantizer";
 
 interface CompressionResult {
   method: string;
@@ -21,11 +23,11 @@ interface CompressionResult {
 }
 
 const ModelCompressionLab = () => {
-  const [selectedMethod, setSelectedMethod] = useState<'pruning' | 'quantization' | 'distillation'>('quantization');
+  const { quantize, isQuantizing, metrics } = useModelQuantizer();
+  const [selectedMethod, setSelectedMethod] = useState<QuantizationMethod>('ptq');
   const [pruningRatio, setPruningRatio] = useState(50);
   const [quantizationBits, setQuantizationBits] = useState(8);
   const [distillationTemp, setDistillationTemp] = useState(2.0);
-  const [isCompressing, setIsCompressing] = useState(false);
 
   const [results] = useState<CompressionResult[]>([
     {
@@ -76,13 +78,25 @@ const ModelCompressionLab = () => {
   ]);
 
   const handleCompress = async () => {
-    setIsCompressing(true);
     toast.info(`Running ${selectedMethod} compression...`);
     
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    setIsCompressing(false);
-    toast.success("Compression complete!");
+    try {
+      // Generate sample model weights for testing
+      const sampleWeights = new Float32Array(100000).map(() => (Math.random() - 0.5) * 2);
+      const shape = [100, 1000];
+      const modelName = `test-${selectedMethod}-model-${Date.now()}`;
+      
+      await quantize(
+        sampleWeights,
+        shape,
+        modelName,
+        selectedMethod,
+        quantizationBits
+      );
+      
+    } catch (error) {
+      console.error('Compression failed:', error);
+    }
   };
 
   const handleExport = () => {
@@ -241,9 +255,12 @@ const ModelCompressionLab = () => {
                   </p>
                 </div>
 
+              <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Quantization Method</Label>
-                  <Select defaultValue="svdquant">
+                  <Label className="text-sm font-medium">
+                    Quantization Method
+                  </Label>
+                  <Select value={selectedMethod} onValueChange={(v) => setSelectedMethod(v as QuantizationMethod)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -257,10 +274,10 @@ const ModelCompressionLab = () => {
 
                 <Button 
                   onClick={handleCompress}
-                  disabled={isCompressing}
+                  disabled={isQuantizing}
                   className="w-full"
                 >
-                  {isCompressing ? "Quantizing..." : "Apply Quantization"}
+                  {isQuantizing ? "Quantizing..." : "Apply Quantization"}
                 </Button>
               </div>
             </Card>
@@ -273,11 +290,17 @@ const ModelCompressionLab = () => {
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm text-muted-foreground">Model Size</span>
                     <Badge variant="secondary">
-                      {(420 * (quantizationBits / 32)).toFixed(0)} MB
+                      {metrics.quantizedSizeMB > 0 
+                        ? `${metrics.quantizedSizeMB.toFixed(0)} MB`
+                        : `${(420 * (quantizationBits / 32)).toFixed(0)} MB`
+                      }
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {(420 - (420 * quantizationBits / 32)).toFixed(0)} MB saved
+                    {metrics.originalSizeMB > 0
+                      ? `${(metrics.originalSizeMB - metrics.quantizedSizeMB).toFixed(0)} MB saved`
+                      : `${(420 - (420 * quantizationBits / 32)).toFixed(0)} MB saved (estimated)`
+                    }
                   </div>
                 </div>
 

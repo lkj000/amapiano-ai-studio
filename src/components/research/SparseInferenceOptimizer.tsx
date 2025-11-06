@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Activity, Database, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 
 interface SparseConfig {
   enableCaching: boolean;
@@ -23,31 +24,65 @@ const SparseInferenceOptimizer = () => {
     pruningRatio: 0.5
   });
 
+  const { 
+    isInitialized, 
+    processWithCache, 
+    stats: cacheStats, 
+    getStats,
+    clearCache
+  } = useSparseInferenceCache(config.cacheSize, config.sparsityThreshold);
+
   const [metrics, setMetrics] = useState({
-    cacheHitRate: 78,
-    latencyReduction: 45,
-    memoryUsage: 340,
-    activationsSaved: 62
+    cacheHitRate: 0,
+    latencyReduction: 0,
+    memoryUsage: 0,
+    activationsSaved: 0
   });
 
   const [isOptimizing, setIsOptimizing] = useState(false);
 
+  useEffect(() => {
+    if (isInitialized) {
+      setMetrics({
+        cacheHitRate: cacheStats.hitRate * 100,
+        latencyReduction: (cacheStats.hitRate * 60),
+        memoryUsage: cacheStats.totalSizeMB,
+        activationsSaved: cacheStats.utilizationPercent
+      });
+    }
+  }, [cacheStats, isInitialized]);
+
   const handleOptimize = async () => {
+    if (!isInitialized) {
+      toast.error("Cache not initialized yet");
+      return;
+    }
+
     setIsOptimizing(true);
     toast.info("Running sparse inference optimization...");
     
-    // Simulate optimization
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setMetrics({
-      cacheHitRate: Math.min(95, metrics.cacheHitRate + Math.random() * 10),
-      latencyReduction: Math.min(60, metrics.latencyReduction + Math.random() * 8),
-      memoryUsage: Math.max(200, metrics.memoryUsage - Math.random() * 50),
-      activationsSaved: Math.min(85, metrics.activationsSaved + Math.random() * 12)
-    });
-    
-    setIsOptimizing(false);
-    toast.success("Optimization complete!");
+    try {
+      // Simulate some inference workload with caching
+      const testData = new Float32Array(1024).map(() => Math.random());
+      
+      await processWithCache(
+        "test-layer",
+        testData,
+        async (input) => {
+          // Simulate processing delay
+          await new Promise(resolve => setTimeout(resolve, 100));
+          return new Float32Array(input.map(v => v * 2));
+        }
+      );
+      
+      getStats();
+      toast.success("Optimization complete!");
+    } catch (error) {
+      toast.error("Optimization failed");
+      console.error(error);
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   const handleReset = () => {
@@ -57,6 +92,7 @@ const SparseInferenceOptimizer = () => {
       sparsityThreshold: 0.3,
       pruningRatio: 0.5
     });
+    clearCache();
     toast.info("Configuration reset to defaults");
   };
 

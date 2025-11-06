@@ -180,10 +180,10 @@ const ModelCompressionLab = () => {
 
                 <Button 
                   onClick={handleCompress}
-                  disabled={isCompressing}
+                  disabled={isQuantizing}
                   className="w-full"
                 >
-                  {isCompressing ? "Pruning..." : "Apply Pruning"}
+                  {isQuantizing ? "Pruning..." : "Apply Pruning"}
                 </Button>
               </div>
             </Card>
@@ -255,7 +255,6 @@ const ModelCompressionLab = () => {
                   </p>
                 </div>
 
-              <div className="space-y-6">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
                     Quantization Method
@@ -371,10 +370,10 @@ const ModelCompressionLab = () => {
 
                 <Button 
                   onClick={handleCompress}
-                  disabled={isCompressing}
+                  disabled={isQuantizing}
                   className="w-full"
                 >
-                  {isCompressing ? "Distilling..." : "Apply Distillation"}
+                  {isQuantizing ? "Distilling..." : "Apply Distillation"}
                 </Button>
               </div>
             </Card>

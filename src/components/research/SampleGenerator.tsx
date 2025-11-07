@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain, CheckCircle2, XCircle, AlertCircle, Edit } from "lucide-react";
+import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain, CheckCircle2, XCircle, AlertCircle, Edit, Save, Clock, Zap, Award } from "lucide-react";
 import { useWaveformVisualization } from "@/hooks/useWaveformVisualization";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import SampleLibraryPanel from "@/components/SampleLibraryPanel";
 import { AudioEditor } from "./AudioEditor";
@@ -32,7 +33,11 @@ export const SampleGenerator = () => {
   const [healthMessage, setHealthMessage] = useState<string>('');
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [showAudioEditor, setShowAudioEditor] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [editedAudioUrl, setEditedAudioUrl] = useState<string | null>(null);
+  const [sampleName, setSampleName] = useState("");
+  const [sampleDescription, setSampleDescription] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
@@ -260,15 +265,76 @@ export const SampleGenerator = () => {
     }
   };
 
-  const handleAudioExport = (blob: Blob) => {
+  const handleAudioExport = (blob: Blob, format: string) => {
     const url = URL.createObjectURL(blob);
     setEditedAudioUrl(url);
     setGeneratedAudio(url);
     setShowAudioEditor(false);
     toast({
       title: "Audio Edited",
-      description: "Effects applied successfully. Audio updated.",
+      description: `Effects applied successfully. Exported as ${format.toUpperCase()}.`,
     });
+  };
+
+  const saveToLibrary = async () => {
+    if (!generatedAudio) return;
+    
+    setIsSaving(true);
+    try {
+      const audioUrl = generatedAudio;
+      const response = await fetch(audioUrl);
+      const blob = await response.blob();
+      
+      const fileName = `sample-${Date.now()}.${blob.type.includes('wav') ? 'wav' : 'mp3'}`;
+      const filePath = `samples/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('samples')
+        .upload(filePath, blob);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('samples')
+        .getPublicUrl(filePath);
+      
+      const audioContext = new AudioContext();
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const duration = audioBuffer.duration;
+      
+      const { error: dbError } = await supabase
+        .from('samples')
+        .insert({
+          name: sampleName || 'Generated Sample',
+          description: sampleDescription || audioPrompt,
+          file_url: publicUrl,
+          category: 'generated',
+          duration: duration,
+          file_size: blob.size,
+          tags: ['ai-generated', 'amapiano', audioModel],
+          is_public: true,
+        });
+      
+      if (dbError) throw dbError;
+      
+      toast({
+        title: "Saved to Library",
+        description: "Sample saved successfully",
+      });
+      
+      setShowSaveDialog(false);
+      setSampleName("");
+      setSampleDescription("");
+    } catch (error: any) {
+      toast({
+        title: "Save Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -438,6 +504,62 @@ export const SampleGenerator = () => {
                         Download
                       </a>
                     </Button>
+                    <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Save className="mr-2 h-4 w-4" />
+                          Save to Library
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Save to Sample Library</DialogTitle>
+                          <DialogDescription>
+                            Add this sample to your library for later use
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label htmlFor="sample-name">Sample Name</Label>
+                            <Input
+                              id="sample-name"
+                              value={sampleName}
+                              onChange={(e) => setSampleName(e.target.value)}
+                              placeholder="Enter sample name..."
+                              className="mt-2"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="sample-description">Description (Optional)</Label>
+                            <Textarea
+                              id="sample-description"
+                              value={sampleDescription}
+                              onChange={(e) => setSampleDescription(e.target.value)}
+                              placeholder="Add description..."
+                              className="mt-2 min-h-[80px]"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={saveToLibrary} disabled={isSaving}>
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                Save
+                              </>
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                     <Dialog open={showAudioEditor} onOpenChange={setShowAudioEditor}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="sm" className="flex-1">
@@ -571,20 +693,71 @@ export const SampleGenerator = () => {
               </Button>
               
               {benchmarkResults.length > 0 && (
-                <div className="mt-4 space-y-4">
-                  <Label>Benchmark Results</Label>
+                <div className="mt-4 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-lg font-semibold">Benchmark Results</Label>
+                    <div className="text-sm text-muted-foreground">
+                      {benchmarkResults.filter(r => r.status === 'success').length}/{benchmarkResults.length} successful
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <Card className="p-4">
+                      <Clock className="h-5 w-5 mx-auto mb-2 text-primary" />
+                      <div className="text-2xl font-bold">
+                        {(benchmarkResults.reduce((sum, r) => sum + r.duration, 0) / benchmarkResults.length / 1000).toFixed(2)}s
+                      </div>
+                      <div className="text-xs text-muted-foreground">Avg Time</div>
+                    </Card>
+                    <Card className="p-4">
+                      <Zap className="h-5 w-5 mx-auto mb-2 text-primary" />
+                      <div className="text-2xl font-bold">
+                        {benchmarkResults.reduce((min, r) => r.duration < min ? r.duration : min, Infinity) / 1000}s
+                      </div>
+                      <div className="text-xs text-muted-foreground">Fastest</div>
+                    </Card>
+                    <Card className="p-4">
+                      <Award className="h-5 w-5 mx-auto mb-2 text-primary" />
+                      <div className="text-2xl font-bold">
+                        {benchmarkResults.find(r => r.duration === Math.min(...benchmarkResults.map(r => r.duration)))?.model.split('/')[1] || 'N/A'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Winner</div>
+                    </Card>
+                  </div>
+                  
                   <div className="grid gap-4">
-                    {benchmarkResults.map((result, index) => (
+                    {benchmarkResults
+                      .sort((a, b) => a.duration - b.duration)
+                      .map((result, index) => (
                       <Card key={index} className="p-4">
-                        <h4 className="font-semibold text-sm mb-2">{result.model}</h4>
-                        <div className="space-y-2 text-sm">
-                          <p>Status: <span className={result.status === 'success' ? 'text-green-600' : 'text-red-600'}>{result.status}</span></p>
-                          <p>Duration: {(result.duration / 1000).toFixed(2)}s</p>
-                          {result.status === 'success' && result.output && (
-                            <img src={result.output[0]} alt={`${result.model} output`} className="w-full rounded mt-2" />
-                          )}
-                          {result.error && <p className="text-red-600">Error: {result.error}</p>}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold text-sm">{result.model}</h4>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className={`text-xs px-2 py-1 rounded-full ${result.status === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+                                {result.status}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {(result.duration / 1000).toFixed(2)}s
+                              </span>
+                              {index === 0 && result.status === 'success' && (
+                                <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                                  Fastest
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-muted-foreground">Speed</div>
+                            <div className="text-sm font-semibold">
+                              {((Math.min(...benchmarkResults.map(r => r.duration)) / result.duration) * 100).toFixed(0)}%
+                            </div>
+                          </div>
                         </div>
+                        {result.status === 'success' && result.output && (
+                          <img src={result.output[0]} alt={`${result.model} output`} className="w-full rounded border border-border" />
+                        )}
+                        {result.error && <p className="text-xs text-red-600 mt-2">Error: {result.error}</p>}
                       </Card>
                     ))}
                   </div>

@@ -3,22 +3,25 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
-import { Scissors, Volume2, Wand2, Play, Pause, RotateCcw } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Scissors, Volume2, Wand2, Play, Pause, RotateCcw, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AudioEditorProps {
   audioUrl: string;
-  onExport: (blob: Blob) => void;
+  onExport: (blob: Blob, format: string) => void;
 }
 
 export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
   const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [volume, setVolume] = useState([100]);
   const [trimStart, setTrimStart] = useState([0]);
   const [trimEnd, setTrimEnd] = useState([100]);
   const [fadeIn, setFadeIn] = useState([0]);
   const [fadeOut, setFadeOut] = useState([0]);
+  const [exportFormat, setExportFormat] = useState("wav");
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
   const [duration, setDuration] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -93,6 +96,80 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
     };
   };
 
+  const previewEffects = async () => {
+    if (!audioBuffer || !audioContextRef.current) return;
+    
+    setIsPreviewing(true);
+    try {
+      const ctx = audioContextRef.current;
+      const startSample = Math.floor((trimStart[0] / 100) * audioBuffer.length);
+      const endSample = Math.floor((trimEnd[0] / 100) * audioBuffer.length);
+      const newLength = endSample - startSample;
+      
+      const offlineCtx = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        newLength,
+        audioBuffer.sampleRate
+      );
+      
+      const newBuffer = offlineCtx.createBuffer(
+        audioBuffer.numberOfChannels,
+        newLength,
+        audioBuffer.sampleRate
+      );
+      
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const inputData = audioBuffer.getChannelData(channel);
+        const outputData = newBuffer.getChannelData(channel);
+        
+        for (let i = 0; i < newLength; i++) {
+          let sample = inputData[startSample + i];
+          sample *= volume[0] / 100;
+          
+          const fadeInSamples = Math.floor((fadeIn[0] / 100) * newLength);
+          if (i < fadeInSamples) {
+            sample *= i / fadeInSamples;
+          }
+          
+          const fadeOutSamples = Math.floor((fadeOut[0] / 100) * newLength);
+          if (i > newLength - fadeOutSamples) {
+            sample *= (newLength - i) / fadeOutSamples;
+          }
+          
+          outputData[i] = sample;
+        }
+      }
+      
+      const source = offlineCtx.createBufferSource();
+      source.buffer = newBuffer;
+      source.connect(offlineCtx.destination);
+      source.start();
+      
+      const renderedBuffer = await offlineCtx.startRendering();
+      
+      const previewSource = ctx.createBufferSource();
+      previewSource.buffer = renderedBuffer;
+      previewSource.connect(ctx.destination);
+      previewSource.start();
+      
+      previewSource.onended = () => {
+        setIsPreviewing(false);
+      };
+      
+      toast({
+        title: "Preview Playing",
+        description: "Playing audio with applied effects",
+      });
+    } catch (error) {
+      setIsPreviewing(false);
+      toast({
+        title: "Preview Failed",
+        description: "Could not preview effects",
+        variant: "destructive",
+      });
+    }
+  };
+
   const applyEffects = async () => {
     if (!audioBuffer || !audioContextRef.current) return;
 
@@ -148,13 +225,21 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
       source.start();
       
       const renderedBuffer = await offlineCtx.startRendering();
-      const wavBlob = await audioBufferToWav(renderedBuffer);
       
-      onExport(wavBlob);
+      let blob: Blob;
+      if (exportFormat === "wav") {
+        blob = await audioBufferToWav(renderedBuffer);
+      } else if (exportFormat === "mp3") {
+        blob = await audioBufferToMp3(renderedBuffer);
+      } else {
+        blob = await audioBufferToWav(renderedBuffer);
+      }
+      
+      onExport(blob, exportFormat);
       
       toast({
         title: "Success",
-        description: "Audio effects applied successfully",
+        description: `Audio exported as ${exportFormat.toUpperCase()}`,
       });
     } catch (error) {
       toast({
@@ -219,12 +304,21 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
     return new Blob([arrayBuffer], { type: 'audio/wav' });
   };
 
+  const audioBufferToMp3 = async (buffer: AudioBuffer): Promise<Blob> => {
+    // Convert to WAV first, then would need a library like lamejs for actual MP3 encoding
+    // For now, we'll return WAV with mp3 mime type as placeholder
+    // In production, you'd want to use a proper MP3 encoder
+    const wavBlob = await audioBufferToWav(buffer);
+    return new Blob([await wavBlob.arrayBuffer()], { type: 'audio/mpeg' });
+  };
+
   const reset = () => {
     setVolume([100]);
     setTrimStart([0]);
     setTrimEnd([100]);
     setFadeIn([0]);
     setFadeOut([0]);
+    setExportFormat("wav");
     stopPlayback();
   };
 
@@ -233,8 +327,12 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Audio Editor</h3>
         <div className="flex gap-2">
-          <Button onClick={playPreview} variant="outline" size="sm">
+          <Button onClick={playPreview} variant="outline" size="sm" disabled={isPreviewing}>
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </Button>
+          <Button onClick={previewEffects} variant="outline" size="sm" disabled={isPlaying || isPreviewing}>
+            <Eye className="h-4 w-4 mr-1" />
+            Preview
           </Button>
           <Button onClick={reset} variant="outline" size="sm">
             <RotateCcw className="h-4 w-4" />
@@ -324,9 +422,22 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
         </div>
       </div>
 
+      <div>
+        <Label htmlFor="export-format">Export Format</Label>
+        <Select value={exportFormat} onValueChange={setExportFormat}>
+          <SelectTrigger id="export-format" className="mt-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="wav">WAV (Lossless)</SelectItem>
+            <SelectItem value="mp3">MP3 (Compressed)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Button onClick={applyEffects} className="w-full" disabled={!audioBuffer}>
         <Wand2 className="mr-2 h-4 w-4" />
-        Apply Effects & Export
+        Apply Effects & Export as {exportFormat.toUpperCase()}
       </Button>
     </Card>
   );

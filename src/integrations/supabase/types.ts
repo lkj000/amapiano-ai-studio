@@ -381,6 +381,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audio_to_midi_conversions: {
+        Row: {
+          audio_url: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          midi_data: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          audio_url: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          midi_data?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          audio_url?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          midi_data?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       aura_conductor_sessions: {
         Row: {
           created_at: string
@@ -466,6 +499,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cloud_projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+          project_data: Json
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+          project_data: Json
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+          project_data?: Json
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       collaboration_participants: {
         Row: {

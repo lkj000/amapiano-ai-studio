@@ -83,7 +83,7 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
   };
 
   const removeTrack = (trackId: string) => {
-    const updated = { 
+    const updated: DawProjectData = { 
       ...projectData, 
       tracks: projectData.tracks.filter(t => t.id !== trackId) 
     };

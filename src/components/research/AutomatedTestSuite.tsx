@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDistributedInference } from "@/hooks/useDistributedInference";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
-import { Play, Pause, RotateCw, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Play, Pause, RotateCw, CheckCircle2, XCircle, Clock, Bell, BellOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TestResult {
   id: string;
@@ -24,6 +25,9 @@ export const AutomatedTestSuite = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [autoRun, setAutoRun] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [alertEmail, setAlertEmail] = useState('');
+  const [lastAlertSent, setLastAlertSent] = useState<Date | null>(null);
 
   // Automated test runner
   useEffect(() => {
@@ -177,8 +181,14 @@ export const AutomatedTestSuite = () => {
       const totalDuration = Date.now() - startTime;
       const passed = testResults.filter(r => r.status === 'passed').length;
       const total = testResults.length;
+      const successRate = (passed / total) * 100;
 
       toast.success(`Test suite completed: ${passed}/${total} passed in ${(totalDuration/1000).toFixed(1)}s`);
+      
+      // Check if alerts should be sent
+      if (alertsEnabled && alertEmail && successRate < 95) {
+        await sendAlert('test_failure', successRate);
+      }
       
     } catch (error) {
       toast.error('Test suite failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -240,6 +250,50 @@ export const AutomatedTestSuite = () => {
     }
   };
 
+  const sendAlert = async (alertType: 'test_failure' | 'metric_failure' | 'system_critical', successRate?: number) => {
+    if (!alertEmail) {
+      toast.error('Alert email not configured');
+      return;
+    }
+
+    // Rate limit: don't send more than 1 alert per 10 minutes
+    if (lastAlertSent && Date.now() - lastAlertSent.getTime() < 600000) {
+      console.log('[Alert] Rate limited, skipping alert');
+      return;
+    }
+
+    try {
+      const failedTests = testResults
+        .filter(t => t.status === 'failed')
+        .slice(0, 10)
+        .map(t => ({
+          testName: t.testName,
+          hypothesis: t.hypothesis,
+          result: t.result || 'No result'
+        }));
+
+      const { data, error } = await supabase.functions.invoke('send-research-alert', {
+        body: {
+          alertType,
+          successRate,
+          failedTests,
+          timestamp: new Date().toISOString(),
+          recipientEmail: alertEmail
+        }
+      });
+
+      if (error) throw error;
+
+      setLastAlertSent(new Date());
+      toast.success('Alert email sent successfully', {
+        description: `Notification sent to ${alertEmail}`
+      });
+    } catch (error) {
+      console.error('[Alert] Failed to send:', error);
+      toast.error('Failed to send alert email');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -250,6 +304,14 @@ export const AutomatedTestSuite = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            onClick={() => setAlertsEnabled(!alertsEnabled)}
+            variant={alertsEnabled ? "default" : "outline"}
+            size="sm"
+          >
+            {alertsEnabled ? <Bell className="w-4 h-4 mr-2" /> : <BellOff className="w-4 h-4 mr-2" />}
+            {alertsEnabled ? 'Alerts On' : 'Alerts Off'}
+          </Button>
           <Button
             onClick={() => setAutoRun(!autoRun)}
             variant={autoRun ? "default" : "outline"}
@@ -267,6 +329,32 @@ export const AutomatedTestSuite = () => {
           </Button>
         </div>
       </div>
+
+      {/* Alert Configuration */}
+      {alertsEnabled && (
+        <Card className="p-4 bg-muted/50">
+          <div className="flex items-center gap-4">
+            <Bell className="w-5 h-5 text-primary" />
+            <div className="flex-1">
+              <label className="text-sm font-medium text-foreground block mb-2">
+                Alert Email (failures below 95%)
+              </label>
+              <input
+                type="email"
+                value={alertEmail}
+                onChange={(e) => setAlertEmail(e.target.value)}
+                placeholder="your.email@example.com"
+                className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
+              />
+            </div>
+            {lastAlertSent && (
+              <div className="text-xs text-muted-foreground">
+                Last alert: {lastAlertSent.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

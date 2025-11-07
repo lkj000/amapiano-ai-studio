@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
 import { TrendingUp, Zap, Users, Globe } from "lucide-react";
+import { AnimatedMetricsChart } from "./AnimatedMetricsChart";
 
 const ThesisResearchDashboard = () => {
   // Simulated research metrics
@@ -57,6 +58,9 @@ const ThesisResearchDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Animated Real-Time Metrics */}
+      <AnimatedMetricsChart title="Real-Time System Performance" type="area" />
+
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

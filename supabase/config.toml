@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.audio-format-converter]
 verify_jwt = false
 
+[functions.audio-to-midi]
+verify_jwt = false
+
 [api]
 enabled = true
 port = 54321

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { GraduationCap, Activity, Database, Palette, Brain, Target, Zap, Shield, Package } from "lucide-react";
+import { GraduationCap, Activity, Database, Palette, Brain, Target, Zap, Shield, Package, FlaskConical } from "lucide-react";
 import ThesisResearchDashboard from "@/components/research/ThesisResearchDashboard";
 import FederatedLearningPanel from "@/components/research/FederatedLearningPanel";
 import PerformanceBenchmark from "@/components/research/PerformanceBenchmark";
@@ -10,6 +10,7 @@ import ThesisObjectiveMapper from "@/components/research/ThesisObjectiveMapper";
 import SparseInferenceOptimizer from "@/components/research/SparseInferenceOptimizer";
 import AIEthicsPanel from "@/components/research/AIEthicsPanel";
 import ModelCompressionLab from "@/components/research/ModelCompressionLab";
+import ResearchTestingPanel from "@/components/research/ResearchTestingPanel";
 import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 const Research = () => {
@@ -33,10 +34,14 @@ const Research = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-9">
+          <TabsList className="grid w-full grid-cols-10">
             <TabsTrigger value="overview" className="gap-2">
               <Activity className="w-4 h-4" />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="testing" className="gap-2">
+              <FlaskConical className="w-4 h-4" />
+              Testing
             </TabsTrigger>
             <TabsTrigger value="objectives" className="gap-2">
               <Target className="w-4 h-4" />
@@ -44,11 +49,11 @@ const Research = () => {
             </TabsTrigger>
             <TabsTrigger value="sparse" className="gap-2">
               <Zap className="w-4 h-4" />
-              Sparse Inference
+              Sparse
             </TabsTrigger>
             <TabsTrigger value="compression" className="gap-2">
               <Package className="w-4 h-4" />
-              Compression
+              Quantize
             </TabsTrigger>
             <TabsTrigger value="ethics" className="gap-2">
               <Shield className="w-4 h-4" />
@@ -60,7 +65,7 @@ const Research = () => {
             </TabsTrigger>
             <TabsTrigger value="benchmark" className="gap-2">
               <Activity className="w-4 h-4" />
-              Performance
+              Perf
             </TabsTrigger>
             <TabsTrigger value="cultural" className="gap-2">
               <Palette className="w-4 h-4" />
@@ -75,6 +80,12 @@ const Research = () => {
           <TabsContent value="overview" className="mt-6">
             <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Overview. Please refresh.</p></Card>}>
               <ThesisResearchDashboard />
+            </ErrorBoundary>
+          </TabsContent>
+
+          <TabsContent value="testing" className="mt-6">
+            <ErrorBoundary fallback={<Card className="p-6"><p className="text-sm text-muted-foreground">Failed to load Testing Panel. Please refresh.</p></Card>}>
+              <ResearchTestingPanel />
             </ErrorBoundary>
           </TabsContent>
 

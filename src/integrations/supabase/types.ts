@@ -1828,6 +1828,7 @@ export type Database = {
           quantization_method: string
           quantized_size_mb: number
           updated_at: string | null
+          user_id: string
         }
         Insert: {
           bit_precision: number
@@ -1841,6 +1842,7 @@ export type Database = {
           quantization_method: string
           quantized_size_mb: number
           updated_at?: string | null
+          user_id: string
         }
         Update: {
           bit_precision?: number
@@ -1854,6 +1856,7 @@ export type Database = {
           quantization_method?: string
           quantized_size_mb?: number
           updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }

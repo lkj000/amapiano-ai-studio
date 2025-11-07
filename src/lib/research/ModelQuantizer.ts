@@ -231,11 +231,18 @@ export class ModelQuantizer {
     
     // Store quantized model in database
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('User not authenticated, skipping database storage');
+        return quantized;
+      }
+
       const originalSizeMB = (weights.length * 4) / (1024 * 1024);
       const quantizedSizeMB = (quantized.weights.length * (this.config.bitPrecision / 8)) 
         / (1024 * 1024);
       
       await supabase.from('quantized_models').insert([{
+        user_id: user.id,
         model_name: modelName,
         original_size_mb: originalSizeMB,
         quantized_size_mb: quantizedSizeMB,

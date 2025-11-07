@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
 import { useDistributedInference } from "@/hooks/useDistributedInference";
+import { TestResultsExport } from "./TestResultsExport";
+import { PerformanceComparison } from "./PerformanceComparison";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -229,11 +231,19 @@ const ResearchTestingPanel = () => {
             Interactive testing for all PhD thesis implementations
           </p>
         </div>
-        <Button onClick={runAllTests} size="lg">
-          <Play className="w-4 h-4 mr-2" />
-          Run All Tests
-        </Button>
+        <div className="flex gap-2">
+          <TestResultsExport testResults={testResults} />
+          <Button onClick={runAllTests} size="lg">
+            <Play className="w-4 h-4 mr-2" />
+            Run All Tests
+          </Button>
+        </div>
       </div>
+
+      {/* Performance Comparison */}
+      {(testResults.sparse || testResults.quantization || testResults.distributed) && (
+        <PerformanceComparison testResults={testResults} />
+      )}
 
       <Tabs defaultValue="sparse" className="w-full">
         <TabsList className="grid w-full grid-cols-3">

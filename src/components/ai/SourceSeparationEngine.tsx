@@ -68,6 +68,7 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
   const fileInputRef = useRef<HTMLInputElement>(null);
   const analyzerNodes = useRef<Map<string, AnalyserNode>>(new Map());
   const audioSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
+  const gainNodesRef = useRef<Map<string, GainNode>>(new Map());
 
   const initializeAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -234,26 +235,53 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
 
   const toggleStemPlayback = useCallback(async (stemId: string) => {
     await initializeAudioContext();
-    
+
+    const ctx = audioContextRef.current!;
+
     setSeparatedStems(prev => prev.map(stem => {
-      if (stem.id === stemId) {
-        const newIsPlaying = !stem.isPlaying;
-        
-        // Stop audio if playing
-        if (!newIsPlaying) {
-          const source = audioSourcesRef.current.get(stemId);
-          if (source) {
-            source.stop();
-            audioSourcesRef.current.delete(stemId);
-          }
-        } else {
-          // Start playback - in real implementation would play actual stem audio
-          toast.info(`Playing ${stem.name}...`);
-        }
-        
-        return { ...stem, isPlaying: newIsPlaying };
+      if (stem.id !== stemId) return stem;
+      const newIsPlaying = !stem.isPlaying;
+
+      // Stop audio if playing
+      if (!newIsPlaying) {
+        const source = audioSourcesRef.current.get(stemId);
+        source?.stop();
+        audioSourcesRef.current.delete(stemId);
+        const gain = gainNodesRef.current.get(stemId);
+        gain?.disconnect();
+        gainNodesRef.current.delete(stemId);
+        return { ...stem, isPlaying: false };
       }
-      return stem;
+
+      // Create a simple looped buffer from the waveform data as a placeholder stem
+      const sampleRate = ctx.sampleRate || 44100;
+      const duration = 2; // seconds per loop
+      const numSamples = Math.floor(sampleRate * duration);
+      const audioBuffer = ctx.createBuffer(1, numSamples, sampleRate);
+      const data = audioBuffer.getChannelData(0);
+
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const idx = Math.floor((i / numSamples) * stem.waveformData.length);
+        const amp = (stem.waveformData[idx] || 0) * 0.6;
+        // simple harmonic to hear something
+        data[i] = amp * Math.sin(2 * Math.PI * 220 * t);
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = audioBuffer;
+      src.loop = true;
+
+      const gain = ctx.createGain();
+      const linearVol = (stem.volume / 100) * (stem.isMuted ? 0 : 1);
+      gain.gain.value = linearVol;
+
+      src.connect(gain).connect(ctx.destination);
+      src.start();
+
+      audioSourcesRef.current.set(stemId, src);
+      gainNodesRef.current.set(stemId, gain);
+      return { ...stem, isPlaying: true };
     }));
   }, [initializeAudioContext]);
 
@@ -261,12 +289,21 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
     setSeparatedStems(prev => prev.map(stem => 
       stem.id === stemId ? { ...stem, volume } : stem
     ));
+    const gain = gainNodesRef.current.get(stemId);
+    if (gain) {
+      gain.gain.value = volume / 100;
+    }
   }, []);
 
   const toggleStemMute = useCallback((stemId: string) => {
     setSeparatedStems(prev => prev.map(stem => 
       stem.id === stemId ? { ...stem, isMuted: !stem.isMuted } : stem
     ));
+    const gain = gainNodesRef.current.get(stemId);
+    if (gain) {
+      const current = gain.gain.value;
+      gain.gain.value = current > 0 ? 0 : 0.7;
+    }
   }, []);
 
   const exportStem = useCallback(async (stem: SeparatedStem) => {

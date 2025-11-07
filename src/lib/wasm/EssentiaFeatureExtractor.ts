@@ -7,7 +7,7 @@
  * - Industry-standard audio feature extraction
  */
 
-import * as EssentiaWASM from 'essentia.js';
+import { Essentia, EssentiaWASM } from 'essentia.js';
 
 export interface MusicFeatures {
   // Spectral features
@@ -57,8 +57,9 @@ export class EssentiaFeatureExtractor {
     const startTime = performance.now();
 
     try {
-      // Initialize Essentia WASM module with proper constructor
-      this.essentia = new EssentiaWASM.Essentia(EssentiaWASM.EssentiaWASM);
+      // Initialize Essentia WASM module (v0.1.x API)
+      const wasmModule = await EssentiaWASM();
+      this.essentia = new Essentia(wasmModule);
       
       const initTime = performance.now() - startTime;
       console.log(`[Essentia] ✓ Initialized in ${initTime.toFixed(2)}ms`);

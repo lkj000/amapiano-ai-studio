@@ -561,6 +561,49 @@ const [zoom, setZoom] = useState([100]);
         }
       }
 
+      // Import stems from SourceSeparationEngine
+      const pendingImport = localStorage.getItem('pendingDAWImport');
+      if (pendingImport) {
+        try {
+          const data = JSON.parse(pendingImport);
+          localStorage.removeItem('pendingDAWImport');
+
+          // Ensure project exists
+          if (!projectData) {
+            const newProject: DawProjectData = {
+              bpm: 118,
+              keySignature: 'F#m',
+              tracks: [],
+              masterVolume: 0.8,
+            };
+            setProjectData(newProject);
+            setProjectName('New Project');
+            setTimeout(() => localStorage.setItem('pendingDAWImport', JSON.stringify(data)), 100);
+            return;
+          }
+
+          // Create empty audio tracks for each stem (ready for clips later)
+          const newTracks = data.stems.map((s: any) => ({
+            id: `track_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+            type: 'audio' as const,
+            name: s.name,
+            clips: [],
+            mixer: { volume: (s.volume ?? 80) / 100, pan: 0, isMuted: false, isSolo: false, effects: [] },
+            isArmed: false,
+            color: s.color || 'bg-green-500',
+            automationLanes: [],
+            recordings: [],
+            metadata: { instrument: s.instrument }
+          }));
+
+          setProjectData(prev => prev ? { ...prev, tracks: [...prev.tracks, ...newTracks] } : prev);
+          toast.success(`🎚️ Imported ${data.stems.length} stems into DAW`);
+        } catch (e) {
+          console.error('Failed to import stems:', e);
+          localStorage.removeItem('pendingDAWImport');
+        }
+      }
+
       // Check for pending MIDI import from Voice-to-MIDI
       const pendingMIDI = localStorage.getItem('pendingMIDIImport');
       if (pendingMIDI) {

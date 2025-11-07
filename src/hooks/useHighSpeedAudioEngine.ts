@@ -23,37 +23,17 @@ export const useHighSpeedAudioEngine = () => {
 
   useEffect(() => {
     let mounted = true;
-    let audioEngine: ToneAudioEngine | null = null;
 
-    const initEngine = async () => {
-      try {
-        // Initialize Tone.js audio engine
-        audioEngine = await createToneAudioEngine({
-          bufferSize: 512,
-          latencyHint: 'interactive', // Professional low-latency mode
-        });
-
-        if (mounted) {
-          setEngine(audioEngine);
-          setIsInitialized(true);
-          setStats(audioEngine.getStats());
-          console.log('[Hook] ✓ Professional audio engine ready (Tone.js)');
-        }
-      } catch (error) {
-        console.error('[Hook] Failed to initialize audio engine:', error);
-        console.warn('[Hook] Audio engine requires user interaction to start');
-      }
-    };
-
-    initEngine();
+    // Do NOT initialize Tone on mount to avoid autoplay policy errors.
+    // We'll lazily create and start the engine after a user gesture via startAudio().
 
     return () => {
       mounted = false;
-      if (audioEngine) {
-        audioEngine.dispose();
+      if (engine) {
+        engine.dispose();
       }
     };
-  }, []);
+  }, [engine]);
 
   // Update stats periodically
   useEffect(() => {
@@ -68,10 +48,28 @@ export const useHighSpeedAudioEngine = () => {
 
   // Helper to ensure audio context is started (requires user interaction)
   const startAudio = async () => {
-    if (engine && Tone.context.state !== 'running') {
+    // Lazily create and start the engine on first user gesture
+    if (!engine) {
+      try {
+        const newEngine = await createToneAudioEngine({
+          bufferSize: 512,
+          latencyHint: 'interactive',
+        });
+        setEngine(newEngine);
+        setIsInitialized(true);
+        setStats(newEngine.getStats());
+        console.log('[Hook] Audio context started');
+        return;
+      } catch (e) {
+        console.error('[Hook] Failed to start audio engine:', e);
+        throw e;
+      }
+    }
+
+    if (Tone.context.state !== 'running') {
       await Tone.start();
-      console.log('[Hook] Audio context started');
       setStats(engine.getStats());
+      console.log('[Hook] Audio context resumed');
     }
   };
 

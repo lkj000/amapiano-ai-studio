@@ -17,37 +17,52 @@ export const useRealtimeFeatureExtraction = () => {
 
   useEffect(() => {
     let mounted = true;
-    let featureExtractor: EssentiaFeatureExtractor | null = null;
+    let disposer: (() => void) | null = null;
 
     const initExtractor = async () => {
       try {
-        // Initialize Essentia.js feature extractor
-        featureExtractor = await createEssentiaExtractor();
-
-        if (mounted) {
-          setExtractor(featureExtractor);
-          setIsInitialized(true);
-          console.log('[Hook] ✓ Essentia.js music analysis ready');
-        }
+        const fx = await createEssentiaExtractor();
+        if (!mounted) return;
+        setExtractor(fx);
+        setIsInitialized(true);
+        console.log('[Hook] ✓ Essentia.js music analysis ready');
+        disposer = () => fx.dispose();
       } catch (error) {
         console.error('[Hook] Failed to initialize feature extractor:', error);
       }
     };
 
-    initExtractor();
+    // Initialize only after user gesture or if already started this session
+    const started = sessionStorage.getItem('audioContextStarted') === 'true';
+    if (started) {
+      initExtractor();
+    }
+
+    const onAudioStarted = () => {
+      if (!mounted || isInitialized) return;
+      initExtractor();
+    };
+    window.addEventListener('audio-started', onAudioStarted);
 
     return () => {
       mounted = false;
-      if (featureExtractor) {
-        featureExtractor.dispose();
-      }
+      window.removeEventListener('audio-started', onAudioStarted);
+      if (disposer) disposer();
     };
-  }, []);
+  }, [isInitialized]);
 
-  // Dummy initialize for backwards compatibility (already auto-initialized)
+  // Initialize on demand or after AudioStartGate
   const initialize = useCallback(async () => {
-    console.log('[Hook] Feature extractor already initialized on mount');
-  }, []);
+    if (isInitialized) return;
+    try {
+      const fx = await createEssentiaExtractor();
+      setExtractor(fx);
+      setIsInitialized(true);
+      console.log('[Hook] ✓ Essentia.js music analysis ready');
+    } catch (error) {
+      console.error('[Hook] Failed to initialize feature extractor:', error);
+    }
+  }, [isInitialized]);
 
   const extractFeatures = useCallback(
     async (audioBuffer: AudioBuffer) => {

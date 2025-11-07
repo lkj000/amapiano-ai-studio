@@ -295,17 +295,26 @@ export function useVSTPluginSystem(audioContext: AudioContext | null) {
 
   // Initialize WASM engines for professional VST performance
   useEffect(() => {
-    if (audioContext) {
-      wasmEngine.initialize();
-      featureExtractor.initialize();
-      
+    const init = () => {
+      if (!audioContext) return;
+      wasmEngine.initialize().catch(() => {});
+      featureExtractor.initialize().catch(() => {});
+
       if (wasmEngine.isInitialized && wasmEngine.isProfessionalGrade) {
         toast.success('🚀 VST System: C++ WASM Engine Active', {
           description: `Professional-grade plugin processing enabled`,
           duration: 3000
         });
       }
+    };
+
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      init();
     }
+
+    const onAudioStarted = () => init();
+    window.addEventListener('audio-started', onAudioStarted);
+    return () => window.removeEventListener('audio-started', onAudioStarted);
   }, [audioContext]);
 
   // Initialize VST system

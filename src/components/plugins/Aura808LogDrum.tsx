@@ -215,16 +215,25 @@ export const Aura808LogDrum: React.FC<Aura808LogDrumProps> = ({
 
   // Initialize WASM engines for professional plugin performance
   useEffect(() => {
-    if (audioContext) {
-      wasmEngine.initialize();
-      featureExtractor.initialize();
-      
+    const init = () => {
+      if (!audioContext) return;
+      wasmEngine.initialize().catch(() => {});
+      featureExtractor.initialize().catch(() => {});
+
       if (wasmEngine.isInitialized && wasmEngine.isProfessionalGrade) {
         toast.success('🚀 C++ WASM Engine Active - Professional Performance', {
           description: `Latency: ${wasmEngine.stats?.latency.toFixed(1)}ms | CPU: ${wasmEngine.stats?.cpuLoad.toFixed(1)}%`
         });
       }
+    };
+
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      init();
     }
+
+    const onAudioStarted = () => init();
+    window.addEventListener('audio-started', onAudioStarted);
+    return () => window.removeEventListener('audio-started', onAudioStarted);
   }, [audioContext]);
 
   // Initialize synth engine

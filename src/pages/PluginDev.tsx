@@ -25,9 +25,20 @@ export default function PluginDev() {
   useEffect(() => {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     setAudioContext(ctx);
-    wasmEngine.initialize();
+
+    const init = () => {
+      wasmEngine.initialize().catch(() => {});
+    };
+
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      init();
+    }
+
+    const onAudioStarted = () => init();
+    window.addEventListener('audio-started', onAudioStarted);
 
     return () => {
+      window.removeEventListener('audio-started', onAudioStarted);
       ctx.close();
     };
   }, []);

@@ -238,17 +238,26 @@ export function usePluginSystem(audioContext: AudioContext | null) {
 
   // Initialize WASM engines for professional plugin performance
   useEffect(() => {
-    if (audioContext) {
-      wasmEngine.initialize();
-      featureExtractor.initialize();
-      
+    const init = () => {
+      if (!audioContext) return;
+      wasmEngine.initialize().catch(() => {});
+      featureExtractor.initialize().catch(() => {});
+
       if (wasmEngine.isInitialized && wasmEngine.isProfessionalGrade) {
         toast.success('🚀 Plugin System: C++ WASM Engine Active', {
           description: `Professional-grade plugin processing enabled`,
           duration: 3000
         });
       }
+    };
+
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      init();
     }
+
+    const onAudioStarted = () => init();
+    window.addEventListener('audio-started', onAudioStarted);
+    return () => window.removeEventListener('audio-started', onAudioStarted);
   }, [audioContext]);
 
   // Initialize plugin registry with audio context

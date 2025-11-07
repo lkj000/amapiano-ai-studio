@@ -57,8 +57,25 @@ export class EssentiaFeatureExtractor {
     const startTime = performance.now();
 
     try {
-      // Initialize Essentia WASM module (v0.1.x API)
-      const wasmModule = await EssentiaWASM();
+      // Initialize Essentia WASM with compatibility across builds
+      let wasmFactory: any = EssentiaWASM as any;
+      let wasmModule: any;
+      try {
+        if (typeof wasmFactory === 'function') {
+          wasmModule = await wasmFactory();
+        } else if (wasmFactory?.default && typeof wasmFactory.default === 'function') {
+          wasmModule = await wasmFactory.default();
+        } else if ((Essentia as any)?.WASM && typeof (Essentia as any).WASM === 'function') {
+          wasmModule = await (Essentia as any).WASM();
+        } else {
+          const mod: any = await import('essentia.js/dist/essentia-wasm.es');
+          const factory = mod.EssentiaWASM || mod.default;
+          wasmModule = await factory();
+        }
+      } catch (e) {
+        console.error('[Essentia] WASM factory resolution failed:', e);
+        throw e;
+      }
       this.essentia = new Essentia(wasmModule);
       
       const initTime = performance.now() - startTime;

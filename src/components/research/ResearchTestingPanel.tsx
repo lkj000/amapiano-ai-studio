@@ -4,15 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
 import { useDistributedInference } from "@/hooks/useDistributedInference";
+import { useTestHistory } from "@/hooks/useTestHistory";
 import { TestResultsExport } from "./TestResultsExport";
 import { PerformanceComparison } from "./PerformanceComparison";
 import { AutomatedTestScheduler } from "./AutomatedTestScheduler";
 import { PDFReportGenerator } from "./PDFReportGenerator";
+import { TestResultCharts } from "./TestResultCharts";
+import { TestHistoryPanel } from "./TestHistoryPanel";
+import { TestComparisonPanel } from "./TestComparisonPanel";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -21,10 +25,15 @@ const ResearchTestingPanel = () => {
     distributed?: any;
   }>({});
 
+  const [showComparison, setShowComparison] = useState(false);
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts'>('tests');
+
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
   const quantizer = useModelQuantizer();
   const distributed = useDistributedInference();
+  const { saveTestResults } = useTestHistory();
 
   const [isTestingSparse, setIsTestingSparse] = useState(false);
   const [isTestingQuant, setIsTestingQuant] = useState(false);
@@ -80,6 +89,20 @@ const ResearchTestingPanel = () => {
       }));
 
       toast.success(`✅ Sparse Inference Test Complete! Hit rate: ${(finalStats.hitRate * 100).toFixed(1)}%`);
+      
+      // Save to history
+      await saveTestResults('sparse', {
+        iterations,
+        avgLatency: results.reduce((sum, r) => sum + r.latency, 0) / results.length,
+        cacheHitRate: finalStats.hitRate * 100,
+        memoryUsed: finalStats.totalSizeMB,
+        activationsSaved: finalStats.entries,
+        results
+      }, {
+        avgLatency: results.reduce((sum, r) => sum + r.latency, 0) / results.length,
+        cacheHitRate: finalStats.hitRate * 100,
+        memoryUsed: finalStats.totalSizeMB
+      });
     } catch (error) {
       console.error("Sparse inference test failed:", error);
       toast.error("❌ Sparse Inference Test Failed");
@@ -148,6 +171,15 @@ const ResearchTestingPanel = () => {
       }));
 
       toast.success("✅ Model Quantization Test Complete!");
+      
+      // Save to history
+      await saveTestResults('quantization', {
+        modelSize,
+        results
+      }, {
+        avgCompression: results.reduce((sum: number, r: any) => sum + r.compressionRatio, 0) / results.length,
+        avgQuality: results.reduce((sum: number, r: any) => sum + r.qualityRetained, 0) / results.length
+      });
     } catch (error) {
       console.error("Quantization test failed:", error);
       toast.error("❌ Model Quantization Test Failed");
@@ -209,6 +241,18 @@ const ResearchTestingPanel = () => {
       }));
 
       toast.success(`✅ Distributed Inference Test Complete! ${jobs.length} jobs submitted`);
+      
+      // Save to history
+      await saveTestResults('distributed', {
+        jobsSubmitted: jobs.length,
+        stats,
+        jobs: userJobs.slice(0, 5),
+        routingDecisions: distributed.getRoutingDecisions()
+      }, {
+        jobsSubmitted: jobs.length,
+        edgeLoad: stats.edgeLoad,
+        cloudLoad: stats.cloudLoad
+      });
     } catch (error) {
       console.error("Distributed inference test failed:", error);
       toast.error("❌ Distributed Inference Test Failed");
@@ -234,24 +278,94 @@ const ResearchTestingPanel = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <TestResultsExport testResults={testResults} />
-          <PDFReportGenerator testResults={testResults} />
-          <Button onClick={runAllTests} size="lg">
+          <Button
+            variant={activeView === 'tests' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('tests')}
+          >
             <Play className="w-4 h-4 mr-2" />
-            Run All Tests
+            Tests
+          </Button>
+          <Button
+            variant={activeView === 'charts' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('charts')}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Charts
+          </Button>
+          <Button
+            variant={activeView === 'history' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('history')}
+          >
+            <History className="w-4 h-4 mr-2" />
+            History
           </Button>
         </div>
       </div>
 
-      {/* Automated Test Scheduler */}
-      <AutomatedTestScheduler onRunTests={runAllTests} />
+      {activeView === 'tests' && (
+        <>
+          <div className="flex gap-2 justify-end">
+            <TestResultsExport testResults={testResults} />
+            <PDFReportGenerator testResults={testResults} />
+            <Button onClick={runAllTests} size="lg">
+              <Play className="w-4 h-4 mr-2" />
+              Run All Tests
+            </Button>
+          </div>
 
-      {/* Performance Comparison */}
-      {(testResults.sparse || testResults.quantization || testResults.distributed) && (
-        <PerformanceComparison testResults={testResults} />
+          {/* Automated Test Scheduler */}
+          <AutomatedTestScheduler onRunTests={runAllTests} />
+
+          {/* Performance Comparison */}
+          {(testResults.sparse || testResults.quantization || testResults.distributed) && (
+            <PerformanceComparison testResults={testResults} />
+          )}
+        </>
       )}
 
-      <Tabs defaultValue="sparse" className="w-full">
+      {activeView === 'charts' && (
+        <TestResultCharts testResults={testResults} />
+      )}
+
+      {activeView === 'history' && (
+        <>
+          {showComparison && comparisonIds.length === 2 ? (
+            <div className="space-y-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowComparison(false);
+                  setComparisonIds([]);
+                }}
+              >
+                ← Back to History
+              </Button>
+              <TestComparisonPanel 
+                test1Id={comparisonIds[0]} 
+                test2Id={comparisonIds[1]} 
+              />
+            </div>
+          ) : (
+            <TestHistoryPanel
+              onCompare={(id1, id2) => {
+                setComparisonIds([id1, id2]);
+                setShowComparison(true);
+              }}
+              onLoadTest={(results) => {
+                setTestResults(results);
+                setActiveView('tests');
+                toast.success("Test results loaded");
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {activeView === 'tests' && (
+        <Tabs defaultValue="sparse" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sparse">
             <Zap className="w-4 h-4 mr-2" />
@@ -507,6 +621,7 @@ const ResearchTestingPanel = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 };

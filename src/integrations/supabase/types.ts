@@ -2404,6 +2404,39 @@ export type Database = {
           },
         ]
       }
+      test_history: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          summary_metrics: Json
+          test_date: string
+          test_results: Json
+          test_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          summary_metrics?: Json
+          test_date?: string
+          test_results?: Json
+          test_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          summary_metrics?: Json
+          test_date?: string
+          test_results?: Json
+          test_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       time_stretched_tracks: {
         Row: {
           audio_data: string | null

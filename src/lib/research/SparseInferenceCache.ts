@@ -12,6 +12,8 @@ export class SparseInferenceCache {
   private maxSize: number;
   private sessionId: string;
   private sparsityThreshold: number;
+  private totalRequests: number = 0;
+  private cacheHits: number = 0;
   
   constructor(maxSizeMB: number = 512, sparsityThreshold: number = 0.3) {
     this.maxSize = maxSizeMB * 1024 * 1024 / 4; // Convert MB to float32 elements
@@ -61,9 +63,11 @@ export class SparseInferenceCache {
    * Get cached activation if available
    */
   async get(key: string): Promise<Float32Array | null> {
+    this.totalRequests++;
     const entry = this.cache.get(key);
     
     if (entry) {
+      this.cacheHits++;
       entry.hitCount++;
       entry.timestamp = Date.now();
       
@@ -146,18 +150,16 @@ export class SparseInferenceCache {
    * Get cache statistics
    */
   getStats() {
-    let totalHits = 0;
     let totalSize = 0;
     
     for (const entry of this.cache.values()) {
-      totalHits += entry.hitCount;
       totalSize += entry.data.length * 4; // bytes
     }
     
     return {
       entries: this.cache.size,
       totalSizeMB: totalSize / (1024 * 1024),
-      hitRate: totalHits / Math.max(1, this.cache.size),
+      hitRate: this.totalRequests > 0 ? this.cacheHits / this.totalRequests : 0,
       utilizationPercent: (totalSize / (this.maxSize * 4)) * 100
     };
   }
@@ -167,6 +169,8 @@ export class SparseInferenceCache {
    */
   clear(): void {
     this.cache.clear();
+    this.totalRequests = 0;
+    this.cacheHits = 0;
   }
 
   /**

@@ -83,10 +83,33 @@ export const useModelQuantizer = () => {
 
   const compareModels = useCallback(
     (original: Float32Array, quantized: Float32Array) => {
-      const qualityLoss = ModelQuantizer.estimateQualityLoss(original, quantized);
+      // Ensure arrays are same length
+      const minLength = Math.min(original.length, quantized.length);
+      let mse = 0;
+      
+      for (let i = 0; i < minLength; i++) {
+        const diff = original[i] - quantized[i];
+        mse += diff * diff;
+      }
+      
+      mse = mse / minLength;
+      const rmse = Math.sqrt(mse);
+      
+      // Calculate signal power
+      let signalPower = 0;
+      for (let i = 0; i < minLength; i++) {
+        signalPower += original[i] * original[i];
+      }
+      signalPower = signalPower / minLength;
+      
+      // Quality loss as percentage of signal power
+      const qualityLoss = signalPower > 0 ? (rmse / Math.sqrt(signalPower)) * 100 : 0;
+      const qualityRetained = Math.max(0, 100 - qualityLoss);
+      
       return {
+        mse,
         qualityLoss,
-        qualityRetention: (1 - qualityLoss) * 100
+        qualityRetained
       };
     },
     []

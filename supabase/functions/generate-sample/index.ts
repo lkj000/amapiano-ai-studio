@@ -84,7 +84,7 @@ serve(async (req) => {
       let modelInput: any = {
         prompt: body.prompt || "Amapiano beat with log drum, piano chords, deep bass, 112 BPM",
         duration: body.duration || 8,
-        model_version: "melody",
+        model_version: "melody-large",
         output_format: "mp3",
         normalization_strategy: "peak"
       };

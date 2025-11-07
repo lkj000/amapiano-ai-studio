@@ -85,16 +85,16 @@ export const useModelQuantizer = () => {
     (original: Float32Array, quantized: Float32Array) => {
       // Ensure arrays are same length
       const minLength = Math.min(original.length, quantized.length);
-      let mse = 0;
       
+      // Calculate MSE (Mean Squared Error)
+      let mse = 0;
       for (let i = 0; i < minLength; i++) {
         const diff = original[i] - quantized[i];
         mse += diff * diff;
       }
-      
       mse = mse / minLength;
       
-      // Calculate signal power for SNR-based quality metric
+      // Calculate signal power
       let signalPower = 0;
       for (let i = 0; i < minLength; i++) {
         signalPower += original[i] * original[i];
@@ -109,13 +109,37 @@ export const useModelQuantizer = () => {
       // Calculate SNR (Signal-to-Noise Ratio) in dB
       const snr = 10 * Math.log10(signalPower / mse);
       
-      // Normalize SNR to 0-100% quality scale
-      // Typical audio SNR ranges: <20dB (poor), 20-40dB (acceptable), >40dB (good)
-      const qualityRetained = Math.min(100, Math.max(0, (snr + 10) / 50 * 100));
+      // Audio-specific quality mapping
+      // Based on perceptual thresholds for audio distortion
+      // <30dB: Catastrophic (unusable)
+      // 30-45dB: Poor (noticeable distortion)
+      // 45-60dB: Acceptable (mild artifacts)
+      // 60-75dB: Good (minimal artifacts)
+      // >75dB: Excellent (near-transparent)
+      
+      let qualityRetained: number;
+      if (snr < 30) {
+        // Catastrophic quality - exponential degradation
+        qualityRetained = Math.max(0, (snr / 30) * 40); // 0-40%
+      } else if (snr < 45) {
+        // Poor quality - linear mapping
+        qualityRetained = 40 + ((snr - 30) / 15) * 25; // 40-65%
+      } else if (snr < 60) {
+        // Acceptable quality
+        qualityRetained = 65 + ((snr - 45) / 15) * 20; // 65-85%
+      } else if (snr < 75) {
+        // Good quality
+        qualityRetained = 85 + ((snr - 60) / 15) * 12; // 85-97%
+      } else {
+        // Excellent quality (but cap at 98% for realism)
+        qualityRetained = Math.min(98, 97 + ((snr - 75) / 25) * 1);
+      }
+      
       const qualityLoss = 100 - qualityRetained;
       
       return {
         mse,
+        snr,
         qualityLoss,
         qualityRetained
       };

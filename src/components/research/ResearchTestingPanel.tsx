@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,13 @@ const ResearchTestingPanel = () => {
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor'>('tests');
+
+  const viewTopRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Scroll to per-view content when view changes
+    viewTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    console.info('ResearchTestingPanel activeView:', activeView);
+  }, [activeView]);
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -468,6 +475,7 @@ const ResearchTestingPanel = () => {
 
       {/* Thesis Validation Stats */}
       <ThesisValidationStats />
+      <div ref={viewTopRef} aria-hidden="true" />
 
       {activeView === 'tests' && (
         <>

@@ -42,6 +42,7 @@ import { AutomatedTestSuite } from "./AutomatedTestSuite";
 import { ThesisDataExporter } from "./ThesisDataExporter";
 import { CollaborativeAnnotations } from "./CollaborativeAnnotations";
 import { ThesisAlertSystem } from "./ThesisAlertSystem";
+import { DefensePresentationExporter } from "./DefensePresentationExporter";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -546,6 +547,9 @@ const ResearchTestingPanel = () => {
             {activeView === 'realTimeMonitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Real-Time Thesis Monitor</h3></>}
             {activeView === 'liveMonitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Live Monitoring Dashboard</h3></>}
             {activeView === 'automatedTests' && <><Play className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Automated Test Suite</h3></>}
+            {activeView === 'export' && <><Download className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Defense Presentation Export</h3></>}
+            {activeView === 'annotations' && <><MessageSquare className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Collaborative Annotations</h3></>}
+            {activeView === 'alerts' && <><Bell className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Alert System</h3></>}
             <Badge variant="secondary" className="ml-auto">Active</Badge>
           </div>
         </Card>
@@ -949,13 +953,23 @@ const ResearchTestingPanel = () => {
       )}
 
       {activeView === 'export' && (
-        <ThesisDataExporter 
-          thesisData={{
-            sigeAudio: testResults.sparse,
-            nunchakuAudio: testResults.quantization,
-            distriFusionAudio: testResults.distributed
-          }}
-        />
+        <div className="space-y-6">
+          <DefensePresentationExporter 
+            testResults={[]}
+            validationData={{
+              sigeAudio: testResults.sparse,
+              nunchakuAudio: testResults.quantization,
+              distriFusionAudio: testResults.distributed
+            }}
+          />
+          <ThesisDataExporter 
+            thesisData={{
+              sigeAudio: testResults.sparse,
+              nunchakuAudio: testResults.quantization,
+              distriFusionAudio: testResults.distributed
+            }}
+          />
+        </div>
       )}
 
       {activeView === 'annotations' && (

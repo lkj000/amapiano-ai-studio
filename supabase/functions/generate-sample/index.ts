@@ -101,10 +101,13 @@ serve(async (req) => {
         };
       }
 
-      const output = await replicate.run(modelId, { input: modelInput });
+      const prediction = await replicate.predictions.create({
+        version: modelId,
+        input: modelInput
+      });
 
-      console.log("Audio generation response:", output);
-      return new Response(JSON.stringify({ output, type: 'audio' }), {
+      console.log("Audio generation started:", prediction.id);
+      return new Response(JSON.stringify(prediction), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -145,10 +148,13 @@ serve(async (req) => {
         };
       }
 
-      const output = await replicate.run(modelId, { input: modelInput });
+      const prediction = await replicate.predictions.create({
+        version: modelId,
+        input: modelInput
+      });
 
-      console.log("Image generation response:", output);
-      return new Response(JSON.stringify({ output, type: 'image' }), {
+      console.log("Image generation started:", prediction.id);
+      return new Response(JSON.stringify(prediction), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

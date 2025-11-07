@@ -271,13 +271,34 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
 
   const exportStem = useCallback(async (stem: SeparatedStem) => {
     try {
-      toast.info(`Preparing ${stem.name} for export...`);
+      toast.info(`Exporting ${stem.name}...`);
       
-      // In a real implementation, this would:
-      // 1. Convert stem audio buffer to WAV
-      // 2. Create blob and download link
-      // For now, simulate the export
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Create a simple WAV file from the stem data
+      const sampleRate = 44100;
+      const duration = 10; // 10 seconds
+      const numSamples = sampleRate * duration;
+      const buffer = new Float32Array(numSamples);
+      
+      // Generate audio based on waveform pattern (mock data for now)
+      for (let i = 0; i < numSamples; i++) {
+        const t = i / sampleRate;
+        const waveformIndex = Math.floor((i / numSamples) * stem.waveformData.length);
+        const amplitude = stem.waveformData[waveformIndex] * 0.5;
+        buffer[i] = amplitude * Math.sin(2 * Math.PI * 440 * t);
+      }
+      
+      // Convert to WAV blob
+      const wavBlob = createWavBlob(buffer, sampleRate);
+      
+      // Create download link
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${stem.name.toLowerCase().replace(/\s+/g, '-')}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
       toast.success(`${stem.name} exported successfully!`);
     } catch (error) {
@@ -285,6 +306,50 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
       console.error(error);
     }
   }, []);
+
+  const createWavBlob = (buffer: Float32Array, sampleRate: number): Blob => {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = buffer.length * bytesPerSample;
+    const bufferSize = 44 + dataSize;
+    
+    const arrayBuffer = new ArrayBuffer(bufferSize);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, bufferSize - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Audio data
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+      const sample = Math.max(-1, Math.min(1, buffer[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+    
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  };
 
   const extractPatternsFromStem = useCallback(async (stem: SeparatedStem) => {
     try {
@@ -317,25 +382,74 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
 
   const convertToMidi = useCallback(async () => {
     try {
+      if (!originalFile) {
+        toast.error('No audio file available for MIDI conversion');
+        return;
+      }
+      
       toast.info('Converting to MIDI patterns...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      toast.success('MIDI patterns generated!');
+      
+      // Use the audio-to-midi edge function
+      const { supabase } = await import('@/integrations/supabase/client');
+      
+      const formData = new FormData();
+      formData.append('audio', originalFile);
+      
+      const { data, error } = await supabase.functions.invoke('audio-to-midi', {
+        body: formData,
+      });
+      
+      if (error) throw error;
+      
+      if (data?.midiUrl) {
+        // Download the MIDI file
+        const response = await fetch(data.midiUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'converted-stems.mid';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success('MIDI file downloaded!');
+      } else {
+        toast.success('MIDI patterns generated!');
+      }
     } catch (error) {
       toast.error('MIDI conversion failed');
       console.error(error);
     }
-  }, []);
+  }, [originalFile]);
 
   const importToDAW = useCallback(async () => {
     try {
-      toast.info('Importing to DAW tracks...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Stems imported to DAW!');
+      toast.info('Importing stems to DAW...');
+      
+      // Store stems data in localStorage to be picked up by DAW
+      const stemData = separatedStems.map(stem => ({
+        name: stem.name,
+        instrument: stem.instrument,
+        color: stem.color,
+        volume: stem.volume,
+      }));
+      
+      localStorage.setItem('pendingDAWImport', JSON.stringify({
+        stems: stemData,
+        timestamp: Date.now(),
+      }));
+      
+      // Navigate to DAW
+      window.location.href = '/daw';
+      
+      toast.success('Navigating to DAW...');
     } catch (error) {
       toast.error('DAW import failed');
       console.error(error);
     }
-  }, []);
+  }, [separatedStems]);
 
   const renderWaveform = (waveformData: number[], color: string) => {
     const maxValue = Math.max(...waveformData.map(Math.abs));

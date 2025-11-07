@@ -11,6 +11,8 @@ import { useModelQuantizer } from "@/hooks/useModelQuantizer";
 import { useDistributedInference } from "@/hooks/useDistributedInference";
 import { TestResultsExport } from "./TestResultsExport";
 import { PerformanceComparison } from "./PerformanceComparison";
+import { AutomatedTestScheduler } from "./AutomatedTestScheduler";
+import { PDFReportGenerator } from "./PDFReportGenerator";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -233,12 +235,16 @@ const ResearchTestingPanel = () => {
         </div>
         <div className="flex gap-2">
           <TestResultsExport testResults={testResults} />
+          <PDFReportGenerator testResults={testResults} />
           <Button onClick={runAllTests} size="lg">
             <Play className="w-4 h-4 mr-2" />
             Run All Tests
           </Button>
         </div>
       </div>
+
+      {/* Automated Test Scheduler */}
+      <AutomatedTestScheduler onRunTests={runAllTests} />
 
       {/* Performance Comparison */}
       {(testResults.sparse || testResults.quantization || testResults.distributed) && (

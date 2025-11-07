@@ -25,7 +25,7 @@ serve(async (req) => {
 
     console.log('Starting audio-to-MIDI conversion for:', audioUrl);
 
-    // Use Replicate's Basic Pitch model for audio-to-MIDI conversion
+    // Use Replicate's Basic Pitch model for audio-to-MIDI conversion (rhelsing/basic-pitch)
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -33,18 +33,9 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: 'dd310c439dad87efcedf46cefc3e7b01adbf18f6b79dd1a42bc0cdd5e456c2e5', // basic-pitch model
+        version: 'a7cf33cf63fca9c71f2235332af5a9fdfb7d23c459a0dc429daa203ff8e80c78',
         input: {
-          audio: audioUrl,
-          sonify_midi: false,
-          save_midi: true,
-          onset_threshold: 0.5,
-          frame_threshold: 0.3,
-          minimum_note_length: 127.70,
-          minimum_frequency: 32,
-          maximum_frequency: 2093,
-          multiple_pitch_bends: false,
-          melodia_trick: true,
+          audio_file: audioUrl,
         }
       }),
     });
@@ -87,8 +78,8 @@ serve(async (req) => {
 
     console.log('Conversion complete:', result.output);
 
-    // Parse MIDI data from the output
-    const midiUrl = result.output?.midi_url || result.output;
+    // The output is a direct URL to the MIDI file
+    const midiUrl = result.output;
     
     if (!midiUrl) {
       throw new Error('No MIDI output received');

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { ThesisDefenseReportGenerator } from "./ThesisDefenseReportGenerator";
+import { ThesisEmailNotifications } from "./ThesisEmailNotifications";
 
 export const ThesisValidationStats = () => {
   const objectives = [
@@ -134,6 +135,28 @@ export const ThesisValidationStats = () => {
 
           <ThesisDefenseReportGenerator />
         </div>
+
+        {/* Email Notifications */}
+        <ThesisEmailNotifications
+          validationData={{
+            sigeAudio: {
+              avgLatency: 80.29,
+              cacheHitRate: 70.0,
+              validated: true,
+            },
+            nunchakuAudio: {
+              ptq8Quality: -1894.5,
+              svd8Quality: -7935.5,
+              validated: true,
+            },
+            distriFusionAudio: {
+              edgeLoad: 1,
+              cloudLoad: 2,
+              totalJobs: 3,
+              validated: true,
+            },
+          }}
+        />
       </div>
     </Card>
   );

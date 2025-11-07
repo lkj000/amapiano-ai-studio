@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain } from "lucide-react";
+import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useWaveformVisualization } from "@/hooks/useWaveformVisualization";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import SampleLibraryPanel from "@/components/SampleLibraryPanel";
 
 export const SampleGenerator = () => {
@@ -26,6 +27,9 @@ export const SampleGenerator = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [benchmarkResults, setBenchmarkResults] = useState<any[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<'unknown' | 'healthy' | 'unhealthy'>('unknown');
+  const [healthMessage, setHealthMessage] = useState<string>('');
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
@@ -85,11 +89,25 @@ export const SampleGenerator = () => {
         throw new Error('Generation failed');
       }
     } catch (error: any) {
+      const errorData = error?.message ? JSON.parse(error.message) : error;
+      const errorMessage = errorData?.details || errorData?.error || error.message;
+      const hint = errorData?.hint;
+      
       toast({
         title: "Generation Failed",
-        description: error.message,
+        description: (
+          <div className="space-y-1">
+            <p>{errorMessage}</p>
+            {hint && <p className="text-xs opacity-80">{hint}</p>}
+          </div>
+        ),
         variant: "destructive",
       });
+      
+      if (errorData?.error?.includes("Invalid") || errorData?.error?.includes("Unauthorized")) {
+        setHealthStatus('unhealthy');
+        setHealthMessage('API key appears invalid. Run health check to verify.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -128,13 +146,80 @@ export const SampleGenerator = () => {
         throw new Error('Generation failed');
       }
     } catch (error: any) {
+      const errorData = error?.message ? JSON.parse(error.message) : error;
+      const errorMessage = errorData?.details || errorData?.error || error.message;
+      const hint = errorData?.hint;
+      
       toast({
         title: "Generation Failed",
+        description: (
+          <div className="space-y-1">
+            <p>{errorMessage}</p>
+            {hint && <p className="text-xs opacity-80">{hint}</p>}
+          </div>
+        ),
+        variant: "destructive",
+      });
+      
+      if (errorData?.error?.includes("Invalid") || errorData?.error?.includes("Unauthorized")) {
+        setHealthStatus('unhealthy');
+        setHealthMessage('API key appears invalid. Run health check to verify.');
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const checkReplicateHealth = async () => {
+    setIsCheckingHealth(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample', {
+        body: { type: 'health-check' }
+      });
+
+      if (error) {
+        setHealthStatus('unhealthy');
+        setHealthMessage('Failed to connect to Replicate API');
+        toast({
+          title: "Health Check Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.status === 'healthy') {
+        setHealthStatus('healthy');
+        setHealthMessage(data.message + (data.username ? ` (${data.username})` : ''));
+        toast({
+          title: "Health Check Passed",
+          description: data.message,
+        });
+      } else {
+        setHealthStatus('unhealthy');
+        setHealthMessage(data.details || data.error);
+        toast({
+          title: "Health Check Failed",
+          description: (
+            <div className="space-y-1">
+              <p>{data.error}</p>
+              {data.details && <p className="text-xs opacity-80">{data.details}</p>}
+              {data.hint && <p className="text-xs opacity-80">{data.hint}</p>}
+            </div>
+          ),
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      setHealthStatus('unhealthy');
+      setHealthMessage('Error checking health: ' + error.message);
+      toast({
+        title: "Health Check Error",
         description: error.message,
         variant: "destructive",
       });
     } finally {
-      setIsGenerating(false);
+      setIsCheckingHealth(false);
     }
   };
 
@@ -169,7 +254,26 @@ export const SampleGenerator = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={checkReplicateHealth}
+          disabled={isCheckingHealth}
+        >
+          {isCheckingHealth ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Checking...
+            </>
+          ) : (
+            <>
+              <Brain className="mr-2 h-4 w-4" />
+              Check API Health
+            </>
+          )}
+        </Button>
+        
         <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
@@ -188,6 +292,32 @@ export const SampleGenerator = () => {
           </DialogContent>
         </Dialog>
       </div>
+
+      {healthStatus !== 'unknown' && (
+        <Alert variant={healthStatus === 'healthy' ? 'default' : 'destructive'}>
+          {healthStatus === 'healthy' ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          <AlertTitle>
+            {healthStatus === 'healthy' ? 'API Connection Healthy' : 'API Connection Issue'}
+          </AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <span>{healthMessage}</span>
+            {healthStatus === 'unhealthy' && (
+              <a 
+                href="https://supabase.com/dashboard/project/mywijmtszelyutssormy/settings/functions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm underline hover:no-underline"
+              >
+                Update API key in Supabase →
+              </a>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Tabs defaultValue="audio" className="w-full">
         <TabsList className="grid w-full grid-cols-3">

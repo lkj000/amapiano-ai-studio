@@ -14,12 +14,57 @@ serve(async (req) => {
   try {
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
-      throw new Error('REPLICATE_API_KEY is not set');
+      return new Response(
+        JSON.stringify({ 
+          error: "Replicate API key is not configured",
+          details: "Please add your REPLICATE_API_KEY in Supabase Edge Function secrets"
+        }), 
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     const replicate = new Replicate({ auth: REPLICATE_API_KEY });
     const body = await req.json();
     console.log("Generate sample request:", body);
+
+    // Health check endpoint
+    if (body.type === 'health-check') {
+      try {
+        // Make a minimal API call to verify the key works
+        const account = await replicate.accounts.current();
+        console.log("Health check successful:", account);
+        return new Response(JSON.stringify({ 
+          status: 'healthy', 
+          message: 'Replicate API key is valid',
+          username: account.username 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (healthError: any) {
+        console.error("Health check failed:", healthError);
+        if (healthError.response?.status === 401) {
+          return new Response(JSON.stringify({ 
+            status: 'unhealthy',
+            error: 'Invalid Replicate API key',
+            details: 'The API key is not valid. Please update it in Supabase Edge Function secrets. Get a valid key from https://replicate.com/account/api-tokens',
+            hint: 'API tokens should start with "r8_"'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+          });
+        }
+        return new Response(JSON.stringify({ 
+          status: 'unhealthy',
+          error: healthError.message 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+    }
 
     // Status check for existing prediction
     if (body.predictionId) {
@@ -161,9 +206,45 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in generate-sample function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    
+    // Handle specific Replicate API errors
+    if (error.response?.status === 401) {
+      return new Response(JSON.stringify({ 
+        error: "Invalid Replicate API key",
+        details: "Your Replicate API key is invalid or expired. Please update it in Supabase Edge Function secrets.",
+        hint: "Get a valid API token from https://replicate.com/account/api-tokens (tokens start with 'r8_')"
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+    
+    if (error.response?.status === 402) {
+      return new Response(JSON.stringify({ 
+        error: "Replicate account payment required",
+        details: "Your Replicate account needs payment. Please add credits at https://replicate.com/account/billing"
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 402,
+      });
+    }
+    
+    if (error.response?.status === 429) {
+      return new Response(JSON.stringify({ 
+        error: "Replicate rate limit exceeded",
+        details: "Too many requests. Please wait a moment and try again."
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 429,
+      });
+    }
+    
+    return new Response(JSON.stringify({ 
+      error: error.message || "An unexpected error occurred",
+      details: "Check the edge function logs for more information"
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });

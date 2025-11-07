@@ -37,6 +37,8 @@ import { SIGEAudioPublicationDraft } from "./SIGEAudioPublicationDraft";
 import { DistriFusionDebugPanel } from "./DistriFusionDebugPanel";
 import { ThesisValidationStats } from "./ThesisValidationStats";
 import { RealTimeThesisMonitor } from "./RealTimeThesisMonitor";
+import { LiveThesisMonitor } from "./LiveThesisMonitor";
+import { AutomatedTestSuite } from "./AutomatedTestSuite";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -47,7 +49,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests'>('tests');
 
   const viewTopRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -457,6 +459,22 @@ const ResearchTestingPanel = () => {
             <Activity className="w-4 h-4 mr-2" />
             Live Monitor
           </Button>
+          <Button
+            variant={activeView === 'liveMonitor' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('liveMonitor')}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Live Dashboard
+          </Button>
+          <Button
+            variant={activeView === 'automatedTests' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('automatedTests')}
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Automated Tests
+          </Button>
         </div>
       </div>
 
@@ -499,6 +517,8 @@ const ResearchTestingPanel = () => {
             {activeView === 'sigePublication' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">SIGE-Audio Publication Draft</h3></>}
             {activeView === 'distrifusionDebug' && <><Bug className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">DistriFusion Debug Panel</h3></>}
             {activeView === 'realTimeMonitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Real-Time Thesis Monitor</h3></>}
+            {activeView === 'liveMonitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Live Monitoring Dashboard</h3></>}
+            {activeView === 'automatedTests' && <><Play className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Automated Test Suite</h3></>}
             <Badge variant="secondary" className="ml-auto">Active</Badge>
           </div>
         </Card>
@@ -891,6 +911,14 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'realTimeMonitor' && (
         <RealTimeThesisMonitor />
+      )}
+
+      {activeView === 'liveMonitor' && (
+        <LiveThesisMonitor />
+      )}
+
+      {activeView === 'automatedTests' && (
+        <AutomatedTestSuite />
       )}
     </div>
   );

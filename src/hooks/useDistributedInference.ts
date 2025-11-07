@@ -7,6 +7,7 @@ export const useDistributedInference = () => {
   const [coordinator] = useState(() => new DistributedInferenceCoordinator());
   const [jobs, setJobs] = useState<InferenceJob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [stats, setStats] = useState({
     totalNodes: 0,
     edgeNodes: 0,
@@ -21,6 +22,8 @@ export const useDistributedInference = () => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         coordinator.setUserId(user.id);
+        setIsInitialized(true);
+        console.log('[DistriFusion] Coordinator initialized for user:', user.id);
       }
     });
 
@@ -134,6 +137,7 @@ export const useDistributedInference = () => {
     getRoutingDecisions,
     jobs,
     isProcessing,
+    isInitialized,
     stats
   };
 };

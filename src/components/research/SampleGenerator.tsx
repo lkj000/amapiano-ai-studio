@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Music, Image as ImageIcon, BarChart3, Loader2, Download } from "lucide-react";
+import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain } from "lucide-react";
+import { useWaveformVisualization } from "@/hooks/useWaveformVisualization";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import SampleLibraryPanel from "@/components/SampleLibraryPanel";
 
 export const SampleGenerator = () => {
   const { toast } = useToast();
@@ -16,10 +19,38 @@ export const SampleGenerator = () => {
   const [imagePrompt, setImagePrompt] = useState("Amapiano music waveform visualization with vibrant colors");
   const [benchmarkPrompt, setBenchmarkPrompt] = useState("Abstract amapiano album cover art");
   const [audioDuration, setAudioDuration] = useState("8");
+  const [audioModel, setAudioModel] = useState("musicgen");
+  const [imageModel, setImageModel] = useState("flux-schnell");
   const [imageAspect, setImageAspect] = useState("16:9");
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [benchmarkResults, setBenchmarkResults] = useState<any[]>([]);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { generateWaveform, drawWaveform } = useWaveformVisualization();
+
+  useEffect(() => {
+    if (generatedAudio && audioRef.current && canvasRef.current) {
+      const audio = audioRef.current;
+      const loadAndVisualize = async () => {
+        try {
+          const audioContext = new AudioContext();
+          const response = await fetch(generatedAudio);
+          const arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          
+          const waveformData = await generateWaveform(audioBuffer);
+          if (canvasRef.current) {
+            drawWaveform(canvasRef.current, waveformData.peaks, '#10b981');
+          }
+        } catch (error) {
+          console.error('Error visualizing audio:', error);
+        }
+      };
+      loadAndVisualize();
+    }
+  }, [generatedAudio, generateWaveform, drawWaveform]);
 
   const generateAudioSample = async () => {
     setIsGenerating(true);
@@ -28,13 +59,13 @@ export const SampleGenerator = () => {
         body: { 
           type: 'audio', 
           prompt: audioPrompt,
-          duration: parseInt(audioDuration)
+          duration: parseInt(audioDuration),
+          model: audioModel
         }
       });
 
       if (error) throw error;
 
-      // Poll for completion
       let prediction = data;
       while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -48,7 +79,7 @@ export const SampleGenerator = () => {
         setGeneratedAudio(prediction.output);
         toast({
           title: "Audio Generated",
-          description: "Amapiano sample created successfully",
+          description: "Sample created successfully with " + audioModel,
         });
       } else {
         throw new Error('Generation failed');
@@ -71,13 +102,13 @@ export const SampleGenerator = () => {
         body: { 
           type: 'image', 
           prompt: imagePrompt,
-          aspectRatio: imageAspect
+          aspectRatio: imageAspect,
+          model: imageModel
         }
       });
 
       if (error) throw error;
 
-      // Poll for completion
       let prediction = data;
       while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
         await new Promise(resolve => setTimeout(resolve, 2000));
@@ -91,7 +122,7 @@ export const SampleGenerator = () => {
         setGeneratedImage(prediction.output[0]);
         toast({
           title: "Image Generated",
-          description: "Visual asset created successfully",
+          description: "Visual asset created with " + imageModel,
         });
       } else {
         throw new Error('Generation failed');
@@ -138,6 +169,26 @@ export const SampleGenerator = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end mb-4">
+        <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Library className="mr-2 h-4 w-4" />
+              Sample Library
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-6xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>Sample Library</DialogTitle>
+            </DialogHeader>
+            <SampleLibraryPanel 
+              onClose={() => setShowLibrary(false)}
+              onAddSampleToTrack={() => {}}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+
       <Tabs defaultValue="audio" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="audio" className="flex items-center gap-2">
@@ -167,19 +218,34 @@ export const SampleGenerator = () => {
                   className="min-h-[100px] mt-2"
                 />
               </div>
-              <div>
-                <Label htmlFor="audio-duration">Duration (seconds)</Label>
-                <Select value={audioDuration} onValueChange={setAudioDuration}>
-                  <SelectTrigger id="audio-duration" className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="4">4 seconds</SelectItem>
-                    <SelectItem value="8">8 seconds</SelectItem>
-                    <SelectItem value="15">15 seconds</SelectItem>
-                    <SelectItem value="30">30 seconds</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="audio-duration">Duration (seconds)</Label>
+                  <Select value={audioDuration} onValueChange={setAudioDuration}>
+                    <SelectTrigger id="audio-duration" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4">4 seconds</SelectItem>
+                      <SelectItem value="8">8 seconds</SelectItem>
+                      <SelectItem value="15">15 seconds</SelectItem>
+                      <SelectItem value="30">30 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="audio-model">AI Model</Label>
+                  <Select value={audioModel} onValueChange={setAudioModel}>
+                    <SelectTrigger id="audio-model" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="musicgen">MusicGen (Fast)</SelectItem>
+                      <SelectItem value="musicgen-large">MusicGen Large (Quality)</SelectItem>
+                      <SelectItem value="riffusion">Riffusion (Experimental)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Button 
                 onClick={generateAudioSample} 
@@ -200,15 +266,26 @@ export const SampleGenerator = () => {
               </Button>
               
               {generatedAudio && (
-                <div className="mt-4 space-y-2">
-                  <Label>Generated Audio</Label>
-                  <audio controls className="w-full">
-                    <source src={generatedAudio} type="audio/mpeg" />
-                  </audio>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <Label>Waveform Visualization</Label>
+                    <canvas 
+                      ref={canvasRef}
+                      width={800}
+                      height={200}
+                      className="w-full border border-border rounded-lg mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label>Audio Playback</Label>
+                    <audio ref={audioRef} controls className="w-full mt-2">
+                      <source src={generatedAudio} type="audio/mpeg" />
+                    </audio>
+                  </div>
                   <Button variant="outline" size="sm" asChild>
                     <a href={generatedAudio} download="amapiano-sample.mp3">
                       <Download className="mr-2 h-4 w-4" />
-                      Download
+                      Download Sample
                     </a>
                   </Button>
                 </div>
@@ -230,19 +307,35 @@ export const SampleGenerator = () => {
                   className="min-h-[100px] mt-2"
                 />
               </div>
-              <div>
-                <Label htmlFor="aspect-ratio">Aspect Ratio</Label>
-                <Select value={imageAspect} onValueChange={setImageAspect}>
-                  <SelectTrigger id="aspect-ratio" className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1:1">Square (1:1)</SelectItem>
-                    <SelectItem value="16:9">Widescreen (16:9)</SelectItem>
-                    <SelectItem value="9:16">Portrait (9:16)</SelectItem>
-                    <SelectItem value="4:3">Standard (4:3)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="aspect-ratio">Aspect Ratio</Label>
+                  <Select value={imageAspect} onValueChange={setImageAspect}>
+                    <SelectTrigger id="aspect-ratio" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1:1">Square (1:1)</SelectItem>
+                      <SelectItem value="16:9">Widescreen (16:9)</SelectItem>
+                      <SelectItem value="9:16">Portrait (9:16)</SelectItem>
+                      <SelectItem value="4:3">Standard (4:3)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="image-model">AI Model</Label>
+                  <Select value={imageModel} onValueChange={setImageModel}>
+                    <SelectTrigger id="image-model" className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="flux-schnell">Flux Schnell (Fast)</SelectItem>
+                      <SelectItem value="flux-dev">Flux Dev (Quality)</SelectItem>
+                      <SelectItem value="sdxl">SDXL (Stable Diffusion)</SelectItem>
+                      <SelectItem value="playground-v2.5">Playground v2.5</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <Button 
                 onClick={generateVisualAsset} 

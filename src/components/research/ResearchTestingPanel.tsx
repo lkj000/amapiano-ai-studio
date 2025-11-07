@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -17,6 +17,12 @@ import { PDFReportGenerator } from "./PDFReportGenerator";
 import { TestResultCharts } from "./TestResultCharts";
 import { TestHistoryPanel } from "./TestHistoryPanel";
 import { TestComparisonPanel } from "./TestComparisonPanel";
+import { TrendAnalysisPanel } from "./TrendAnalysisPanel";
+import { CICDIntegrationPanel } from "./CICDIntegrationPanel";
+import { LaTeXExportPanel } from "./LaTeXExportPanel";
+import { PerformanceRegressionAlert } from "./PerformanceRegressionAlert";
+import { ResearchDashboardSummary } from "./ResearchDashboardSummary";
+import { TestResultSharingPanel } from "./TestResultSharingPanel";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -27,7 +33,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -277,7 +283,7 @@ const ResearchTestingPanel = () => {
             Interactive testing for all PhD thesis implementations
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant={activeView === 'tests' ? 'default' : 'outline'}
             size="sm"
@@ -302,8 +308,46 @@ const ResearchTestingPanel = () => {
             <History className="w-4 h-4 mr-2" />
             History
           </Button>
+          <Button
+            variant={activeView === 'trends' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('trends')}
+          >
+            <LayoutDashboard className="w-4 h-4 mr-2" />
+            Trends
+          </Button>
+          <Button
+            variant={activeView === 'cicd' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('cicd')}
+          >
+            <GitBranch className="w-4 h-4 mr-2" />
+            CI/CD
+          </Button>
+          <Button
+            variant={activeView === 'latex' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('latex')}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            LaTeX
+          </Button>
+          <Button
+            variant={activeView === 'sharing' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('sharing')}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
         </div>
       </div>
+
+      {/* Performance Regression Alerts */}
+      <PerformanceRegressionAlert />
+
+      {/* Dashboard Summary */}
+      <ResearchDashboardSummary />
 
       {activeView === 'tests' && (
         <>
@@ -622,6 +666,11 @@ const ResearchTestingPanel = () => {
         </TabsContent>
       </Tabs>
       )}
+
+      {activeView === 'trends' && <TrendAnalysisPanel />}
+      {activeView === 'cicd' && <CICDIntegrationPanel />}
+      {activeView === 'latex' && <LaTeXExportPanel selectedTests={comparisonIds} />}
+      {activeView === 'sharing' && <TestResultSharingPanel selectedTests={comparisonIds} />}
     </div>
   );
 };

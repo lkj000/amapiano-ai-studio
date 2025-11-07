@@ -42,10 +42,19 @@ export const TestResultsExport = ({ testResults }: TestResultsExportProps) => {
 
     // Sparse Inference
     if (testResults.sparse) {
-      rows.push(`Sparse Inference,Iterations,${testResults.sparse.iterations},count`);
-      rows.push(`Sparse Inference,Cache Hit Rate,${testResults.sparse.cacheHitRate.toFixed(2)},percent`);
-      rows.push(`Sparse Inference,Avg Latency,${testResults.sparse.avgLatency.toFixed(2)},ms`);
-      rows.push(`Sparse Inference,Memory Used,${testResults.sparse.memoryUsed.toFixed(2)},MB`);
+      const { results, summary } = testResults.sparse;
+      // Use raw iteration data for accurate cache hit rate
+      const totalIterations = results?.length || 0;
+      const cachedHits = results?.filter((r: any) => r.cached).length || 0;
+      const actualCacheHitRate = totalIterations > 0 ? (cachedHits / totalIterations) * 100 : 0;
+      const avgLatency = totalIterations > 0 
+        ? results.reduce((sum: number, r: any) => sum + r.latency, 0) / totalIterations 
+        : 0;
+
+      rows.push(`Sparse Inference,Iterations,${totalIterations},count`);
+      rows.push(`Sparse Inference,Cache Hit Rate,${actualCacheHitRate.toFixed(2)},percent`);
+      rows.push(`Sparse Inference,Avg Latency,${avgLatency.toFixed(2)},ms`);
+      rows.push(`Sparse Inference,Memory Used,${summary?.memorySizeMB?.toFixed(2) || '0.00'},MB`);
     }
 
     // Model Quantization

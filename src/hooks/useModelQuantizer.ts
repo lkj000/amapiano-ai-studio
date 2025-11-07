@@ -93,18 +93,26 @@ export const useModelQuantizer = () => {
       }
       
       mse = mse / minLength;
-      const rmse = Math.sqrt(mse);
       
-      // Calculate signal power
+      // Calculate signal power for SNR-based quality metric
       let signalPower = 0;
       for (let i = 0; i < minLength; i++) {
         signalPower += original[i] * original[i];
       }
       signalPower = signalPower / minLength;
       
-      // Quality loss as percentage of signal power
-      const qualityLoss = signalPower > 0 ? (rmse / Math.sqrt(signalPower)) * 100 : 0;
-      const qualityRetained = Math.max(0, 100 - qualityLoss);
+      // Avoid division by zero
+      if (signalPower === 0 || mse === 0) {
+        return { mse, qualityLoss: 0, qualityRetained: 100 };
+      }
+      
+      // Calculate SNR (Signal-to-Noise Ratio) in dB
+      const snr = 10 * Math.log10(signalPower / mse);
+      
+      // Normalize SNR to 0-100% quality scale
+      // Typical audio SNR ranges: <20dB (poor), 20-40dB (acceptable), >40dB (good)
+      const qualityRetained = Math.min(100, Math.max(0, (snr + 10) / 50 * 100));
+      const qualityLoss = 100 - qualityRetained;
       
       return {
         mse,

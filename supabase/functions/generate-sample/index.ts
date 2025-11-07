@@ -101,13 +101,15 @@ serve(async (req) => {
         };
       }
 
-      const prediction = await replicate.predictions.create({
-        version: modelId,
-        input: modelInput
-      });
+      const output = await replicate.run(modelId, { input: modelInput });
 
-      console.log("Audio generation started:", prediction.id);
-      return new Response(JSON.stringify(prediction), {
+      console.log("Audio generation response:", output);
+      // Return in prediction format for client compatibility
+      return new Response(JSON.stringify({ 
+        id: `gen_${Date.now()}`,
+        status: 'succeeded',
+        output: output
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -148,13 +150,15 @@ serve(async (req) => {
         };
       }
 
-      const prediction = await replicate.predictions.create({
-        version: modelId,
-        input: modelInput
-      });
+      const output = await replicate.run(modelId, { input: modelInput });
 
-      console.log("Image generation started:", prediction.id);
-      return new Response(JSON.stringify(prediction), {
+      console.log("Image generation response:", output);
+      // Return in prediction format for client compatibility
+      return new Response(JSON.stringify({ 
+        id: `gen_${Date.now()}`,
+        status: 'succeeded',
+        output: output
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

@@ -29,6 +29,8 @@ import { HypothesisValidationSystem } from "./HypothesisValidationSystem";
 import { PublicationReportGenerator } from "./PublicationReportGenerator";
 import { LiveTestMonitor } from "./LiveTestMonitor";
 import { BaselineComparisonPanel } from "./BaselineComparisonPanel";
+import { SyntheticDataTestPanel } from "./SyntheticDataTestPanel";
+import { DataValidationPanel } from "./DataValidationPanel";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -39,7 +41,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -61,9 +63,9 @@ const ResearchTestingPanel = () => {
       const results = [];
 
       for (let i = 0; i < iterations; i++) {
-        // Generate test data with varying sparsity
+        // Generate test data with varying sparsity (40% sparse to ensure caching)
         const testData = new Float32Array(1024).map(() => 
-          Math.random() > 0.3 ? Math.random() : 0 // 30% sparse
+          Math.random() > 0.4 ? Math.random() * 2 - 1 : 0 // 40% sparse, values in [-1, 1]
         );
 
         const startTime = performance.now();
@@ -393,6 +395,22 @@ const ResearchTestingPanel = () => {
           >
             <TrendingUp className="w-4 h-4 mr-2" />
             Baseline
+          </Button>
+          <Button
+            variant={activeView === 'syntheticTest' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('syntheticTest')}
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Synthetic Test
+          </Button>
+          <Button
+            variant={activeView === 'dataValidation' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('dataValidation')}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Data Validation
           </Button>
         </div>
       </div>
@@ -766,6 +784,14 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'baseline' && (
         <BaselineComparisonPanel />
+      )}
+
+      {activeView === 'syntheticTest' && (
+        <SyntheticDataTestPanel />
+      )}
+
+      {activeView === 'dataValidation' && (
+        <DataValidationPanel />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug, Download, MessageSquare, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -39,6 +39,9 @@ import { ThesisValidationStats } from "./ThesisValidationStats";
 import { RealTimeThesisMonitor } from "./RealTimeThesisMonitor";
 import { LiveThesisMonitor } from "./LiveThesisMonitor";
 import { AutomatedTestSuite } from "./AutomatedTestSuite";
+import { ThesisDataExporter } from "./ThesisDataExporter";
+import { CollaborativeAnnotations } from "./CollaborativeAnnotations";
+import { ThesisAlertSystem } from "./ThesisAlertSystem";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -49,7 +52,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts'>('tests');
 
   const viewTopRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -474,6 +477,30 @@ const ResearchTestingPanel = () => {
           >
             <Play className="w-4 h-4 mr-2" />
             Automated Tests
+          </Button>
+          <Button
+            variant={activeView === 'export' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('export')}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button
+            variant={activeView === 'annotations' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('annotations')}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Annotations
+          </Button>
+          <Button
+            variant={activeView === 'alerts' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('alerts')}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            Alerts
           </Button>
         </div>
       </div>
@@ -919,6 +946,45 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'automatedTests' && (
         <AutomatedTestSuite />
+      )}
+
+      {activeView === 'export' && (
+        <ThesisDataExporter 
+          thesisData={{
+            sigeAudio: testResults.sparse,
+            nunchakuAudio: testResults.quantization,
+            distriFusionAudio: testResults.distributed
+          }}
+        />
+      )}
+
+      {activeView === 'annotations' && (
+        <div className="space-y-4">
+          <CollaborativeAnnotations pillarId="sige" pillarName="SIGE-Audio" />
+          <CollaborativeAnnotations pillarId="nunchaku" pillarName="Nunchaku-Audio" />
+          <CollaborativeAnnotations pillarId="distrifusion" pillarName="DistriFusion-Audio" />
+        </div>
+      )}
+
+      {activeView === 'alerts' && (
+        <ThesisAlertSystem 
+          validationData={{
+            sigeAudio: {
+              validated: (testResults.sparse?.cacheHitRate || 0) > 50,
+              cacheHitRate: testResults.sparse?.cacheHitRate,
+              avgLatency: testResults.sparse?.avgLatency
+            },
+            nunchakuAudio: {
+              validated: false,
+              qualityRetention: testResults.quantization?.results?.[0]?.qualityRetained
+            },
+            distriFusionAudio: {
+              validated: (testResults.distributed?.stats?.totalLoad || 0) > 0,
+              edgeLoad: testResults.distributed?.stats?.edgeLoad,
+              cloudLoad: testResults.distributed?.stats?.cloudLoad
+            }
+          }}
+        />
       )}
     </div>
   );

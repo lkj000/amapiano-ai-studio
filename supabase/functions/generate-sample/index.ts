@@ -80,7 +80,7 @@ serve(async (req) => {
     if (body.type === 'audio') {
       console.log("Generating audio with prompt:", body.prompt, "model:", body.model);
       
-      let modelId = "meta/musicgen:671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb";
+      let modelVersion = "671ac645ce5e552cc63a54a2bbff63fcf798043055d2dac5fc9e36a837eedcfb";
       let modelInput: any = {
         prompt: body.prompt || "Amapiano beat with log drum, piano chords, deep bass, 112 BPM",
         duration: body.duration || 8,
@@ -90,10 +90,10 @@ serve(async (req) => {
       };
 
       if (body.model === 'musicgen-large') {
-        modelId = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38";
+        modelVersion = "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38";
         modelInput.model_version = "stereo-large";
       } else if (body.model === 'riffusion') {
-        modelId = "riffusion/riffusion:8cf61ea6c56afd61d8f5b9ffd14d7c216c0a93844ce2d82ac1c9ecc9c7f24e05";
+        modelVersion = "8cf61ea6c56afd61d8f5b9ffd14d7c216c0a93844ce2d82ac1c9ecc9c7f24e05";
         modelInput = {
           prompt_a: body.prompt || "Amapiano beat",
           denoising: 0.75,
@@ -101,15 +101,13 @@ serve(async (req) => {
         };
       }
 
-      const output = await replicate.run(modelId, { input: modelInput });
+      const prediction = await replicate.predictions.create({
+        version: modelVersion,
+        input: modelInput
+      });
 
-      console.log("Audio generation response:", output);
-      // Return in prediction format for client compatibility
-      return new Response(JSON.stringify({ 
-        id: `gen_${Date.now()}`,
-        status: 'succeeded',
-        output: output
-      }), {
+      console.log("Audio generation started:", prediction.id);
+      return new Response(JSON.stringify(prediction), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -117,6 +115,7 @@ serve(async (req) => {
     if (body.type === 'image') {
       console.log("Generating image with prompt:", body.prompt, "model:", body.model);
       
+      // For image generation, we'll use run() for simplicity since images are faster
       let modelId = "black-forest-labs/flux-schnell";
       let modelInput: any = {
         prompt: body.prompt,

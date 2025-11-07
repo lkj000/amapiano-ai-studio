@@ -18,6 +18,10 @@ import { BatchGenerator } from "./BatchGenerator";
 import { QualityAnalyzer } from "./QualityAnalyzer";
 import { ABComparison } from "./ABComparison";
 import { SpectrumAnalyzer } from "./SpectrumAnalyzer";
+import { LoopRegionsEditor } from "./LoopRegionsEditor";
+import { MultiTrackEditor } from "./MultiTrackEditor";
+import { EffectsLibrary } from "./EffectsLibrary";
+import { MIDIPanel } from "./MIDIPanel";
 
 export const SampleGenerator = () => {
   const { toast } = useToast();
@@ -42,6 +46,7 @@ export const SampleGenerator = () => {
   const [sampleName, setSampleName] = useState("");
   const [sampleDescription, setSampleDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
@@ -72,6 +77,7 @@ export const SampleGenerator = () => {
           const arrayBuffer = await response.arrayBuffer();
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
           
+          setDuration(audioBuffer.duration);
           const waveformData = await generateWaveform(audioBuffer);
           if (canvasRef.current) {
             drawWaveform(canvasRef.current, waveformData.peaks, '#10b981');
@@ -442,13 +448,17 @@ export const SampleGenerator = () => {
 
         <TabsContent value="audio" className="space-y-4">
           <Tabs defaultValue="generate" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 mb-4">
+            <TabsList className="grid w-full grid-cols-10 mb-4">
               <TabsTrigger value="generate">Generate</TabsTrigger>
               <TabsTrigger value="batch">Batch</TabsTrigger>
               <TabsTrigger value="quality">Quality</TabsTrigger>
               <TabsTrigger value="edit">Edit</TabsTrigger>
               <TabsTrigger value="ab">A/B Test</TabsTrigger>
               <TabsTrigger value="spectrum">Spectrum</TabsTrigger>
+              <TabsTrigger value="loops">Loops</TabsTrigger>
+              <TabsTrigger value="multitrack">Multi-Track</TabsTrigger>
+              <TabsTrigger value="effects">Effects</TabsTrigger>
+              <TabsTrigger value="midi">MIDI</TabsTrigger>
             </TabsList>
 
             <TabsContent value="generate" className="space-y-4">
@@ -666,6 +676,28 @@ export const SampleGenerator = () => {
                   Generate a sample first to view spectrum
                 </Card>
               )}
+            </TabsContent>
+
+            <TabsContent value="loops" className="space-y-4">
+              {generatedAudio ? (
+                <LoopRegionsEditor audioUrl={generatedAudio} duration={duration} />
+              ) : (
+                <Card className="p-6 text-center text-muted-foreground">
+                  Generate a sample first to create loop regions
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="multitrack" className="space-y-4">
+              <MultiTrackEditor />
+            </TabsContent>
+
+            <TabsContent value="effects" className="space-y-4">
+              <EffectsLibrary />
+            </TabsContent>
+
+            <TabsContent value="midi" className="space-y-4">
+              <MIDIPanel />
             </TabsContent>
           </Tabs>
         </TabsContent>

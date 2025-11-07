@@ -29,6 +29,8 @@ export const AudioStartGate: React.FC<AudioStartGateProps> = ({ onStart, classNa
     try {
       await onStart();
       sessionStorage.setItem('audioContextStarted', 'true');
+      // Notify listeners that audio has started (so other engines can lazily init)
+      window.dispatchEvent(new Event('audio-started'));
       setIsVisible(false);
     } catch (error) {
       console.error('Failed to start audio:', error);

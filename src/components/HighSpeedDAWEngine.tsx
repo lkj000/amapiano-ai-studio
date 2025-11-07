@@ -28,22 +28,33 @@ export const HighSpeedDAWEngine: React.FC<{
   const audioEngine = useHighSpeedAudioEngine();
   const featureExtractor = useRealtimeFeatureExtraction();
 
-  // Auto-initialize
+  // Auto-initialize only after explicit user gesture (autoplay policy)
   useEffect(() => {
     const initializeEngines = async () => {
       await Promise.all([
         audioEngine.initialize(),
         featureExtractor.initialize(),
       ]);
-      
-      if (onInitialized) {
-        onInitialized();
-      }
+      if (onInitialized) onInitialized();
     };
 
-    if (!audioEngine.isInitialized || !featureExtractor.isInitialized) {
+    // If audio was already started in this session, initialize immediately
+    const started = sessionStorage.getItem('audioContextStarted') === 'true';
+    if (started && (!audioEngine.isInitialized || !featureExtractor.isInitialized)) {
       initializeEngines();
     }
+
+    // Listen for audio-started event dispatched by AudioStartGate
+    const onAudioStarted = () => {
+      if (!audioEngine.isInitialized || !featureExtractor.isInitialized) {
+        initializeEngines();
+      }
+    };
+    window.addEventListener('audio-started', onAudioStarted);
+
+    return () => {
+      window.removeEventListener('audio-started', onAudioStarted);
+    };
   }, []);
 
   const latencyColor = audioEngine.stats.latency < 5 ? 'text-green-500' : 

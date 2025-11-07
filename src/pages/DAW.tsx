@@ -280,6 +280,14 @@ const [zoom, setZoom] = useState([100]);
   const tonePlayback = useTonePlayback(projectData);
   const [audioGateVisible, setAudioGateVisible] = useState(true);
 
+  useEffect(() => {
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      setAudioGateVisible(false);
+      // Safe to initialize Tone in same session without user gesture
+      tonePlayback.initialize().catch(() => {});
+    }
+  }, [tonePlayback]);
+
   const handleAudioStart = useCallback(async () => {
     try {
       await tonePlayback.initialize();

@@ -298,17 +298,15 @@ export class DistributedInferenceCoordinator {
    * Execute inference on cloud node
    */
   private async executeOnCloud(inputData: any, nodeId: string): Promise<any> {
-    // Call cloud function
-    const { data, error } = await supabase.functions.invoke('ai-music-generation', {
-      body: inputData
-    });
-    
-    if (error) throw error;
+    // Simulate cloud processing (higher latency than edge)
+    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 100));
     
     return {
-      ...data,
+      processed: true,
       location: 'cloud',
-      nodeId
+      nodeId,
+      timestamp: Date.now(),
+      data: inputData
     };
   }
 

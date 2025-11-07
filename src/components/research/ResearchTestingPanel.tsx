@@ -36,6 +36,7 @@ import { ThesisProgressDashboard } from "./ThesisProgressDashboard";
 import { SIGEAudioPublicationDraft } from "./SIGEAudioPublicationDraft";
 import { DistriFusionDebugPanel } from "./DistriFusionDebugPanel";
 import { ThesisValidationStats } from "./ThesisValidationStats";
+import { RealTimeThesisMonitor } from "./RealTimeThesisMonitor";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -46,7 +47,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -440,6 +441,14 @@ const ResearchTestingPanel = () => {
           >
             <Bug className="w-4 h-4 mr-2" />
             Debug
+          </Button>
+          <Button
+            variant={activeView === 'realTimeMonitor' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('realTimeMonitor')}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Live Monitor
           </Button>
         </div>
       </div>
@@ -843,6 +852,10 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'distrifusionDebug' && (
         <DistriFusionDebugPanel />
+      )}
+
+      {activeView === 'realTimeMonitor' && (
+        <RealTimeThesisMonitor />
       )}
     </div>
   );

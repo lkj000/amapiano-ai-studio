@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ThesisDefenseReportGenerator } from "./ThesisDefenseReportGenerator";
 
 export const ThesisValidationStats = () => {
   const objectives = [
@@ -119,16 +120,20 @@ export const ThesisValidationStats = () => {
         </div>
 
         {/* Defense Strategy Summary */}
-        <Card className="p-4 bg-primary/5">
-          <div className="space-y-2">
-            <div className="font-semibold text-sm">🔑 Defense Strategy</div>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <div><strong>Feasibility:</strong> 80.29 ms latency proves Full-Stack Co-Design works</div>
-              <div><strong>Novelty:</strong> -7935.5% quality reveals foundational research crisis</div>
-              <div><strong>Scalability:</strong> 1/2 load split validates system architecture</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4 bg-primary/5">
+            <div className="space-y-2">
+              <div className="font-semibold text-sm">🔑 Defense Strategy</div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div><strong>Feasibility:</strong> 80.29 ms latency proves Full-Stack Co-Design works</div>
+                <div><strong>Novelty:</strong> -7935.5% quality reveals foundational research crisis</div>
+                <div><strong>Scalability:</strong> 1/2 load split validates system architecture</div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          <ThesisDefenseReportGenerator />
+        </div>
       </div>
     </Card>
   );

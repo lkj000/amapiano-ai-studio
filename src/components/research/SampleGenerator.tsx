@@ -16,6 +16,8 @@ import SampleLibraryPanel from "@/components/SampleLibraryPanel";
 import { AudioEditor } from "./AudioEditor";
 import { BatchGenerator } from "./BatchGenerator";
 import { QualityAnalyzer } from "./QualityAnalyzer";
+import { ABComparison } from "./ABComparison";
+import { SpectrumAnalyzer } from "./SpectrumAnalyzer";
 
 export const SampleGenerator = () => {
   const { toast } = useToast();
@@ -43,6 +45,22 @@ export const SampleGenerator = () => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
+  
+  // A/B Comparison settings
+  const [settingsA, setSettingsA] = useState({
+    volume: 100,
+    fadeIn: 0,
+    fadeOut: 0,
+    trimStart: 0,
+    trimEnd: 100
+  });
+  const [settingsB, setSettingsB] = useState({
+    volume: 120,
+    fadeIn: 2,
+    fadeOut: 3,
+    trimStart: 0,
+    trimEnd: 100
+  });
 
   useEffect(() => {
     if (generatedAudio && audioRef.current && canvasRef.current) {
@@ -424,11 +442,13 @@ export const SampleGenerator = () => {
 
         <TabsContent value="audio" className="space-y-4">
           <Tabs defaultValue="generate" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsList className="grid w-full grid-cols-6 mb-4">
               <TabsTrigger value="generate">Generate</TabsTrigger>
               <TabsTrigger value="batch">Batch</TabsTrigger>
               <TabsTrigger value="quality">Quality</TabsTrigger>
               <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="ab">A/B Test</TabsTrigger>
+              <TabsTrigger value="spectrum">Spectrum</TabsTrigger>
             </TabsList>
 
             <TabsContent value="generate" className="space-y-4">
@@ -618,6 +638,32 @@ export const SampleGenerator = () => {
               ) : (
                 <Card className="p-6 text-center text-muted-foreground">
                   Generate a sample first to edit it
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="ab" className="space-y-4">
+              {generatedAudio ? (
+                <ABComparison
+                  audioUrl={generatedAudio}
+                  settingsA={settingsA}
+                  settingsB={settingsB}
+                  onSettingsAChange={setSettingsA}
+                  onSettingsBChange={setSettingsB}
+                />
+              ) : (
+                <Card className="p-6 text-center text-muted-foreground">
+                  Generate a sample first to compare settings
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="spectrum" className="space-y-4">
+              {generatedAudio ? (
+                <SpectrumAnalyzer audioUrl={generatedAudio} />
+              ) : (
+                <Card className="p-6 text-center text-muted-foreground">
+                  Generate a sample first to view spectrum
                 </Card>
               )}
             </TabsContent>

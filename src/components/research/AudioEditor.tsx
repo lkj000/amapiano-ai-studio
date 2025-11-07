@@ -3,21 +3,34 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Scissors, Volume2, Wand2, Play, Pause, RotateCcw, Eye, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Scissors, Volume2, Wand2, Play, Pause, RotateCcw, Eye, Download, Save, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWaveformVisualization } from "@/hooks/useWaveformVisualization";
+import { AudioTimeline } from "./AudioTimeline";
 
 interface AudioEditorProps {
   audioUrl: string;
   onExport: (blob: Blob, format: string) => void;
 }
 
-const EXPORT_PRESETS = {
-  podcast: { format: "mp3", volume: 100, fadeIn: 0, fadeOut: 2 },
-  music: { format: "wav", volume: 100, fadeIn: 1, fadeOut: 3 },
-  voiceover: { format: "wav", volume: 110, fadeIn: 0, fadeOut: 1 },
-  social: { format: "mp3", volume: 120, fadeIn: 0, fadeOut: 0 }
+interface CustomTemplate {
+  name: string;
+  format: string;
+  volume: number;
+  fadeIn: number;
+  fadeOut: number;
+  trimStart: number;
+  trimEnd: number;
+}
+
+const DEFAULT_PRESETS = {
+  podcast: { format: "mp3", volume: 100, fadeIn: 0, fadeOut: 2, trimStart: 0, trimEnd: 100 },
+  music: { format: "wav", volume: 100, fadeIn: 1, fadeOut: 3, trimStart: 0, trimEnd: 100 },
+  voiceover: { format: "wav", volume: 110, fadeIn: 0, fadeOut: 1, trimStart: 0, trimEnd: 100 },
+  social: { format: "mp3", volume: 120, fadeIn: 0, fadeOut: 0, trimStart: 0, trimEnd: 100 }
 };
 
 export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
@@ -36,8 +49,19 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [peaks, setPeaks] = useState<number[]>([]);
   
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
+
+  useEffect(() => {
+    const saved = localStorage.getItem('audio-templates');
+    if (saved) {
+      setCustomTemplates(JSON.parse(saved));
+    }
+  }, []);
 
   useEffect(() => {
     loadAudio();
@@ -59,7 +83,27 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
       setTrimEnd([100]);
       
       // Generate waveform
-      await generateWaveform(buffer);
+      const waveformData = await generateWaveform(buffer);
+      
+      // Generate peaks for timeline
+      const channelData = buffer.getChannelData(0);
+      const samples = 200;
+      const blockSize = Math.floor(channelData.length / samples);
+      const newPeaks: number[] = [];
+
+      for (let i = 0; i < samples; i++) {
+        const start = i * blockSize;
+        const end = start + blockSize;
+        let sum = 0;
+        for (let j = start; j < end && j < channelData.length; j++) {
+          sum += channelData[j] * channelData[j];
+        }
+        const rms = Math.sqrt(sum / blockSize);
+        newPeaks.push(rms);
+      }
+
+      const maxPeak = Math.max(...newPeaks);
+      setPeaks(newPeaks.map(p => p / maxPeak));
     } catch (error) {
       toast({
         title: "Error",
@@ -411,15 +455,72 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
     return new Blob([await wavBlob.arrayBuffer()], { type: 'audio/mpeg' });
   };
 
-  const applyPreset = (presetName: keyof typeof EXPORT_PRESETS) => {
-    const preset = EXPORT_PRESETS[presetName];
+  const applyPreset = (presetName: keyof typeof DEFAULT_PRESETS) => {
+    const preset = DEFAULT_PRESETS[presetName];
     setExportFormat(preset.format);
     setVolume([preset.volume]);
     setFadeIn([preset.fadeIn]);
     setFadeOut([preset.fadeOut]);
+    setTrimStart([preset.trimStart]);
+    setTrimEnd([preset.trimEnd]);
     toast({
       title: "Preset Applied",
       description: `Applied ${presetName} preset`,
+    });
+  };
+
+  const applyCustomTemplate = (template: CustomTemplate) => {
+    setExportFormat(template.format);
+    setVolume([template.volume]);
+    setFadeIn([template.fadeIn]);
+    setFadeOut([template.fadeOut]);
+    setTrimStart([template.trimStart]);
+    setTrimEnd([template.trimEnd]);
+    toast({
+      title: "Template Applied",
+      description: `Applied ${template.name} template`,
+    });
+  };
+
+  const saveAsTemplate = () => {
+    if (!templateName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a template name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newTemplate: CustomTemplate = {
+      name: templateName,
+      format: exportFormat,
+      volume: volume[0],
+      fadeIn: fadeIn[0],
+      fadeOut: fadeOut[0],
+      trimStart: trimStart[0],
+      trimEnd: trimEnd[0]
+    };
+
+    const updated = [...customTemplates, newTemplate];
+    setCustomTemplates(updated);
+    localStorage.setItem('audio-templates', JSON.stringify(updated));
+    setShowSaveTemplate(false);
+    setTemplateName("");
+    
+    toast({
+      title: "Template Saved",
+      description: `Saved as "${templateName}"`,
+    });
+  };
+
+  const deleteTemplate = (index: number) => {
+    const updated = customTemplates.filter((_, i) => i !== index);
+    setCustomTemplates(updated);
+    localStorage.setItem('audio-templates', JSON.stringify(updated));
+    toast({
+      title: "Template Deleted",
+      description: "Template removed successfully",
     });
   };
 
@@ -451,6 +552,20 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
         </div>
       </div>
 
+      {/* Timeline Editor */}
+      {peaks.length > 0 && (
+        <AudioTimeline
+          duration={duration}
+          trimStart={trimStart[0]}
+          trimEnd={trimEnd[0]}
+          fadeIn={fadeIn[0]}
+          fadeOut={fadeOut[0]}
+          onTrimStartChange={(v) => setTrimStart([v])}
+          onTrimEndChange={(v) => setTrimEnd([v])}
+          peaks={peaks}
+        />
+      )}
+
       {/* Waveform Visualization */}
       <div className="space-y-2">
         <Label>Waveform</Label>
@@ -460,20 +575,6 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
           height={150}
           className="w-full border border-border rounded-lg bg-background"
         />
-        <div className="flex gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 border-2 border-destructive" />
-            <span>Trim Points</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-green-500/20" />
-            <span>Fade In</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-orange-500/20" />
-            <span>Fade Out</span>
-          </div>
-        </div>
       </div>
 
       <div className="space-y-6">
@@ -561,7 +662,7 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
       <div className="space-y-4">
         <div>
           <Label htmlFor="export-preset">Export Presets</Label>
-          <Select onValueChange={(value) => applyPreset(value as keyof typeof EXPORT_PRESETS)}>
+          <Select onValueChange={(value) => applyPreset(value as keyof typeof DEFAULT_PRESETS)}>
             <SelectTrigger id="export-preset" className="mt-2">
               <SelectValue placeholder="Choose a preset..." />
             </SelectTrigger>
@@ -573,6 +674,66 @@ export const AudioEditor = ({ audioUrl, onExport }: AudioEditorProps) => {
             </SelectContent>
           </Select>
         </div>
+
+        {customTemplates.length > 0 && (
+          <div>
+            <Label>Custom Templates</Label>
+            <div className="space-y-2 mt-2">
+              {customTemplates.map((template, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => applyCustomTemplate(template)}
+                    className="flex-1"
+                  >
+                    {template.name}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteTemplate(index)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Dialog open={showSaveTemplate} onOpenChange={setShowSaveTemplate}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full">
+              <Save className="mr-2 h-4 w-4" />
+              Save Current as Template
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save Custom Template</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="template-name">Template Name</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Enter template name..."
+                className="mt-2"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowSaveTemplate(false)}>
+                Cancel
+              </Button>
+              <Button onClick={saveAsTemplate}>
+                <Save className="mr-2 h-4 w-4" />
+                Save Template
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div>
           <Label htmlFor="export-format">Export Format</Label>

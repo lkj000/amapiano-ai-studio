@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -26,6 +26,9 @@ import { TestResultSharingPanel } from "./TestResultSharingPanel";
 import { QuantizationAnalysisReport } from "./QuantizationAnalysisReport";
 import { SyntheticTestDataGenerator } from "./SyntheticTestDataGenerator";
 import { HypothesisValidationSystem } from "./HypothesisValidationSystem";
+import { PublicationReportGenerator } from "./PublicationReportGenerator";
+import { LiveTestMonitor } from "./LiveTestMonitor";
+import { BaselineComparisonPanel } from "./BaselineComparisonPanel";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -36,7 +39,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -366,6 +369,30 @@ const ResearchTestingPanel = () => {
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Validate
+          </Button>
+          <Button
+            variant={activeView === 'publication' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('publication')}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Publication
+          </Button>
+          <Button
+            variant={activeView === 'monitor' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('monitor')}
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Monitor
+          </Button>
+          <Button
+            variant={activeView === 'baseline' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('baseline')}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Baseline
           </Button>
         </div>
       </div>
@@ -727,6 +754,18 @@ const ResearchTestingPanel = () => {
             } : undefined
           }}
         />
+      )}
+
+      {activeView === 'publication' && (
+        <PublicationReportGenerator />
+      )}
+
+      {activeView === 'monitor' && (
+        <LiveTestMonitor />
+      )}
+
+      {activeView === 'baseline' && (
+        <BaselineComparisonPanel />
       )}
     </div>
   );

@@ -7,11 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Music, Image as ImageIcon, BarChart3, Loader2, Download, Library, Brain, CheckCircle2, XCircle, AlertCircle, Edit } from "lucide-react";
 import { useWaveformVisualization } from "@/hooks/useWaveformVisualization";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import SampleLibraryPanel from "@/components/SampleLibraryPanel";
+import { AudioEditor } from "./AudioEditor";
 
 export const SampleGenerator = () => {
   const { toast } = useToast();
@@ -30,6 +31,8 @@ export const SampleGenerator = () => {
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'healthy' | 'unhealthy'>('unknown');
   const [healthMessage, setHealthMessage] = useState<string>('');
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [showAudioEditor, setShowAudioEditor] = useState(false);
+  const [editedAudioUrl, setEditedAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { generateWaveform, drawWaveform } = useWaveformVisualization();
@@ -257,6 +260,17 @@ export const SampleGenerator = () => {
     }
   };
 
+  const handleAudioExport = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    setEditedAudioUrl(url);
+    setGeneratedAudio(url);
+    setShowAudioEditor(false);
+    toast({
+      title: "Audio Edited",
+      description: "Effects applied successfully. Audio updated.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
@@ -417,12 +431,31 @@ export const SampleGenerator = () => {
                       <source src={generatedAudio} type="audio/mpeg" />
                     </audio>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={generatedAudio} download="amapiano-sample.mp3">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Sample
-                    </a>
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" asChild className="flex-1">
+                      <a href={generatedAudio} download="amapiano-sample.mp3">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </a>
+                    </Button>
+                    <Dialog open={showAudioEditor} onOpenChange={setShowAudioEditor}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Audio
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Edit Audio Sample</DialogTitle>
+                        </DialogHeader>
+                        <AudioEditor 
+                          audioUrl={generatedAudio} 
+                          onExport={handleAudioExport}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
               )}
             </div>

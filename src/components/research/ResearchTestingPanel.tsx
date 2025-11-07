@@ -31,6 +31,7 @@ import { LiveTestMonitor } from "./LiveTestMonitor";
 import { BaselineComparisonPanel } from "./BaselineComparisonPanel";
 import { SyntheticDataTestPanel } from "./SyntheticDataTestPanel";
 import { DataValidationPanel } from "./DataValidationPanel";
+import { QuickTestRunner } from "./QuickTestRunner";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -417,6 +418,13 @@ const ResearchTestingPanel = () => {
 
       {/* Performance Regression Alerts */}
       <PerformanceRegressionAlert />
+
+      {/* Quick Test Runner */}
+      <QuickTestRunner 
+        onRunSparse={testSparseInference}
+        onRunQuantization={testModelQuantization}
+        onRunDistributed={testDistributedInference}
+      />
 
       {/* Dashboard Summary */}
       <ResearchDashboardSummary />

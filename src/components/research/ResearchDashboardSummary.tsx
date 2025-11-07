@@ -1,11 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FlaskConical, AlertTriangle, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FlaskConical, AlertTriangle, TrendingUp, CheckCircle2, RefreshCw } from "lucide-react";
 import { useTestHistory } from "@/hooks/useTestHistory";
 import { useTrendAnalysis } from "@/hooks/useTrendAnalysis";
 
 export const ResearchDashboardSummary = () => {
-  const { history, isLoading } = useTestHistory();
+  const { history, isLoading, fetchHistory } = useTestHistory();
   const { anomalies } = useTrendAnalysis();
 
   if (isLoading) {
@@ -44,12 +45,33 @@ export const ResearchDashboardSummary = () => {
 
   return (
     <Card className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <FlaskConical className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold">Research Dashboard Summary</h3>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="w-5 h-5 text-primary" />
+          <h3 className="text-lg font-semibold">Research Dashboard Summary</h3>
+          <Badge variant="outline" className="text-xs">
+            Historical Data
+          </Badge>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchHistory()}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {history.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="mb-2">No test data available</p>
+          <p className="text-sm">Run tests to populate this dashboard</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Tests */}
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Total Tests Run</p>
@@ -113,8 +135,12 @@ export const ResearchDashboardSummary = () => {
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Cache Hit Rate</span>
-                <span className="font-medium">
-                  {latestMetrics.sparse.cacheHitRate?.toFixed(1)}%
+                <span className={`font-medium ${
+                  (latestMetrics.sparse.cacheHitRate || 0) < 10 
+                    ? 'text-yellow-600 dark:text-yellow-400' 
+                    : 'text-green-600 dark:text-green-400'
+                }`}>
+                  {(latestMetrics.sparse.cacheHitRate || 0).toFixed(1)}%
                 </span>
               </div>
               <div className="flex justify-between text-xs">
@@ -165,6 +191,8 @@ export const ResearchDashboardSummary = () => {
           </div>
         )}
       </div>
+      </>
+      )}
     </Card>
   );
 };

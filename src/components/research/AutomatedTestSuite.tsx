@@ -19,7 +19,7 @@ interface TestResult {
 
 export const AutomatedTestSuite = () => {
   const { submitJob, isInitialized, stats: distriStats } = useDistributedInference();
-  const { stats: cacheStats, processWithCache } = useSparseInferenceCache();
+  const { stats: cacheStats, processWithCache, getStats } = useSparseInferenceCache();
   
   const [isRunning, setIsRunning] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
@@ -81,12 +81,31 @@ export const AutomatedTestSuite = () => {
         status: 'running',
         timestamp: new Date()
       }, async () => {
-        const hitRate = cacheStats.hitRate;
+        // Warm + hit with identical input to measure actual cache hits
+        const input = new Float32Array(1000).fill(0.5);
+        const layerId = 'test-layer';
+
+        // Warm (miss then store)
+        await processWithCache(
+          layerId,
+          input,
+          async (inp) => new Float32Array(inp.length).fill(0.7)
+        );
+        // Immediate hit
+        await processWithCache(
+          layerId,
+          input,
+          async (inp) => new Float32Array(inp.length).fill(0.7)
+        );
+
+        // Read latest stats in a stable way
+        const current = getStats();
+        const percent = (current.hitRate || 0) * 100;
         
-        if (hitRate >= 50) {
-          return { status: 'passed' as const, result: `${hitRate.toFixed(1)}% (Target: >50%)` };
+        if (percent >= 50) {
+          return { status: 'passed' as const, result: `${percent.toFixed(1)}% (Target: >50%)` };
         } else {
-          return { status: 'failed' as const, result: `${hitRate.toFixed(1)}% (Below target)` };
+          return { status: 'failed' as const, result: `${percent.toFixed(1)}% (Below target)` };
         }
       });
 

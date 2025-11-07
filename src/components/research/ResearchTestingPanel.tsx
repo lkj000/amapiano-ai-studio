@@ -35,6 +35,7 @@ import { QuickTestRunner } from "./QuickTestRunner";
 import { ThesisProgressDashboard } from "./ThesisProgressDashboard";
 import { SIGEAudioPublicationDraft } from "./SIGEAudioPublicationDraft";
 import { DistriFusionDebugPanel } from "./DistriFusionDebugPanel";
+import { ThesisValidationStats } from "./ThesisValidationStats";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -455,6 +456,9 @@ const ResearchTestingPanel = () => {
 
       {/* Dashboard Summary */}
       <ResearchDashboardSummary />
+
+      {/* Thesis Validation Stats */}
+      <ThesisValidationStats />
 
       {activeView === 'tests' && (
         <>

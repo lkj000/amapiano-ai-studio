@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, TrendingDown, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug, Download, MessageSquare, Bell } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, TrendingDown, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug, Download, MessageSquare, Bell, Music } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -50,6 +50,7 @@ import { RegressionTrendsChart } from "./RegressionTrendsChart";
 import { RegressionAlertManager } from "./RegressionAlertManager";
 import { PaperReviewSystem } from "./PaperReviewSystem";
 import { PaperAnalyticsDashboard } from "./PaperAnalyticsDashboard";
+import { SampleGenerator } from "./SampleGenerator";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -60,7 +61,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts' | 'paperGen' | 'regression' | 'arxiv' | 'regressionTrends' | 'regressionAlerts' | 'paperReview' | 'paperAnalytics'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts' | 'paperGen' | 'regression' | 'arxiv' | 'regressionTrends' | 'regressionAlerts' | 'paperReview' | 'paperAnalytics' | 'samples'>('tests');
 
   const viewTopRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -566,6 +567,14 @@ const ResearchTestingPanel = () => {
             <TrendingUp className="w-4 h-4 mr-2" />
             Analytics
           </Button>
+          <Button
+            variant={activeView === 'samples' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('samples')}
+          >
+            <Music className="w-4 h-4 mr-2" />
+            Samples
+          </Button>
         </div>
       </div>
 
@@ -620,6 +629,7 @@ const ResearchTestingPanel = () => {
             {activeView === 'arxiv' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">arXiv Integration</h3></>}
             {activeView === 'paperReview' && <><CheckCircle2 className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Paper Review System</h3></>}
             {activeView === 'paperAnalytics' && <><TrendingUp className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Paper Analytics Dashboard</h3></>}
+            {activeView === 'samples' && <><Music className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Amapiano Sample Generator</h3></>}
             <Badge variant="secondary" className="ml-auto">Active</Badge>
           </div>
         </Card>
@@ -1104,6 +1114,10 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'paperAnalytics' && (
         <PaperAnalyticsDashboard />
+      )}
+
+      {activeView === 'samples' && (
+        <SampleGenerator />
       )}
     </div>
   );

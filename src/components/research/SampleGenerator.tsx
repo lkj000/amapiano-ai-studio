@@ -1,0 +1,338 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Music, Image as ImageIcon, BarChart3, Loader2, Download } from "lucide-react";
+
+export const SampleGenerator = () => {
+  const { toast } = useToast();
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [audioPrompt, setAudioPrompt] = useState("Amapiano beat with log drum, piano chords, deep bass, 112 BPM");
+  const [imagePrompt, setImagePrompt] = useState("Amapiano music waveform visualization with vibrant colors");
+  const [benchmarkPrompt, setBenchmarkPrompt] = useState("Abstract amapiano album cover art");
+  const [audioDuration, setAudioDuration] = useState("8");
+  const [imageAspect, setImageAspect] = useState("16:9");
+  const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [benchmarkResults, setBenchmarkResults] = useState<any[]>([]);
+
+  const generateAudioSample = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample', {
+        body: { 
+          type: 'audio', 
+          prompt: audioPrompt,
+          duration: parseInt(audioDuration)
+        }
+      });
+
+      if (error) throw error;
+
+      // Poll for completion
+      let prediction = data;
+      while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { data: statusData } = await supabase.functions.invoke('generate-sample', {
+          body: { predictionId: prediction.id }
+        });
+        prediction = statusData;
+      }
+
+      if (prediction.status === 'succeeded') {
+        setGeneratedAudio(prediction.output);
+        toast({
+          title: "Audio Generated",
+          description: "Amapiano sample created successfully",
+        });
+      } else {
+        throw new Error('Generation failed');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateVisualAsset = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample', {
+        body: { 
+          type: 'image', 
+          prompt: imagePrompt,
+          aspectRatio: imageAspect
+        }
+      });
+
+      if (error) throw error;
+
+      // Poll for completion
+      let prediction = data;
+      while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { data: statusData } = await supabase.functions.invoke('generate-sample', {
+          body: { predictionId: prediction.id }
+        });
+        prediction = statusData;
+      }
+
+      if (prediction.status === 'succeeded') {
+        setGeneratedImage(prediction.output[0]);
+        toast({
+          title: "Image Generated",
+          description: "Visual asset created successfully",
+        });
+      } else {
+        throw new Error('Generation failed');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Generation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const runBenchmark = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-sample', {
+        body: { 
+          type: 'benchmark', 
+          prompt: benchmarkPrompt,
+          models: ["black-forest-labs/flux-schnell", "black-forest-labs/flux-dev"]
+        }
+      });
+
+      if (error) throw error;
+
+      setBenchmarkResults(data.benchmarkResults);
+      toast({
+        title: "Benchmark Complete",
+        description: `Compared ${data.benchmarkResults.length} models`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Benchmark Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="audio" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="audio" className="flex items-center gap-2">
+            <Music className="h-4 w-4" />
+            Audio Samples
+          </TabsTrigger>
+          <TabsTrigger value="visual" className="flex items-center gap-2">
+            <ImageIcon className="h-4 w-4" />
+            Visual Assets
+          </TabsTrigger>
+          <TabsTrigger value="benchmark" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Model Benchmark
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="audio" className="space-y-4">
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="audio-prompt">Amapiano Sample Description</Label>
+                <Textarea
+                  id="audio-prompt"
+                  value={audioPrompt}
+                  onChange={(e) => setAudioPrompt(e.target.value)}
+                  placeholder="Describe the Amapiano beat you want to generate..."
+                  className="min-h-[100px] mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="audio-duration">Duration (seconds)</Label>
+                <Select value={audioDuration} onValueChange={setAudioDuration}>
+                  <SelectTrigger id="audio-duration" className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">4 seconds</SelectItem>
+                    <SelectItem value="8">8 seconds</SelectItem>
+                    <SelectItem value="15">15 seconds</SelectItem>
+                    <SelectItem value="30">30 seconds</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={generateAudioSample} 
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Music className="mr-2 h-4 w-4" />
+                    Generate Amapiano Sample
+                  </>
+                )}
+              </Button>
+              
+              {generatedAudio && (
+                <div className="mt-4 space-y-2">
+                  <Label>Generated Audio</Label>
+                  <audio controls className="w-full">
+                    <source src={generatedAudio} type="audio/mpeg" />
+                  </audio>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={generatedAudio} download="amapiano-sample.mp3">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="visual" className="space-y-4">
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="image-prompt">Visual Asset Description</Label>
+                <Textarea
+                  id="image-prompt"
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                  placeholder="Describe the visual asset you want to generate..."
+                  className="min-h-[100px] mt-2"
+                />
+              </div>
+              <div>
+                <Label htmlFor="aspect-ratio">Aspect Ratio</Label>
+                <Select value={imageAspect} onValueChange={setImageAspect}>
+                  <SelectTrigger id="aspect-ratio" className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1:1">Square (1:1)</SelectItem>
+                    <SelectItem value="16:9">Widescreen (16:9)</SelectItem>
+                    <SelectItem value="9:16">Portrait (9:16)</SelectItem>
+                    <SelectItem value="4:3">Standard (4:3)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={generateVisualAsset} 
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Generate Visual Asset
+                  </>
+                )}
+              </Button>
+              
+              {generatedImage && (
+                <div className="mt-4 space-y-2">
+                  <Label>Generated Image</Label>
+                  <img src={generatedImage} alt="Generated visual" className="w-full rounded-lg" />
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={generatedImage} download="visual-asset.webp">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="benchmark" className="space-y-4">
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="benchmark-prompt">Benchmark Prompt</Label>
+                <Textarea
+                  id="benchmark-prompt"
+                  value={benchmarkPrompt}
+                  onChange={(e) => setBenchmarkPrompt(e.target.value)}
+                  placeholder="Enter prompt to benchmark models..."
+                  className="min-h-[100px] mt-2"
+                />
+              </div>
+              <Button 
+                onClick={runBenchmark} 
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Running Benchmark...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Run Model Benchmark
+                  </>
+                )}
+              </Button>
+              
+              {benchmarkResults.length > 0 && (
+                <div className="mt-4 space-y-4">
+                  <Label>Benchmark Results</Label>
+                  <div className="grid gap-4">
+                    {benchmarkResults.map((result, index) => (
+                      <Card key={index} className="p-4">
+                        <h4 className="font-semibold text-sm mb-2">{result.model}</h4>
+                        <div className="space-y-2 text-sm">
+                          <p>Status: <span className={result.status === 'success' ? 'text-green-600' : 'text-red-600'}>{result.status}</span></p>
+                          <p>Duration: {(result.duration / 1000).toFixed(2)}s</p>
+                          {result.status === 'success' && result.output && (
+                            <img src={result.output[0]} alt={`${result.model} output`} className="w-full rounded mt-2" />
+                          )}
+                          {result.error && <p className="text-red-600">Error: {result.error}</p>}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};

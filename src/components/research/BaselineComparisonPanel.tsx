@@ -214,17 +214,17 @@ Cloud Load & 100.0 & 66.7 & 2 \\\\
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">p-value</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   &lt; {sigeStats.pValue.toFixed(3)}
                   {sigeStats.pValue < 0.05 && <Badge variant="default">Significant</Badge>}
-                </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Effect Size (Cohen's d)</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   {Math.abs(sigeCohenD).toFixed(3)}
                   {Math.abs(sigeCohenD) > 0.8 && <Badge variant="default">Large</Badge>}
-                </p>
+                </div>
               </div>
             </div>
             <div className="mt-4 p-4 bg-muted rounded-lg">
@@ -286,17 +286,17 @@ Cloud Load & 100.0 & 66.7 & 2 \\\\
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">p-value</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   &lt; {quantStats.pValue.toFixed(3)}
                   <Badge variant="destructive">Highly Significant</Badge>
-                </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Effect Size (Cohen's d)</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   {Math.abs(quantCohenD).toFixed(3)}
                   <Badge variant="destructive">Extreme</Badge>
-                </p>
+                </div>
               </div>
             </div>
             <div className="mt-4 p-4 bg-muted rounded-lg">
@@ -353,17 +353,17 @@ Cloud Load & 100.0 & 66.7 & 2 \\\\
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">p-value</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   &lt; {distriStats.pValue.toFixed(3)}
                   {distriStats.pValue < 0.05 && <Badge variant="default">Significant</Badge>}
-                </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Effect Size (Cohen's d)</p>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   {Math.abs(distriCohenD).toFixed(3)}
                   <Badge variant="default">Moderate</Badge>
-                </p>
+                </div>
               </div>
             </div>
             <div className="mt-4 p-4 bg-muted rounded-lg">

@@ -50,6 +50,9 @@ import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { cn } from '@/lib/utils';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
+import { RealtimeCursors } from '@/components/RealtimeCursors';
+import type { CursorData } from '@/components/RealtimeCursors';
+import { useEnhancedCollaboration } from '@/hooks/useEnhancedCollaboration';
 import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { AuraSidebar } from '@/components/aura/AuraSidebar';
 import { PluginSidebar } from '@/components/PluginSidebar';
@@ -208,10 +211,12 @@ export default function DawPage({ user }: DawPageProps) {
   const [showHighSpeedEngine, setShowHighSpeedEngine] = useState(true);
   const [showGhostProducer, setShowGhostProducer] = useState(false);
   const [showTutorials, setShowTutorials] = useState(false);
+  const [showCursorTracking, setShowCursorTracking] = useState(true);
 const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
 const [pianoRollTime, setPianoRollTime] = useState(0);
 const pianoRollTimerRef = useRef<number | null>(null);
 const [zoom, setZoom] = useState([100]);
+  const dawContainerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     dragType: null,
@@ -272,6 +277,33 @@ const [zoom, setZoom] = useState([100]);
   
   // VST Plugin System
   const vstPluginSystem = useVSTPluginSystem(getAudioContext());
+
+  // Enhanced Collaboration with Cursor Tracking
+  const collaboration = useEnhancedCollaboration(
+    activeProjectId || 'default-project',
+    projectData || defaultProjectData
+  );
+
+  // Convert collaboration cursors to RealtimeCursors format
+  const cursorMap = new Map<string, CursorData>();
+  collaboration.userCursors.forEach(cursor => {
+    cursorMap.set(cursor.userId, {
+      userId: cursor.userId,
+      userName: cursor.userName,
+      color: cursor.color,
+      position: { x: cursor.position.x, y: cursor.position.y },
+      lastUpdate: cursor.position.timestamp,
+    });
+  });
+
+  // Start cursor tracking when collaboration is active
+  React.useEffect(() => {
+    if (showCursorTracking && showRealTimeCollab) {
+      collaboration.startCursorTracking();
+    } else {
+      collaboration.stopCursorTracking();
+    }
+  }, [showCursorTracking, showRealTimeCollab, collaboration]);
 
   // Step 1: Fetch project list
   const { data: projectsList, isLoading: isLoadingList, isError: isListError, error: listError } = useQuery({
@@ -2243,6 +2275,15 @@ const [zoom, setZoom] = useState([100]);
       </div>
 
       {/* Modals and Panels */}
+      {/* Cursor Overlay Visualization */}
+      {showCursorTracking && showRealTimeCollab && (
+        <RealtimeCursors
+          cursors={cursorMap}
+          containerRef={dawContainerRef}
+          showLabels={true}
+        />
+      )}
+
       <OpenProjectModal isOpen={isOpenProjectOpen} onClose={() => setIsOpenProjectOpen(false)} onLoadProject={setActiveProjectId} />
       {projectData && <ProjectSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} projectData={projectData} onSave={handleUpdateProjectSettings} />}
       {showMixer && projectData && (

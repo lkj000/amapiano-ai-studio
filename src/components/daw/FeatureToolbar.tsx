@@ -15,6 +15,7 @@ import CollaborationTools from './CollaborationTools';
 import AudioToMidiConverter from './AudioToMidiConverter';
 import ProjectVersionHistory from './ProjectVersionHistory';
 import ProjectSharingManager from './ProjectSharingManager';
+import ProjectTemplatesDialog from './ProjectTemplatesDialog';
 import { SourceSeparationEngine } from '@/components/ai/SourceSeparationEngine';
 import type { DawProjectDataV2 } from '@/types/daw';
 import type { MidiNote } from '@/types/daw';
@@ -49,6 +50,17 @@ const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
       <CloudProjectManager
         currentProject={currentProject}
         onLoadProject={onLoadProject}
+      />
+
+      <Separator orientation="vertical" className="h-8" />
+
+      <ProjectTemplatesDialog
+        currentProject={currentProject}
+        onLoadTemplate={(projectData) => {
+          if (onLoadProject) {
+            onLoadProject(projectData);
+          }
+        }}
       />
 
       <Separator orientation="vertical" className="h-8" />

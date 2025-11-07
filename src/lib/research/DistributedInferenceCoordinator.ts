@@ -231,6 +231,24 @@ export class DistributedInferenceCoordinator {
       inputData: job.input_data
     });
     
+    console.log(`[DistriFusion] Job ${jobId.substring(0, 8)} routed to ${node.type} node ${node.id}`);
+    
+    // Update node load BEFORE updating job status
+    node.currentLoad++;
+    
+    // Calculate and update peak loads immediately
+    if (node.type === 'edge') {
+      const totalEdgeLoad = Array.from(this.edgeNodes.values())
+        .reduce((sum, n) => sum + n.currentLoad, 0);
+      this.peakEdgeLoad = Math.max(this.peakEdgeLoad, totalEdgeLoad);
+      console.log(`[DistriFusion] Edge load: ${totalEdgeLoad}, peak: ${this.peakEdgeLoad}`);
+    } else {
+      const totalCloudLoad = Array.from(this.cloudNodes.values())
+        .reduce((sum, n) => sum + n.currentLoad, 0);
+      this.peakCloudLoad = Math.max(this.peakCloudLoad, totalCloudLoad);
+      console.log(`[DistriFusion] Cloud load: ${totalCloudLoad}, peak: ${this.peakCloudLoad}`);
+    }
+    
     // Update job with node assignment
     await supabase
       .from('distributed_inference_jobs')
@@ -240,19 +258,6 @@ export class DistributedInferenceCoordinator {
         [node.type === 'edge' ? 'edge_node_id' : 'cloud_node_id']: node.id
       })
       .eq('id', jobId);
-    
-    // Update node load and track peak
-    node.currentLoad++;
-    
-    if (node.type === 'edge') {
-      const totalEdgeLoad = Array.from(this.edgeNodes.values())
-        .reduce((sum, n) => sum + n.currentLoad, 0);
-      this.peakEdgeLoad = Math.max(this.peakEdgeLoad, totalEdgeLoad);
-    } else {
-      const totalCloudLoad = Array.from(this.cloudNodes.values())
-        .reduce((sum, n) => sum + n.currentLoad, 0);
-      this.peakCloudLoad = Math.max(this.peakCloudLoad, totalCloudLoad);
-    }
     
     try {
       const startTime = Date.now();

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -32,6 +32,9 @@ import { BaselineComparisonPanel } from "./BaselineComparisonPanel";
 import { SyntheticDataTestPanel } from "./SyntheticDataTestPanel";
 import { DataValidationPanel } from "./DataValidationPanel";
 import { QuickTestRunner } from "./QuickTestRunner";
+import { ThesisProgressDashboard } from "./ThesisProgressDashboard";
+import { SIGEAudioPublicationDraft } from "./SIGEAudioPublicationDraft";
+import { DistriFusionDebugPanel } from "./DistriFusionDebugPanel";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -42,7 +45,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -800,6 +803,18 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'dataValidation' && (
         <DataValidationPanel />
+      )}
+
+      {activeView === 'thesisProgress' && (
+        <ThesisProgressDashboard />
+      )}
+
+      {activeView === 'sigePublication' && (
+        <SIGEAudioPublicationDraft />
+      )}
+
+      {activeView === 'distrifusionDebug' && (
+        <DistriFusionDebugPanel />
       )}
     </div>
   );

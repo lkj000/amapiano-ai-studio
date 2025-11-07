@@ -81,24 +81,31 @@ export const AutomatedTestSuite = () => {
         status: 'running',
         timestamp: new Date()
       }, async () => {
-        // Warm + hit with identical input to measure actual cache hits
-        const input = new Float32Array(1000).fill(0.5);
-        const layerId = 'test-layer';
+        // Create sparse data (70% zeros = 70% sparsity, above 30% threshold)
+        const input = new Float32Array(1000);
+        for (let i = 0; i < 300; i++) input[i] = 0.5; // 30% non-zero
+        
+        const layerId = 'cache-test-layer';
+        
+        // Create sparse output that will be cached
+        const sparseOutput = new Float32Array(1000);
+        for (let i = 0; i < 200; i++) sparseOutput[i] = 0.8; // 20% non-zero
 
-        // Warm (miss then store)
+        // First call - cache miss, stores sparse result
         await processWithCache(
           layerId,
           input,
-          async (inp) => new Float32Array(inp.length).fill(0.7)
+          async () => sparseOutput
         );
-        // Immediate hit
+        
+        // Second call - should hit cache with same input
         await processWithCache(
           layerId,
           input,
-          async (inp) => new Float32Array(inp.length).fill(0.7)
+          async () => sparseOutput
         );
 
-        // Read latest stats in a stable way
+        // Read latest stats
         const current = getStats();
         const percent = (current.hitRate || 0) * 100;
         

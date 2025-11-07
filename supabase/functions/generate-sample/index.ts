@@ -84,7 +84,7 @@ serve(async (req) => {
       let modelInput: any = {
         prompt: body.prompt || "Amapiano beat with log drum, piano chords, deep bass, 112 BPM",
         duration: body.duration || 8,
-        model_version: "melody-large",
+        model_version: "large",
         output_format: "mp3",
         normalization_strategy: "peak"
       };
@@ -238,6 +238,21 @@ serve(async (req) => {
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 429,
+      });
+    }
+
+    if (error.response?.status === 422) {
+      let details: any = undefined;
+      try {
+        const txt = await error.response.text();
+        details = txt;
+      } catch (_) {}
+      return new Response(JSON.stringify({ 
+        error: "Invalid input for model",
+        details: details || error.message
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 422,
       });
     }
     

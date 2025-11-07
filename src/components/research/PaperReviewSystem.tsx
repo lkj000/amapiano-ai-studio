@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Users, MessageSquare, CheckCircle2, XCircle, Clock, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { RealtimeReviewCollaboration } from "./RealtimeReviewCollaboration";
 
 export const PaperReviewSystem = () => {
   const [papers, setPapers] = useState<any[]>([]);
@@ -97,6 +98,27 @@ export const PaperReviewSystem = () => {
         });
 
       if (error) throw error;
+
+      // Send email notification to paper author
+      const paper = papers.find(p => p.id === paperId);
+      const reviewer = reviewers.find(r => r.id === reviewerId);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (paper && user) {
+        await supabase.functions.invoke('send-paper-notification', {
+          body: {
+            type: 'review_added',
+            recipientEmail: user.email,
+            recipientName: user.user_metadata?.full_name || 'User',
+            paperTitle: paper.title,
+            paperId: paper.id,
+            additionalData: {
+              reviewerName: reviewer?.name,
+              reviewComment: reviewComment
+            }
+          }
+        });
+      }
 
       toast.success("Review submitted successfully");
       setReviewComment("");
@@ -255,6 +277,8 @@ export const PaperReviewSystem = () => {
                   <h4 className="font-semibold mb-2">{selectedPaper.title}</h4>
                   <p className="text-sm text-muted-foreground">{selectedPaper.abstract}</p>
                 </Card>
+
+                <RealtimeReviewCollaboration paperId={selectedPaper.id} />
 
                 <Card className="p-4">
                   <h4 className="font-semibold mb-4">Submit Review</h4>

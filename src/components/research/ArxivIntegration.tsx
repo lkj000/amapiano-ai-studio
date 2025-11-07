@@ -82,8 +82,26 @@ export const ArxivIntegration = ({ paperContent, paperTitle, paperAbstract }: Ar
         .eq('id', paper.id);
 
       if (error) throw error;
-
+      
       setSubmittedArxivId(mockArxivId);
+      
+      // Send email notification
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.functions.invoke('send-paper-notification', {
+          body: {
+            type: 'paper_submitted',
+            recipientEmail: user.email,
+            recipientName: user.user_metadata?.full_name || 'User',
+            paperTitle: paper.title,
+            paperId: paper.id,
+            additionalData: {
+              arxivId: mockArxivId
+            }
+          }
+        });
+      }
+
       toast.success("Paper prepared for arXiv submission!", {
         description: `arXiv ID: ${mockArxivId}`
       });

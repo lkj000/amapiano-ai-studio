@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import SampleLibraryPanel from "@/components/SampleLibraryPanel";
 import { AudioEditor } from "./AudioEditor";
+import { BatchGenerator } from "./BatchGenerator";
+import { QualityAnalyzer } from "./QualityAnalyzer";
 
 export const SampleGenerator = () => {
   const { toast } = useToast();
@@ -421,8 +423,17 @@ export const SampleGenerator = () => {
         </TabsList>
 
         <TabsContent value="audio" className="space-y-4">
-          <Card className="p-6">
-            <div className="space-y-4">
+          <Tabs defaultValue="generate" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-4">
+              <TabsTrigger value="generate">Generate</TabsTrigger>
+              <TabsTrigger value="batch">Batch</TabsTrigger>
+              <TabsTrigger value="quality">Quality</TabsTrigger>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="generate" className="space-y-4">
+              <Card className="p-6">
+                <div className="space-y-4">
               <div>
                 <Label htmlFor="audio-prompt">Amapiano Sample Description</Label>
                 <Textarea
@@ -580,8 +591,37 @@ export const SampleGenerator = () => {
                   </div>
                 </div>
               )}
-            </div>
-          </Card>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="batch" className="space-y-4">
+              <BatchGenerator />
+            </TabsContent>
+
+            <TabsContent value="quality" className="space-y-4">
+              {generatedAudio ? (
+                <QualityAnalyzer audioUrl={generatedAudio} />
+              ) : (
+                <Card className="p-6 text-center text-muted-foreground">
+                  Generate a sample first to analyze its quality
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="edit" className="space-y-4">
+              {generatedAudio ? (
+                <AudioEditor 
+                  audioUrl={generatedAudio} 
+                  onExport={handleAudioExport}
+                />
+              ) : (
+                <Card className="p-6 text-center text-muted-foreground">
+                  Generate a sample first to edit it
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="visual" className="space-y-4">

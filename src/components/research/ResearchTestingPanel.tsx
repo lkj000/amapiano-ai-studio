@@ -475,7 +475,34 @@ const ResearchTestingPanel = () => {
 
       {/* Thesis Validation Stats */}
       <ThesisValidationStats />
-      <div ref={viewTopRef} aria-hidden="true" />
+      
+      {/* Active View Header */}
+      <div ref={viewTopRef} className="scroll-mt-6">
+        <Card className="p-6 bg-primary/5 border-primary/20 mb-6">
+          <div className="flex items-center gap-3">
+            {activeView === 'tests' && <><Play className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Running Tests</h3></>}
+            {activeView === 'charts' && <><TrendingUp className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Performance Charts</h3></>}
+            {activeView === 'history' && <><History className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Test History</h3></>}
+            {activeView === 'trends' && <><LayoutDashboard className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Trend Analysis</h3></>}
+            {activeView === 'cicd' && <><GitBranch className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">CI/CD Integration</h3></>}
+            {activeView === 'latex' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">LaTeX Export</h3></>}
+            {activeView === 'sharing' && <><Share2 className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Result Sharing</h3></>}
+            {activeView === 'quantAnalysis' && <><TrendingUp className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Quantization Analysis</h3></>}
+            {activeView === 'synthetic' && <><Zap className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Synthetic Data Generator</h3></>}
+            {activeView === 'validation' && <><CheckCircle2 className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Hypothesis Validation</h3></>}
+            {activeView === 'publication' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Publication Report</h3></>}
+            {activeView === 'monitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Live Test Monitor</h3></>}
+            {activeView === 'baseline' && <><TrendingUp className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Baseline Comparison - Thesis Defense Evidence</h3></>}
+            {activeView === 'syntheticTest' && <><Zap className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Synthetic Data Testing</h3></>}
+            {activeView === 'dataValidation' && <><CheckCircle2 className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Data Validation</h3></>}
+            {activeView === 'thesisProgress' && <><Target className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Thesis Progress Dashboard</h3></>}
+            {activeView === 'sigePublication' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">SIGE-Audio Publication Draft</h3></>}
+            {activeView === 'distrifusionDebug' && <><Bug className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">DistriFusion Debug Panel</h3></>}
+            {activeView === 'realTimeMonitor' && <><Activity className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Real-Time Thesis Monitor</h3></>}
+            <Badge variant="secondary" className="ml-auto">Active</Badge>
+          </div>
+        </Card>
+      </div>
 
       {activeView === 'tests' && (
         <>

@@ -60,6 +60,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
     { path: "/social", label: "Social", icon: Users },
+    { path: "/templates", label: "Templates", icon: Grid3X3 },
     { path: "/analyze", label: "Analyze", icon: Search },
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },

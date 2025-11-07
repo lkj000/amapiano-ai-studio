@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { DawProjectDataV2 } from '@/types/daw';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface ProjectTemplate {
   id: string;
@@ -23,6 +24,35 @@ export const useProjectTemplates = () => {
 
   useEffect(() => {
     fetchTemplates();
+    
+    // Set up realtime subscription for live updates
+    const channel: RealtimeChannel = supabase
+      .channel('project_templates_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'project_templates',
+          filter: 'is_active=eq.true'
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setTemplates(prev => [payload.new as ProjectTemplate, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setTemplates(prev => 
+              prev.map(t => t.id === payload.new.id ? payload.new as ProjectTemplate : t)
+            );
+          } else if (payload.eventType === 'DELETE') {
+            setTemplates(prev => prev.filter(t => t.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchTemplates = async () => {

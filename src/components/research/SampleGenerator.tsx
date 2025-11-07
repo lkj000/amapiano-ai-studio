@@ -80,13 +80,18 @@ export const SampleGenerator = () => {
       }
 
       if (prediction.status === 'succeeded') {
-        setGeneratedAudio(prediction.output);
+        const audioUrl = typeof prediction.output === 'string' ? prediction.output : prediction.output?.[0];
+        console.log("Generated audio URL:", audioUrl);
+        if (!audioUrl) {
+          throw new Error('No audio output received from generation');
+        }
+        setGeneratedAudio(audioUrl);
         toast({
           title: "Audio Generated",
           description: "Sample created successfully with " + audioModel,
         });
       } else {
-        throw new Error('Generation failed');
+        throw new Error(prediction.error || 'Generation failed');
       }
     } catch (error: any) {
       const errorData = error?.message ? JSON.parse(error.message) : error;

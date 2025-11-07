@@ -70,7 +70,12 @@ serve(async (req) => {
     if (body.predictionId) {
       console.log("Checking status for prediction:", body.predictionId);
       const prediction = await replicate.predictions.get(body.predictionId);
-      console.log("Status check response:", prediction);
+      console.log("Prediction status:", prediction.status);
+      if (prediction.status === 'succeeded') {
+        console.log("Prediction succeeded with output:", prediction.output);
+      } else if (prediction.status === 'failed') {
+        console.error("Prediction failed:", prediction.error);
+      }
       return new Response(JSON.stringify(prediction), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

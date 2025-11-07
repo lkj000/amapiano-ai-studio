@@ -143,6 +143,12 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
+                      <Link to="/profile" className="flex items-center">
+                        <UserIcon className="mr-2 h-4 w-4" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/creator-hub" className="flex items-center">
                         <DollarSign className="mr-2 h-4 w-4" />
                         Creator Hub

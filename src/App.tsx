@@ -16,6 +16,7 @@ import DAW from "./pages/DAW";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import TemplatesShowcase from "./pages/TemplatesShowcase";
+import Profile from "./pages/Profile";
 import { Admin } from "./pages/Admin";
 import AuraPlatform from "./pages/AuraPlatform";
 import Aura808Demo from "./pages/Aura808Demo";
@@ -106,6 +107,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index user={user} />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/templates" element={<TemplatesShowcase />} />
               <Route path="/generate" element={<Generate user={user} />} />
               <Route path="/analyze" element={<Analyze user={user} />} />

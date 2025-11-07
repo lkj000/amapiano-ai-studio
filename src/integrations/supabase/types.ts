@@ -1150,6 +1150,51 @@ export type Database = {
         }
         Relationships: []
       }
+      papers: {
+        Row: {
+          abstract: string | null
+          arxiv_id: string | null
+          content: string
+          created_at: string
+          id: string
+          keywords: string | null
+          latex_source: string | null
+          status: string
+          submission_date: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          abstract?: string | null
+          arxiv_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          keywords?: string | null
+          latex_source?: string | null
+          status?: string
+          submission_date?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          abstract?: string | null
+          arxiv_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          keywords?: string | null
+          latex_source?: string | null
+          status?: string
+          submission_date?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       partnership_metrics: {
         Row: {
           active_licenses: number
@@ -1860,6 +1905,45 @@ export type Database = {
         }
         Relationships: []
       }
+      regression_history: {
+        Row: {
+          baseline: number | null
+          category: string
+          change_percent: number | null
+          created_at: string
+          id: string
+          metric_name: string
+          severity: string | null
+          test_run_id: string | null
+          user_id: string
+          value: number
+        }
+        Insert: {
+          baseline?: number | null
+          category: string
+          change_percent?: number | null
+          created_at?: string
+          id?: string
+          metric_name: string
+          severity?: string | null
+          test_run_id?: string | null
+          user_id: string
+          value: number
+        }
+        Update: {
+          baseline?: number | null
+          category?: string
+          change_percent?: number | null
+          created_at?: string
+          id?: string
+          metric_name?: string
+          severity?: string | null
+          test_run_id?: string | null
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       remix_royalties: {
         Row: {
           created_at: string
@@ -1929,6 +2013,57 @@ export type Database = {
         }
         Relationships: []
       }
+      review_comments: {
+        Row: {
+          comment: string
+          comment_type: string | null
+          created_at: string
+          id: string
+          line_number: number | null
+          resolved: boolean | null
+          review_id: string
+          reviewer_id: string
+          section: string | null
+        }
+        Insert: {
+          comment: string
+          comment_type?: string | null
+          created_at?: string
+          id?: string
+          line_number?: number | null
+          resolved?: boolean | null
+          review_id: string
+          reviewer_id: string
+          section?: string | null
+        }
+        Update: {
+          comment?: string
+          comment_type?: string | null
+          created_at?: string
+          id?: string
+          line_number?: number | null
+          resolved?: boolean | null
+          review_id?: string
+          reviewer_id?: string
+          section?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_comments_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "reviewers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_helpfulness: {
         Row: {
           created_at: string
@@ -1957,6 +2092,84 @@ export type Database = {
             columns: ["review_id"]
             isOneToOne: false
             referencedRelation: "plugin_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviewers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          institution: string | null
+          name: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          institution?: string | null
+          name: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          institution?: string | null
+          name?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          created_at: string
+          id: string
+          paper_id: string
+          rating: number | null
+          reviewer_id: string
+          status: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          paper_id: string
+          rating?: number | null
+          reviewer_id: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          paper_id?: string
+          rating?: number | null
+          reviewer_id?: string
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "reviewers"
             referencedColumns: ["id"]
           },
         ]

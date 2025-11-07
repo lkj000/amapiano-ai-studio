@@ -94,45 +94,56 @@ export const useModelQuantizer = () => {
       }
       mse = mse / minLength;
       
-      // Calculate signal power
+      // Calculate signal power (RMS)
       let signalPower = 0;
       for (let i = 0; i < minLength; i++) {
         signalPower += original[i] * original[i];
       }
       signalPower = signalPower / minLength;
       
-      // Avoid division by zero
-      if (signalPower === 0 || mse === 0) {
-        return { mse, qualityLoss: 0, qualityRetained: 100 };
+      // Handle edge cases
+      if (signalPower === 0) {
+        // No signal at all
+        return { mse: 0, snr: 0, qualityLoss: 0, qualityRetained: 100 };
       }
       
-      // Calculate SNR (Signal-to-Noise Ratio) in dB
+      if (mse === 0) {
+        // Perfect reconstruction
+        return { mse: 0, snr: Infinity, qualityLoss: 0, qualityRetained: 100 };
+      }
+      
+      // Calculate SNR in dB
       const snr = 10 * Math.log10(signalPower / mse);
       
-      // Audio-specific quality mapping
-      // Based on perceptual thresholds for audio distortion
-      // <30dB: Catastrophic (unusable)
-      // 30-45dB: Poor (noticeable distortion)
-      // 45-60dB: Acceptable (mild artifacts)
-      // 60-75dB: Good (minimal artifacts)
-      // >75dB: Excellent (near-transparent)
+      // Audio quality mapping based on SNR thresholds
+      // SNR ranges for audio quantization:
+      // 4-bit: ~24 dB (poor, ~35-45% quality)
+      // 8-bit: ~48 dB (good, ~80-88% quality)  
+      // 16-bit: ~96 dB (excellent, ~95-98% quality)
       
       let qualityRetained: number;
-      if (snr < 30) {
-        // Catastrophic quality - exponential degradation
-        qualityRetained = Math.max(0, (snr / 30) * 40); // 0-40%
-      } else if (snr < 45) {
-        // Poor quality - linear mapping
-        qualityRetained = 40 + ((snr - 30) / 15) * 25; // 40-65%
+      
+      if (snr < 0) {
+        // Catastrophic - noise exceeds signal
+        qualityRetained = 0;
+      } else if (snr < 24) {
+        // Very poor quality (below 4-bit standard)
+        qualityRetained = (snr / 24) * 35; // 0-35%
+      } else if (snr < 36) {
+        // Poor quality (4-bit range)
+        qualityRetained = 35 + ((snr - 24) / 12) * 20; // 35-55%
+      } else if (snr < 48) {
+        // Acceptable quality (between 4-bit and 8-bit)
+        qualityRetained = 55 + ((snr - 36) / 12) * 25; // 55-80%
       } else if (snr < 60) {
-        // Acceptable quality
-        qualityRetained = 65 + ((snr - 45) / 15) * 20; // 65-85%
-      } else if (snr < 75) {
-        // Good quality
-        qualityRetained = 85 + ((snr - 60) / 15) * 12; // 85-97%
+        // Good quality (8-bit range)
+        qualityRetained = 80 + ((snr - 48) / 12) * 10; // 80-90%
+      } else if (snr < 72) {
+        // Very good quality
+        qualityRetained = 90 + ((snr - 60) / 12) * 5; // 90-95%
       } else {
-        // Excellent quality (but cap at 98% for realism)
-        qualityRetained = Math.min(98, 97 + ((snr - 75) / 25) * 1);
+        // Excellent quality (approaching 16-bit)
+        qualityRetained = Math.min(98, 95 + ((snr - 72) / 24) * 3); // 95-98%
       }
       
       const qualityLoss = 100 - qualityRetained;

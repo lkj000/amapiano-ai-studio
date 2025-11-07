@@ -52,60 +52,66 @@ export class ModelQuantizer {
   }
 
   /**
-   * Low-rank approximation using power iteration method
-   * Preserves dominant signal components while reducing dimensionality
+   * Low-rank approximation using smoothing method
+   * Preserves dominant signal components while reducing high-frequency noise
    */
   private lowRankApproximation(
     data: Float32Array,
     rankRatio: number
   ): Float32Array {
     const n = data.length;
-    const targetRank = Math.max(1, Math.floor(Math.sqrt(n) * rankRatio));
+    // Window size based on rank ratio (8-bit = 0.25, smaller window = less smoothing)
+    const windowSize = Math.max(2, Math.floor(5 * rankRatio));
     
-    // Compute covariance-like structure
     const approximated = new Float32Array(n);
     
     for (let i = 0; i < n; i++) {
       let sum = 0;
-      let weight = 0;
+      let count = 0;
       
-      // Weighted average with neighboring values (simulates low-rank projection)
-      for (let j = Math.max(0, i - targetRank); j < Math.min(n, i + targetRank); j++) {
-        const dist = Math.abs(i - j);
-        const w = Math.exp(-dist / targetRank); // Gaussian-like kernel
-        sum += data[j] * w;
-        weight += w;
+      // Simple moving average for low-rank approximation
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(n, i + Math.ceil(windowSize / 2));
+      
+      for (let j = start; j < end; j++) {
+        sum += data[j];
+        count++;
       }
       
-      approximated[i] = sum / weight;
+      // Blend original with smoothed (preserves more detail)
+      const smoothed = sum / count;
+      approximated[i] = data[i] * 0.7 + smoothed * 0.3;
     }
     
     return approximated;
   }
 
   /**
-   * Apply psychoacoustic masking to reduce perceptible quantization noise
-   * Simulates frequency masking effects in human hearing
+   * Apply psychoacoustic masking using adaptive smoothing
+   * Reduces perceptible quantization artifacts
    */
   private applyPerceptualMasking(
     quantized: number[],
     bits: number
   ): number[] {
-    const masked = [...quantized];
-    const maskThreshold = bits <= 4 ? 0.3 : 0.15; // 4-bit needs stronger masking
+    if (bits > 8) return quantized; // No masking needed for high precision
     
-    for (let i = 1; i < masked.length - 1; i++) {
-      // If surrounded by similar values, apply smoothing (masking effect)
-      const prev = masked[i - 1];
-      const curr = masked[i];
-      const next = masked[i + 1];
+    const masked = [...quantized];
+    
+    // Adaptive smoothing based on local variance
+    for (let i = 2; i < masked.length - 2; i++) {
+      const window = [
+        masked[i - 2], masked[i - 1], masked[i], 
+        masked[i + 1], masked[i + 2]
+      ];
       
-      const avgNeighbor = (prev + next) / 2;
-      const deviation = Math.abs(curr - avgNeighbor);
+      // Calculate local variance
+      const mean = window.reduce((a, b) => a + b, 0) / window.length;
+      const variance = window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length;
       
-      if (deviation < maskThreshold * Math.abs(avgNeighbor)) {
-        // Value is perceptually masked, smooth it
-        masked[i] = avgNeighbor * 0.7 + curr * 0.3;
+      // Apply smoothing in low-variance regions (perceptually masked areas)
+      if (variance < 5) {
+        masked[i] = mean * 0.4 + masked[i] * 0.6;
       }
     }
     
@@ -162,7 +168,7 @@ export class ModelQuantizer {
 
   /**
    * Quantize float array to fixed precision
-   * Includes realistic audio quantization artifacts
+   * Standard symmetric quantization with proper scaling
    */
   private quantizeArray(
     data: Float32Array,
@@ -171,47 +177,35 @@ export class ModelQuantizer {
   ): QuantizedModel {
     const min = Math.min(...Array.from(data));
     const max = Math.max(...Array.from(data));
-    const range = max - min || 1e-6; // Avoid division by zero
+    const absMax = Math.max(Math.abs(min), Math.abs(max));
     
-    const qmin = -(1 << (bits - 1));
-    const qmax = (1 << (bits - 1)) - 1;
+    // Avoid division by zero
+    if (absMax === 0) {
+      return {
+        weights: this.floatToInt(new Float32Array(data.length), bits),
+        scales: new Float32Array([1.0]),
+        zeroPoints: this.floatToInt(new Float32Array([0]), bits),
+        config: this.config,
+        originalShape: shape || [data.length]
+      };
+    }
     
-    const scale = range / (qmax - qmin);
-    const zeroPoint = Math.round(-min / scale) + qmin;
+    const qmax = (1 << (bits - 1)) - 1; // e.g., 127 for 8-bit
+    const scale = absMax / qmax;
     
-    // Add quantization noise for realism
-    const noiseLevel = this.getQuantizationNoise(bits);
-    
+    // Symmetric quantization (zero point is 0)
     const quantized = data.map(val => {
-      // Quantize with added noise (simulates real quantization errors)
-      const noise = (Math.random() - 0.5) * noiseLevel * scale;
-      const qval = Math.round((val + noise) / scale) + zeroPoint;
-      return Math.max(qmin, Math.min(qmax, qval));
+      const qval = Math.round(val / scale);
+      return Math.max(-qmax - 1, Math.min(qmax, qval));
     });
     
     return {
       weights: this.floatToInt(new Float32Array(quantized), bits),
       scales: new Float32Array([scale]),
-      zeroPoints: this.floatToInt(new Float32Array([zeroPoint]), bits),
+      zeroPoints: this.floatToInt(new Float32Array([0]), bits),
       config: this.config,
       originalShape: shape || [data.length]
     };
-  }
-
-  /**
-   * Calculate realistic quantization noise level based on bit depth
-   * Audio-specific: lower bits = exponentially more perceptible distortion
-   */
-  private getQuantizationNoise(bits: number): number {
-    // Quantization noise follows: SNR ≈ 6.02 * bits + 1.76 dB
-    // We model this as exponential degradation
-    if (bits <= 4) {
-      return 0.35; // Catastrophic for audio
-    } else if (bits <= 8) {
-      return 0.08; // Noticeable but usable
-    } else {
-      return 0.02; // Minimal impact
-    }
   }
 
   /**
@@ -229,17 +223,17 @@ export class ModelQuantizer {
   }
 
   /**
-   * Dequantize model weights
+   * Dequantize model weights back to Float32
    */
   dequantize(model: QuantizedModel): Float32Array {
     const output = new Float32Array(model.weights.length);
     
     for (let i = 0; i < model.weights.length; i++) {
-      const scaleIdx = model.scales.length === 1 ? 0 : i;
-      const zpIdx = model.zeroPoints.length === 1 ? 0 : i;
+      const scaleIdx = Math.min(i, model.scales.length - 1);
+      const zpIdx = Math.min(i, model.zeroPoints.length - 1);
       
-      output[i] = (model.weights[i] - model.zeroPoints[zpIdx]) 
-        * model.scales[scaleIdx];
+      // Dequantize: output = (quantized - zero_point) * scale
+      output[i] = (model.weights[i] - model.zeroPoints[zpIdx]) * model.scales[scaleIdx];
     }
     
     return output;

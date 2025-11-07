@@ -38,7 +38,7 @@ export const useProjectTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(data || []);
+      setTemplates((data || []) as unknown as ProjectTemplate[]);
     } catch (error) {
       console.error('Error fetching project templates:', error);
       toast({
@@ -71,7 +71,7 @@ export const useProjectTemplates = () => {
       // Refresh templates
       fetchTemplates();
 
-      return template.project_data as DawProjectDataV2;
+      return template.project_data as unknown as DawProjectDataV2;
     } catch (error) {
       console.error('Error using template:', error);
       toast({
@@ -97,7 +97,7 @@ export const useProjectTemplates = () => {
           description,
           genre,
           bpm: projectData.bpm,
-          project_data: projectData,
+          project_data: projectData as any,
           is_featured: false,
           usage_count: 0,
         });

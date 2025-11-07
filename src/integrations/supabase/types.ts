@@ -1970,6 +1970,51 @@ export type Database = {
           },
         ]
       }
+      project_templates: {
+        Row: {
+          bpm: number
+          created_at: string | null
+          description: string
+          genre: string
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          name: string
+          preview_image: string | null
+          project_data: Json
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          bpm: number
+          created_at?: string | null
+          description: string
+          genre: string
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          name: string
+          preview_image?: string | null
+          project_data: Json
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          bpm?: number
+          created_at?: string | null
+          description?: string
+          genre?: string
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          name?: string
+          preview_image?: string | null
+          project_data?: Json
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       project_versions: {
         Row: {
           created_at: string | null

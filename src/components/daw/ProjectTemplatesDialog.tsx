@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FileTemplate, Star, TrendingUp, Loader2 } from 'lucide-react';
+import { FileText, Star, TrendingUp, Loader2 } from 'lucide-react';
 import { useProjectTemplates } from '@/hooks/useProjectTemplates';
 import type { DawProjectDataV2 } from '@/types/daw';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -69,7 +69,7 @@ const ProjectTemplatesDialog: React.FC<ProjectTemplatesDialogProps> = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <FileTemplate className="w-4 h-4 mr-2" />
+          <FileText className="w-4 h-4 mr-2" />
           Templates
         </Button>
       </DialogTrigger>
@@ -94,7 +94,7 @@ const ProjectTemplatesDialog: React.FC<ProjectTemplatesDialogProps> = ({
               </div>
             ) : templates.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <FileTemplate className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No templates available yet</p>
               </div>
             ) : (
@@ -190,7 +190,7 @@ const ProjectTemplatesDialog: React.FC<ProjectTemplatesDialogProps> = ({
                     </>
                   ) : (
                     <>
-                      <FileTemplate className="w-4 h-4 mr-2" />
+                      <FileText className="w-4 h-4 mr-2" />
                       Save Template
                     </>
                   )}

@@ -111,7 +111,7 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
   );
 };
 
-  const defaultProjectData: DawProjectData = {
+  const defaultProjectData: DawProjectDataV2 = {
     bpm: 118,
     keySignature: 'F#m',
     tracks: [
@@ -139,6 +139,8 @@ const AIPromptParser = ({ prompt, className }: { prompt: string, className?: str
       } as DawTrackV2,
     ],
     masterVolume: 0.8,
+    automationLanes: [],
+    samples: [],
   };
 
 interface DawPageProps {
@@ -281,7 +283,7 @@ const [zoom, setZoom] = useState([100]);
   // Enhanced Collaboration with Cursor Tracking
   const collaboration = useEnhancedCollaboration(
     activeProjectId || 'default-project',
-    projectData || defaultProjectData
+    (projectData || defaultProjectData) as DawProjectDataV2
   );
 
   // Convert collaboration cursors to RealtimeCursors format

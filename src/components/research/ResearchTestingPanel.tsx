@@ -45,6 +45,10 @@ import { ThesisAlertSystem } from "./ThesisAlertSystem";
 import { DefensePresentationExporter } from "./DefensePresentationExporter";
 import { AutoPaperGenerator } from "./AutoPaperGenerator";
 import { RegressionDetector } from "./RegressionDetector";
+import { ArxivIntegration } from "./ArxivIntegration";
+import { RegressionTrendsChart } from "./RegressionTrendsChart";
+import { RegressionAlertManager } from "./RegressionAlertManager";
+import { PaperReviewSystem } from "./PaperReviewSystem";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -55,7 +59,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts' | 'paperGen' | 'regression'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts' | 'paperGen' | 'regression' | 'arxiv' | 'regressionTrends' | 'regressionAlerts' | 'paperReview'>('tests');
 
   const viewTopRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -521,6 +525,38 @@ const ResearchTestingPanel = () => {
             <TrendingDown className="w-4 h-4 mr-2" />
             Regression
           </Button>
+          <Button
+            variant={activeView === 'regressionTrends' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('regressionTrends')}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Trends
+          </Button>
+          <Button
+            variant={activeView === 'regressionAlerts' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('regressionAlerts')}
+          >
+            <Bell className="w-4 h-4 mr-2" />
+            Alerts
+          </Button>
+          <Button
+            variant={activeView === 'arxiv' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('arxiv')}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            arXiv
+          </Button>
+          <Button
+            variant={activeView === 'paperReview' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('paperReview')}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Review
+          </Button>
         </div>
       </div>
 
@@ -570,6 +606,10 @@ const ResearchTestingPanel = () => {
             {activeView === 'alerts' && <><Bell className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Alert System</h3></>}
             {activeView === 'paperGen' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Auto Paper Generation</h3></>}
             {activeView === 'regression' && <><TrendingDown className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Regression Detection</h3></>}
+            {activeView === 'regressionTrends' && <><TrendingUp className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Regression Trends</h3></>}
+            {activeView === 'regressionAlerts' && <><Bell className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Regression Alerts</h3></>}
+            {activeView === 'arxiv' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">arXiv Integration</h3></>}
+            {activeView === 'paperReview' && <><CheckCircle2 className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Paper Review System</h3></>}
             <Badge variant="secondary" className="ml-auto">Active</Badge>
           </div>
         </Card>
@@ -1034,6 +1074,22 @@ const ResearchTestingPanel = () => {
 
       {activeView === 'regression' && (
         <RegressionDetector testResults={testResults} />
+      )}
+
+      {activeView === 'regressionTrends' && (
+        <RegressionTrendsChart />
+      )}
+
+      {activeView === 'regressionAlerts' && (
+        <RegressionAlertManager regressions={[]} />
+      )}
+
+      {activeView === 'arxiv' && (
+        <ArxivIntegration />
+      )}
+
+      {activeView === 'paperReview' && (
+        <PaperReviewSystem />
       )}
     </div>
   );

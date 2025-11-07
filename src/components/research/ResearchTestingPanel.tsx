@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug, Download, MessageSquare, Bell } from "lucide-react";
+import { Zap, Package, Network, Play, CheckCircle2, AlertCircle, History, TrendingUp, TrendingDown, Share2, FileText, GitBranch, LayoutDashboard, Activity, Calendar, ChartBar, Target, Bug, Download, MessageSquare, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useModelQuantizer } from "@/hooks/useModelQuantizer";
@@ -43,6 +43,8 @@ import { ThesisDataExporter } from "./ThesisDataExporter";
 import { CollaborativeAnnotations } from "./CollaborativeAnnotations";
 import { ThesisAlertSystem } from "./ThesisAlertSystem";
 import { DefensePresentationExporter } from "./DefensePresentationExporter";
+import { AutoPaperGenerator } from "./AutoPaperGenerator";
+import { RegressionDetector } from "./RegressionDetector";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -53,7 +55,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation' | 'publication' | 'monitor' | 'baseline' | 'syntheticTest' | 'dataValidation' | 'thesisProgress' | 'sigePublication' | 'distrifusionDebug' | 'realTimeMonitor' | 'liveMonitor' | 'automatedTests' | 'export' | 'annotations' | 'alerts' | 'paperGen' | 'regression'>('tests');
 
   const viewTopRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -503,6 +505,22 @@ const ResearchTestingPanel = () => {
             <Bell className="w-4 h-4 mr-2" />
             Alerts
           </Button>
+          <Button
+            variant={activeView === 'paperGen' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('paperGen')}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Paper Gen
+          </Button>
+          <Button
+            variant={activeView === 'regression' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('regression')}
+          >
+            <TrendingDown className="w-4 h-4 mr-2" />
+            Regression
+          </Button>
         </div>
       </div>
 
@@ -550,6 +568,8 @@ const ResearchTestingPanel = () => {
             {activeView === 'export' && <><Download className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Defense Presentation Export</h3></>}
             {activeView === 'annotations' && <><MessageSquare className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Collaborative Annotations</h3></>}
             {activeView === 'alerts' && <><Bell className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Alert System</h3></>}
+            {activeView === 'paperGen' && <><FileText className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Auto Paper Generation</h3></>}
+            {activeView === 'regression' && <><TrendingDown className="w-5 h-5 text-primary" /><h3 className="text-xl font-semibold text-foreground">Regression Detection</h3></>}
             <Badge variant="secondary" className="ml-auto">Active</Badge>
           </div>
         </Card>
@@ -999,6 +1019,21 @@ const ResearchTestingPanel = () => {
             }
           }}
         />
+      )}
+
+      {activeView === 'paperGen' && (
+        <AutoPaperGenerator 
+          testResults={testResults}
+          validationData={{
+            sigeAudio: testResults.sparse,
+            nunchakuAudio: testResults.quantization,
+            distriFusionAudio: testResults.distributed
+          }}
+        />
+      )}
+
+      {activeView === 'regression' && (
+        <RegressionDetector testResults={testResults} />
       )}
     </div>
   );

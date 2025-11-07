@@ -416,6 +416,30 @@ const ResearchTestingPanel = () => {
             <CheckCircle2 className="w-4 h-4 mr-2" />
             Data Validation
           </Button>
+          <Button
+            variant={activeView === 'thesisProgress' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('thesisProgress')}
+          >
+            <Target className="w-4 h-4 mr-2" />
+            Progress
+          </Button>
+          <Button
+            variant={activeView === 'sigePublication' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('sigePublication')}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            SIGE Pub
+          </Button>
+          <Button
+            variant={activeView === 'distrifusionDebug' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('distrifusionDebug')}
+          >
+            <Bug className="w-4 h-4 mr-2" />
+            Debug
+          </Button>
         </div>
       </div>
 

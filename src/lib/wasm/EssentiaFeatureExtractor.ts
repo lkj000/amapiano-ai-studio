@@ -57,8 +57,9 @@ export class EssentiaFeatureExtractor {
     const startTime = performance.now();
 
     try {
-      // Initialize Essentia WASM module
-      this.essentia = new EssentiaWASM.Essentia(EssentiaWASM.EssentiaWASM);
+      // Initialize Essentia WASM module - Updated API
+      const EssentiaModule = EssentiaWASM.EssentiaWASM;
+      this.essentia = new EssentiaWASM.Essentia(EssentiaModule);
       
       const initTime = performance.now() - startTime;
       console.log(`[Essentia] ✓ Initialized in ${initTime.toFixed(2)}ms`);

@@ -23,6 +23,9 @@ import { LaTeXExportPanel } from "./LaTeXExportPanel";
 import { PerformanceRegressionAlert } from "./PerformanceRegressionAlert";
 import { ResearchDashboardSummary } from "./ResearchDashboardSummary";
 import { TestResultSharingPanel } from "./TestResultSharingPanel";
+import { QuantizationAnalysisReport } from "./QuantizationAnalysisReport";
+import { SyntheticTestDataGenerator } from "./SyntheticTestDataGenerator";
+import { HypothesisValidationSystem } from "./HypothesisValidationSystem";
 
 const ResearchTestingPanel = () => {
   const [testResults, setTestResults] = useState<{
@@ -33,7 +36,7 @@ const ResearchTestingPanel = () => {
 
   const [showComparison, setShowComparison] = useState(false);
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
-  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing'>('tests');
+  const [activeView, setActiveView] = useState<'tests' | 'history' | 'charts' | 'trends' | 'cicd' | 'latex' | 'sharing' | 'quantAnalysis' | 'synthetic' | 'validation'>('tests');
 
   // Initialize hooks
   const sparseCache = useSparseInferenceCache(512, 0.3);
@@ -339,6 +342,30 @@ const ResearchTestingPanel = () => {
           >
             <Share2 className="w-4 h-4 mr-2" />
             Share
+          </Button>
+          <Button
+            variant={activeView === 'quantAnalysis' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('quantAnalysis')}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Analysis
+          </Button>
+          <Button
+            variant={activeView === 'synthetic' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('synthetic')}
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Synthetic
+          </Button>
+          <Button
+            variant={activeView === 'validation' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('validation')}
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Validate
           </Button>
         </div>
       </div>
@@ -671,6 +698,36 @@ const ResearchTestingPanel = () => {
       {activeView === 'cicd' && <CICDIntegrationPanel />}
       {activeView === 'latex' && <LaTeXExportPanel selectedTests={comparisonIds} />}
       {activeView === 'sharing' && <TestResultSharingPanel selectedTests={comparisonIds} />}
+      
+      {activeView === 'quantAnalysis' && (
+        <QuantizationAnalysisReport 
+          results={testResults.quantization?.results || []} 
+        />
+      )}
+
+      {activeView === 'synthetic' && (
+        <SyntheticTestDataGenerator />
+      )}
+
+      {activeView === 'validation' && (
+        <HypothesisValidationSystem 
+          testResults={{
+            sparse: testResults.sparse ? {
+              avgLatency: testResults.sparse.avgLatency,
+              cacheHitRate: (testResults.sparse.cacheHitRate || 0)
+            } : undefined,
+            quantization: testResults.quantization ? {
+              ptq8Quality: testResults.quantization.results.find((r: any) => r.method === 'PTQ 8-bit')?.qualityRetained || 0,
+              svd8Quality: testResults.quantization.results.find((r: any) => r.method === 'SVDQuant 8-bit')?.qualityRetained || 0,
+              ptq4Quality: testResults.quantization.results.find((r: any) => r.method === 'PTQ 4-bit')?.qualityRetained || 0
+            } : undefined,
+            distributed: testResults.distributed ? {
+              edgeLoad: testResults.distributed.stats.edgeLoad,
+              cloudLoad: testResults.distributed.stats.cloudLoad
+            } : undefined
+          }}
+        />
+      )}
     </div>
   );
 };

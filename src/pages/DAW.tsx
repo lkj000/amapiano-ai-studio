@@ -49,6 +49,8 @@ import { RAGKnowledgeBase } from '@/components/RAGKnowledgeBase';
 import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { cn } from '@/lib/utils';
+import { AudioStartGate } from '@/components/AudioStartGate';
+import { useTonePlayback } from '@/hooks/useTonePlayback';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
 import { RealtimeCursors } from '@/components/RealtimeCursors';
 import type { CursorData } from '@/components/RealtimeCursors';
@@ -273,6 +275,21 @@ const [zoom, setZoom] = useState([100]);
     updateEffectParam,
     getTrackEffects
   } = useAudioEngine(projectData);
+
+  // Tone.js playback for real audio (alongside existing engine for compatibility)
+  const tonePlayback = useTonePlayback(projectData);
+  const [audioGateVisible, setAudioGateVisible] = useState(true);
+
+  const handleAudioStart = useCallback(async () => {
+    try {
+      await tonePlayback.initialize();
+      setAudioGateVisible(false);
+      toast.success('Audio engine started!');
+    } catch (error) {
+      toast.error('Failed to start audio engine');
+      console.error(error);
+    }
+  }, [tonePlayback]);
 
   // Plugin System
   const { createPluginInstance, installedPlugins } = usePluginSystem(getAudioContext());
@@ -1737,7 +1754,13 @@ const [zoom, setZoom] = useState([100]);
   const selectedTrack = projectData.tracks.find(t => t.id === selectedTrackId) as DawTrackV2 || null;
 
   return (
-    <div className="h-full flex flex-col text-foreground">
+    <>
+      {/* Audio Start Gate - Required for autoplay policy */}
+      {audioGateVisible && (
+        <AudioStartGate onStart={handleAudioStart} />
+      )}
+
+      <div className="h-full flex flex-col text-foreground">
       {/* Header */}
       <div className="border-b border-border p-4">
         <div className="flex items-center justify-between">
@@ -2787,5 +2810,6 @@ const [zoom, setZoom] = useState([100]);
         </div>
       )}
     </div>
+    </>
   );
 }

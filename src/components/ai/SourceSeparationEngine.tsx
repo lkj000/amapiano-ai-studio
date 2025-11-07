@@ -404,13 +404,18 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
 
   const exportAllStems = useCallback(async () => {
     try {
-      toast.info('Exporting all stems...');
+      toast.info('Preparing stems for export...');
       
-      for (const stem of separatedStems) {
-        await exportStem(stem);
+      // Export each stem individually (they'll download to Downloads folder)
+      for (let i = 0; i < separatedStems.length; i++) {
+        await exportStem(separatedStems[i]);
+        // Small delay between downloads to avoid browser blocking
+        if (i < separatedStems.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
       
-      toast.success('All stems exported successfully!');
+      toast.success(`All ${separatedStems.length} stems exported to Downloads folder!`);
     } catch (error) {
       toast.error('Failed to export all stems');
       console.error(error);
@@ -424,7 +429,7 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
         return;
       }
       
-      toast.info('Converting to MIDI patterns...');
+      toast.info('Converting to MIDI patterns... (this may take 1-2 minutes)');
       
       // Use the audio-to-midi edge function
       const { supabase } = await import('@/integrations/supabase/client');
@@ -436,28 +441,38 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
         body: formData,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('[MIDI] Conversion error:', error);
+        throw new Error(error.message || 'Conversion failed');
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Conversion returned no data');
+      }
       
-      if (data?.midiUrl) {
+      if (data.midiUrl) {
         // Download the MIDI file
         const response = await fetch(data.midiUrl);
+        if (!response.ok) throw new Error('Failed to fetch MIDI file');
+        
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'converted-stems.mid';
+        a.download = `${originalFile.name.replace(/\.[^.]+$/, '')}-stems.mid`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        toast.success('MIDI file downloaded!');
+        toast.success('MIDI file downloaded to your Downloads folder!');
       } else {
-        toast.success('MIDI patterns generated!');
+        toast.success('MIDI patterns extracted successfully!');
       }
     } catch (error) {
-      toast.error('MIDI conversion failed');
-      console.error(error);
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`MIDI conversion failed: ${msg}`);
+      console.error('[MIDI] Error:', error);
     }
   }, [originalFile]);
 

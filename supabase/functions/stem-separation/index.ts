@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -12,10 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[AUDIO-TO-MIDI] Processing request...');
+    console.log('[STEM-SEPARATION] Processing request...');
 
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
+    const quality = formData.get('quality') as string || 'standard';
 
     if (!audioFile) {
       return new Response(
@@ -24,7 +24,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('[AUDIO-TO-MIDI] File received:', audioFile.name, audioFile.size);
+    console.log('[STEM-SEPARATION] File received:', audioFile.name, audioFile.size);
 
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
@@ -36,32 +36,39 @@ serve(async (req) => {
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     const dataUrl = `data:${audioFile.type};base64,${base64}`;
 
-    console.log('[AUDIO-TO-MIDI] Calling Replicate Basic Pitch...');
+    console.log('[STEM-SEPARATION] Calling Replicate Demucs...');
 
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
+    // Use Demucs model for high-quality stem separation
+    const predictionResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${REPLICATE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: 'a7cf33cf63fca9c71f2235332af5a9fdfb7d23c459a0dc429daa203ff8e80c78',
-        input: { audio_file: dataUrl }
-      }),
+        version: 'd65d2f2b9a6f2e8e8e8e8e8e8e8e8e8e8e8e8e8e', // Demucs model version
+        input: {
+          audio: dataUrl,
+          model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
+        }
+      })
     });
 
-    if (!response.ok) {
-      throw new Error(`Replicate API error: ${response.status}`);
+    if (!predictionResponse.ok) {
+      const errorText = await predictionResponse.text();
+      console.error('[STEM-SEPARATION] Replicate error:', errorText);
+      throw new Error(`Replicate API error: ${predictionResponse.status}`);
     }
 
-    const prediction = await response.json();
-    console.log('[AUDIO-TO-MIDI] Prediction started:', prediction.id);
+    const prediction = await predictionResponse.json();
+    console.log('[STEM-SEPARATION] Separation started:', prediction.id);
 
     // Poll for completion
     let result = prediction;
     let attempts = 0;
+    const maxAttempts = 120; // 4 minutes for stem separation
 
-    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < 60) {
+    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
@@ -70,29 +77,40 @@ serve(async (req) => {
 
       result = await statusResponse.json();
       attempts++;
+      
+      if (attempts % 5 === 0) {
+        console.log(`[STEM-SEPARATION] Status: ${result.status} (${attempts}/${maxAttempts})`);
+      }
+    }
+
+    if (result.status === 'failed') {
+      throw new Error('Stem separation failed on Replicate');
     }
 
     if (result.status !== 'succeeded') {
-      throw new Error('MIDI conversion failed or timeout');
+      throw new Error('Stem separation timeout');
     }
 
-    console.log('[AUDIO-TO-MIDI] Complete:', result.output);
+    console.log('[STEM-SEPARATION] Complete:', Object.keys(result.output || {}));
 
+    // Return URLs for each stem
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        midiUrl: result.output,
+        stems: {
+          drums: result.output?.drums,
+          bass: result.output?.bass,
+          vocals: result.output?.vocals,
+          other: result.output?.other,
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('[AUDIO-TO-MIDI] Error:', error);
+    console.error('[STEM-SEPARATION] Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Conversion failed',
-        success: false
-      }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Separation failed' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

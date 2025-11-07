@@ -97,8 +97,25 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
 
       if (conversionError) throw conversionError;
 
-      // Simulate AI conversion (in production, this would call an AI service)
-      const generatedMidi = await simulateMidiConversion(publicUrl);
+      setProgress(20);
+
+      // Call real AI conversion edge function
+      const { data: conversionResult, error: functionError } = await supabase.functions.invoke(
+        'audio-to-midi',
+        {
+          body: { audioUrl: publicUrl },
+        }
+      );
+
+      if (functionError) throw functionError;
+
+      if (!conversionResult.success) {
+        throw new Error(conversionResult.error || 'Conversion failed');
+      }
+
+      setProgress(90);
+
+      const generatedMidi = conversionResult.midiNotes as MidiNote[];
 
       // Update conversion record with results
       await supabase
@@ -110,6 +127,7 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
         })
         .eq('id', conversionData.id);
 
+      setProgress(100);
       setMidiData(generatedMidi);
       onMidiGenerated?.(generatedMidi);
 
@@ -119,6 +137,19 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
       });
     } catch (error) {
       console.error('Conversion error:', error);
+      
+      // Update record with error
+      try {
+        await supabase
+          .from('audio_to_midi_conversions')
+          .update({
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Conversion failed',
+          });
+      } catch (updateError) {
+        console.error('Error updating conversion record:', updateError);
+      }
+
       toast({
         title: 'Conversion Failed',
         description: error instanceof Error ? error.message : 'Failed to convert audio',

@@ -500,6 +500,44 @@ export type Database = {
           },
         ]
       }
+      cloud_project_versions: {
+        Row: {
+          change_description: string | null
+          created_at: string
+          created_by: string
+          id: string
+          project_data: Json
+          project_id: string
+          version_number: number
+        }
+        Insert: {
+          change_description?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          project_data: Json
+          project_id: string
+          version_number: number
+        }
+        Update: {
+          change_description?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          project_data?: Json
+          project_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cloud_project_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "cloud_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cloud_projects: {
         Row: {
           created_at: string
@@ -1887,6 +1925,47 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "daw_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_shares: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          permission: string
+          project_id: string
+          share_token: string
+          shared_by: string
+          shared_with_email: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          permission?: string
+          project_id: string
+          share_token?: string
+          shared_by: string
+          shared_with_email: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          permission?: string
+          project_id?: string
+          share_token?: string
+          shared_by?: string
+          shared_with_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_shares_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "cloud_projects"
             referencedColumns: ["id"]
           },
         ]

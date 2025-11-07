@@ -66,6 +66,8 @@ import { PercussionLayeringPanel } from '@/components/PercussionLayeringPanel';
 import { BassLayeringPanel } from '@/components/BassLayeringPanel';
 import { LogDrumDesignerPanel } from '@/components/LogDrumDesignerPanel';
 import { TutorialIntegration } from '@/components/TutorialIntegration';
+import FeatureToolbar from '@/components/daw/FeatureToolbar';
+import type { DawProjectDataV2 } from '@/types/daw';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
   const [parsed, setParsed] = useState<any>(null);
@@ -1686,6 +1688,51 @@ const [zoom, setZoom] = useState([100]);
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
+            <Separator orientation="vertical" className="h-6" />
+            
+            {/* Feature Toolbar with Cloud, Collaboration, AI Tools */}
+            <FeatureToolbar
+              currentProject={projectData as DawProjectDataV2}
+              onProjectUpdate={(data) => setProjectDataWithHistory(data as DawProjectData, 'Cloud update')}
+              onLoadProject={(data) => setProjectDataWithHistory(data as DawProjectData, 'Project loaded from cloud')}
+              onMidiGenerated={(midiNotes) => {
+                if (projectData && selectedTrackId) {
+                  const track = projectData.tracks.find(t => t.id === selectedTrackId);
+                  if (track && track.type === 'midi') {
+                    // Add MIDI notes to selected track
+                    const updatedData = {
+                      ...projectData,
+                      tracks: projectData.tracks.map(t =>
+                        t.id === selectedTrackId && t.type === 'midi'
+                          ? { 
+                              ...t, 
+                              clips: [
+                                ...t.clips, 
+                                { 
+                                  id: Date.now().toString(), 
+                                  name: 'Generated MIDI',
+                                  notes: midiNotes, 
+                                  startTime: 0, 
+                                  duration: 4 
+                                }
+                              ] 
+                            }
+                          : t
+                      ),
+                    };
+                    setProjectDataWithHistory(updatedData, 'MIDI generated from audio');
+                  }
+                }
+              }}
+              projectId={activeProjectId}
+              projectName={projectName}
+              currentUser={{
+                id: 'user-1', // TODO: Get from auth
+                name: 'Producer',
+                avatar: undefined,
+              }}
+            />
+            
             <Separator orientation="vertical" className="h-6" />
             <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)}>
               <Sliders className="w-4 h-4 mr-2" />

@@ -91,9 +91,22 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
     // Use real AI generation with enhanced parameters
     try {
+      // Generate prompt based on context if not provided
+      let effectivePrompt = recordedAudio?.transcription || prompt;
+      
+      if (!effectivePrompt.trim()) {
+        if (generationType === "reference" && referenceAnalysis) {
+          effectivePrompt = `Generate a ${effectiveGenre} track at ${effectiveBpm} BPM inspired by: ${referenceAnalysis.mood} mood, ${referenceAnalysis.key} key, ${referenceAnalysis.energy} energy level`;
+        } else if (selectedArtistStyle) {
+          effectivePrompt = `Generate a ${effectiveGenre} track at ${effectiveBpm} BPM in the style of ${selectedArtistStyle}`;
+        } else {
+          effectivePrompt = `Generate a ${effectiveGenre} track at ${effectiveBpm} BPM with authentic amapiano elements`;
+        }
+      }
+      
       const { data, error } = await supabase.functions.invoke('ai-music-generation', {
         body: {
-          prompt: recordedAudio?.transcription || prompt,
+          prompt: effectivePrompt,
           trackType: 'midi',
           generationType,
           bpm: effectiveBpm,

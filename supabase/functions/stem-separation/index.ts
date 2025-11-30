@@ -31,9 +31,14 @@ serve(async (req) => {
       throw new Error('REPLICATE_API_KEY not configured');
     }
 
-    // Convert file to base64 data URL
+    // Convert file to base64 data URL (safely, without stack overflow)
     const arrayBuffer = await audioFile.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binary);
     const dataUrl = `data:${audioFile.type};base64,${base64}`;
 
     console.log('[STEM-SEPARATION] Calling Replicate Demucs...');

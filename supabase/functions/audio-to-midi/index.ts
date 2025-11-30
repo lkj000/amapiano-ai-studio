@@ -106,10 +106,22 @@ serve(async (req) => {
 
     console.log('[AUDIO-TO-MIDI] Complete:', result.output);
 
+    // Download the MIDI file
+    const midiResponse = await fetch(result.output);
+    if (!midiResponse.ok) {
+      throw new Error('Failed to download MIDI file');
+    }
+
+    const midiBlob = await midiResponse.arrayBuffer();
+    const midiBase64 = btoa(String.fromCharCode(...new Uint8Array(midiBlob)));
+
+    console.log('[AUDIO-TO-MIDI] MIDI file downloaded, size:', midiBlob.byteLength);
+
     return new Response(
       JSON.stringify({ 
         success: true,
         midiUrl: result.output,
+        midiData: midiBase64,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

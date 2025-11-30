@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Music, 
   Mic2, 
@@ -13,11 +14,14 @@ import {
   Wand2, 
   Check, 
   ChevronRight,
-  Download
+  Download,
+  Edit,
+  Save
 } from 'lucide-react';
 import LyricsGenerator from './LyricsGenerator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface WorkflowStep {
   id: number;
@@ -33,6 +37,7 @@ interface SunoStyleWorkflowProps {
 export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [lyrics, setLyrics] = useState('');
+  const [isEditingLyrics, setIsEditingLyrics] = useState(false);
   const [voiceType, setVoiceType] = useState('male');
   const [voiceStyle, setVoiceStyle] = useState('smooth');
   const [genre, setGenre] = useState('amapiano');
@@ -41,7 +46,9 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [stems, setStems] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const steps: WorkflowStep[] = [
     { id: 1, title: 'Generate Lyrics', icon: Music, completed: !!lyrics },
@@ -133,6 +140,72 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         variant: "destructive"
       });
     }
+  };
+
+  const exportAllAssets = async () => {
+    if (!stems) {
+      toast({
+        title: "No Assets to Export",
+        description: "Please generate and separate stems first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Prepare stems for export
+      const stemUrls = Object.entries(stems).map(([type, url]) => ({
+        name: `${type}.wav`,
+        url: url as string
+      }));
+
+      // Call zip-stems function
+      const { data, error } = await supabase.functions.invoke('zip-stems', {
+        body: {
+          stemUrls,
+          projectName: `amapiano-song-${Date.now()}`
+        }
+      });
+
+      if (error) throw error;
+
+      // Download the zip file
+      const blob = new Blob([data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `amapiano-stems-${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Successful! ✓",
+        description: "Your stems have been downloaded"
+      });
+    } catch (error) {
+      console.error('Error exporting assets:', error);
+      toast({
+        title: "Export Failed",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const openInDAW = () => {
+    if (onComplete) {
+      onComplete({ lyrics, stems, generatedAudio });
+    }
+    navigate('/daw');
+    toast({
+      title: "Opening DAW...",
+      description: "Load your stems and start enhancing!"
+    });
   };
 
   return (
@@ -229,11 +302,41 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                   />
                 </div>
 
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Lyrics Preview:</strong>
-                  </p>
-                  <p className="text-sm mt-2 line-clamp-4">{lyrics}</p>
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Lyrics:</strong>
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingLyrics(!isEditingLyrics)}
+                    >
+                      {isEditingLyrics ? (
+                        <>
+                          <Save className="w-4 h-4 mr-1" />
+                          Save
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="w-4 h-4 mr-1" />
+                          Edit
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {isEditingLyrics ? (
+                    <Textarea
+                      value={lyrics}
+                      onChange={(e) => setLyrics(e.target.value)}
+                      className="min-h-[200px] font-mono text-sm"
+                      placeholder="Edit your lyrics..."
+                    />
+                  ) : (
+                    <div className="text-sm mt-2 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                      {lyrics}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -358,20 +461,15 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => {
-                  if (onComplete) {
-                    onComplete({ lyrics, stems, generatedAudio });
-                  }
-                }}>
-                  Export All Assets
+                <Button 
+                  variant="outline" 
+                  onClick={exportAllAssets}
+                  disabled={isExporting}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isExporting ? 'Exporting...' : 'Export All Assets'}
                 </Button>
-                <Button className="flex-1" onClick={() => {
-                  toast({
-                    title: "Opening DAW...",
-                    description: "Load your stems and start enhancing!"
-                  });
-                  // Navigate to DAW or open Amapianorize engine
-                }}>
+                <Button className="flex-1" onClick={openInDAW}>
                   Open in DAW
                 </Button>
               </div>

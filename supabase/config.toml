@@ -1,5 +1,8 @@
 project_id = "mywijmtszelyutssormy"
 
+[functions.ai-chat]
+verify_jwt = false
+
 [functions.ai-plugin-chat]
 verify_jwt = false
 

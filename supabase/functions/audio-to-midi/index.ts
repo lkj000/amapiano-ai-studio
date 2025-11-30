@@ -13,6 +13,8 @@ serve(async (req) => {
 
   try {
     console.log('[AUDIO-TO-MIDI] Processing request...');
+    const contentType = req.headers.get('content-type') || '';
+    console.log('[AUDIO-TO-MIDI] Content-Type:', contentType);
 
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
@@ -20,17 +22,16 @@ serve(async (req) => {
     }
 
     let dataUrl: string;
-    const contentType = req.headers.get('content-type') || '';
 
     // Handle both FormData (file upload) and JSON (URL reference)
     if (contentType.includes('multipart/form-data')) {
-      // FormData with audio file
+      console.log('[AUDIO-TO-MIDI] Processing as FormData...');
       const formData = await req.formData();
       const audioFile = formData.get('audio') as File;
 
       if (!audioFile) {
         return new Response(
-          JSON.stringify({ error: 'No audio file provided' }),
+          JSON.stringify({ error: 'No audio file provided in FormData' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -41,19 +42,26 @@ serve(async (req) => {
       const arrayBuffer = await audioFile.arrayBuffer();
       const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
       dataUrl = `data:${audioFile.type};base64,${base64}`;
-    } else {
-      // JSON with audioUrl
-      const { audioUrl } = await req.json();
+    } else if (contentType.includes('application/json')) {
+      console.log('[AUDIO-TO-MIDI] Processing as JSON...');
+      const body = await req.json();
+      console.log('[AUDIO-TO-MIDI] Request body:', JSON.stringify(body));
 
-      if (!audioUrl) {
+      if (!body.audioUrl) {
         return new Response(
-          JSON.stringify({ error: 'No audio URL provided' }),
+          JSON.stringify({ error: 'No audio URL provided in request body' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('[AUDIO-TO-MIDI] URL received:', audioUrl);
-      dataUrl = audioUrl;
+      console.log('[AUDIO-TO-MIDI] URL received:', body.audioUrl);
+      dataUrl = body.audioUrl;
+    } else {
+      console.log('[AUDIO-TO-MIDI] Unsupported content type:', contentType);
+      return new Response(
+        JSON.stringify({ error: `Unsupported content-type: ${contentType}. Expected multipart/form-data or application/json` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('[AUDIO-TO-MIDI] Calling Replicate Basic Pitch...');

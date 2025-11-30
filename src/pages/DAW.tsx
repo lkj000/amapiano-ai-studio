@@ -421,7 +421,7 @@ const [zoom, setZoom] = useState([100]);
       // Prevent overwriting local edits on refetch
       hasInitializedProjectDataRef.current = true;
     }
-  }, [loadedProject, selectedTrackId, setProjectDataWithHistory]);
+  }, [loadedProject, selectedTrackId]);
 
   const saveMutation = useMutation({
     mutationFn: (data: { name: string; projectData: DawProjectData; projectId?: string }) => backend.music.saveProject(data),
@@ -712,10 +712,12 @@ const [zoom, setZoom] = useState([100]);
       }
     };
     
-    // Check on mount and when project data changes
+    // Check on mount and when project data becomes available
     console.log('[DAW] useEffect running, projectData:', projectData ? 'exists' : 'null');
-    checkPendingTrack();
-  }, [projectData, handleTrackGenerated, undoRedoControls]);
+    if (projectData) {
+      checkPendingTrack();
+    }
+  }, [projectData]);
 
   const handleAIGenerate = (prompt: string) => {
     if (!prompt.trim()) {

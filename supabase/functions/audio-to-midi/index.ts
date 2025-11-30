@@ -14,27 +14,47 @@ serve(async (req) => {
   try {
     console.log('[AUDIO-TO-MIDI] Processing request...');
 
-    const formData = await req.formData();
-    const audioFile = formData.get('audio') as File;
-
-    if (!audioFile) {
-      return new Response(
-        JSON.stringify({ error: 'No audio file provided' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('[AUDIO-TO-MIDI] File received:', audioFile.name, audioFile.size);
-
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
       throw new Error('REPLICATE_API_KEY not configured');
     }
 
-    // Convert file to base64 data URL
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    const dataUrl = `data:${audioFile.type};base64,${base64}`;
+    let dataUrl: string;
+    const contentType = req.headers.get('content-type') || '';
+
+    // Handle both FormData (file upload) and JSON (URL reference)
+    if (contentType.includes('multipart/form-data')) {
+      // FormData with audio file
+      const formData = await req.formData();
+      const audioFile = formData.get('audio') as File;
+
+      if (!audioFile) {
+        return new Response(
+          JSON.stringify({ error: 'No audio file provided' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('[AUDIO-TO-MIDI] File received:', audioFile.name, audioFile.size);
+
+      // Convert file to base64 data URL
+      const arrayBuffer = await audioFile.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      dataUrl = `data:${audioFile.type};base64,${base64}`;
+    } else {
+      // JSON with audioUrl
+      const { audioUrl } = await req.json();
+
+      if (!audioUrl) {
+        return new Response(
+          JSON.stringify({ error: 'No audio URL provided' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('[AUDIO-TO-MIDI] URL received:', audioUrl);
+      dataUrl = audioUrl;
+    }
 
     console.log('[AUDIO-TO-MIDI] Calling Replicate Basic Pitch...');
 

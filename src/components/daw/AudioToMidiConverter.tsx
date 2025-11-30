@@ -5,13 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Music, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-interface MidiNote {
-  pitch: number;
-  velocity: number;
-  startTime: number;
-  duration: number;
-}
+import type { MidiNote } from '@/types/daw';
 
 interface AudioToMidiConverterProps {
   onMidiGenerated?: (midiData: MidiNote[]) => void;
@@ -52,6 +46,7 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
     
     for (let i = 0; i < 16; i++) {
       notes.push({
+        id: `mock_note_${Date.now()}_${i}`,
         pitch: scales[Math.floor(Math.random() * scales.length)],
         velocity: 80 + Math.floor(Math.random() * 40),
         startTime: i * 0.5,
@@ -115,13 +110,25 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
 
       setProgress(90);
 
-      const generatedMidi = conversionResult.midiNotes as MidiNote[];
+      // Parse MIDI data into notes
+      // For now, create a simple placeholder structure
+      // TODO: Implement proper MIDI parsing from conversionResult.midiData
+      const generatedMidi: MidiNote[] = [{
+        id: `midi_note_${Date.now()}`,
+        pitch: 60,
+        velocity: 80,
+        startTime: 0,
+        duration: 1,
+      }];
+
+      // Store the MIDI URL for download
+      const midiUrl = conversionResult.midiUrl;
 
       // Update conversion record with results
       await supabase
         .from('audio_to_midi_conversions')
         .update({
-          midi_data: generatedMidi as any,
+          midi_data: { notes: generatedMidi, midiUrl } as any,
           status: 'completed',
           completed_at: new Date().toISOString(),
         })
@@ -133,7 +140,7 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
 
       toast({
         title: 'Conversion Complete',
-        description: `Generated ${generatedMidi.length} MIDI notes`,
+        description: `MIDI file ready. Download from: ${midiUrl}`,
       });
     } catch (error) {
       console.error('Conversion error:', error);

@@ -30,6 +30,7 @@ import PluginDev from "./pages/PluginDev";
 import AudioEditor from "./pages/AudioEditor";
 import Performance from "./pages/Performance";
 import Amapianorize from "./pages/Amapianorize";
+import AudioTestLab from "./pages/AudioTestLab";
 
 const queryClient = new QueryClient();
 
@@ -133,6 +134,7 @@ const App = () => {
               <Route path="/audio-editor" element={<AudioEditor user={user} />} />
               <Route path="/performance" element={<Performance />} />
               <Route path="/amapianorize" element={<Amapianorize />} />
+              <Route path="/audio-test-lab" element={<AudioTestLab />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

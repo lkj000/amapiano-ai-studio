@@ -126,3 +126,6 @@ verify_jwt = false
 
 [functions.send-paper-notification]
 verify_jwt = false
+
+[functions.amapianorize-audio]
+verify_jwt = false

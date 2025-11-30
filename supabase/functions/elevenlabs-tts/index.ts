@@ -95,11 +95,14 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    // Convert audio buffer to base64
+    // Convert audio buffer to base64 (safely, without stack overflow)
     const arrayBuffer = await response.arrayBuffer();
-    const base64Audio = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Audio = btoa(binary);
 
     console.log(`Successfully generated audio: ${arrayBuffer.byteLength} bytes`);
 

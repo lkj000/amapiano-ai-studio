@@ -53,7 +53,11 @@ const INSTRUMENT_COLORS = {
   other: 'bg-gray-500'
 };
 
-export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoStart?: boolean; }> = ({ initialAudioUrl, autoStart }) => {
+export const SourceSeparationEngine: React.FC<{ 
+  initialAudioUrl?: string; 
+  autoStart?: boolean;
+  onSeparationComplete?: (stems: SeparatedStem[]) => void;
+}> = ({ initialAudioUrl, autoStart, onSeparationComplete }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [separationProgress, setSeparationProgress] = useState(0);
@@ -200,6 +204,11 @@ export const SourceSeparationEngine: React.FC<{ initialAudioUrl?: string; autoSt
         toast.info("Analyzing musical patterns...");
         const analysis = await analyzeAudioPatterns(stems);
         setAnalysisResult(analysis);
+      }
+
+      // Notify parent component
+      if (onSeparationComplete) {
+        onSeparationComplete(stems);
       }
 
       toast.success(`Successfully separated audio into ${stems.length} stems!`);

@@ -66,6 +66,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },
     { path: "/daw", label: "DAW", icon: Volume2 },
     { path: "/audio-editor", label: "Audio Editor", icon: Radio },
+    { path: "/amapianorize", label: "Amapianorize", icon: Sparkles },
     { path: "/aura808", label: "Aura 808", icon: Music },
     { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },

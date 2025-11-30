@@ -38,9 +38,16 @@ serve(async (req) => {
 
       console.log('[AUDIO-TO-MIDI] File received:', audioFile.name, audioFile.size);
 
-      // Convert file to base64 data URL
+      // Convert file to base64 data URL (process in chunks to avoid stack overflow)
       const arrayBuffer = await audioFile.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64 = btoa(binary);
       dataUrl = `data:${audioFile.type};base64,${base64}`;
     } else if (contentType.includes('application/json')) {
       console.log('[AUDIO-TO-MIDI] Processing as JSON...');
@@ -106,14 +113,21 @@ serve(async (req) => {
 
     console.log('[AUDIO-TO-MIDI] Complete:', result.output);
 
-    // Download the MIDI file
+    // Download the MIDI file and convert to base64 (process in chunks)
     const midiResponse = await fetch(result.output);
     if (!midiResponse.ok) {
       throw new Error('Failed to download MIDI file');
     }
 
     const midiBlob = await midiResponse.arrayBuffer();
-    const midiBase64 = btoa(String.fromCharCode(...new Uint8Array(midiBlob)));
+    const uint8Array = new Uint8Array(midiBlob);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const midiBase64 = btoa(binary);
 
     console.log('[AUDIO-TO-MIDI] MIDI file downloaded, size:', midiBlob.byteLength);
 

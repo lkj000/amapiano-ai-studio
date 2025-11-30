@@ -4,16 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Play, Pause, Download, Volume2, Music } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Music, Wand2 } from 'lucide-react';
 import { AmapianorizeSettings } from '@/lib/audio/audioProcessor';
 import { amapianorizeAudio } from '@/lib/audio/audioProcessor';
 import { LOG_DRUM_SAMPLES } from '@/lib/audio/logDrumLibrary';
 import { PERCUSSION_SAMPLES } from '@/lib/audio/percussionLibrary';
+import { SampleGenerator } from '@/lib/audio/sampleGenerator';
 
 export default function AudioTestLab() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedAudioUrl, setProcessedAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isGeneratingSamples, setIsGeneratingSamples] = useState(false);
+  const [generatedSamples, setGeneratedSamples] = useState<Map<string, Blob>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const [settings, setSettings] = useState<AmapianorizeSettings>({
@@ -84,6 +87,60 @@ export default function AudioTestLab() {
     a.click();
   };
 
+  const generateSampleLibrary = async () => {
+    setIsGeneratingSamples(true);
+    toast.info('Generating synthetic sample library...');
+
+    try {
+      const generator = new SampleGenerator();
+      
+      // Generate log drum library
+      toast.info('Generating log drum samples...');
+      const logDrumLib = generator.generateLogDrumLibrary();
+      console.log(`Generated ${logDrumLib.size} log drum samples`);
+      
+      // Generate percussion library
+      toast.info('Generating percussion samples...');
+      const percussionLib = generator.generatePercussionLibrary();
+      console.log(`Generated ${percussionLib.size} percussion samples`);
+      
+      // Combine libraries
+      const combined = new Map([...logDrumLib, ...percussionLib]);
+      setGeneratedSamples(combined);
+      
+      toast.success(`Generated ${combined.size} audio samples ready for testing`);
+      
+    } catch (error) {
+      console.error('Error generating samples:', error);
+      toast.error(`Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsGeneratingSamples(false);
+    }
+  };
+
+  const downloadSampleLibrary = () => {
+    if (generatedSamples.size === 0) {
+      toast.error('Generate samples first');
+      return;
+    }
+
+    toast.info(`Downloading ${generatedSamples.size} samples...`);
+    
+    // Download each sample individually
+    generatedSamples.forEach((blob, filename) => {
+      setTimeout(() => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -96,6 +153,53 @@ export default function AudioTestLab() {
             </p>
           </div>
         </div>
+
+        {/* Sample Library Generator */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Sample Library Generator</CardTitle>
+            <CardDescription>
+              Generate synthetic audio samples for testing audio processing
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Log Drums Defined:</span>
+                <Badge className="ml-2" variant="secondary">{LOG_DRUM_SAMPLES.length}</Badge>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Percussion Defined:</span>
+                <Badge className="ml-2" variant="secondary">{PERCUSSION_SAMPLES.length}</Badge>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Generated Samples:</span>
+                <Badge className="ml-2">{generatedSamples.size}</Badge>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={generateSampleLibrary}
+                disabled={isGeneratingSamples}
+                className="flex-1"
+              >
+                <Wand2 className="mr-2 h-4 w-4" />
+                {isGeneratingSamples ? 'Generating...' : 'Generate Sample Library'}
+              </Button>
+              
+              {generatedSamples.size > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={downloadSampleLibrary}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Sample Library Status */}
         <div className="grid md:grid-cols-2 gap-4">

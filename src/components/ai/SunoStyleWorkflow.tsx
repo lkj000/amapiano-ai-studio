@@ -152,6 +152,19 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
       return;
     }
 
+    // Check if stems are mock URLs (demo mode)
+    const isMockData = Object.values(stems).some(url => 
+      typeof url === 'string' && url.startsWith('stem_')
+    );
+
+    if (isMockData) {
+      toast({
+        title: "Demo Mode",
+        description: "Export will be available when real audio generation is implemented. Stems will be downloaded as a ZIP file.",
+      });
+      return;
+    }
+
     setIsExporting(true);
     try {
       // Prepare stems for export

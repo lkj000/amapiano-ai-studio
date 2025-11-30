@@ -1,0 +1,384 @@
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { 
+  Music, 
+  Mic2, 
+  Split, 
+  Layers, 
+  Wand2, 
+  Check, 
+  ChevronRight,
+  Download
+} from 'lucide-react';
+import LyricsGenerator from './LyricsGenerator';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+interface WorkflowStep {
+  id: number;
+  title: string;
+  icon: any;
+  completed: boolean;
+}
+
+interface SunoStyleWorkflowProps {
+  onComplete?: (result: any) => void;
+}
+
+export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [lyrics, setLyrics] = useState('');
+  const [voiceType, setVoiceType] = useState('male');
+  const [voiceStyle, setVoiceStyle] = useState('smooth');
+  const [genre, setGenre] = useState('amapiano');
+  const [bpm, setBpm] = useState(112);
+  const [energy, setEnergy] = useState(75);
+  const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
+  const [stems, setStems] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  const steps: WorkflowStep[] = [
+    { id: 1, title: 'Generate Lyrics', icon: Music, completed: !!lyrics },
+    { id: 2, title: 'Voice & Style', icon: Mic2, completed: false },
+    { id: 3, title: 'Generate Song', icon: Wand2, completed: !!generatedAudio },
+    { id: 4, title: 'Stem Separation', icon: Split, completed: !!stems },
+    { id: 5, title: 'Amapianorize', icon: Layers, completed: false }
+  ];
+
+  const handleLyricsGenerated = (generatedLyrics: string) => {
+    setLyrics(generatedLyrics);
+    setCurrentStep(2);
+    toast({
+      title: "Lyrics Ready! ✓",
+      description: "Proceed to voice selection"
+    });
+  };
+
+  const generateSong = async () => {
+    setIsProcessing(true);
+    try {
+      // In a real implementation, this would call an audio generation service
+      // For now, we'll generate MIDI and provide guidance
+      const { data, error } = await supabase.functions.invoke('ai-music-generation', {
+        body: {
+          prompt: `${genre} song with ${voiceType} vocals: ${lyrics.slice(0, 200)}...`,
+          bpm,
+          genre,
+          duration: 180,
+          voiceType,
+          voiceStyle,
+          energy: energy / 100
+        }
+      });
+
+      if (error) throw error;
+
+      // Mock audio URL for demonstration
+      setGeneratedAudio('generated_audio_url');
+      setCurrentStep(4);
+      
+      toast({
+        title: "Song Generated! 🎵",
+        description: "Ready for stem separation"
+      });
+    } catch (error) {
+      console.error('Error generating song:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Please try again or adjust your settings",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const separateStems = async () => {
+    setIsProcessing(true);
+    try {
+      // This would call the existing stem-separation edge function
+      toast({
+        title: "Separating Stems...",
+        description: "This may take a few minutes"
+      });
+
+      // Mock stems for demonstration
+      setTimeout(() => {
+        setStems({
+          vocals: 'stem_vocals_url',
+          drums: 'stem_drums_url',
+          bass: 'stem_bass_url',
+          other: 'stem_other_url'
+        });
+        setCurrentStep(5);
+        setIsProcessing(false);
+        
+        toast({
+          title: "Stems Separated! ✓",
+          description: "Ready for DAW import and Amapianorization"
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('Error separating stems:', error);
+      setIsProcessing(false);
+      toast({
+        title: "Separation Failed",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Progress Steps */}
+      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-4">
+        {steps.map((step, index) => (
+          <div key={step.id} className="flex items-center min-w-fit">
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                currentStep === step.id
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : step.completed
+                  ? 'bg-green-500/10 border-green-500 text-green-500'
+                  : 'bg-muted border-muted-foreground/20'
+              }`}
+            >
+              {step.completed ? (
+                <Check className="w-4 h-4" />
+              ) : (
+                <step.icon className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium hidden sm:inline">{step.title}</span>
+            </div>
+            {index < steps.length - 1 && (
+              <ChevronRight className="w-4 h-4 mx-1 text-muted-foreground" />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Step Content */}
+      <Card>
+        <CardContent className="pt-6">
+          {currentStep === 1 && (
+            <LyricsGenerator onLyricsGenerated={handleLyricsGenerated} />
+          )}
+
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Voice & Style Configuration</h3>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice Type</label>
+                    <Select value={voiceType} onValueChange={setVoiceType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male Voice</SelectItem>
+                        <SelectItem value="female">Female Voice</SelectItem>
+                        <SelectItem value="duet">Male & Female Duet</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice Style</label>
+                    <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="smooth">Smooth & Melodic</SelectItem>
+                        <SelectItem value="powerful">Powerful & Energetic</SelectItem>
+                        <SelectItem value="raspy">Raspy & Soulful</SelectItem>
+                        <SelectItem value="soft">Soft & Intimate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">BPM: {bpm}</label>
+                  <Slider
+                    value={[bpm]}
+                    onValueChange={(value) => setBpm(value[0])}
+                    min={90}
+                    max={130}
+                    step={1}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Energy Level: {energy}%</label>
+                  <Slider
+                    value={[energy]}
+                    onValueChange={(value) => setEnergy(value[0])}
+                    min={0}
+                    max={100}
+                    step={5}
+                  />
+                </div>
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Lyrics Preview:</strong>
+                  </p>
+                  <p className="text-sm mt-2 line-clamp-4">{lyrics}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                  Back to Lyrics
+                </Button>
+                <Button onClick={() => setCurrentStep(3)} className="flex-1">
+                  Continue to Generation
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Generate Full Song</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-1">Voice</p>
+                    <Badge variant="secondary">{voiceType} - {voiceStyle}</Badge>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium mb-1">Music</p>
+                    <Badge variant="secondary">{genre} @ {bpm} BPM</Badge>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm">
+                    🎵 Your song will be generated with authentic {genre} instrumentals,
+                    {voiceType} vocals, and the lyrics you created. This process takes 1-2 minutes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setCurrentStep(2)}>
+                  Back
+                </Button>
+                <Button 
+                  onClick={generateSong} 
+                  disabled={isProcessing}
+                  className="flex-1"
+                >
+                  {isProcessing ? 'Generating...' : 'Generate Song'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Stem Separation</h3>
+                
+                <p className="text-sm text-muted-foreground">
+                  Separate your generated song into individual stems for detailed mixing and processing.
+                </p>
+
+                {generatedAudio && !stems && (
+                  <Button 
+                    onClick={separateStems}
+                    disabled={isProcessing}
+                    className="w-full"
+                  >
+                    {isProcessing ? 'Separating Stems...' : 'Separate into Stems'}
+                  </Button>
+                )}
+
+                {stems && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-green-500">✓ Stems separated successfully!</p>
+                    <div className="grid gap-2">
+                      {Object.keys(stems).map((stemType) => (
+                        <div key={stemType} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                          <span className="capitalize">{stemType}</span>
+                          <Button variant="ghost" size="sm">
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {stems && (
+                <div className="flex gap-2">
+                  <Button onClick={() => setCurrentStep(5)} className="flex-1">
+                    Continue to Amapianorize
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {currentStep === 5 && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Amapianorize & Enhance</h3>
+                
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm">
+                    🎹 Now enhance your song with authentic Amapiano elements:
+                  </p>
+                  <ul className="text-sm mt-2 space-y-1 list-disc list-inside">
+                    <li>Log drum patterns</li>
+                    <li>Deep basslines</li>
+                    <li>Piano melodies and chords</li>
+                    <li>Percussive elements</li>
+                    <li>Vocal effects and processing</li>
+                  </ul>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  The stems are now ready for the DAW. Use the Amapianorize Engine to add
+                  authentic elements and transform the track into a professional Amapiano production.
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => {
+                  if (onComplete) {
+                    onComplete({ lyrics, stems, generatedAudio });
+                  }
+                }}>
+                  Export All Assets
+                </Button>
+                <Button className="flex-1" onClick={() => {
+                  toast({
+                    title: "Opening DAW...",
+                    description: "Load your stems and start enhancing!"
+                  });
+                  // Navigate to DAW or open Amapianorize engine
+                }}>
+                  Open in DAW
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

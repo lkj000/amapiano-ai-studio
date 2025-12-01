@@ -8,6 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
   Play, Pause, Square, SkipBack, SkipForward, Volume2, Mic, Piano, Drum, Music, Settings, Save, FolderOpen, Wand2, Plus, Minus, RotateCcw, Layers, Sliders, Zap, Download, Upload, Loader2, X, Activity, TrendingUp, Users, Cpu, Gamepad2, AudioWaveform, Cable, BookOpen, Palette, ZoomIn
 } from "lucide-react";
 import { toast } from 'sonner';
@@ -1772,35 +1778,48 @@ const [zoom, setZoom] = useState([100]);
 
       <div className="h-full flex flex-col text-foreground">
       {/* Header */}
-      <div className="border-b border-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Music className="w-6 h-6 text-primary" />
+      <div className="border-b border-border p-3 md:p-4">
+        {/* Top row - Project info and essential actions */}
+        <div className="flex items-center justify-between gap-2 mb-3 md:mb-0">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Music className="w-5 h-5 md:w-6 md:h-6 text-primary flex-shrink-0" />
               <Input 
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                className="text-xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0"
+                className="text-base md:text-xl font-bold bg-transparent border-0 p-0 h-auto focus-visible:ring-0 min-w-0"
               />
             </div>
-            <Badge variant="outline">Professional DAW</Badge>
+            <Badge variant="outline" className="hidden sm:inline-flex">Professional DAW</Badge>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsOpenProjectOpen(true)}>
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Open
+          
+          {/* Essential buttons - always visible */}
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+            <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending} className="h-8 md:h-9">
+              {saveMutation.isPending ? <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" /> : <Save className="w-3 h-3 md:w-4 md:h-4" />}
+              <span className="hidden sm:inline ml-2">Save</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save
+            <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)} className="h-8 md:h-9">
+              <Settings className="w-3 h-3 md:w-4 md:h-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Separator orientation="vertical" className="h-6" />
-            
-            {/* Feature Toolbar with Cloud, Collaboration, AI Tools */}
+          </div>
+        </div>
+
+        {/* Second row - Tool buttons (wrapped on small screens) */}
+        <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setIsOpenProjectOpen(true)} className="h-8">
+            <FolderOpen className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Open</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExport} className="h-8">
+            <Download className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Export</span>
+          </Button>
+          
+          <Separator orientation="vertical" className="h-6 hidden md:block" />
+          
+          {/* Feature Toolbar - hidden on small screens */}
+          <div className="hidden lg:block">
             <FeatureToolbar
               currentProject={projectData as DawProjectDataV2}
               onProjectUpdate={(data) => setProjectDataWithHistory(data as DawProjectData, 'Cloud update')}
@@ -1809,7 +1828,6 @@ const [zoom, setZoom] = useState([100]);
                 if (projectData && selectedTrackId) {
                   const track = projectData.tracks.find(t => t.id === selectedTrackId);
                   if (track && track.type === 'midi') {
-                    // Add MIDI notes to selected track
                     const updatedData = {
                       ...projectData,
                       tracks: projectData.tracks.map(t =>
@@ -1837,53 +1855,64 @@ const [zoom, setZoom] = useState([100]);
               projectId={activeProjectId}
               projectName={projectName}
               currentUser={{
-                id: 'user-1', // TODO: Get from auth
+                id: 'user-1',
                 name: 'Producer',
                 avatar: undefined,
               }}
             />
-            
-            <Separator orientation="vertical" className="h-6" />
-            <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)}>
-              <Sliders className="w-4 h-4 mr-2" />
-              Mixer
-            </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)} disabled={!selectedTrackId}>
-              <Piano className="w-4 h-4 mr-2" />
-              Piano Roll
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowEffects(!showEffects)} disabled={!selectedTrackId}>
-              <Zap className="w-4 h-4 mr-2" />
-              Effects
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowAutomation(!showAutomation)} disabled={!selectedTrackId}>
-              <Activity className="w-4 h-4 mr-2" />
-              Automation
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowAudioRecording(!showAudioRecording)} disabled={!selectedTrackId}>
-              <Mic className="w-4 h-4 mr-2" />
-              Record
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowCommunity(!showCommunity)}>
-              <Users className="w-4 h-4 mr-2" />
-              Community
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowPluginSidebar(!showPluginSidebar)} className={showPluginSidebar ? 'bg-primary/20 text-primary' : ''}>
-              <Gamepad2 className="w-4 h-4 mr-2" />
-              Plugins
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowGhostProducer(!showGhostProducer)} className={showGhostProducer ? 'bg-primary/20 text-primary' : ''}>
-              <Zap className="w-4 h-4 mr-2" />
-              Ghost Producer
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowTutorials(!showTutorials)} className={showTutorials ? 'bg-primary/20 text-primary' : ''}>
-              <BookOpen className="w-4 h-4 mr-2" />
-              Tutorials
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
-              <Settings className="w-4 h-4" />
-            </Button>
           </div>
+          
+          <Separator orientation="vertical" className="h-6 hidden lg:block" />
+          
+          {/* Primary tool buttons */}
+          <Button variant="outline" size="sm" onClick={() => setShowMixer(!showMixer)} className="h-8">
+            <Sliders className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Mixer</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowPianoRoll(!showPianoRoll)} disabled={!selectedTrackId} className="h-8">
+            <Piano className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Piano Roll</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowEffects(!showEffects)} disabled={!selectedTrackId} className="h-8 hidden sm:inline-flex">
+            <Zap className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Effects</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowAudioRecording(!showAudioRecording)} disabled={!selectedTrackId} className="h-8 hidden sm:inline-flex">
+            <Mic className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Record</span>
+          </Button>
+          
+          {/* More tools dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8">
+                <Settings className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+                <span className="hidden md:inline">More</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+              <DropdownMenuItem onClick={() => setShowAutomation(!showAutomation)} disabled={!selectedTrackId}>
+                <Activity className="w-4 h-4 mr-2" />
+                Automation
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowCommunity(!showCommunity)}>
+                <Users className="w-4 h-4 mr-2" />
+                Community
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowPluginSidebar(!showPluginSidebar)}>
+                <Gamepad2 className="w-4 h-4 mr-2" />
+                Plugins
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowGhostProducer(!showGhostProducer)}>
+                <Zap className="w-4 h-4 mr-2" />
+                Ghost Producer
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowTutorials(!showTutorials)}>
+                <BookOpen className="w-4 h-4 mr-2" />
+                Tutorials
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

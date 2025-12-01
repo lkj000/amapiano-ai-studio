@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,13 +25,15 @@ serve(async (req) => {
     if (!ELEVENLABS_API_KEY) {
       throw new Error('ELEVENLABS_API_KEY not configured');
     }
+
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    // Log API key format (first/last chars only for security)
-    console.log('[SONG-GENERATION] API key check:', {
-      length: ELEVENLABS_API_KEY.length,
-      prefix: ELEVENLABS_API_KEY.substring(0, 4),
-      suffix: ELEVENLABS_API_KEY.substring(ELEVENLABS_API_KEY.length - 4)
-    });
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase configuration missing');
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Voice ID mapping based on type and style
     const voiceMap: Record<string, Record<string, string>> = {
@@ -47,7 +50,7 @@ serve(async (req) => {
         soft: 'XB0fDUnXU5powFXDhCwa', // Charlotte
       },
       duet: {
-        smooth: 'CwhRBWXzGAHq8TQ4Fs17', // Use Roger for duet (can be enhanced later)
+        smooth: 'CwhRBWXzGAHq8TQ4Fs17',
         powerful: 'TX3LPaxmHKxFdv7VOQHJ',
         raspy: 'bIHbv24MWmeRgasZH58o',
         soft: 'onwK4e9ZLuTAKqWW03F9',
@@ -89,7 +92,6 @@ serve(async (req) => {
         body: errorText
       });
       
-      // Try to parse error details
       let errorDetails = errorText;
       try {
         const parsed = JSON.parse(errorText);
@@ -106,18 +108,30 @@ serve(async (req) => {
     
     console.log('[SONG-GENERATION] Vocals generated:', audioBytes.length, 'bytes');
 
-    // Convert to base64 for transmission
-    let base64Audio = '';
-    for (let i = 0; i < audioBytes.length; i++) {
-      base64Audio += String.fromCharCode(audioBytes[i]);
+    // Upload to Supabase Storage instead of base64 encoding
+    const fileName = `generated-song-${Date.now()}.mp3`;
+    const filePath = `generated/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('samples')
+      .upload(filePath, audioBytes, {
+        contentType: 'audio/mpeg',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('[SONG-GENERATION] Storage upload error:', uploadError);
+      throw new Error(`Failed to upload audio: ${uploadError.message}`);
     }
-    const base64Encoded = btoa(base64Audio);
 
-    // Create audio URL (in production, this would be uploaded to storage)
-    // For now, we return the base64 data URL
-    const audioUrl = `data:audio/mpeg;base64,${base64Encoded}`;
+    // Get the public URL
+    const { data: urlData } = supabase.storage
+      .from('samples')
+      .getPublicUrl(filePath);
 
-    console.log('[SONG-GENERATION] Complete, returning audio URL');
+    const audioUrl = urlData.publicUrl;
+
+    console.log('[SONG-GENERATION] Complete, audio URL:', audioUrl);
 
     return new Response(
       JSON.stringify({
@@ -129,7 +143,7 @@ serve(async (req) => {
           voiceStyle,
           bpm,
           genre,
-          duration: Math.floor(audioBytes.length / (128 * 1024 / 8)), // Rough estimate
+          duration: Math.floor(audioBytes.length / (128 * 1024 / 8)),
         }
       }),
       {

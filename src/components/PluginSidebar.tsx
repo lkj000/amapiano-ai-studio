@@ -42,7 +42,7 @@ export const PluginSidebar: React.FC<PluginSidebarProps> = ({ audioContext, onCl
   };
 
   return (
-    <Card className="w-80 h-full flex flex-col bg-background/95 backdrop-blur-sm">
+    <Card className="w-72 lg:w-80 xl:w-96 h-full flex flex-col bg-background/95 backdrop-blur-sm">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Plugin Library</CardTitle>

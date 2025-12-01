@@ -19,9 +19,11 @@ import {
   Save
 } from 'lucide-react';
 import LyricsGenerator from './LyricsGenerator';
+import AmapianorizationControls, { AmapianorizationSettings } from './AmapianorizationControls';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { AmapianorizationEngine } from '@/lib/audio/amapianorizationEngine';
 
 interface WorkflowStep {
   id: number;
@@ -45,6 +47,8 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
   const [energy, setEnergy] = useState(75);
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
   const [stems, setStems] = useState<any>(null);
+  const [enhancedStems, setEnhancedStems] = useState<any>(null);
+  const [authenticityScore, setAuthenticityScore] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -70,35 +74,41 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
   const generateSong = async () => {
     setIsProcessing(true);
     try {
-      // In a real implementation, this would call an audio generation service
-      // For now, we'll generate MIDI and provide guidance
-      const { data, error } = await supabase.functions.invoke('ai-music-generation', {
+      toast({
+        title: "Generating Song...",
+        description: "Creating vocals with ElevenLabs TTS"
+      });
+
+      // Call the new song generation edge function with real vocals
+      const { data, error } = await supabase.functions.invoke('generate-song-with-vocals', {
         body: {
-          prompt: `${genre} song with ${voiceType} vocals: ${lyrics.slice(0, 200)}...`,
-          bpm,
-          genre,
-          duration: 180,
+          lyrics,
           voiceType,
           voiceStyle,
-          energy: energy / 100
+          bpm,
+          genre,
+          energy
         }
       });
 
       if (error) throw error;
 
-      // Mock audio URL for demonstration
-      setGeneratedAudio('generated_audio_url');
-      setCurrentStep(4);
-      
-      toast({
-        title: "Song Generated! 🎵",
-        description: "Ready for stem separation"
-      });
+      if (data?.success && data?.audioUrl) {
+        setGeneratedAudio(data.audioUrl);
+        setCurrentStep(4);
+        
+        toast({
+          title: "Song Generated! 🎵",
+          description: "Ready for stem separation"
+        });
+      } else {
+        throw new Error('No audio URL returned');
+      }
     } catch (error) {
       console.error('Error generating song:', error);
       toast({
         title: "Generation Failed",
-        description: "Please try again or adjust your settings",
+        description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive"
       });
     } finally {
@@ -114,17 +124,39 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         description: "This may take 1-2 minutes"
       });
 
-      // Call real stem-separation edge function
-      const audioBlob = await fetch(generatedAudio!).then(r => r.blob());
+      // Convert data URL to blob if necessary
+      let audioBlob: Blob;
+      if (generatedAudio!.startsWith('data:')) {
+        // Convert base64 data URL to blob
+        const base64Data = generatedAudio!.split(',')[1];
+        const binaryData = atob(base64Data);
+        const bytes = new Uint8Array(binaryData.length);
+        for (let i = 0; i < binaryData.length; i++) {
+          bytes[i] = binaryData.charCodeAt(i);
+        }
+        audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+      } else {
+        audioBlob = await fetch(generatedAudio!).then(r => r.blob());
+      }
+
       const formData = new FormData();
       formData.append('audio', audioBlob, 'generated-song.mp3');
       formData.append('quality', 'high');
 
-      const { data, error } = await supabase.functions.invoke('stem-separation', {
-        body: formData
-      });
+      const response = await fetch(
+        `https://mywijmtszelyutssormy.supabase.co/functions/v1/stem-separation`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Stem separation failed');
+      }
+
+      const data = await response.json();
 
       if (data?.success && data?.stems) {
         setStems(data.stems);
@@ -477,28 +509,84 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                 </div>
 
                 {/* Amapianorization Engine Integration */}
-                <div className="border rounded-lg p-4">
-                  <div className="mb-4">
-                    <h4 className="font-medium mb-2">Enhancement Engine</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Use the controls below to customize your Amapianorization settings,
-                      or proceed with the recommended settings for authentic results.
+                <AmapianorizationControls
+                  onApply={async (settings: AmapianorizationSettings) => {
+                    setIsProcessing(true);
+                    try {
+                      toast({
+                        title: "Applying Amapianorization...",
+                        description: "Injecting authentic amapiano elements"
+                      });
+
+                      // Apply amapianorization to stems
+                      const engine = new AmapianorizationEngine();
+                      const result = await engine.amapianorize(
+                        stems.vocals || '', // Pass actual stem URLs
+                        {
+                          region: settings.region,
+                          intensity: settings.intensity / 100,
+                          elements: {
+                            logDrums: settings.logDrums,
+                            percussion: settings.percussion,
+                            piano: settings.piano,
+                            bass: settings.bass,
+                            sidechain: settings.sidechain,
+                            filterSweeps: settings.filterSweeps,
+                          }
+                        }
+                      );
+
+                      setEnhancedStems(result.stems);
+                      setAuthenticityScore(result.authenticityScore);
+
+                      toast({
+                        title: "Amapianorization Complete! ✓",
+                        description: `Authenticity Score: ${result.authenticityScore.toFixed(1)}%`
+                      });
+                    } catch (error) {
+                      console.error('Amapianorization error:', error);
+                      toast({
+                        title: "Enhancement Failed",
+                        description: error instanceof Error ? error.message : "Please try again",
+                        variant: "destructive"
+                      });
+                    } finally {
+                      setIsProcessing(false);
+                    }
+                  }}
+                  isProcessing={isProcessing}
+                />
+
+                {/* Authenticity Score Display */}
+                {authenticityScore !== null && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Authenticity Score</span>
+                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                        {authenticityScore.toFixed(1)}%
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your track has been enhanced with authentic amapiano elements
                     </p>
                   </div>
-                  {/* The engine would be integrated here in full implementation */}
-                </div>
+                )}
               </div>
 
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
                   onClick={exportAllAssets}
-                  disabled={isExporting}
+                  disabled={isExporting || !stems}
                 >
                   <Download className="w-4 h-4 mr-2" />
                   {isExporting ? 'Exporting...' : 'Export All Assets'}
                 </Button>
-                <Button className="flex-1" onClick={openInDAW}>
+                <Button 
+                  className="flex-1" 
+                  onClick={openInDAW}
+                  disabled={!stems}
+                >
                   <Layers className="w-4 h-4 mr-2" />
                   Open in DAW
                 </Button>

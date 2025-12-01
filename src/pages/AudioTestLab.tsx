@@ -577,9 +577,9 @@ export default function AudioTestLab() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                {quantBitDepth === 4 && 'Aggressive compression, target <10% FAD degradation'}
-                {quantBitDepth === 8 && 'Balanced quality/size, standard quantization'}
-                {quantBitDepth === 16 && 'High quality, minimal compression'}
+                {quantBitDepth === 4 && 'Aggressive compression, target <25% FAD degradation'}
+                {quantBitDepth === 8 && 'Balanced quality/size, target <15% FAD degradation'}
+                {quantBitDepth === 16 && 'High quality, target <5% FAD degradation'}
               </p>
             </div>
 
@@ -609,7 +609,7 @@ export default function AudioTestLab() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-sm">
                       <span>FAD Score</span>
-                      <span className={quantResult.qualityMetrics.fadScore <= 0.1 ? 'text-green-500' : 'text-yellow-500'}>
+                      <span className={quantResult.success ? 'text-green-500' : 'text-destructive'}>
                         {(quantResult.qualityMetrics.fadScore * 100).toFixed(1)}%
                       </span>
                     </div>

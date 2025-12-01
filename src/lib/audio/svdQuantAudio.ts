@@ -52,14 +52,21 @@ export class SVDQuantAudio {
   private phaseToleranceMs: number = 0.5; // Max phase drift in ms
 
   constructor(config: Partial<QuantizationConfig> = {}) {
+    const bitDepth = config.bitDepth || 8;
+    // Adaptive FAD targets: 4-bit allows more degradation than 8/16-bit
+    const adaptiveTargetFAD = bitDepth === 4 ? 0.25 : bitDepth === 8 ? 0.15 : 0.05;
+    
     this.config = {
-      bitDepth: 8,
+      bitDepth,
       preservePhase: true,
       preserveTransients: true,
       preserveStereoImaging: true,
-      targetFAD: 0.1, // 10% max degradation
+      targetFAD: config.targetFAD ?? adaptiveTargetFAD,
       ...config
     };
+    
+    // Adjust transient threshold for lower bit depths
+    this.transientThreshold = bitDepth === 4 ? 0.5 : 0.7;
   }
 
   /**

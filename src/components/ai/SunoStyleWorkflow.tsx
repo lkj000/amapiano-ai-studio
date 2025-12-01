@@ -138,36 +138,41 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
     setIsProcessing(true);
     try {
       toast({
-        title: "Uploading & Separating...",
+        title: "Separating Stems...",
         description: "This may take 1-2 minutes"
       });
 
-      // Convert data URL to blob
-      const base64Data = generatedAudio!.split(',')[1];
-      const binaryData = atob(base64Data);
-      const bytes = new Uint8Array(binaryData.length);
-      for (let i = 0; i < binaryData.length; i++) {
-        bytes[i] = binaryData.charCodeAt(i);
+      let publicUrl = generatedAudio!;
+
+      // Check if it's a base64 data URL and needs to be uploaded
+      if (generatedAudio!.startsWith('data:')) {
+        const base64Data = generatedAudio!.split(',')[1];
+        const binaryData = atob(base64Data);
+        const bytes = new Uint8Array(binaryData.length);
+        for (let i = 0; i < binaryData.length; i++) {
+          bytes[i] = binaryData.charCodeAt(i);
+        }
+        const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+
+        // Upload to Supabase Storage
+        const fileName = `generated-song-${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage
+          .from('samples')
+          .upload(fileName, audioBlob, {
+            contentType: 'audio/mpeg',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw new Error(`Upload failed: ${uploadError.message}`);
+        }
+
+        // Get public URL
+        const { data } = supabase.storage
+          .from('samples')
+          .getPublicUrl(fileName);
+        publicUrl = data.publicUrl;
       }
-      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
-
-      // Upload to Supabase Storage
-      const fileName = `generated-song-${Date.now()}.mp3`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('samples')
-        .upload(fileName, audioBlob, {
-          contentType: 'audio/mpeg',
-          upsert: false
-        });
-
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('samples')
-        .getPublicUrl(fileName);
 
       console.log('[STEM-SEP] Using public URL:', publicUrl);
 

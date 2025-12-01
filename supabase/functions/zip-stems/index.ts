@@ -53,13 +53,22 @@ serve(async (req) => {
     // Create simple ZIP structure (without compression for simplicity)
     const zipBuffer = createSimpleZip(stemData);
 
+    // Convert to base64 for JSON response
+    let base64 = '';
+    for (let i = 0; i < zipBuffer.length; i++) {
+      base64 += String.fromCharCode(zipBuffer[i]);
+    }
+    const base64Zip = btoa(base64);
+
     return new Response(
-      zipBuffer,
+      JSON.stringify({ 
+        zipData: base64Zip,
+        filename: `${projectName || 'stems'}-export.zip`
+      }),
       { 
         headers: { 
           ...corsHeaders, 
-          'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="${projectName || 'stems'}-export.zip"`
+          'Content-Type': 'application/json'
         } 
       }
     );

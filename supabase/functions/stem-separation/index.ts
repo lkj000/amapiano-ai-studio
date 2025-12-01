@@ -14,7 +14,6 @@ serve(async (req) => {
   try {
     console.log('[STEM-SEPARATION] Processing request...');
 
-    // Parse JSON body
     const { audioUrl, quality = 'standard' } = await req.json();
 
     if (!audioUrl) {
@@ -35,23 +34,44 @@ serve(async (req) => {
       auth: REPLICATE_API_KEY,
     });
 
-    console.log('[STEM-SEPARATION] Calling Replicate Demucs...');
+    console.log('[STEM-SEPARATION] Creating prediction...');
 
-    // Use Demucs model for high-quality stem separation
-    const output = await replicate.run(
-      "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953",
-      {
-        input: {
-          audio: audioUrl,
-          model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
-        }
+    // Create prediction (non-blocking)
+    const prediction = await replicate.predictions.create({
+      version: "25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953",
+      input: {
+        audio: audioUrl,
+        model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
       }
-    );
+    });
+
+    console.log('[STEM-SEPARATION] Prediction created:', prediction.id);
+
+    // Poll for completion (with timeout handling)
+    const maxAttempts = 60; // 5 minutes max (60 * 5s)
+    let attempts = 0;
+    let result = prediction;
+
+    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      result = await replicate.predictions.get(prediction.id);
+      attempts++;
+      console.log(`[STEM-SEPARATION] Poll ${attempts}: status=${result.status}`);
+    }
+
+    if (result.status === 'failed') {
+      console.error('[STEM-SEPARATION] Prediction failed:', result.error);
+      throw new Error(result.error || 'Stem separation failed');
+    }
+
+    if (result.status !== 'succeeded') {
+      throw new Error('Stem separation timed out');
+    }
 
     console.log('[STEM-SEPARATION] Separation complete');
-    console.log('[STEM-SEPARATION] Output:', typeof output, output);
+    console.log('[STEM-SEPARATION] Output:', typeof result.output, result.output);
 
-    // Handle different output formats
+    const output = result.output;
     let stems;
     if (typeof output === 'object' && output !== null) {
       stems = {
@@ -67,7 +87,6 @@ serve(async (req) => {
 
     console.log('[STEM-SEPARATION] Stems extracted:', Object.keys(stems).filter(k => stems[k]));
 
-    // Return URLs for each stem
     return new Response(
       JSON.stringify({
         success: true,

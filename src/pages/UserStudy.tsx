@@ -44,7 +44,11 @@ export default function UserStudy() {
   const [demographics, setDemographics] = useState({
     experience: '',
     familiarityAmapiano: '',
-    role: ''
+    role: '',
+    country: '',
+    ageRange: '',
+    daw: '',
+    yearsListeningAmapiano: ''
   });
   
   const audioRefA = useRef<HTMLAudioElement>(null);
@@ -137,7 +141,11 @@ export default function UserStudy() {
           preferredActual,
           trackOrder,
           userFeedback: feedback,
-          role: demographics.role
+          role: demographics.role,
+          country: demographics.country,
+          ageRange: demographics.ageRange,
+          daw: demographics.daw,
+          yearsListeningAmapiano: demographics.yearsListeningAmapiano
         })
       });
     } catch (error) {
@@ -204,77 +212,204 @@ export default function UserStudy() {
   if (step === 'demographics') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full">
+        <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <CardHeader>
             <CardTitle>About You</CardTitle>
-            <CardDescription>Help us understand your background</CardDescription>
+            <CardDescription>Help us understand your background (for research analysis)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Age Range */}
             <div className="space-y-3">
-              <Label>Years of music production experience</Label>
+              <Label>Age range</Label>
+              <RadioGroup value={demographics.ageRange} onValueChange={(v) => setDemographics({...demographics, ageRange: v})}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="18-24" id="age-1" />
+                    <Label htmlFor="age-1">18-24</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="25-34" id="age-2" />
+                    <Label htmlFor="age-2">25-34</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="35-44" id="age-3" />
+                    <Label htmlFor="age-3">35-44</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="45+" id="age-4" />
+                    <Label htmlFor="age-4">45+</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Country/Region */}
+            <div className="space-y-3">
+              <Label>Country/Region</Label>
+              <RadioGroup value={demographics.country} onValueChange={(v) => setDemographics({...demographics, country: v})}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="south-africa" id="country-1" />
+                    <Label htmlFor="country-1">South Africa</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="africa-other" id="country-2" />
+                    <Label htmlFor="country-2">Africa (Other)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="europe" id="country-3" />
+                    <Label htmlFor="country-3">Europe</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="north-america" id="country-4" />
+                    <Label htmlFor="country-4">North America</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="other" id="country-5" />
+                    <Label htmlFor="country-5">Other</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Production Experience */}
+            <div className="space-y-3">
+              <Label>Years of music production experience *</Label>
               <RadioGroup value={demographics.experience} onValueChange={(v) => setDemographics({...demographics, experience: v})}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="0-1" id="exp-1" />
-                  <Label htmlFor="exp-1">0-1 years</Label>
+                  <Label htmlFor="exp-1">0-1 years (Beginner)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="2-5" id="exp-2" />
-                  <Label htmlFor="exp-2">2-5 years</Label>
+                  <Label htmlFor="exp-2">2-5 years (Intermediate)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="5-10" id="exp-3" />
-                  <Label htmlFor="exp-3">5-10 years</Label>
+                  <Label htmlFor="exp-3">5-10 years (Advanced)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="10+" id="exp-4" />
-                  <Label htmlFor="exp-4">10+ years</Label>
+                  <Label htmlFor="exp-4">10+ years (Professional)</Label>
                 </div>
               </RadioGroup>
             </div>
 
+            {/* Amapiano Familiarity */}
             <div className="space-y-3">
-              <Label>Familiarity with Amapiano music</Label>
+              <Label>Familiarity with Amapiano music *</Label>
               <RadioGroup value={demographics.familiarityAmapiano} onValueChange={(v) => setDemographics({...demographics, familiarityAmapiano: v})}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="none" id="fam-1" />
-                  <Label htmlFor="fam-1">Not familiar</Label>
+                  <Label htmlFor="fam-1">Not familiar at all</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="casual" id="fam-2" />
-                  <Label htmlFor="fam-2">Casual listener</Label>
+                  <Label htmlFor="fam-2">Casual listener (heard a few songs)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="regular" id="fam-3" />
-                  <Label htmlFor="fam-3">Regular listener</Label>
+                  <Label htmlFor="fam-3">Regular listener (listen weekly)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="producer" id="fam-4" />
-                  <Label htmlFor="fam-4">Producer/DJ in genre</Label>
+                  <Label htmlFor="fam-4">Producer/DJ specializing in Amapiano</Label>
                 </div>
               </RadioGroup>
             </div>
 
+            {/* Years Listening to Amapiano */}
             <div className="space-y-3">
-              <Label>Primary role in music</Label>
-              <RadioGroup value={demographics.role} onValueChange={(v) => setDemographics({...demographics, role: v})}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="listener" id="role-1" />
-                  <Label htmlFor="role-1">Listener/Enthusiast</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="producer" id="role-2" />
-                  <Label htmlFor="role-2">Music Producer</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="dj" id="role-3" />
-                  <Label htmlFor="role-3">DJ</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="artist" id="role-4" />
-                  <Label htmlFor="role-4">Recording Artist</Label>
+              <Label>How long have you been listening to Amapiano?</Label>
+              <RadioGroup value={demographics.yearsListeningAmapiano} onValueChange={(v) => setDemographics({...demographics, yearsListeningAmapiano: v})}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="new" id="listen-1" />
+                    <Label htmlFor="listen-1">Less than 1 year</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="1-3" id="listen-2" />
+                    <Label htmlFor="listen-2">1-3 years</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="3-5" id="listen-3" />
+                    <Label htmlFor="listen-3">3-5 years</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="5+" id="listen-4" />
+                    <Label htmlFor="listen-4">5+ years (since early days)</Label>
+                  </div>
                 </div>
               </RadioGroup>
             </div>
+
+            {/* Primary Role */}
+            <div className="space-y-3">
+              <Label>Primary role in music</Label>
+              <RadioGroup value={demographics.role} onValueChange={(v) => setDemographics({...demographics, role: v})}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="listener" id="role-1" />
+                    <Label htmlFor="role-1">Listener/Enthusiast</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="producer" id="role-2" />
+                    <Label htmlFor="role-2">Music Producer</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="dj" id="role-3" />
+                    <Label htmlFor="role-3">DJ</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="artist" id="role-4" />
+                    <Label htmlFor="role-4">Recording Artist</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="engineer" id="role-5" />
+                    <Label htmlFor="role-5">Audio Engineer</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="educator" id="role-6" />
+                    <Label htmlFor="role-6">Music Educator</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* DAW */}
+            <div className="space-y-3">
+              <Label>Primary DAW (if producer)</Label>
+              <RadioGroup value={demographics.daw} onValueChange={(v) => setDemographics({...demographics, daw: v})}>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="fl-studio" id="daw-1" />
+                    <Label htmlFor="daw-1">FL Studio</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="ableton" id="daw-2" />
+                    <Label htmlFor="daw-2">Ableton Live</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="logic" id="daw-3" />
+                    <Label htmlFor="daw-3">Logic Pro</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="pro-tools" id="daw-4" />
+                    <Label htmlFor="daw-4">Pro Tools</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="other-daw" id="daw-5" />
+                    <Label htmlFor="daw-5">Other</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="none" id="daw-6" />
+                    <Label htmlFor="daw-6">N/A (not a producer)</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <p className="text-xs text-muted-foreground">* Required fields</p>
 
             <Button onClick={startStudy} className="w-full">
               Start Listening Test <ChevronRight className="ml-2 h-4 w-4" />

@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Play, Pause, Download, Volume2, Music, Wand2 } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Music, Wand2, Upload, Zap, BarChart3 } from 'lucide-react';
 import { AmapianorizeSettings } from '@/lib/audio/audioProcessor';
 import { amapianorizeAudio } from '@/lib/audio/audioProcessor';
 import { LOG_DRUM_SAMPLES } from '@/lib/audio/logDrumLibrary';
 import { PERCUSSION_SAMPLES } from '@/lib/audio/percussionLibrary';
 import { SampleGenerator } from '@/lib/audio/sampleGenerator';
+import { SVDQuantAudio, QuantizationResult } from '@/lib/audio/svdQuantAudio';
+import { Progress } from '@/components/ui/progress';
 
 export default function AudioTestLab() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -18,6 +20,18 @@ export default function AudioTestLab() {
   const [isGeneratingSamples, setIsGeneratingSamples] = useState(false);
   const [generatedSamples, setGeneratedSamples] = useState<Map<string, Blob>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Quantization state
+  const [quantBitDepth, setQuantBitDepth] = useState<4 | 8 | 16>(8);
+  const [isQuantizing, setIsQuantizing] = useState(false);
+  const [quantResult, setQuantResult] = useState<QuantizationResult | null>(null);
+  const [originalAudioUrl, setOriginalAudioUrl] = useState<string | null>(null);
+  const [quantizedAudioUrl, setQuantizedAudioUrl] = useState<string | null>(null);
+  const [playingOriginal, setPlayingOriginal] = useState(false);
+  const [playingQuantized, setPlayingQuantized] = useState(false);
+  const originalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const quantizedAudioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   const [settings, setSettings] = useState<AmapianorizeSettings>({
     addLogDrum: true,
@@ -139,6 +153,144 @@ export default function AudioTestLab() {
         URL.revokeObjectURL(url);
       }, 100);
     });
+  };
+
+  // Quantization handlers
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const url = URL.createObjectURL(file);
+      setOriginalAudioUrl(url);
+      setQuantizedAudioUrl(null);
+      setQuantResult(null);
+      toast.success(`Loaded: ${file.name}`);
+    } catch (error) {
+      toast.error('Failed to load audio file');
+    }
+  };
+
+  const runQuantization = async () => {
+    if (!originalAudioUrl) {
+      toast.error('Please upload an audio file first');
+      return;
+    }
+
+    setIsQuantizing(true);
+    try {
+      toast.info(`Applying ${quantBitDepth}-bit quantization...`);
+      
+      // Fetch and decode the audio
+      const response = await fetch(originalAudioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioContext = new AudioContext();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Run quantization
+      const quantizer = new SVDQuantAudio({
+        bitDepth: quantBitDepth,
+        preservePhase: true,
+        preserveTransients: true,
+        preserveStereoImaging: true,
+        targetFAD: 0.1,
+      });
+      
+      const { quantizedBuffer, result } = await quantizer.quantize(audioBuffer);
+      setQuantResult(result);
+      
+      // Convert quantized buffer to blob URL
+      const wavData = audioBufferToWav(quantizedBuffer);
+      const blob = new Blob([wavData], { type: 'audio/wav' });
+      const quantUrl = URL.createObjectURL(blob);
+      setQuantizedAudioUrl(quantUrl);
+      
+      toast.success(`Quantization complete! Degradation: ${result.degradation.toFixed(1)}%`);
+      await audioContext.close();
+    } catch (error) {
+      console.error('Quantization failed:', error);
+      toast.error(`Quantization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsQuantizing(false);
+    }
+  };
+
+  // Helper to convert AudioBuffer to WAV
+  const audioBufferToWav = (buffer: AudioBuffer): ArrayBuffer => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const dataSize = buffer.length * blockAlign;
+    const bufferSize = 44 + dataSize;
+    
+    const arrayBuffer = new ArrayBuffer(bufferSize);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, bufferSize - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Interleave channels and write samples
+    let offset = 44;
+    const channels = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+    
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, int16, true);
+        offset += 2;
+      }
+    }
+    
+    return arrayBuffer;
+  };
+
+  const toggleOriginalPlayback = () => {
+    if (!originalAudioRef.current) return;
+    if (playingOriginal) {
+      originalAudioRef.current.pause();
+    } else {
+      quantizedAudioRef.current?.pause();
+      setPlayingQuantized(false);
+      originalAudioRef.current.play();
+    }
+    setPlayingOriginal(!playingOriginal);
+  };
+
+  const toggleQuantizedPlayback = () => {
+    if (!quantizedAudioRef.current) return;
+    if (playingQuantized) {
+      quantizedAudioRef.current.pause();
+    } else {
+      originalAudioRef.current?.pause();
+      setPlayingOriginal(false);
+      quantizedAudioRef.current.play();
+    }
+    setPlayingQuantized(!playingQuantized);
   };
 
   return (
@@ -371,6 +523,204 @@ export default function AudioTestLab() {
             </CardContent>
           </Card>
         )}
+
+        {/* SVDQuant-Audio Test Section */}
+        <Card className="border-primary/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              <CardTitle>SVDQuant-Audio Test (WP1)</CardTitle>
+            </div>
+            <CardDescription>
+              Phase-aware quantization preserving transients, stereo imaging, and rhythmic integrity
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* File Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Upload Audio File</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {originalAudioUrl ? 'Change Audio File' : 'Select Audio File'}
+              </Button>
+              {originalAudioUrl && (
+                <p className="text-xs text-muted-foreground text-center">Audio loaded ✓</p>
+              )}
+            </div>
+
+            {/* Bit Depth Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Quantization Bit Depth</label>
+              <div className="flex gap-2">
+                {([4, 8, 16] as const).map(bits => (
+                  <Button
+                    key={bits}
+                    variant={quantBitDepth === bits ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setQuantBitDepth(bits)}
+                    disabled={isQuantizing}
+                    className="flex-1"
+                  >
+                    {bits}-bit
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {quantBitDepth === 4 && 'Aggressive compression, target <10% FAD degradation'}
+                {quantBitDepth === 8 && 'Balanced quality/size, standard quantization'}
+                {quantBitDepth === 16 && 'High quality, minimal compression'}
+              </p>
+            </div>
+
+            {/* Run Quantization */}
+            <Button
+              onClick={runQuantization}
+              disabled={!originalAudioUrl || isQuantizing}
+              className="w-full"
+              size="lg"
+            >
+              <Zap className="mr-2 h-4 w-4" />
+              {isQuantizing ? 'Quantizing...' : 'Run Phase-Aware Quantization'}
+            </Button>
+
+            {/* Quality Metrics */}
+            {quantResult && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  <span className="font-medium">Quality Metrics</span>
+                  <Badge variant={quantResult.success ? 'default' : 'destructive'}>
+                    {quantResult.success ? 'PASS' : 'FAIL'}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>FAD Score</span>
+                      <span className={quantResult.qualityMetrics.fadScore <= 0.1 ? 'text-green-500' : 'text-yellow-500'}>
+                        {(quantResult.qualityMetrics.fadScore * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <Progress value={(1 - quantResult.qualityMetrics.fadScore) * 100} className="h-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Phase Coherence</span>
+                      <span>{(quantResult.qualityMetrics.phaseCoherence * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={quantResult.qualityMetrics.phaseCoherence * 100} className="h-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Transient Preservation</span>
+                      <span>{(quantResult.qualityMetrics.transientPreservation * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={quantResult.qualityMetrics.transientPreservation * 100} className="h-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Stereo Imaging</span>
+                      <span>{(quantResult.qualityMetrics.stereoImageWidth * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={quantResult.qualityMetrics.stereoImageWidth * 100} className="h-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Dynamic Range</span>
+                      <span>{(quantResult.qualityMetrics.dynamicRange * 100).toFixed(1)}%</span>
+                    </div>
+                    <Progress value={Math.min(100, quantResult.qualityMetrics.dynamicRange * 100)} className="h-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Compression Ratio</span>
+                      <span>{quantResult.compressionRatio.toFixed(1)}x</span>
+                    </div>
+                    <Progress value={Math.min(100, (quantResult.compressionRatio / 4) * 100)} className="h-2" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>Original: {(quantResult.originalSize / 1024).toFixed(0)} KB</div>
+                  <div>Quantized: {(quantResult.quantizedSize / 1024).toFixed(0)} KB</div>
+                </div>
+              </div>
+            )}
+
+            {/* A/B Comparison Playback */}
+            {originalAudioUrl && quantizedAudioUrl && (
+              <div className="space-y-3 pt-4 border-t">
+                <span className="text-sm font-medium">A/B Comparison</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <audio
+                      ref={originalAudioRef}
+                      src={originalAudioUrl}
+                      onEnded={() => setPlayingOriginal(false)}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={toggleOriginalPlayback}
+                      className="w-full"
+                    >
+                      {playingOriginal ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                      Original
+                    </Button>
+                  </div>
+                  <div>
+                    <audio
+                      ref={quantizedAudioRef}
+                      src={quantizedAudioUrl}
+                      onEnded={() => setPlayingQuantized(false)}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={toggleQuantizedPlayback}
+                      className="w-full"
+                    >
+                      {playingQuantized ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                      Quantized
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    if (quantizedAudioUrl) {
+                      const a = document.createElement('a');
+                      a.href = quantizedAudioUrl;
+                      a.download = `quantized-${quantBitDepth}bit.wav`;
+                      a.click();
+                    }
+                  }}
+                  className="w-full"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Quantized Audio
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

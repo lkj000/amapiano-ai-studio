@@ -176,38 +176,64 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
 
       console.log('[STEM-SEP] Using public URL:', publicUrl);
 
-      const response = await fetch(
-        `https://mywijmtszelyutssormy.supabase.co/functions/v1/stem-separation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            audioUrl: publicUrl,
-            quality: 'high'
-          }),
-        }
-      );
+      // Start the prediction
+      const startResponse = await supabase.functions.invoke('stem-separation', {
+        body: { audioUrl: publicUrl, quality: 'high' }
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Stem separation failed');
+      if (startResponse.error) {
+        throw new Error(startResponse.error.message || 'Failed to start stem separation');
       }
 
-      const data = await response.json();
+      const { predictionId } = startResponse.data;
+      if (!predictionId) {
+        throw new Error('No prediction ID returned');
+      }
 
-      if (data?.success && data?.stems) {
-        setStems(data.stems);
-        setCurrentStep(5);
-        
-        toast({
-          title: "Stems Separated! ✓",
-          description: "Ready for DAW import and Amapianorization"
+      console.log('[STEM-SEP] Prediction started:', predictionId);
+
+      // Poll for completion
+      const maxAttempts = 60; // 5 minutes (60 * 5s)
+      let attempts = 0;
+      let stems = null;
+
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
+
+        console.log(`[STEM-SEP] Polling attempt ${attempts}...`);
+
+        const statusResponse = await supabase.functions.invoke('stem-separation', {
+          body: { predictionId }
         });
-      } else {
-        throw new Error('Stem separation returned no data');
+
+        if (statusResponse.error) {
+          throw new Error(statusResponse.error.message || 'Failed to check status');
+        }
+
+        const result = statusResponse.data;
+        console.log('[STEM-SEP] Status:', result.status);
+
+        if (result.status === 'succeeded' && result.stems) {
+          stems = result.stems;
+          break;
+        } else if (result.status === 'failed') {
+          throw new Error(result.error || 'Stem separation failed');
+        }
+        // Continue polling for 'starting', 'processing' statuses
       }
+
+      if (!stems) {
+        throw new Error('Stem separation timed out');
+      }
+
+      setStems(stems);
+      setCurrentStep(5);
+      
+      toast({
+        title: "Stems Separated! ✓",
+        description: "Ready for DAW import and Amapianorization"
+      });
     } catch (error) {
       console.error('Error separating stems:', error);
       toast({

@@ -6,6 +6,7 @@
 import { audioSampleLoader } from './sampleLoader';
 import { selectLogDrumSamples } from './logDrumLibrary';
 import { selectPercussionSamples } from './percussionLibrary';
+import { calculateAuthenticityScore, benchmarkAgainstRegion, REGIONAL_BENCHMARKS } from './authenticityScoring';
 
 export interface AmapianorizeSettings {
   addLogDrum: boolean;
@@ -74,24 +75,30 @@ export async function amapianorizeAudio(
 
     console.log(`[AmapianorizeAudio] Selected ${logDrumSamples.length} log drums, ${percussionSamples.length} percussion`);
 
-    // Calculate authenticity score based on selected elements
-    let authenticityScore = 50; // Base score
+    // Calculate authenticity score using learned regional weights
+    const elementScores = {
+      logDrum: settings.addLogDrum ? settings.logDrumIntensity : 0,
+      percussion: settings.addPercussion ? settings.percussionDensity : 0,
+      bass: settings.addBassline ? settings.bassDepth : 0,
+      piano: settings.addPianoChords ? settings.pianoComplexity : 0,
+      sidechain: settings.sidechainCompression ? settings.sidechainAmount : 0,
+      filterSweep: settings.filterSweeps ? settings.sweepFrequency : 0,
+      vocalStyle: settings.addVocalChops ? settings.vocalChopRate : 0,
+      arrangement: 0.7 // Default arrangement score
+    };
     
-    if (settings.addLogDrum) authenticityScore += 20 * settings.logDrumIntensity;
-    if (settings.addPercussion) authenticityScore += 15 * settings.percussionDensity;
-    if (settings.sidechainCompression) authenticityScore += 10 * settings.sidechainAmount;
-    if (settings.filterSweeps) authenticityScore += 5 * settings.sweepFrequency;
+    const scoreResult = calculateAuthenticityScore(settings.regionalStyle, elementScores);
+    const benchmark = benchmarkAgainstRegion(
+      scoreResult, 
+      REGIONAL_BENCHMARKS[settings.regionalStyle] || REGIONAL_BENCHMARKS.johannesburg
+    );
+    
+    const authenticityScore = scoreResult.totalScore;
+    console.log(`[AmapianorizeAudio] Authenticity: ${authenticityScore}% (${benchmark.rating})`);
+    if (scoreResult.suggestions.length > 0) {
+      console.log('[AmapianorizeAudio] Suggestions:', scoreResult.suggestions);
+    }
 
-    // Regional authenticity bonus
-    const regionalBonus = {
-      'johannesburg': 1.1,
-      'pretoria': 1.05,
-      'durban': 1.08,
-      'cape-town': 1.0
-    }[settings.regionalStyle];
-    
-    authenticityScore *= regionalBonus;
-    authenticityScore = Math.min(100, Math.round(authenticityScore));
 
     // For now, generate a simple test audio buffer
     // In production, this would mix the actual stems with selected samples

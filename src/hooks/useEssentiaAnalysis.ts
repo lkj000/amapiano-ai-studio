@@ -484,6 +484,25 @@ export const useEssentiaAnalysis = () => {
       setAnalysis(result);
       options.realtimeCallback?.(1.0);
       
+      // Persist to database
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('audio_analysis_results')
+            .insert({
+              user_id: user.id,
+              audio_url: file.name,
+              analysis_type: 'essentia',
+              analysis_data: result as any,
+            });
+          console.log('[ESSENTIA] Analysis persisted to database');
+        }
+      } catch (dbError) {
+        console.error('[ESSENTIA] Failed to persist analysis:', dbError);
+        // Don't fail the analysis if persistence fails
+      }
+      
       toast.success('Audio analysis complete');
       return result;
 

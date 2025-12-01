@@ -310,7 +310,23 @@ export default function WorkflowValidation() {
       if (error) throw error;
       
       const duration = Date.now() - startTime;
-      if (data?.zipUrl) {
+      if (data?.zipData) {
+        // Convert base64 to blob and trigger download
+        const binaryString = atob(data.zipData);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'application/zip' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || 'stems-export.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
         updateTestResult(5, { 
           status: 'passed', 
           message: `Exported ${stemUrls.length} stems to zip in ${(duration/1000).toFixed(1)}s`,
@@ -318,7 +334,7 @@ export default function WorkflowValidation() {
         });
         toast({ title: "Test 6 Passed ✓", description: "Asset export successful" });
       } else {
-        throw new Error('No zip URL returned');
+        throw new Error('No zip data returned');
       }
     } catch (error) {
       updateTestResult(5, { 

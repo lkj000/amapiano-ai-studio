@@ -213,19 +213,27 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
       // Call zip-stems function
       const { data, error } = await supabase.functions.invoke('zip-stems', {
         body: {
-          stemUrls,
+          stems: stemUrls,
           projectName: `amapiano-stems-${Date.now()}`
         }
       });
 
       if (error) throw error;
+      if (!data?.zipData) throw new Error('No zip data returned');
 
+      // Convert base64 to blob
+      const binaryString = atob(data.zipData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/zip' });
+      
       // Download the zip file
-      const blob = data instanceof Blob ? data : new Blob([data], { type: 'application/zip' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `amapiano-stems-${Date.now()}.zip`;
+      a.download = data.filename || `amapiano-stems-${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

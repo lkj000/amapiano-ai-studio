@@ -1887,9 +1887,12 @@ const [zoom, setZoom] = useState([100]);
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className={`${showAIAssistant ? 'w-80' : 'w-64'} bg-muted/10 border-r border-border overflow-y-auto transition-all duration-200`}>
+      <div className="flex flex-1 overflow-hidden min-w-0">
+        {/* Sidebar - hidden on mobile, adjustable width on desktop */}
+        <div className={cn(
+          "hidden lg:block bg-muted/10 border-r border-border overflow-y-auto transition-all duration-200",
+          showAIAssistant ? 'lg:w-80 xl:w-96' : 'lg:w-64 xl:w-72'
+        )}>
           <Tabs defaultValue="instruments" className="h-full">
             <TabsList className="grid w-full grid-cols-3 m-2 bg-muted/20">
               <TabsTrigger value="instruments" className="text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground">Instruments</TabsTrigger>
@@ -2042,37 +2045,37 @@ const [zoom, setZoom] = useState([100]);
         </div>
 
         {/* Main DAW Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Transport Controls - Premium Design */}
           <div className="border-b border-border/50 bg-gradient-to-r from-background via-muted/30 to-background">
-            <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center justify-between gap-2 px-3 sm:px-4 md:px-6 py-3 md:py-4 overflow-x-auto scrollbar-hide">
               {/* Left: Playback Controls */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl p-2 shadow-sm border border-border/30">
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 bg-muted/40 rounded-xl p-1.5 sm:p-2 shadow-sm border border-border/30">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 hover:bg-background/80 rounded-lg"
+                    className="h-8 w-8 sm:h-9 sm:w-9 hover:bg-background/80 rounded-lg"
                     onClick={() => setCurrentTime(t => Math.max(0, t - 5))}
                   >
-                    <SkipBack className="h-4 w-4" />
+                    <SkipBack className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 hover:bg-destructive/20 rounded-lg"
+                    className="h-8 w-8 sm:h-9 sm:w-9 hover:bg-destructive/20 rounded-lg"
                     onClick={() => {
                       console.log('DAW Transport: Stop clicked');
                       stop();
                       console.log('DAW Transport: stop called');
                     }}
                   >
-                    <Square className="h-4 w-4" />
+                    <Square className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     size="icon"
                     className={cn(
-                      "h-10 w-10 rounded-lg shadow-md transition-all",
+                      "h-9 w-9 sm:h-10 sm:w-10 rounded-lg shadow-md transition-all",
                       isPlaying 
                         ? "bg-muted hover:bg-muted/80" 
                         : "bg-gradient-to-br from-primary via-primary to-primary/80 hover:shadow-lg hover:scale-105"
@@ -2088,12 +2091,12 @@ const [zoom, setZoom] = useState([100]);
                       }
                     }}
                   >
-                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
+                    {isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5 ml-0.5" />}
                   </Button>
                   <Button 
                     variant={isRecording ? "destructive" : "ghost"}
                     size="icon"
-                    className={cn("h-9 w-9 rounded-lg", isRecording && "animate-pulse")}
+                    className={cn("h-8 w-8 sm:h-9 sm:w-9 rounded-lg", isRecording && "animate-pulse")}
                     onClick={() => {
                       if (selectedTrackId) {
                         setShowAudioRecording(true);
@@ -2103,15 +2106,15 @@ const [zoom, setZoom] = useState([100]);
                     }}
                     disabled={!selectedTrackId}
                   >
-                    <div className={`w-4 h-4 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-current"}`} />
+                    <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-current"}`} />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9 hover:bg-background/80 rounded-lg"
+                    className="h-8 w-8 sm:h-9 sm:w-9 hover:bg-background/80 rounded-lg"
                     onClick={() => setCurrentTime(t => t + 5)}
                   >
-                    <SkipForward className="h-4 w-4" />
+                    <SkipForward className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
                 
@@ -2119,31 +2122,33 @@ const [zoom, setZoom] = useState([100]);
                   variant={isLooping ? "default" : "ghost"}
                   size="sm"
                   className={cn(
-                    "h-9 px-4 rounded-lg",
+                    "h-8 sm:h-9 px-2 sm:px-4 rounded-lg",
                     isLooping && "bg-primary/20 hover:bg-primary/30 border border-primary/30"
                   )}
                   onClick={() => setIsLooping(!isLooping)}
                 >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Loop
+                  <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Loop</span>
                 </Button>
               </div>
 
               {/* Center: Undo/Redo + Right: Controls */}
-              <div className="flex items-center gap-4">
-                {/* Undo/Redo Controls */}
-                <UndoRedoControls 
-                  undoRedoState={undoRedoControls.getState()} 
-                  onUndo={handleUndo} 
-                  onRedo={handleRedo} 
-                />
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                {/* Undo/Redo Controls - Hidden on mobile */}
+                <div className="hidden md:block">
+                  <UndoRedoControls 
+                    undoRedoState={undoRedoControls.getState()} 
+                    onUndo={handleUndo} 
+                    onRedo={handleRedo} 
+                  />
+                </div>
 
-                <Separator orientation="vertical" className="h-8" />
+                <Separator orientation="vertical" className="hidden md:block h-8" />
 
-                <div className="flex items-center gap-2.5 bg-background/60 rounded-xl px-4 py-2 border border-border/30 backdrop-blur-sm shadow-sm">
-                  <Music className="h-4 w-4 text-primary/70" />
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">BPM</span>
-                  <div className="w-24">
+                <div className="flex items-center gap-2 sm:gap-2.5 bg-background/60 rounded-xl px-2 sm:px-4 py-1.5 sm:py-2 border border-border/30 backdrop-blur-sm shadow-sm">
+                  <Music className="h-3 w-3 sm:h-4 sm:w-4 text-primary/70" />
+                  <span className="hidden sm:inline text-[10px] text-muted-foreground font-medium uppercase tracking-wide">BPM</span>
+                  <div className="w-16 sm:w-24">
                     <Slider value={[projectData.bpm]} onValueChange={([v]) => handleUpdateProjectSettings({ bpm: v })} min={80} max={160} step={1} />
                   </div>
                   <span className="text-xs font-bold tabular-nums min-w-[32px]">{projectData.bpm}</span>
@@ -2810,9 +2815,9 @@ const [zoom, setZoom] = useState([100]);
           </div>
         </div>
       )}
-      {/* Plugin Sidebar */}
+      {/* Plugin Sidebar - hidden on mobile, right sidebar on desktop */}
       {showPluginSidebar && (
-        <div className="fixed right-4 top-20 bottom-4 z-40">
+        <div className="hidden lg:block fixed right-4 top-20 bottom-4 z-40">
           <PluginSidebar
             audioContext={getAudioContext()}
             onClose={() => setShowPluginSidebar(false)}

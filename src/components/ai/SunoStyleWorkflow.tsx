@@ -260,53 +260,45 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
     try {
       toast({
         title: "Preparing Export...",
-        description: "Creating zip archive of stems"
+        description: "Downloading stems and creating zip archive"
       });
 
-      // Prepare stems for export
-      const stemUrls = Object.entries(stems)
-        .filter(([_, url]) => url && typeof url === 'string')
-        .map(([type, url]) => ({
-          name: `${type}.wav`,
-          url: url as string
-        }));
+      // Import JSZip dynamically to reduce initial bundle
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
 
-      if (stemUrls.length === 0) {
+      // Download each stem and add to zip
+      const stemEntries = Object.entries(stems).filter(([_, url]) => url && typeof url === 'string');
+      
+      if (stemEntries.length === 0) {
         throw new Error('No valid stems available for export');
       }
 
-      // Call zip-stems function
-      const { data, error } = await supabase.functions.invoke('zip-stems', {
-        body: {
-          stems: stemUrls,
-          projectName: `amapiano-stems-${Date.now()}`
+      for (const [type, url] of stemEntries) {
+        try {
+          const response = await fetch(url as string);
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          zip.file(`${type}.wav`, blob);
+        } catch (e) {
+          console.warn(`Failed to download ${type} stem:`, e);
         }
-      });
-
-      if (error) throw error;
-      if (!data?.zipData) throw new Error('No zip data returned');
-
-      // Convert base64 to blob
-      const binaryString = atob(data.zipData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
       }
-      const blob = new Blob([bytes], { type: 'application/zip' });
-      
-      // Download the zip file
-      const url = window.URL.createObjectURL(blob);
+
+      // Generate and download zip
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const downloadUrl = window.URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = data.filename || `amapiano-stems-${Date.now()}.zip`;
+      a.href = downloadUrl;
+      a.download = `amapiano-stems-${Date.now()}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(downloadUrl);
 
       toast({
-        title: "Export Successful! ✓",
-        description: "Your stems have been downloaded to Downloads folder"
+        title: "Export Successful!",
+        description: "Your stems have been downloaded"
       });
     } catch (error) {
       console.error('Error exporting assets:', error);

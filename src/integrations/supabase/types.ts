@@ -270,6 +270,45 @@ export type Database = {
         }
         Relationships: []
       }
+      amapianorization_results: {
+        Row: {
+          authenticity_score: number | null
+          created_at: string
+          elements_applied: Json | null
+          id: string
+          output_audio_url: string | null
+          region: string | null
+          settings: Json
+          source_audio_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          authenticity_score?: number | null
+          created_at?: string
+          elements_applied?: Json | null
+          id?: string
+          output_audio_url?: string | null
+          region?: string | null
+          settings?: Json
+          source_audio_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          authenticity_score?: number | null
+          created_at?: string
+          elements_applied?: Json | null
+          id?: string
+          output_audio_url?: string | null
+          region?: string | null
+          settings?: Json
+          source_audio_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           country_code: string | null
@@ -378,6 +417,36 @@ export type Database = {
           license_type?: string | null
           terms_data?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      audio_analysis_results: {
+        Row: {
+          analysis_data: Json
+          analysis_type: string
+          audio_url: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis_data?: Json
+          analysis_type: string
+          audio_url: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json
+          analysis_type?: string
+          audio_url?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1054,6 +1123,42 @@ export type Database = {
           id?: string
           mix_settings?: Json | null
           original_post_id?: string
+        }
+        Relationships: []
+      }
+      generated_samples: {
+        Row: {
+          bpm: number | null
+          created_at: string
+          id: string
+          key_signature: string | null
+          metadata: Json | null
+          region: string | null
+          sample_type: string
+          sample_url: string
+          user_id: string
+        }
+        Insert: {
+          bpm?: number | null
+          created_at?: string
+          id?: string
+          key_signature?: string | null
+          metadata?: Json | null
+          region?: string | null
+          sample_type: string
+          sample_url: string
+          user_id: string
+        }
+        Update: {
+          bpm?: number | null
+          created_at?: string
+          id?: string
+          key_signature?: string | null
+          metadata?: Json | null
+          region?: string | null
+          sample_type?: string
+          sample_url?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -3066,6 +3171,42 @@ export type Database = {
           granted_by?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_study_responses: {
+        Row: {
+          amapianorized_audio_url: string
+          authenticity_rating: number | null
+          baseline_audio_url: string
+          created_at: string
+          familiarity_with_amapiano: string | null
+          feedback: string | null
+          id: string
+          producer_experience: string | null
+          user_id: string
+        }
+        Insert: {
+          amapianorized_audio_url: string
+          authenticity_rating?: number | null
+          baseline_audio_url: string
+          created_at?: string
+          familiarity_with_amapiano?: string | null
+          feedback?: string | null
+          id?: string
+          producer_experience?: string | null
+          user_id: string
+        }
+        Update: {
+          amapianorized_audio_url?: string
+          authenticity_rating?: number | null
+          baseline_audio_url?: string
+          created_at?: string
+          familiarity_with_amapiano?: string | null
+          feedback?: string | null
+          id?: string
+          producer_experience?: string | null
           user_id?: string
         }
         Relationships: []

@@ -131,6 +131,26 @@ export const useUnifiedMusicAnalysis = () => {
       setProgress(100);
       setAnalysisStage('Analysis complete!');
       setResult(unifiedResult);
+      
+      // Persist to database
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('audio_analysis_results')
+            .insert({
+              user_id: user.id,
+              audio_url: file.name,
+              analysis_type: 'unified',
+              analysis_data: unifiedResult as any,
+            });
+          console.log('[UnifiedAnalysis] Analysis persisted to database');
+        }
+      } catch (dbError) {
+        console.error('[UnifiedAnalysis] Failed to persist analysis:', dbError);
+        // Don't fail the analysis if persistence fails
+      }
+      
       toast.success('🎵 Comprehensive analysis complete with AI insights!');
       
       return unifiedResult;

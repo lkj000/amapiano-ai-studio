@@ -223,18 +223,18 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           {/* Title Section */}
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight">AI Music Generation</h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <div className="text-center space-y-3 sm:space-y-4 mb-6">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight px-2">AI Music Generation</h1>
+            <p className="text-muted-foreground text-sm sm:text-base md:text-lg max-w-2xl mx-auto px-2">
               Create professional amapiano tracks using advanced AI technology
             </p>
             {wasmReady && (
               <div className="flex items-center justify-center gap-2">
-                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 text-xs sm:text-sm">
                   <Cpu className="w-3 h-3 mr-1" />
                   {engineType} - {averageMetrics.avgSpeedup > 0 ? `${averageMetrics.avgSpeedup.toFixed(1)}x faster` : 'Ready'}
                 </Badge>
@@ -250,21 +250,21 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
             />
           </div>
 
-          <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-6">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="prompt">Generate from Prompt</TabsTrigger>
-              <TabsTrigger value="reference">Generate from Reference</TabsTrigger>
-              <TabsTrigger value="stem">Stem by Stem</TabsTrigger>
-              <TabsTrigger value="mood">Mood Based</TabsTrigger>
-              <TabsTrigger value="voice-midi">Voice-to-MIDI</TabsTrigger>
-              <TabsTrigger value="suno-style" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10">
-                <Music className="w-4 h-4 mr-1" />
+          <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-4 sm:mb-6">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto gap-1">
+              <TabsTrigger value="prompt" className="text-xs sm:text-sm py-2">Prompt</TabsTrigger>
+              <TabsTrigger value="reference" className="text-xs sm:text-sm py-2">Reference</TabsTrigger>
+              <TabsTrigger value="stem" className="text-xs sm:text-sm py-2">Stem by Stem</TabsTrigger>
+              <TabsTrigger value="mood" className="text-xs sm:text-sm py-2">Mood Based</TabsTrigger>
+              <TabsTrigger value="voice-midi" className="text-xs sm:text-sm py-2">Voice-to-MIDI</TabsTrigger>
+              <TabsTrigger value="suno-style" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-xs sm:text-sm py-2 col-span-2 sm:col-span-1">
+                <Music className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                 Suno-Style
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <div className="grid lg:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Left Column - Generation Controls */}
             <div className="lg:col-span-2 space-y-6">
               {generationType === "prompt" ? (

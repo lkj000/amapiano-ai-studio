@@ -170,4 +170,37 @@
     0%, 100% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
   }
+
+  /* Responsive utilities */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Touch-friendly interactive elements */
+  @media (hover: none) and (pointer: coarse) {
+    .btn-glow:active {
+      transform: scale(0.98);
+    }
+    
+    /* Larger touch targets on mobile */
+    button, a {
+      min-height: 44px;
+    }
+  }
+
+  /* Safe area padding for notched devices */
+  @supports (padding: max(0px)) {
+    .safe-top {
+      padding-top: max(env(safe-area-inset-top), 0px);
+    }
+    
+    .safe-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+  }
 }

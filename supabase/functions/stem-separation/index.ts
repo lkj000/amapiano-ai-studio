@@ -40,7 +40,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: 'd65d2f2b9a6f2e8e8e8e8e8e8e8e8e8e8e8e8e8e', // Demucs model version
+        version: 'd99ca4c1c62a37ab468090a0687da9b744c9e9d52efb11b82e3fc5b3d55d34ff', // cjwbw/demucs model
         input: {
           audio: audioUrl,
           model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',

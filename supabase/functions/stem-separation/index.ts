@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import Replicate from "https://esm.sh/replicate@0.25.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,73 +31,47 @@ serve(async (req) => {
       throw new Error('REPLICATE_API_KEY not configured');
     }
 
+    const replicate = new Replicate({
+      auth: REPLICATE_API_KEY,
+    });
+
     console.log('[STEM-SEPARATION] Calling Replicate Demucs...');
 
     // Use Demucs model for high-quality stem separation
-    const predictionResponse = await fetch('https://api.replicate.com/v1/predictions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Token ${REPLICATE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        version: 'd99ca4c1c62a37ab468090a0687da9b744c9e9d52efb11b82e3fc5b3d55d34ff', // cjwbw/demucs model
+    const output = await replicate.run(
+      "cjwbw/demucs:d99ca4c1c62a37ab468090a0687da9b744c9e9d52efb11b82e3fc5b3d55d34ff",
+      {
         input: {
           audio: audioUrl,
           model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
         }
-      })
-    });
-
-    if (!predictionResponse.ok) {
-      const errorText = await predictionResponse.text();
-      console.error('[STEM-SEPARATION] Replicate error:', errorText);
-      throw new Error(`Replicate API error: ${predictionResponse.status}`);
-    }
-
-    const prediction = await predictionResponse.json();
-    console.log('[STEM-SEPARATION] Separation started:', prediction.id);
-
-    // Poll for completion
-    let result = prediction;
-    let attempts = 0;
-    const maxAttempts = 120; // 4 minutes for stem separation
-
-    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: { 'Authorization': `Token ${REPLICATE_API_KEY}` }
-      });
-
-      result = await statusResponse.json();
-      attempts++;
-      
-      if (attempts % 5 === 0) {
-        console.log(`[STEM-SEPARATION] Status: ${result.status} (${attempts}/${maxAttempts})`);
       }
+    );
+
+    console.log('[STEM-SEPARATION] Separation complete');
+    console.log('[STEM-SEPARATION] Output:', typeof output, output);
+
+    // Handle different output formats
+    let stems;
+    if (typeof output === 'object' && output !== null) {
+      stems = {
+        drums: output.drums,
+        bass: output.bass,
+        vocals: output.vocals,
+        other: output.other,
+      };
+    } else {
+      console.error('[STEM-SEPARATION] Unexpected output format:', output);
+      throw new Error('Unexpected output format from Demucs');
     }
 
-    if (result.status === 'failed') {
-      throw new Error('Stem separation failed on Replicate');
-    }
-
-    if (result.status !== 'succeeded') {
-      throw new Error('Stem separation timeout');
-    }
-
-    console.log('[STEM-SEPARATION] Complete:', Object.keys(result.output || {}));
+    console.log('[STEM-SEPARATION] Stems extracted:', Object.keys(stems).filter(k => stems[k]));
 
     // Return URLs for each stem
     return new Response(
       JSON.stringify({
         success: true,
-        stems: {
-          drums: result.output?.drums,
-          bass: result.output?.bass,
-          vocals: result.output?.vocals,
-          other: result.output?.other,
-        }
+        stems,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

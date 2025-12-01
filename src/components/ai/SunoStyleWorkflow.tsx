@@ -138,9 +138,38 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
     setIsProcessing(true);
     try {
       toast({
-        title: "Separating Stems...",
+        title: "Uploading & Separating...",
         description: "This may take 1-2 minutes"
       });
+
+      // Convert data URL to blob
+      const base64Data = generatedAudio!.split(',')[1];
+      const binaryData = atob(base64Data);
+      const bytes = new Uint8Array(binaryData.length);
+      for (let i = 0; i < binaryData.length; i++) {
+        bytes[i] = binaryData.charCodeAt(i);
+      }
+      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+
+      // Upload to Supabase Storage
+      const fileName = `generated-song-${Date.now()}.mp3`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('samples')
+        .upload(fileName, audioBlob, {
+          contentType: 'audio/mpeg',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('samples')
+        .getPublicUrl(fileName);
+
+      console.log('[STEM-SEP] Using public URL:', publicUrl);
 
       const response = await fetch(
         `https://mywijmtszelyutssormy.supabase.co/functions/v1/stem-separation`,
@@ -150,7 +179,7 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            audioUrl: generatedAudio,
+            audioUrl: publicUrl,
             quality: 'high'
           }),
         }

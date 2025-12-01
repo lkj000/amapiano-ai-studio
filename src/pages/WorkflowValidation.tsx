@@ -125,124 +125,210 @@ export default function WorkflowValidation() {
 
   const runTest3SongGeneration = async () => {
     updateTestResult(2, { status: 'running' });
+    const startTime = Date.now();
     
     try {
-      const { data, error } = await supabase.functions.invoke('ai-music-generation', {
+      const { data, error } = await supabase.functions.invoke('generate-song-with-vocals', {
         body: {
-          prompt: 'Generate amapiano song with male vocals',
+          lyrics: 'Ngiyakuthanda, sthandwa sami\nAmapiano love forever\nWe dance together under the stars',
+          voiceType: 'male',
+          voiceStyle: 'smooth',
           bpm: 115,
           genre: 'amapiano',
-          duration: 180,
-          voiceType: 'male',
-          voiceStyle: 'smooth'
+          energy: 80
         }
       });
 
       if (error) throw error;
       
-      // Check if real audio was generated
-      if (data?.success && data?.newTrack?.clips?.[0]?.audioUrl) {
+      const duration = Date.now() - startTime;
+      if (data?.audioUrl) {
         updateTestResult(2, { 
-          status: 'blocked', 
-          message: 'Edge function returns MIDI, not audio with vocals. Implementation gap identified.'
+          status: 'passed', 
+          message: `Generated audio with vocals in ${(duration/1000).toFixed(1)}s`,
+          duration 
         });
-        toast({ 
-          title: "Test 3 Blocked ⚠", 
-          description: "Song generation needs real audio implementation",
-          variant: "destructive"
-        });
+        toast({ title: "Test 3 Passed ✓", description: "Song generation with vocals successful" });
+        return data.audioUrl;
       } else {
         throw new Error('No audio URL returned');
       }
     } catch (error) {
       updateTestResult(2, { 
-        status: 'blocked', 
-        message: 'CRITICAL GAP: Song generation must produce real audio with vocals. Currently returns MIDI or mock URL.'
+        status: 'failed', 
+        message: error instanceof Error ? error.message : 'Song generation failed'
       });
       toast({ 
-        title: "Test 3 Blocked ⚠", 
-        description: "Implementation gap - needs real audio generation",
+        title: "Test 3 Failed ✗", 
+        description: "Song generation failed",
         variant: "destructive"
       });
+      return null;
     }
   };
 
-  const runTest4StemSeparation = async () => {
+  const runTest4StemSeparation = async (audioUrl: string | null) => {
     updateTestResult(3, { status: 'running' });
+    const startTime = Date.now();
     
     try {
-      // This test is blocked by Test 3 - no real audio to separate
-      updateTestResult(3, { 
-        status: 'blocked', 
-        message: 'BLOCKED by Test 3: Requires real audio file. REPLICATE_API_KEY configuration also needs verification.'
+      if (!audioUrl) {
+        updateTestResult(3, { 
+          status: 'blocked', 
+          message: 'Blocked: No audio URL from song generation'
+        });
+        toast({ 
+          title: "Test 4 Blocked ⚠", 
+          description: "Requires audio from Test 3",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      const { data, error } = await supabase.functions.invoke('stem-separation', {
+        body: { audioUrl, quality: 'high' }
       });
-      toast({ 
-        title: "Test 4 Blocked ⚠", 
-        description: "Requires real audio from song generation",
-        variant: "destructive"
-      });
+
+      if (error) throw error;
+      
+      const duration = Date.now() - startTime;
+      if (data?.stems) {
+        updateTestResult(3, { 
+          status: 'passed', 
+          message: `Separated ${Object.keys(data.stems).length} stems in ${(duration/1000).toFixed(1)}s`,
+          duration 
+        });
+        toast({ title: "Test 4 Passed ✓", description: "Stem separation successful" });
+        return data.stems;
+      } else {
+        throw new Error('No stems returned');
+      }
     } catch (error) {
       updateTestResult(3, { 
         status: 'failed', 
         message: error instanceof Error ? error.message : 'Stem separation failed'
       });
+      toast({ 
+        title: "Test 4 Failed ✗", 
+        description: "Stem separation failed",
+        variant: "destructive"
+      });
+      return null;
     }
   };
 
-  const runTest5Amapianorization = async () => {
+  const runTest5Amapianorization = async (stems: any) => {
     updateTestResult(4, { status: 'running' });
+    const startTime = Date.now();
     
     try {
-      updateTestResult(4, { 
-        status: 'blocked', 
-        message: 'NOT IMPLEMENTED: Amapianorization engine integration missing in SunoStyleWorkflow Step 5. Placeholder comment exists but no functional code.'
-      });
-      toast({ 
-        title: "Test 5 Blocked ⚠", 
-        description: "Amapianorization engine not integrated",
-        variant: "destructive"
-      });
+      if (!stems) {
+        updateTestResult(4, { 
+          status: 'blocked', 
+          message: 'Blocked: No stems from separation'
+        });
+        toast({ 
+          title: "Test 5 Blocked ⚠", 
+          description: "Requires stems from Test 4",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      // Test amapianorization engine
+      const { AmapianorizationEngine } = await import('@/lib/audio/amapianorizationEngine');
+      const engine = new AmapianorizationEngine();
+      
+      const options = {
+        region: 'johannesburg' as const,
+        intensity: 0.7,
+        elements: {
+          logDrums: true,
+          percussion: true,
+          piano: true,
+          bass: true,
+          sidechain: true,
+          filterSweeps: true
+        }
+      };
+
+      const result = await engine.amapianorize(stems.vocals || stems.other, options);
+      const duration = Date.now() - startTime;
+      
+      if (result.authenticityScore > 0) {
+        updateTestResult(4, { 
+          status: 'passed', 
+          message: `Amapianorization complete. Authenticity: ${result.authenticityScore.toFixed(1)}% (${(duration/1000).toFixed(1)}s)`,
+          duration 
+        });
+        toast({ title: "Test 5 Passed ✓", description: `Authenticity score: ${result.authenticityScore.toFixed(1)}%` });
+        return result;
+      } else {
+        throw new Error('Invalid amapianorization result');
+      }
     } catch (error) {
       updateTestResult(4, { 
         status: 'failed', 
         message: error instanceof Error ? error.message : 'Amapianorization failed'
       });
+      toast({ 
+        title: "Test 5 Failed ✗", 
+        description: "Amapianorization failed",
+        variant: "destructive"
+      });
+      return null;
     }
   };
 
-  const runTest6ExportAssets = async () => {
+  const runTest6ExportAssets = async (stems: any) => {
     updateTestResult(5, { status: 'running' });
+    const startTime = Date.now();
     
     try {
-      // Test with mock stem URLs
-      const mockStems = {
-        vocals: 'https://example.com/vocals.wav',
-        drums: 'https://example.com/drums.wav',
-        bass: 'https://example.com/bass.wav',
-        piano: 'https://example.com/piano.wav',
-        other: 'https://example.com/other.wav'
-      };
+      if (!stems) {
+        updateTestResult(5, { 
+          status: 'blocked', 
+          message: 'Blocked: No stems available'
+        });
+        toast({ 
+          title: "Test 6 Blocked ⚠", 
+          description: "Requires stems from Test 4",
+          variant: "destructive"
+        });
+        return;
+      }
 
-      const stemUrls = Object.entries(mockStems).map(([type, url]) => ({
+      const stemUrls = Object.entries(stems).map(([type, url]) => ({
         name: `${type}.wav`,
-        url
+        url: url as string
       }));
 
-      // Note: This will fail because mock URLs don't exist
-      // But it validates the edge function is callable
-      updateTestResult(5, { 
-        status: 'blocked', 
-        message: 'BLOCKED by Test 4: Requires real stems. Edge function is implemented and can be tested with real stem URLs.'
+      const { data, error } = await supabase.functions.invoke('zip-stems', {
+        body: { stems: stemUrls }
       });
-      toast({ 
-        title: "Test 6 Blocked ⚠", 
-        description: "Requires real stems from separation",
-        variant: "destructive"
-      });
+
+      if (error) throw error;
+      
+      const duration = Date.now() - startTime;
+      if (data?.zipUrl) {
+        updateTestResult(5, { 
+          status: 'passed', 
+          message: `Exported ${stemUrls.length} stems to zip in ${(duration/1000).toFixed(1)}s`,
+          duration 
+        });
+        toast({ title: "Test 6 Passed ✓", description: "Asset export successful" });
+      } else {
+        throw new Error('No zip URL returned');
+      }
     } catch (error) {
       updateTestResult(5, { 
-        status: 'blocked', 
-        message: 'Blocked by missing stems'
+        status: 'failed', 
+        message: error instanceof Error ? error.message : 'Export failed'
+      });
+      toast({ 
+        title: "Test 6 Failed ✗", 
+        description: "Export failed",
+        variant: "destructive"
       });
     }
   };
@@ -271,23 +357,47 @@ export default function WorkflowValidation() {
   const runAllTests = async () => {
     setOverallProgress(0);
     setCurrentTest(0);
-    
-    const tests = [
-      runTest1LyricsGeneration,
-      runTest2VoiceConfiguration,
-      runTest3SongGeneration,
-      runTest4StemSeparation,
-      runTest5Amapianorization,
-      runTest6ExportAssets,
-      runTest7DAWIntegration
-    ];
 
-    for (let i = 0; i < tests.length; i++) {
-      setCurrentTest(i);
-      await tests[i]();
-      setOverallProgress(((i + 1) / tests.length) * 100);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Brief pause between tests
-    }
+    // Test 1: Lyrics Generation
+    setCurrentTest(0);
+    await runTest1LyricsGeneration();
+    setOverallProgress((1 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 2: Voice Configuration
+    setCurrentTest(1);
+    await runTest2VoiceConfiguration();
+    setOverallProgress((2 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 3: Song Generation
+    setCurrentTest(2);
+    const audioUrl = await runTest3SongGeneration();
+    setOverallProgress((3 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 4: Stem Separation
+    setCurrentTest(3);
+    const stems = await runTest4StemSeparation(audioUrl);
+    setOverallProgress((4 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 5: Amapianorization
+    setCurrentTest(4);
+    await runTest5Amapianorization(stems);
+    setOverallProgress((5 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 6: Export Assets
+    setCurrentTest(5);
+    await runTest6ExportAssets(stems);
+    setOverallProgress((6 / 7) * 100);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Test 7: DAW Integration
+    setCurrentTest(6);
+    await runTest7DAWIntegration();
+    setOverallProgress(100);
     
     setCurrentTest(-1);
   };

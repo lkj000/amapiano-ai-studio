@@ -86,60 +86,60 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-hero opacity-10" />
-        <div className="container mx-auto px-4 py-20 relative">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 relative">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="secondary" className="mb-6 bg-primary/10 text-primary border-primary/20">
+            <Badge variant="secondary" className="mb-4 sm:mb-6 bg-primary/10 text-primary border-primary/20 text-xs sm:text-sm">
               <Sparkles className="w-3 h-3 mr-1" />
               World's First Amapiano AI Platform
             </Badge>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-4 sm:mb-6 px-2">
               Create Authentic{" "}
               <span className="text-gradient-primary">Amapiano</span>{" "}
               with AI
             </h1>
             
-            <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground mb-6 sm:mb-8 max-w-3xl mx-auto leading-relaxed px-2">
               Democratize amapiano music production while preserving South African musical heritage through cutting-edge AI technology and cultural authenticity.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-8 sm:mb-12 px-2">
               {user ? (
                 <>
-                   <Link to="/social">
-                     <Button size="lg" className="btn-glow text-lg px-8 py-6">
-                       <Users className="w-5 h-5 mr-2" />
+                   <Link to="/social" className="w-full sm:w-auto">
+                     <Button size="lg" className="btn-glow text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto">
+                       <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                        Explore Social Feed
-                       <ArrowRight className="w-5 h-5 ml-2" />
+                       <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                      </Button>
                    </Link>
-                   <Link to="/generate">
+                   <Link to="/generate" className="w-full sm:w-auto">
                      <Button 
                        size="lg" 
                        variant="outline" 
-                       className="text-lg px-8 py-6"
+                       className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto"
                      >
-                       <Music className="w-5 h-5 mr-2" />
+                       <Music className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                        Create Music
                      </Button>
                    </Link>
                 </>
               ) : (
                 <>
-                   <Link to="/auth">
-                     <Button size="lg" className="btn-glow text-lg px-8 py-6">
-                       <Users className="w-5 h-5 mr-2" />
+                   <Link to="/auth" className="w-full sm:w-auto">
+                     <Button size="lg" className="btn-glow text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto">
+                       <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                        Join Social Network
-                       <ArrowRight className="w-5 h-5 ml-2" />
+                       <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                      </Button>
                    </Link>
-                   <Link to="/social">
+                   <Link to="/social" className="w-full sm:w-auto">
                      <Button 
                        size="lg" 
                        variant="outline" 
-                       className="text-lg px-8 py-6"
+                       className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6 w-full sm:w-auto"
                      >
-                       <Music className="w-5 h-5 mr-2" />
+                       <Music className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                        Browse Feed
                      </Button>
                    </Link>
@@ -148,13 +148,13 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 max-w-2xl mx-auto px-2">
               {stats.map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <div className="text-2xl md:text-3xl font-bold text-primary mb-1">
+                  <div className="text-xl sm:text-2xl md:text-3xl font-bold text-primary mb-1">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs sm:text-sm text-muted-foreground">
                     {stat.label}
                   </div>
                 </div>
@@ -165,45 +165,45 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-muted/20">
-        <div className="container mx-auto px-4">
+      <section className="py-12 sm:py-16 md:py-20 bg-muted/20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            <div className="text-center mb-8 sm:mb-12 md:mb-16 px-2">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 sm:mb-4">
                 Complete Amapiano Production Suite
               </h2>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
                 Everything you need to create, learn, and master authentic amapiano music with cultural accuracy and professional quality.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
-                  <Link key={feature.title} to={feature.href}>
+                  <Link key={feature.title} to={feature.href} className="block">
                     <Card className={`card-glow hover:shadow-xl transition-all duration-300 h-full group ${
                       feature.featured ? 'ring-2 ring-primary/20 bg-gradient-to-br from-primary/5 to-transparent' : ''
                     }`}>
-                      <CardHeader>
-                        <div className={`w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center mb-4 ${feature.color}`}>
-                          <Icon className="w-6 h-6 text-primary-foreground" />
+                      <CardHeader className="p-4 sm:p-6">
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-primary flex items-center justify-center mb-3 sm:mb-4 ${feature.color}`}>
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                         </div>
                         {feature.featured && (
-                          <Badge className="w-fit mb-2 bg-primary/10 text-primary border-primary/20">
+                          <Badge className="w-fit mb-2 bg-primary/10 text-primary border-primary/20 text-xs">
                             <Sparkles className="w-3 h-3 mr-1" />
                             New Feature
                           </Badge>
                         )}
-                        <CardTitle className="text-xl mb-2 group-hover:text-primary transition-colors">
+                        <CardTitle className="text-lg sm:text-xl mb-2 group-hover:text-primary transition-colors">
                           {feature.title}
                         </CardTitle>
-                        <CardDescription className="text-muted-foreground leading-relaxed">
+                        <CardDescription className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                           {feature.description}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center text-primary font-medium group-hover:gap-2 transition-all">
+                      <CardContent className="p-4 sm:p-6 pt-0">
+                        <div className="flex items-center text-sm sm:text-base text-primary font-medium group-hover:gap-2 transition-all">
                           {feature.featured ? 'Try now' : 'Explore feature'}
                           <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>

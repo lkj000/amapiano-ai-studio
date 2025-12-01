@@ -142,30 +142,17 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         description: "This may take 1-2 minutes"
       });
 
-      // Convert data URL to blob if necessary
-      let audioBlob: Blob;
-      if (generatedAudio!.startsWith('data:')) {
-        // Convert base64 data URL to blob
-        const base64Data = generatedAudio!.split(',')[1];
-        const binaryData = atob(base64Data);
-        const bytes = new Uint8Array(binaryData.length);
-        for (let i = 0; i < binaryData.length; i++) {
-          bytes[i] = binaryData.charCodeAt(i);
-        }
-        audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
-      } else {
-        audioBlob = await fetch(generatedAudio!).then(r => r.blob());
-      }
-
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'generated-song.mp3');
-      formData.append('quality', 'high');
-
       const response = await fetch(
         `https://mywijmtszelyutssormy.supabase.co/functions/v1/stem-separation`,
         {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            audioUrl: generatedAudio,
+            quality: 'high'
+          }),
         }
       );
 

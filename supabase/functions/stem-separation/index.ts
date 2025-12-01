@@ -13,33 +13,22 @@ serve(async (req) => {
   try {
     console.log('[STEM-SEPARATION] Processing request...');
 
-    const formData = await req.formData();
-    const audioFile = formData.get('audio') as File;
-    const quality = formData.get('quality') as string || 'standard';
+    // Parse JSON body
+    const { audioUrl, quality = 'standard' } = await req.json();
 
-    if (!audioFile) {
+    if (!audioUrl) {
       return new Response(
-        JSON.stringify({ error: 'No audio file provided' }),
+        JSON.stringify({ error: 'No audio URL provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('[STEM-SEPARATION] File received:', audioFile.name, audioFile.size);
+    console.log('[STEM-SEPARATION] Audio URL received, length:', audioUrl.length);
 
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
       throw new Error('REPLICATE_API_KEY not configured');
     }
-
-    // Convert file to base64 data URL (safely, without stack overflow)
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64 = btoa(binary);
-    const dataUrl = `data:${audioFile.type};base64,${base64}`;
 
     console.log('[STEM-SEPARATION] Calling Replicate Demucs...');
 
@@ -53,7 +42,7 @@ serve(async (req) => {
       body: JSON.stringify({
         version: 'd65d2f2b9a6f2e8e8e8e8e8e8e8e8e8e8e8e8e8e', // Demucs model version
         input: {
-          audio: dataUrl,
+          audio: audioUrl,
           model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
         }
       })

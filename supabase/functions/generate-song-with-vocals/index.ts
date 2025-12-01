@@ -24,6 +24,13 @@ serve(async (req) => {
     if (!ELEVENLABS_API_KEY) {
       throw new Error('ELEVENLABS_API_KEY not configured');
     }
+    
+    // Log API key format (first/last chars only for security)
+    console.log('[SONG-GENERATION] API key check:', {
+      length: ELEVENLABS_API_KEY.length,
+      prefix: ELEVENLABS_API_KEY.substring(0, 4),
+      suffix: ELEVENLABS_API_KEY.substring(ELEVENLABS_API_KEY.length - 4)
+    });
 
     // Voice ID mapping based on type and style
     const voiceMap: Record<string, Record<string, string>> = {
@@ -76,8 +83,22 @@ serve(async (req) => {
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
-      console.error('[SONG-GENERATION] ElevenLabs error:', errorText);
-      throw new Error(`TTS generation failed: ${ttsResponse.status}`);
+      console.error('[SONG-GENERATION] ElevenLabs API error:', {
+        status: ttsResponse.status,
+        statusText: ttsResponse.statusText,
+        body: errorText
+      });
+      
+      // Try to parse error details
+      let errorDetails = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        errorDetails = parsed.detail?.message || parsed.message || errorText;
+      } catch {
+        // Keep original text if not JSON
+      }
+      
+      throw new Error(`TTS failed (${ttsResponse.status}): ${errorDetails}`);
     }
 
     const audioArrayBuffer = await ttsResponse.arrayBuffer();

@@ -680,7 +680,12 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     <SunoStyleWorkflow 
                       onComplete={(result) => {
                         console.log('Workflow complete:', result);
-                        toast.success("Production Complete! 🎉");
+                        if (result?.audioUrl) {
+                          setGeneratedTrack(result);
+                          toast.success("Song Generated! 🎵");
+                        } else {
+                          toast.success("Production Complete! 🎉");
+                        }
                       }}
                     />
                   </CardContent>

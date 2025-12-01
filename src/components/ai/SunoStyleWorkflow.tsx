@@ -97,6 +97,24 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         setGeneratedAudio(data.audioUrl);
         setCurrentStep(4);
         
+        // Pass generated track to parent
+        if (onComplete) {
+          onComplete({
+            audioUrl: data.audioUrl,
+            title: `${voiceType.charAt(0).toUpperCase() + voiceType.slice(1)} Amapiano Song`,
+            genre,
+            bpm,
+            type: 'full',
+            duration: 180,
+            metadata: {
+              voiceType,
+              voiceStyle,
+              energy,
+              lyrics: lyrics.substring(0, 100) + '...'
+            }
+          });
+        }
+        
         toast({
           title: "Song Generated! 🎵",
           description: "Ready for stem separation"

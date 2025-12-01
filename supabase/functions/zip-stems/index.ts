@@ -13,21 +13,21 @@ serve(async (req) => {
   try {
     console.log('[ZIP-STEMS] Processing request...');
 
-    const { stemUrls, projectName } = await req.json();
+    const { stems, projectName } = await req.json();
 
-    if (!stemUrls || !Array.isArray(stemUrls) || stemUrls.length === 0) {
+    if (!stems || !Array.isArray(stems) || stems.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No stem URLs provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('[ZIP-STEMS] Downloading', stemUrls.length, 'stems...');
+    console.log('[ZIP-STEMS] Downloading', stems.length, 'stems...');
 
     // Download all stems
     const stemData: Array<{ name: string; data: Uint8Array }> = [];
     
-    for (const stem of stemUrls) {
+    for (const stem of stems) {
       try {
         const response = await fetch(stem.url);
         if (!response.ok) continue;

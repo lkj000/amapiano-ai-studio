@@ -193,7 +193,7 @@ export default function AudioTestLab() {
         preservePhase: true,
         preserveTransients: true,
         preserveStereoImaging: true,
-        targetFAD: 0.1,
+        // targetFAD is adaptive: 4-bit=25%, 8-bit=15%, 16-bit=5%
       });
       
       const { quantizedBuffer, result } = await quantizer.quantize(audioBuffer);

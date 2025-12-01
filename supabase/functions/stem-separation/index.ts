@@ -39,7 +39,7 @@ serve(async (req) => {
 
     // Use Demucs model for high-quality stem separation
     const output = await replicate.run(
-      "cjwbw/demucs:d99ca4c1c62a37ab468090a0687da9b744c9e9d52efb11b82e3fc5b3d55d34ff",
+      "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953",
       {
         input: {
           audio: audioUrl,

@@ -32,6 +32,7 @@ import Performance from "./pages/Performance";
 import Amapianorize from "./pages/Amapianorize";
 import AudioTestLab from "./pages/AudioTestLab";
 import WorkflowValidation from "./pages/WorkflowValidation";
+import UserStudy from "./pages/UserStudy";
 
 const queryClient = new QueryClient();
 
@@ -137,6 +138,7 @@ const App = () => {
               <Route path="/amapianorize" element={<Amapianorize />} />
               <Route path="/audio-test-lab" element={<AudioTestLab />} />
               <Route path="/workflow-validation" element={<WorkflowValidation />} />
+              <Route path="/user-study" element={<UserStudy />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

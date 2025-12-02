@@ -35,6 +35,7 @@ import WorkflowValidation from "./pages/WorkflowValidation";
 import UserStudy from "./pages/UserStudy";
 import StudyRecruitment from "./pages/StudyRecruitment";
 import StudyAnalytics from "./pages/StudyAnalytics";
+import ABPairGenerator from "./pages/ABPairGenerator";
 
 const queryClient = new QueryClient();
 
@@ -143,6 +144,7 @@ const App = () => {
               <Route path="/user-study" element={<UserStudy />} />
               <Route path="/study-recruitment" element={<StudyRecruitment />} />
               <Route path="/study-analytics" element={<StudyAnalytics />} />
+              <Route path="/ab-pair-generator" element={<ABPairGenerator />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

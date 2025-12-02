@@ -77,31 +77,16 @@ export class EssentiaFeatureExtractor {
         console.log('[Essentia] Using pre-instantiated EssentiaWASM');
       }
 
-      // Approach 3: Dynamic import with various module paths
-      if (!wasmModule) {
-        const moduleVariants = [
-          // @ts-ignore - dynamic import paths
-          () => import('essentia.js/dist/essentia-wasm.module.js').catch(() => null),
-          // @ts-ignore - dynamic import paths  
-          () => import('essentia.js/dist/essentia-wasm.es.js').catch(() => null),
-        ];
-
-        for (const importFn of moduleVariants) {
-          try {
-            const mod = await importFn();
-            const factory = mod.EssentiaWASM || mod.default || mod;
-            if (typeof factory === 'function') {
-              wasmModule = await factory();
-              console.log('[Essentia] Initialized via dynamic import');
-              break;
-            } else if (factory && typeof factory.arrayToVector === 'function') {
-              wasmModule = factory;
-              console.log('[Essentia] Using pre-instantiated module from dynamic import');
-              break;
-            }
-          } catch {
-            // Try next variant
+      // Approach 3: Check for module on global scope (browser environment)
+      if (!wasmModule && typeof window !== 'undefined') {
+        const globalEssentia = (window as any).EssentiaWASM || (window as any).Essentia?.WASM;
+        if (globalEssentia) {
+          if (typeof globalEssentia === 'function') {
+            wasmModule = await globalEssentia();
+          } else {
+            wasmModule = globalEssentia;
           }
+          console.log('[Essentia] Initialized via global scope');
         }
       }
 

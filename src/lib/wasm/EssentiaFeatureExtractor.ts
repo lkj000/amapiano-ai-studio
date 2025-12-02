@@ -57,25 +57,58 @@ export class EssentiaFeatureExtractor {
     const startTime = performance.now();
 
     try {
-      // Initialize Essentia WASM with compatibility across builds
-      let wasmFactory: any = EssentiaWASM as any;
-      let wasmModule: any;
+      // Try multiple approaches to initialize Essentia WASM
+      let wasmModule: any = null;
+      
+      // Approach 1: Direct EssentiaWASM import (essentia.js 0.1.3+)
       try {
+        const wasmFactory = EssentiaWASM as any;
         if (typeof wasmFactory === 'function') {
           wasmModule = await wasmFactory();
-        } else if (wasmFactory?.default && typeof wasmFactory.default === 'function') {
-          wasmModule = await wasmFactory.default();
-        } else if ((Essentia as any)?.WASM && typeof (Essentia as any).WASM === 'function') {
-          wasmModule = await (Essentia as any).WASM();
-        } else {
-          const mod: any = await import('essentia.js/dist/essentia-wasm.es');
-          const factory = mod.EssentiaWASM || mod.default;
-          wasmModule = await factory();
+          console.log('[Essentia] Initialized via direct EssentiaWASM factory');
         }
-      } catch (e) {
-        console.error('[Essentia] WASM factory resolution failed:', e);
-        throw e;
+      } catch (e1) {
+        console.log('[Essentia] Direct factory failed, trying alternatives...');
       }
+
+      // Approach 2: Check if EssentiaWASM is already instantiated
+      if (!wasmModule && EssentiaWASM && typeof (EssentiaWASM as any).arrayToVector === 'function') {
+        wasmModule = EssentiaWASM;
+        console.log('[Essentia] Using pre-instantiated EssentiaWASM');
+      }
+
+      // Approach 3: Dynamic import with various module paths
+      if (!wasmModule) {
+        const moduleVariants = [
+          // @ts-ignore - dynamic import paths
+          () => import('essentia.js/dist/essentia-wasm.module.js').catch(() => null),
+          // @ts-ignore - dynamic import paths  
+          () => import('essentia.js/dist/essentia-wasm.es.js').catch(() => null),
+        ];
+
+        for (const importFn of moduleVariants) {
+          try {
+            const mod = await importFn();
+            const factory = mod.EssentiaWASM || mod.default || mod;
+            if (typeof factory === 'function') {
+              wasmModule = await factory();
+              console.log('[Essentia] Initialized via dynamic import');
+              break;
+            } else if (factory && typeof factory.arrayToVector === 'function') {
+              wasmModule = factory;
+              console.log('[Essentia] Using pre-instantiated module from dynamic import');
+              break;
+            }
+          } catch {
+            // Try next variant
+          }
+        }
+      }
+
+      if (!wasmModule) {
+        throw new Error('Could not initialize Essentia WASM module');
+      }
+
       this.essentia = new Essentia(wasmModule);
       
       const initTime = performance.now() - startTime;
@@ -85,8 +118,8 @@ export class EssentiaFeatureExtractor {
       this.isInitialized = true;
     } catch (error) {
       console.error('[Essentia] Initialization failed:', error);
-      console.warn('[Essentia] Falling back to basic analysis');
-      // Don't throw - allow graceful degradation
+      console.warn('[Essentia] Falling back to basic analysis - this is normal if WASM is not supported');
+      // Don't throw - allow graceful degradation with basic analysis
       this.isInitialized = false;
     }
   }

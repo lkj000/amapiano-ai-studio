@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Play, Pause, RotateCcw, ChevronRight, CheckCircle } from 'lucide-react';
+import { Play, Pause, RotateCcw, ChevronRight, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface StudyPair {
   id: string;
@@ -25,16 +26,16 @@ interface Response {
   feedback: string;
 }
 
-// Demo pairs - in production, these would come from the database
-const STUDY_PAIRS: StudyPair[] = [
-  { id: '1', baseline: '/demo/baseline-1.wav', amapianorized: '/demo/amapianorized-1.wav', region: 'johannesburg' },
-  { id: '2', baseline: '/demo/baseline-2.wav', amapianorized: '/demo/amapianorized-2.wav', region: 'pretoria' },
-  { id: '3', baseline: '/demo/baseline-3.wav', amapianorized: '/demo/amapianorized-3.wav', region: 'durban' },
+// Demo pairs - fallback when no database pairs exist
+const FALLBACK_PAIRS: StudyPair[] = [
+  { id: '1', baseline: '', amapianorized: '', region: 'johannesburg' },
 ];
 
 export default function UserStudy() {
   const { toast } = useToast();
   const [step, setStep] = useState<'intro' | 'demographics' | 'listening' | 'complete'>('intro');
+  const [studyPairs, setStudyPairs] = useState<StudyPair[]>([]);
+  const [loadingPairs, setLoadingPairs] = useState(true);
   const [currentPairIndex, setCurrentPairIndex] = useState(0);
   const [responses, setResponses] = useState<Response[]>([]);
   const [isPlaying, setIsPlaying] = useState<'A' | 'B' | null>(null);
@@ -56,14 +57,65 @@ export default function UserStudy() {
   
   // Randomize which track is A or B (blind test)
   const [trackOrder, setTrackOrder] = useState<'baseline-first' | 'amapianorized-first'>('baseline-first');
+
+  // Load study pairs from database
+  const loadStudyPairs = useCallback(async () => {
+    try {
+      setLoadingPairs(true);
+      const { data, error } = await supabase
+        .from('generated_samples')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Group into pairs
+      const pairs: Map<string, StudyPair> = new Map();
+      
+      data?.forEach((item: any) => {
+        const metadata = item.metadata as any;
+        if (metadata?.study_type !== 'user_study_pair') return;
+        
+        const pairKey = `${item.region}_${item.created_at.slice(0, 16)}`;
+        
+        if (!pairs.has(pairKey)) {
+          pairs.set(pairKey, {
+            id: item.id,
+            baseline: '',
+            amapianorized: '',
+            region: item.region || 'johannesburg',
+          });
+        }
+        
+        const pair = pairs.get(pairKey)!;
+        if (metadata.pair_type === 'baseline') {
+          pair.baseline = item.sample_url;
+        } else {
+          pair.amapianorized = item.sample_url;
+        }
+      });
+
+      const validPairs = Array.from(pairs.values()).filter(p => p.baseline && p.amapianorized);
+      setStudyPairs(validPairs.length > 0 ? validPairs : FALLBACK_PAIRS);
+    } catch (error) {
+      console.error('Failed to load study pairs:', error);
+      setStudyPairs(FALLBACK_PAIRS);
+    } finally {
+      setLoadingPairs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStudyPairs();
+  }, [loadStudyPairs]);
   
   useEffect(() => {
     // Randomize track order for each pair
     setTrackOrder(Math.random() > 0.5 ? 'baseline-first' : 'amapianorized-first');
   }, [currentPairIndex]);
 
-  const currentPair = STUDY_PAIRS[currentPairIndex];
-  const progress = ((currentPairIndex + 1) / STUDY_PAIRS.length) * 100;
+  const currentPair = studyPairs[currentPairIndex] || FALLBACK_PAIRS[0];
+  const progress = studyPairs.length > 0 ? ((currentPairIndex + 1) / studyPairs.length) * 100 : 0;
 
   const trackA = trackOrder === 'baseline-first' ? currentPair?.baseline : currentPair?.amapianorized;
   const trackB = trackOrder === 'baseline-first' ? currentPair?.amapianorized : currentPair?.baseline;
@@ -158,7 +210,7 @@ export default function UserStudy() {
     setPreference(null);
     setFeedback('');
 
-    if (currentPairIndex < STUDY_PAIRS.length - 1) {
+    if (currentPairIndex < studyPairs.length - 1) {
       setCurrentPairIndex(currentPairIndex + 1);
     } else {
       setStep('complete');
@@ -194,8 +246,22 @@ export default function UserStudy() {
                 rate each track and select which one sounds more authentically Amapiano.
               </p>
               <p>
-                <strong>Duration:</strong> ~10 minutes ({STUDY_PAIRS.length} comparisons)
+                <strong>Duration:</strong> ~10 minutes ({studyPairs.length || 0} comparisons)
               </p>
+              {studyPairs.length === 0 && !loadingPairs && (
+                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded-lg">
+                  <AlertCircle className="h-5 w-5" />
+                  <span className="text-sm">
+                    No study pairs available. <Link to="/ab-pair-generator" className="underline font-medium">Generate pairs first</Link>.
+                  </span>
+                </div>
+              )}
+              {loadingPairs && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading study pairs...</span>
+                </div>
+              )}
               <p className="text-sm">
                 Your responses are anonymous and will be used for academic research purposes only.
               </p>
@@ -436,7 +502,7 @@ export default function UserStudy() {
           </CardHeader>
           <CardContent className="space-y-6 text-center">
             <p className="text-muted-foreground">
-              You completed {STUDY_PAIRS.length} comparisons. Your feedback will help improve 
+              You completed {studyPairs.length} comparisons. Your feedback will help improve 
               AI-generated Amapiano music authenticity.
             </p>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -467,7 +533,7 @@ export default function UserStudy() {
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm text-muted-foreground">
-            <span>Comparison {currentPairIndex + 1} of {STUDY_PAIRS.length}</span>
+            <span>Comparison {currentPairIndex + 1} of {studyPairs.length}</span>
             <span>{Math.round(progress)}% complete</span>
           </div>
           <Progress value={progress} />
@@ -584,7 +650,7 @@ export default function UserStudy() {
             </div>
 
             <Button onClick={submitResponse} className="w-full" disabled={!preference}>
-              {currentPairIndex < STUDY_PAIRS.length - 1 ? 'Next Comparison' : 'Complete Study'}
+              {currentPairIndex < studyPairs.length - 1 ? 'Next Comparison' : 'Complete Study'}
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>

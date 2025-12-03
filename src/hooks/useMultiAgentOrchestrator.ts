@@ -1,6 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AutonomousAgent, AgentStatus, AgentEvent } from '@/lib/agents/AutonomousAgent';
+import { ChainResult } from '@/lib/agents/ToolChainManager';
+import { GoalDecomposer, DecomposedGoal } from '@/lib/agents/GoalDecomposer';
 
 interface Agent {
   id: string;
@@ -245,12 +248,99 @@ export const useMultiAgentOrchestrator = () => {
     }
   }, [agents, executeTask, toast]);
 
+  // Autonomous Agent Integration
+  const autonomousAgentRef = useRef<AutonomousAgent | null>(null);
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>({ state: 'idle', progress: 0 });
+  const [lastChainResult, setLastChainResult] = useState<ChainResult | null>(null);
+  const [decomposedGoal, setDecomposedGoal] = useState<DecomposedGoal | null>(null);
+
+  // Initialize autonomous agent
+  const initializeAutonomousAgent = useCallback(() => {
+    autonomousAgentRef.current = new AutonomousAgent({
+      maxIterations: 15,
+      reflectionEnabled: true,
+      autonomousMode: true,
+      learningEnabled: true
+    });
+
+    autonomousAgentRef.current.addEventListener((event: AgentEvent) => {
+      if (event.type === 'status') {
+        setAgentStatus(event.data);
+      }
+    });
+
+    console.log('[Orchestrator] Autonomous Agent initialized');
+  }, []);
+
+  // Execute goal autonomously with ReAct loop
+  const executeAutonomously = useCallback(async (goal: string) => {
+    if (!autonomousAgentRef.current) {
+      initializeAutonomousAgent();
+    }
+
+    setIsOrchestrating(true);
+    toast({
+      title: "Autonomous Execution Started",
+      description: `Goal: ${goal.slice(0, 60)}...`
+    });
+
+    try {
+      const result = await autonomousAgentRef.current!.execute(goal);
+      setLastChainResult(result);
+      
+      toast({
+        title: result.success ? "Goal Achieved" : "Execution Complete",
+        description: `${result.tasksCompleted}/${result.totalTasks} tasks completed in ${(result.executionTime / 1000).toFixed(1)}s`
+      });
+
+      return result;
+    } catch (error: any) {
+      toast({
+        title: "Autonomous Execution Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsOrchestrating(false);
+    }
+  }, [initializeAutonomousAgent, toast]);
+
+  // Decompose a goal without executing
+  const decomposeGoal = useCallback((goal: string) => {
+    const decomposer = new GoalDecomposer([
+      'styleAnalyzer', 'lyricsGenerator', 'elementSelector', 'vocalSynthesis',
+      'trackComposer', 'audioMixer', 'authenticityScorer', 'audioLoader',
+      'stemSeparator', 'stemExporter', 'featureExtractor', 'musicalityAnalyzer',
+      'reportGenerator', 'amapianorizer', 'productionPlanner', 'musicGenerator',
+      'audioProcessor'
+    ]);
+    
+    const decomposed = decomposer.decompose(goal);
+    setDecomposedGoal(decomposed);
+    return decomposed;
+  }, []);
+
   return {
+    // Original exports
     agents,
     tasks,
     isOrchestrating,
     initializeAgents,
     orchestrate,
-    analyzeContentGaps
+    analyzeContentGaps,
+    
+    // Autonomous Agent exports
+    agentStatus,
+    lastChainResult,
+    decomposedGoal,
+    initializeAutonomousAgent,
+    executeAutonomously,
+    decomposeGoal,
+    
+    // Agent metrics
+    getAgentSuccessRate: () => autonomousAgentRef.current?.getSuccessRate() || 0,
+    getAgentMemory: () => autonomousAgentRef.current?.getMemory() || null,
+    getReflectionHistory: () => autonomousAgentRef.current?.getReflectionHistory() || null
   };
 };

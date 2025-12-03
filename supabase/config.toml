@@ -135,3 +135,9 @@ verify_jwt = false
 
 [functions.agent-reasoning]
 verify_jwt = false
+
+[functions.analyze-audio]
+verify_jwt = false
+
+[functions.generate-music]
+verify_jwt = false

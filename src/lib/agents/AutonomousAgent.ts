@@ -87,8 +87,14 @@ export class AutonomousAgent {
   }
 
   private registerDefaultTools(): void {
-    // These would be connected to actual implementations
-    // For now, they're registered for the decomposer to recognize
+    // Import and register real tools
+    import('./RealToolDefinitions').then(({ getAllRealTools }) => {
+      const tools = getAllRealTools();
+      this.toolChainManager.registerTools(tools);
+      console.log(`[Agent] Registered ${tools.length} real tools`);
+    }).catch(err => {
+      console.warn('[Agent] Failed to load real tools:', err);
+    });
   }
 
   addEventListener(callback: AgentEventCallback): void {

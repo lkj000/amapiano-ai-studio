@@ -7,6 +7,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { AutonomousAgent, AgentConfig, AgentStatus, AgentEvent, AgentMemory } from '@/lib/agents/AutonomousAgent';
 import { ChainResult } from '@/lib/agents/ToolChainManager';
 import { useToast } from '@/hooks/use-toast';
+import { useAgentMemoryPersistence } from '@/hooks/useAgentMemoryPersistence';
 
 export interface UseAutonomousAgentReturn {
   // State
@@ -27,6 +28,7 @@ export interface UseAutonomousAgentReturn {
 export const useAutonomousAgent = (config?: Partial<AgentConfig>): UseAutonomousAgentReturn => {
   const agentRef = useRef<AutonomousAgent | null>(null);
   const { toast } = useToast();
+  const { saveExecution } = useAgentMemoryPersistence();
 
   const [status, setStatus] = useState<AgentStatus>({
     state: 'idle',
@@ -95,10 +97,22 @@ export const useAutonomousAgent = (config?: Partial<AgentConfig>): UseAutonomous
     });
 
     try {
+      const startTime = Date.now();
       const result = await agentRef.current.execute(goal);
       setLastResult(result);
       setMemory(agentRef.current.getMemory());
       setSuccessRate(agentRef.current.getSuccessRate());
+      
+      // Persist execution to database
+      saveExecution({
+        user_id: 'anonymous', // Replace with actual user ID when auth is available
+        goal,
+        success: result.success,
+        execution_result: result as any,
+        duration_ms: Date.now() - startTime,
+        learnings: result.reflections?.flatMap(r => r.learnings?.map(l => l.description) || []) || []
+      }).catch(err => console.warn('[Agent] Failed to save execution:', err));
+      
       return result;
     } finally {
       setIsExecuting(false);

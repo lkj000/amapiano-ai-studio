@@ -127,7 +127,7 @@ export const audioAnalysisTool: ToolDefinition = {
   timeout: 30000
 };
 
-// Amapianorization Tool
+// Amapianorization Tool - Connected to real audio processor
 export const amapianorizationTool: ToolDefinition = {
   name: 'amapianorization',
   description: 'Transform audio by adding authentic Amapiano elements',
@@ -148,14 +148,37 @@ export const amapianorizationTool: ToolDefinition = {
     intensity: number; 
     elements: string[] 
   }) => {
-    // This would connect to the Amapianorization engine
-    // For now, return structured response indicating the operation
+    // Import and use real audio processor
+    const { amapianorizeAudio } = await import('@/lib/audio/audioProcessor');
+    
+    const settings = {
+      addLogDrum: input.elements.includes('log_drums'),
+      logDrumIntensity: input.intensity,
+      addPercussion: input.elements.includes('percussion'),
+      percussionDensity: input.intensity * 0.8,
+      addPianoChords: input.elements.includes('piano'),
+      pianoComplexity: input.intensity * 0.7,
+      addBassline: input.elements.includes('bass'),
+      bassDepth: input.intensity,
+      addVocalChops: false,
+      vocalChopRate: 0,
+      sidechainCompression: input.elements.includes('effects'),
+      sidechainAmount: input.intensity * 0.6,
+      filterSweeps: input.elements.includes('effects'),
+      sweepFrequency: 0.5,
+      culturalAuthenticity: 'modern' as const,
+      regionalStyle: input.region.toLowerCase().replace(' ', '-') as any
+    };
+
+    const result = await amapianorizeAudio({ audioUrl: input.audioUrl }, settings);
+    
     return {
-      outputUrl: input.audioUrl, // Would be transformed URL
-      authenticityScore: 85 + Math.random() * 10,
+      outputUrl: result.processedAudio?.url || input.audioUrl,
+      authenticityScore: result.authenticityScore,
       elementsApplied: input.elements,
       region: input.region,
-      intensity: input.intensity
+      intensity: input.intensity,
+      success: result.success
     };
   },
   retryable: true,

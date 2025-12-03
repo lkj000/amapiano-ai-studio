@@ -132,3 +132,6 @@ verify_jwt = false
 
 [functions.amapianorize-audio]
 verify_jwt = false
+
+[functions.agent-reasoning]
+verify_jwt = false

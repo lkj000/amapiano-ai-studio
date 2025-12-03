@@ -36,6 +36,7 @@ import UserStudy from "./pages/UserStudy";
 import StudyRecruitment from "./pages/StudyRecruitment";
 import StudyAnalytics from "./pages/StudyAnalytics";
 import ABPairGenerator from "./pages/ABPairGenerator";
+import AgentDemo from "./pages/AgentDemo";
 
 const queryClient = new QueryClient();
 

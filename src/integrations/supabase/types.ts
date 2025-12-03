@@ -144,6 +144,84 @@ export type Database = {
           },
         ]
       }
+      agent_executions: {
+        Row: {
+          created_at: string
+          decomposed_goal: Json | null
+          duration_ms: number | null
+          execution_result: Json | null
+          goal: string
+          id: string
+          learnings: Json | null
+          reflections: Json | null
+          success: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decomposed_goal?: Json | null
+          duration_ms?: number | null
+          execution_result?: Json | null
+          goal: string
+          id?: string
+          learnings?: Json | null
+          reflections?: Json | null
+          success?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decomposed_goal?: Json | null
+          duration_ms?: number | null
+          execution_result?: Json | null
+          goal?: string
+          id?: string
+          learnings?: Json | null
+          reflections?: Json | null
+          success?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      agent_memory: {
+        Row: {
+          access_count: number | null
+          created_at: string
+          id: string
+          importance_score: number | null
+          last_accessed: string | null
+          memory_data: Json
+          memory_key: string
+          memory_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          memory_data?: Json
+          memory_key: string
+          memory_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string
+          id?: string
+          importance_score?: number | null
+          last_accessed?: string | null
+          memory_data?: Json
+          memory_key?: string
+          memory_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_context_memory: {
         Row: {
           access_count: number | null

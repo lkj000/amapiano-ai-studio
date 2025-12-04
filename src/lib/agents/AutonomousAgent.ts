@@ -56,6 +56,8 @@ export class AutonomousAgent {
   private toolChainManager: ToolChainManager;
   private reflectionSystem: ReflectionSystem;
   private eventListeners: AgentEventCallback[] = [];
+  private toolsReadyPromise: Promise<void>;
+  private toolsReady: boolean = false;
 
   constructor(config?: Partial<AgentConfig>) {
     this.config = {
@@ -82,19 +84,29 @@ export class AutonomousAgent {
     this.goalDecomposer = new GoalDecomposer(this.toolChainManager.getAvailableTools());
     this.reflectionSystem = new ReflectionSystem();
 
-    // Register default tools
-    this.registerDefaultTools();
+    // Register default tools and track readiness
+    this.toolsReadyPromise = this.registerDefaultTools();
   }
 
-  private registerDefaultTools(): void {
-    // Import and register real tools
-    import('./RealToolDefinitions').then(({ getAllRealTools }) => {
+  private async registerDefaultTools(): Promise<void> {
+    try {
+      const { getAllRealTools } = await import('./RealToolDefinitions');
       const tools = getAllRealTools();
       this.toolChainManager.registerTools(tools);
+      this.toolsReady = true;
       console.log(`[Agent] Registered ${tools.length} real tools`);
-    }).catch(err => {
+    } catch (err) {
       console.warn('[Agent] Failed to load real tools:', err);
-    });
+      this.toolsReady = true; // Still mark as ready to allow execution with fallbacks
+    }
+  }
+
+  async waitForTools(): Promise<void> {
+    await this.toolsReadyPromise;
+  }
+
+  isReady(): boolean {
+    return this.toolsReady;
   }
 
   addEventListener(callback: AgentEventCallback): void {
@@ -111,6 +123,9 @@ export class AutonomousAgent {
 
   async execute(goal: string): Promise<ChainResult> {
     console.log(`[Agent] Starting execution for goal: ${goal}`);
+    
+    // Wait for tools to be ready before executing
+    await this.toolsReadyPromise;
     
     this.status = {
       state: 'thinking',

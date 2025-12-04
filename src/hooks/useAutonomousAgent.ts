@@ -8,6 +8,7 @@ import { AutonomousAgent, AgentConfig, AgentStatus, AgentEvent, AgentMemory } fr
 import { ChainResult } from '@/lib/agents/ToolChainManager';
 import { useToast } from '@/hooks/use-toast';
 import { useAgentMemoryPersistence } from '@/hooks/useAgentMemoryPersistence';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface UseAutonomousAgentReturn {
   // State
@@ -103,9 +104,13 @@ export const useAutonomousAgent = (config?: Partial<AgentConfig>): UseAutonomous
       setMemory(agentRef.current.getMemory());
       setSuccessRate(agentRef.current.getSuccessRate());
       
+      // Get current user ID if authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || 'anonymous';
+      
       // Persist execution to database
       saveExecution({
-        user_id: 'anonymous', // Replace with actual user ID when auth is available
+        user_id: userId,
         goal,
         success: result.success,
         execution_result: result as any,
@@ -118,7 +123,7 @@ export const useAutonomousAgent = (config?: Partial<AgentConfig>): UseAutonomous
       setIsExecuting(false);
       setStatus(agentRef.current?.getStatus() || { state: 'idle', progress: 0 });
     }
-  }, [toast]);
+  }, [toast, saveExecution]);
 
   const reset = useCallback(() => {
     setStatus({ state: 'idle', progress: 0 });

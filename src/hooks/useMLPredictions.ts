@@ -116,10 +116,10 @@ export function useMLPredictions() {
   /**
    * Calculate FAD between audio buffers
    */
-  const calculateAudioFAD = useCallback((
+  const calculateAudioFAD = useCallback(async (
     originalBuffer: AudioBuffer,
     processedBuffer: AudioBuffer
-  ): FADResult => {
+  ): Promise<FADResult> => {
     return calculateFAD(originalBuffer, processedBuffer);
   }, []);
 

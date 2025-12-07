@@ -1,8 +1,21 @@
 # ML Components Detailed Review & Critique
 
+> **Last Updated:** 2024-12-07 - Major robustness improvements applied
+
 ## Executive Summary
 
-The platform implements a **client-side ML stack** with 6 core components designed for real-time audio/music analysis. While architecturally sound for a browser-based DAW, several components have **critical limitations** that require addressing for PhD research credibility.
+The platform implements a **client-side ML stack** with 6 core components designed for real-time audio/music analysis. **Recent improvements** have significantly enhanced research credibility:
+
+### Recent Improvements Summary
+
+| Component | Before | After | Status |
+|-----------|--------|-------|--------|
+| FAD Calculator | O(n²) DFT, incorrect matrix sqrt | Cooley-Tukey FFT, Newton-Schulz iteration | ✅ Fixed |
+| Vector Embeddings | 60-dim, dimension mismatch | 128-dim, deterministic projection alignment | ✅ Fixed |
+| Authenticity Learning | Fixed LR, no validation | Adam optimizer, train/val split, regularization | ✅ Fixed |
+| Real-Time Prediction | Rule-based genre classifier | Naive Bayes with Gaussian features, LRU cache | ✅ Fixed |
+| Model Quantizer | Moving average "SVD" | Actual power iteration SVD | ✅ Fixed |
+| SVDQuant-Audio | No actual SVD | Enhanced but SVD naming still misleading | ⚠️ Partial |
 
 ---
 
@@ -15,39 +28,34 @@ The platform implements a **client-side ML stack** with 6 core components design
 ┌─────────────────────────────────────────┐
 │     AuthenticityLearningModel           │
 ├─────────────────────────────────────────┤
-│ • Linear Regression (Online SGD)        │
+│ • Linear Regression (Adam Optimizer)    │
 │ • L2 Regularization (λ=0.001)           │
+│ • Train/Validation Split (80/20)        │
 │ • Region-Specific Weight Matrices       │
 │ • Prior Weights (Domain Knowledge)      │
 └─────────────────────────────────────────┘
 ```
 
-### Strengths
-- ✅ **Online learning** via gradient descent - can learn incrementally
-- ✅ **Region-specific models** (Johannesburg, Pretoria, Durban, Cape Town)
-- ✅ **Interpretable weights** - explainable predictions
-- ✅ **Prior initialization** from domain knowledge
-- ✅ **Model export/import** for persistence
+### ✅ Improvements Applied
+- **Adam optimizer** with adaptive learning rate (β1=0.9, β2=0.999)
+- **Train/validation split** (80/20) for proper evaluation
+- **Momentum tracking** for faster convergence
+- **L2 regularization** properly applied
 
-### Critical Issues
-
+### Remaining Considerations
 | Issue | Severity | Description |
 |-------|----------|-------------|
-| **Overly Simple Model** | HIGH | Linear regression cannot capture non-linear element interactions |
-| **Fixed Learning Rate** | MEDIUM | No adaptive learning rate (Adam, AdaGrad) |
-| **No Validation Split** | HIGH | MSE calculated on training data, not holdout set |
-| **Weight Normalization** | LOW | Forced sum-to-1 may distort learned relationships |
-| **No Feature Scaling** | MEDIUM | Elements assumed 0-1, but no enforcement |
+| **Linear Model** | MEDIUM | Still cannot capture non-linear interactions (acceptable for interpretability) |
+| **Weight Normalization** | LOW | Forced sum-to-1 may distort relationships |
 
-### Recommendations
+### Current Implementation
 ```typescript
-// CURRENT (Problematic)
-const gradient = error * value - this.regularization * this.weights[region][element];
-this.weights[region][element] += this.learningRate * gradient; // Fixed LR
-
-// RECOMMENDED: Adam optimizer with adaptive learning
-private adamState: Map<string, { m: number; v: number; t: number }>;
-private beta1 = 0.9;
+// ADAM OPTIMIZER (Now Implemented)
+const m_t = beta1 * state.m + (1 - beta1) * gradient;
+const v_t = beta2 * state.v + (1 - beta2) * gradient * gradient;
+const m_hat = m_t / (1 - Math.pow(beta1, state.t));
+const v_hat = v_t / (1 - Math.pow(beta2, state.t));
+weight += this.learningRate * m_hat / (Math.sqrt(v_hat) + 1e-8);
 private beta2 = 0.999;
 ```
 

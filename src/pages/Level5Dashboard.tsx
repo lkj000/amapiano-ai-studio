@@ -414,18 +414,40 @@ export default function Level5Dashboard() {
   // Run all tests
   const runAllTests = async () => {
     setIsRunning(true);
-    setTestResults(new Map());
+    const results = new Map<string, TestResult>();
+    setTestResults(results);
     
     toast({ title: 'Running Level 5 Compliance Tests', description: `Testing ${componentTests.length} components...` });
     
     for (const test of componentTests) {
-      await runTest(test);
+      const startTime = Date.now();
+      try {
+        const result = await test.test();
+        results.set(test.id, {
+          id: test.id,
+          passed: result.passed,
+          message: result.message,
+          duration: result.duration || (Date.now() - startTime),
+          timestamp: Date.now()
+        });
+      } catch (error: any) {
+        results.set(test.id, {
+          id: test.id,
+          passed: false,
+          message: error.message || 'Test failed',
+          duration: Date.now() - startTime,
+          timestamp: Date.now()
+        });
+      }
+      // Update state after each test for UI responsiveness
+      setTestResults(new Map(results));
       // Small delay between tests
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
     
     setIsRunning(false);
-    toast({ title: 'Tests Complete', description: `Passed: ${Array.from(testResults.values()).filter(r => r.passed).length}/${componentTests.length}` });
+    const passedCount = Array.from(results.values()).filter(r => r.passed).length;
+    toast({ title: 'Tests Complete', description: `Passed: ${passedCount}/${componentTests.length}` });
   };
 
   // Get status icon

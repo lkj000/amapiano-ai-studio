@@ -1,7 +1,14 @@
 /**
  * Durable Agent State
- * Temporal-inspired persistent workflow state
- * Survives crashes, restarts, and enables replay
+ * 
+ * Temporal-inspired persistent workflow state with FULL event replay capability.
+ * Survives crashes, restarts, and enables complete workflow reconstruction.
+ * 
+ * Key Features:
+ * 1. Full event sourcing - all state changes captured as events
+ * 2. Complete event replay for crash recovery
+ * 3. Checkpointing for efficient recovery
+ * 4. Saga pattern support for distributed transactions
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +17,7 @@ export interface WorkflowState {
   workflowId: string;
   agentId: string;
   goal: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused' | 'compensating';
   currentStep: number;
   totalSteps: number;
   checkpoints: WorkflowCheckpoint[];
@@ -18,34 +25,163 @@ export interface WorkflowState {
   createdAt: number;
   updatedAt: number;
   completedAt?: number;
+  version: number; // Optimistic locking
 }
 
 export interface WorkflowCheckpoint {
   stepId: string;
   stepName: string;
-  status: 'pending' | 'completed' | 'failed' | 'skipped';
+  status: 'pending' | 'completed' | 'failed' | 'skipped' | 'compensated';
   input: any;
   output?: any;
   error?: string;
   startedAt?: number;
   completedAt?: number;
   retryCount: number;
+  compensationData?: any; // For saga rollback
 }
 
 export interface WorkflowEvent {
   id: string;
   workflowId: string;
-  eventType: 'started' | 'step_started' | 'step_completed' | 'step_failed' | 
-             'signal_received' | 'paused' | 'resumed' | 'completed' | 'failed';
+  eventType: WorkflowEventType;
   data: any;
   timestamp: number;
+  sequence: number; // Order for replay
 }
+
+export type WorkflowEventType = 
+  | 'workflow_created'
+  | 'workflow_started'
+  | 'step_started'
+  | 'step_completed'
+  | 'step_failed'
+  | 'step_compensated'
+  | 'signal_received'
+  | 'query_executed'
+  | 'paused'
+  | 'resumed'
+  | 'completed'
+  | 'failed'
+  | 'context_updated';
+
+/**
+ * Event handlers for replay
+ */
+type EventHandler = (state: WorkflowState, event: WorkflowEvent) => WorkflowState;
+
+const eventHandlers: Record<WorkflowEventType, EventHandler> = {
+  workflow_created: (state, event) => ({
+    ...event.data.initialState,
+    version: 1
+  }),
+  
+  workflow_started: (state, event) => ({
+    ...state,
+    status: 'running',
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  step_started: (state, event) => {
+    const checkpoint = state.checkpoints.find(c => c.stepId === event.data.stepId);
+    if (checkpoint) {
+      checkpoint.status = 'pending';
+      checkpoint.input = event.data.input;
+      checkpoint.startedAt = event.timestamp;
+    }
+    return { ...state, updatedAt: event.timestamp, version: state.version + 1 };
+  },
+  
+  step_completed: (state, event) => {
+    const checkpoint = state.checkpoints.find(c => c.stepId === event.data.stepId);
+    if (checkpoint) {
+      checkpoint.status = 'completed';
+      checkpoint.output = event.data.output;
+      checkpoint.completedAt = event.timestamp;
+    }
+    const newCurrentStep = state.currentStep + 1;
+    return { 
+      ...state, 
+      currentStep: newCurrentStep,
+      updatedAt: event.timestamp, 
+      version: state.version + 1 
+    };
+  },
+  
+  step_failed: (state, event) => {
+    const checkpoint = state.checkpoints.find(c => c.stepId === event.data.stepId);
+    if (checkpoint) {
+      checkpoint.status = 'failed';
+      checkpoint.error = event.data.error;
+      checkpoint.retryCount++;
+      checkpoint.completedAt = event.timestamp;
+    }
+    return { ...state, updatedAt: event.timestamp, version: state.version + 1 };
+  },
+  
+  step_compensated: (state, event) => {
+    const checkpoint = state.checkpoints.find(c => c.stepId === event.data.stepId);
+    if (checkpoint) {
+      checkpoint.status = 'compensated';
+      checkpoint.compensationData = event.data.compensationResult;
+    }
+    return { ...state, status: 'compensating', updatedAt: event.timestamp, version: state.version + 1 };
+  },
+  
+  signal_received: (state, event) => ({
+    ...state,
+    context: { ...state.context, lastSignal: event.data },
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  query_executed: (state, _event) => state, // Queries don't change state
+  
+  paused: (state, event) => ({
+    ...state,
+    status: 'paused',
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  resumed: (state, event) => ({
+    ...state,
+    status: 'running',
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  completed: (state, event) => ({
+    ...state,
+    status: 'completed',
+    completedAt: event.timestamp,
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  failed: (state, event) => ({
+    ...state,
+    status: 'failed',
+    context: { ...state.context, failureReason: event.data.error },
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  }),
+  
+  context_updated: (state, event) => ({
+    ...state,
+    context: { ...state.context, ...event.data.updates },
+    updatedAt: event.timestamp,
+    version: state.version + 1
+  })
+};
 
 export class DurableAgentState {
   private static instance: DurableAgentState;
   private localCache: Map<string, WorkflowState> = new Map();
   private eventLog: Map<string, WorkflowEvent[]> = new Map();
   private persistenceEnabled: boolean = true;
+  private sequenceCounters: Map<string, number> = new Map();
 
   private constructor() {}
 
@@ -57,7 +193,7 @@ export class DurableAgentState {
   }
 
   /**
-   * Create a new workflow
+   * Create a new workflow with event sourcing
    */
   async createWorkflow(
     agentId: string,
@@ -75,7 +211,7 @@ export class DurableAgentState {
       retryCount: 0
     }));
 
-    const workflow: WorkflowState = {
+    const initialState: WorkflowState = {
       workflowId,
       agentId,
       goal,
@@ -85,27 +221,75 @@ export class DurableAgentState {
       checkpoints,
       context,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      version: 0
     };
 
-    // Store locally
-    this.localCache.set(workflowId, workflow);
+    // Initialize event log and sequence counter
     this.eventLog.set(workflowId, []);
+    this.sequenceCounters.set(workflowId, 0);
 
-    // Log event
-    await this.logEvent(workflowId, 'started', { goal, steps });
+    // Record creation event
+    await this.appendEvent(workflowId, 'workflow_created', { initialState, goal, steps });
 
-    // Persist to database
-    if (this.persistenceEnabled) {
-      await this.persistWorkflow(workflow);
-    }
+    // Cache the state
+    this.localCache.set(workflowId, initialState);
 
     console.log(`[DurableState] Created workflow: ${workflowId}`);
-    return workflow;
+    return initialState;
   }
 
   /**
-   * Get workflow by ID
+   * Append event to log with proper sequencing
+   */
+  private async appendEvent(
+    workflowId: string, 
+    eventType: WorkflowEventType, 
+    data: any
+  ): Promise<WorkflowEvent> {
+    const sequence = (this.sequenceCounters.get(workflowId) || 0) + 1;
+    this.sequenceCounters.set(workflowId, sequence);
+
+    const event: WorkflowEvent = {
+      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      workflowId,
+      eventType,
+      data,
+      timestamp: Date.now(),
+      sequence
+    };
+
+    // Append to local log
+    const events = this.eventLog.get(workflowId) || [];
+    events.push(event);
+    this.eventLog.set(workflowId, events);
+
+    // Persist event
+    if (this.persistenceEnabled) {
+      await this.persistEvent(event);
+    }
+
+    // Apply event to cached state
+    const currentState = this.localCache.get(workflowId);
+    if (currentState) {
+      const handler = eventHandlers[eventType];
+      if (handler) {
+        const newState = handler(currentState, event);
+        this.localCache.set(workflowId, newState);
+        
+        // Persist state snapshot periodically (every 10 events)
+        if (sequence % 10 === 0) {
+          await this.persistWorkflow(newState);
+        }
+      }
+    }
+
+    console.log(`[DurableState] Event: ${eventType} seq=${sequence} for ${workflowId}`);
+    return event;
+  }
+
+  /**
+   * Get workflow by ID (from cache or rebuild from events)
    */
   async getWorkflow(workflowId: string): Promise<WorkflowState | null> {
     // Check local cache first
@@ -113,9 +297,9 @@ export class DurableAgentState {
       return this.localCache.get(workflowId)!;
     }
 
-    // Try to load from database
+    // Try to load and replay from events
     if (this.persistenceEnabled) {
-      const workflow = await this.loadWorkflow(workflowId);
+      const workflow = await this.replayWorkflow(workflowId);
       if (workflow) {
         this.localCache.set(workflowId, workflow);
         return workflow;
@@ -126,68 +310,62 @@ export class DurableAgentState {
   }
 
   /**
-   * Update workflow step
+   * FULL EVENT REPLAY - Reconstruct workflow state from event log
    */
-  async updateStep(
-    workflowId: string,
-    stepId: string,
-    update: Partial<WorkflowCheckpoint>
-  ): Promise<void> {
-    const workflow = await this.getWorkflow(workflowId);
-    if (!workflow) {
-      throw new Error(`Workflow not found: ${workflowId}`);
+  async replayWorkflow(workflowId: string): Promise<WorkflowState | null> {
+    console.log(`[DurableState] Replaying workflow: ${workflowId}`);
+    
+    // Load events from database
+    const events = await this.loadEvents(workflowId);
+    if (events.length === 0) {
+      console.log(`[DurableState] No events found for ${workflowId}`);
+      return null;
     }
 
-    const checkpoint = workflow.checkpoints.find(c => c.stepId === stepId);
-    if (!checkpoint) {
-      throw new Error(`Step not found: ${stepId}`);
+    // Sort events by sequence
+    events.sort((a, b) => a.sequence - b.sequence);
+    
+    // Store in local event log
+    this.eventLog.set(workflowId, events);
+    this.sequenceCounters.set(workflowId, events[events.length - 1].sequence);
+
+    // Replay events to reconstruct state
+    let state: WorkflowState | null = null;
+
+    for (const event of events) {
+      const handler = eventHandlers[event.eventType];
+      if (handler) {
+        if (event.eventType === 'workflow_created') {
+          state = handler({} as WorkflowState, event);
+        } else if (state) {
+          state = handler(state, event);
+        }
+      }
     }
 
-    Object.assign(checkpoint, update);
-    workflow.updatedAt = Date.now();
+    console.log(`[DurableState] Replayed ${events.length} events, state: ${state?.status}`);
+    return state;
+  }
 
-    // Log appropriate event
-    if (update.status === 'completed') {
-      await this.logEvent(workflowId, 'step_completed', { stepId, output: update.output });
-      workflow.currentStep++;
-    } else if (update.status === 'failed') {
-      await this.logEvent(workflowId, 'step_failed', { stepId, error: update.error });
-    }
-
-    // Persist
-    if (this.persistenceEnabled) {
-      await this.persistWorkflow(workflow);
-    }
+  /**
+   * Start workflow
+   */
+  async startWorkflow(workflowId: string): Promise<void> {
+    await this.appendEvent(workflowId, 'workflow_started', {});
   }
 
   /**
    * Start a step
    */
   async startStep(workflowId: string, stepId: string, input: any): Promise<void> {
-    await this.updateStep(workflowId, stepId, {
-      status: 'pending',
-      input,
-      startedAt: Date.now()
-    });
-
-    const workflow = await this.getWorkflow(workflowId);
-    if (workflow && workflow.status !== 'running') {
-      workflow.status = 'running';
-      await this.persistWorkflow(workflow);
-    }
-
-    await this.logEvent(workflowId, 'step_started', { stepId, input });
+    await this.appendEvent(workflowId, 'step_started', { stepId, input });
   }
 
   /**
    * Complete a step
    */
   async completeStep(workflowId: string, stepId: string, output: any): Promise<void> {
-    await this.updateStep(workflowId, stepId, {
-      status: 'completed',
-      output,
-      completedAt: Date.now()
-    });
+    await this.appendEvent(workflowId, 'step_completed', { stepId, output });
 
     // Check if workflow is complete
     const workflow = await this.getWorkflow(workflowId);
@@ -197,10 +375,7 @@ export class DurableAgentState {
       );
 
       if (allCompleted) {
-        workflow.status = 'completed';
-        workflow.completedAt = Date.now();
-        await this.logEvent(workflowId, 'completed', { totalSteps: workflow.totalSteps });
-        await this.persistWorkflow(workflow);
+        await this.appendEvent(workflowId, 'completed', { totalSteps: workflow.totalSteps });
       }
     }
   }
@@ -209,19 +384,14 @@ export class DurableAgentState {
    * Fail a step
    */
   async failStep(workflowId: string, stepId: string, error: string): Promise<void> {
-    const workflow = await this.getWorkflow(workflowId);
-    if (!workflow) return;
+    await this.appendEvent(workflowId, 'step_failed', { stepId, error });
+  }
 
-    const checkpoint = workflow.checkpoints.find(c => c.stepId === stepId);
-    if (checkpoint) {
-      checkpoint.retryCount++;
-    }
-
-    await this.updateStep(workflowId, stepId, {
-      status: 'failed',
-      error,
-      completedAt: Date.now()
-    });
+  /**
+   * Compensate a step (saga rollback)
+   */
+  async compensateStep(workflowId: string, stepId: string, compensationResult: any): Promise<void> {
+    await this.appendEvent(workflowId, 'step_compensated', { stepId, compensationResult });
   }
 
   /**
@@ -233,13 +403,12 @@ export class DurableAgentState {
 
     const checkpoint = workflow.checkpoints.find(c => c.stepId === stepId);
     if (checkpoint && checkpoint.status === 'failed') {
-      checkpoint.status = 'pending';
-      checkpoint.error = undefined;
-      checkpoint.startedAt = Date.now();
-      checkpoint.completedAt = undefined;
-      
-      await this.persistWorkflow(workflow);
-      await this.logEvent(workflowId, 'step_started', { stepId, retry: checkpoint.retryCount });
+      await this.appendEvent(workflowId, 'step_started', { 
+        stepId, 
+        input: checkpoint.input,
+        isRetry: true,
+        retryCount: checkpoint.retryCount + 1
+      });
     }
   }
 
@@ -247,15 +416,7 @@ export class DurableAgentState {
    * Pause workflow
    */
   async pauseWorkflow(workflowId: string): Promise<void> {
-    const workflow = await this.getWorkflow(workflowId);
-    if (!workflow) return;
-
-    workflow.status = 'paused';
-    workflow.updatedAt = Date.now();
-    
-    await this.persistWorkflow(workflow);
-    await this.logEvent(workflowId, 'paused', {});
-    
+    await this.appendEvent(workflowId, 'paused', {});
     console.log(`[DurableState] Paused workflow: ${workflowId}`);
   }
 
@@ -266,12 +427,7 @@ export class DurableAgentState {
     const workflow = await this.getWorkflow(workflowId);
     if (!workflow || workflow.status !== 'paused') return;
 
-    workflow.status = 'running';
-    workflow.updatedAt = Date.now();
-    
-    await this.persistWorkflow(workflow);
-    await this.logEvent(workflowId, 'resumed', {});
-    
+    await this.appendEvent(workflowId, 'resumed', {});
     console.log(`[DurableState] Resumed workflow: ${workflowId}`);
   }
 
@@ -279,7 +435,14 @@ export class DurableAgentState {
    * Record signal received
    */
   async recordSignal(workflowId: string, signalData: any): Promise<void> {
-    await this.logEvent(workflowId, 'signal_received', signalData);
+    await this.appendEvent(workflowId, 'signal_received', signalData);
+  }
+
+  /**
+   * Update workflow context
+   */
+  async updateContext(workflowId: string, updates: Record<string, any>): Promise<void> {
+    await this.appendEvent(workflowId, 'context_updated', { updates });
   }
 
   /**
@@ -293,14 +456,12 @@ export class DurableAgentState {
    * Get active workflows for an agent
    */
   async getActiveWorkflows(agentId: string): Promise<WorkflowState[]> {
-    // Check local cache
     const active = Array.from(this.localCache.values()).filter(
       w => w.agentId === agentId && (w.status === 'running' || w.status === 'paused')
     );
 
     if (active.length > 0) return active;
 
-    // Try database
     if (this.persistenceEnabled) {
       const { data } = await supabase
         .from('agent_memory')
@@ -311,10 +472,15 @@ export class DurableAgentState {
         .limit(20);
 
       if (data) {
-        return data
-          .map(d => d.memory_data as unknown as WorkflowState)
-          .filter(w => w.agentId === agentId && 
-            (w.status === 'running' || w.status === 'paused'));
+        const workflows: WorkflowState[] = [];
+        for (const d of data) {
+          const workflow = d.memory_data as unknown as WorkflowState;
+          if (workflow.agentId === agentId && 
+              (workflow.status === 'running' || workflow.status === 'paused')) {
+            workflows.push(workflow);
+          }
+        }
+        return workflows;
       }
     }
 
@@ -322,30 +488,85 @@ export class DurableAgentState {
   }
 
   /**
-   * Log workflow event
+   * Execute saga compensation (rollback completed steps)
    */
-  private async logEvent(
-    workflowId: string,
-    eventType: WorkflowEvent['eventType'],
-    data: any
-  ): Promise<void> {
-    const event: WorkflowEvent = {
-      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      workflowId,
-      eventType,
-      data,
-      timestamp: Date.now()
-    };
+  async executeSagaCompensation(workflowId: string): Promise<void> {
+    const workflow = await this.getWorkflow(workflowId);
+    if (!workflow) return;
 
-    const events = this.eventLog.get(workflowId) || [];
-    events.push(event);
-    this.eventLog.set(workflowId, events);
+    console.log(`[DurableState] Starting saga compensation for ${workflowId}`);
 
-    console.log(`[DurableState] Event: ${eventType} for ${workflowId}`);
+    // Compensate completed steps in reverse order
+    const completedSteps = workflow.checkpoints
+      .filter(c => c.status === 'completed')
+      .reverse();
+
+    for (const step of completedSteps) {
+      try {
+        // Execute compensation logic (would be provided by step definition)
+        const compensationResult = { 
+          stepId: step.stepId, 
+          compensatedAt: Date.now(),
+          originalOutput: step.output
+        };
+        await this.compensateStep(workflowId, step.stepId, compensationResult);
+      } catch (error) {
+        console.error(`[DurableState] Compensation failed for step ${step.stepId}:`, error);
+      }
+    }
+
+    await this.appendEvent(workflowId, 'failed', { 
+      error: 'Saga compensation completed',
+      compensatedSteps: completedSteps.map(s => s.stepId)
+    });
   }
 
   /**
-   * Persist workflow to database
+   * Persist event to database
+   */
+  private async persistEvent(event: WorkflowEvent): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('agent_memory').insert({
+        user_id: user.id,
+        memory_key: `event_${event.id}`,
+        memory_type: 'workflow_event',
+        memory_data: event as any,
+        created_at: new Date(event.timestamp).toISOString()
+      });
+
+    } catch (error) {
+      console.error('[DurableState] Failed to persist event:', error);
+    }
+  }
+
+  /**
+   * Load events from database
+   */
+  private async loadEvents(workflowId: string): Promise<WorkflowEvent[]> {
+    try {
+      const { data } = await supabase
+        .from('agent_memory')
+        .select('memory_data')
+        .eq('memory_type', 'workflow_event')
+        .like('memory_key', 'event_%')
+        .order('created_at', { ascending: true });
+
+      if (data) {
+        return data
+          .map(d => d.memory_data as unknown as WorkflowEvent)
+          .filter(e => e.workflowId === workflowId);
+      }
+    } catch (error) {
+      console.error('[DurableState] Failed to load events:', error);
+    }
+    return [];
+  }
+
+  /**
+   * Persist workflow state snapshot
    */
   private async persistWorkflow(workflow: WorkflowState): Promise<void> {
     try {
@@ -368,49 +589,33 @@ export class DurableAgentState {
   }
 
   /**
-   * Load workflow from database
-   */
-  private async loadWorkflow(workflowId: string): Promise<WorkflowState | null> {
-    try {
-      const { data } = await supabase
-        .from('agent_memory')
-        .select('memory_data')
-        .eq('memory_key', workflowId)
-        .single();
-
-      if (data) {
-        return data.memory_data as unknown as WorkflowState;
-      }
-    } catch (error) {
-      console.error('[DurableState] Failed to load workflow:', error);
-    }
-    return null;
-  }
-
-  /**
-   * Replay workflow from events (for debugging/recovery)
-   */
-  async replayWorkflow(workflowId: string): Promise<WorkflowState | null> {
-    const events = this.getEvents(workflowId);
-    if (events.length === 0) return null;
-
-    console.log(`[DurableState] Replaying ${events.length} events for ${workflowId}`);
-
-    // Find initial state from 'started' event
-    const startEvent = events.find(e => e.eventType === 'started');
-    if (!startEvent) return null;
-
-    // Reconstruct state by replaying events
-    // This is a simplified replay - full implementation would be more comprehensive
-    const workflow = await this.getWorkflow(workflowId);
-    return workflow;
-  }
-
-  /**
    * Enable/disable persistence
    */
   setPersistenceEnabled(enabled: boolean): void {
     this.persistenceEnabled = enabled;
+  }
+
+  /**
+   * Get workflow statistics
+   */
+  getStats(): { 
+    activeWorkflows: number; 
+    totalEvents: number; 
+    cachedWorkflows: number 
+  } {
+    let totalEvents = 0;
+    for (const events of this.eventLog.values()) {
+      totalEvents += events.length;
+    }
+
+    const activeWorkflows = Array.from(this.localCache.values())
+      .filter(w => w.status === 'running' || w.status === 'paused').length;
+
+    return {
+      activeWorkflows,
+      totalEvents,
+      cachedWorkflows: this.localCache.size
+    };
   }
 
   /**
@@ -419,6 +624,7 @@ export class DurableAgentState {
   reset(): void {
     this.localCache.clear();
     this.eventLog.clear();
+    this.sequenceCounters.clear();
   }
 }
 

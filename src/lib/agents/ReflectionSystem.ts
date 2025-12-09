@@ -1,8 +1,10 @@
 /**
  * Reflection System
- * Evaluates tool outputs and decides next steps
- * Implements self-correction and learning from mistakes
+ * Integrates with NeuralReflectionSystem for learned assessment
+ * Falls back to heuristic rules only when neural system is unavailable
  */
+
+import { NeuralReflectionSystem } from '@/lib/ml/NeuralReflectionSystem';
 
 export interface ReflectionInput {
   goal: string;
@@ -45,6 +47,8 @@ export interface ReflectionHistory {
 export class ReflectionSystem {
   private history: ReflectionHistory;
   private qualityThresholds: Record<string, number>;
+  private neuralSystem: NeuralReflectionSystem | null = null;
+  private useNeuralAssessment = true;
 
   constructor() {
     this.history = {
@@ -61,9 +65,40 @@ export class ReflectionSystem {
       beatConsistency: 0.85,
       confidence: 0.6
     };
+
+    // Initialize neural reflection system
+    try {
+      this.neuralSystem = new NeuralReflectionSystem();
+      console.log('[ReflectionSystem] Neural assessment enabled');
+    } catch (e) {
+      console.warn('[ReflectionSystem] Neural system unavailable, using heuristics');
+      this.useNeuralAssessment = false;
+    }
   }
 
   reflect(input: ReflectionInput): ReflectionResult {
+    // Try neural assessment first (learned behavior)
+    if (this.useNeuralAssessment && this.neuralSystem) {
+      try {
+        const neuralResult = this.neuralSystem.reflect(input);
+        
+        // Record in local history as well
+        this.history.reflections.push({
+          input,
+          result: neuralResult,
+          timestamp: Date.now()
+        });
+        this.history.learnings.push(...neuralResult.learnings);
+        this.updateSuccessRate();
+        
+        console.log(`[ReflectionSystem] Neural assessment: ${neuralResult.assessment} (${(neuralResult.confidence * 100).toFixed(1)}% confidence)`);
+        return neuralResult;
+      } catch (e) {
+        console.warn('[ReflectionSystem] Neural assessment failed, falling back to heuristics');
+      }
+    }
+
+    // Fallback to heuristic assessment
     const assessment = this.assessOutput(input);
     const insights = this.extractInsights(input, assessment);
     const learnings = this.extractLearnings(input, assessment);

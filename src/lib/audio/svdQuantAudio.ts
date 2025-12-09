@@ -430,9 +430,15 @@ export class SVDQuantAudio {
   }
 
   // Vector helper methods for SVD
-  private normalizeVector(v: Float32Array): Float32Array {
+  private normalizeVector(v: Float32Array): Float32Array<ArrayBuffer> {
     const norm = this.vectorNorm(v);
-    return norm > 0 ? this.scaleVector(v, 1 / norm) : v;
+    if (norm > 0) {
+      return this.scaleVector(v, 1 / norm);
+    }
+    // Return a copy to ensure correct buffer type
+    const result = new Float32Array(v.length);
+    result.set(v);
+    return result;
   }
 
   private vectorNorm(v: Float32Array): number {
@@ -443,7 +449,7 @@ export class SVDQuantAudio {
     return Math.sqrt(sum);
   }
 
-  private scaleVector(v: Float32Array, scalar: number): Float32Array {
+  private scaleVector(v: Float32Array, scalar: number): Float32Array<ArrayBuffer> {
     const result = new Float32Array(v.length);
     for (let i = 0; i < v.length; i++) {
       result[i] = v[i] * scalar;

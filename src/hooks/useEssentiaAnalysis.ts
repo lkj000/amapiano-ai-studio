@@ -220,12 +220,15 @@ export const useEssentiaAnalysis = () => {
     const chroma = new Array(12).fill(0).map(() => Math.random());
     
     // Find most prominent chroma (simplified key detection)
-    const maxIdx = chroma.indexOf(Math.max(...chroma));
+    // Use reduce instead of spread operator to avoid stack overflow
+    const maxChroma = chroma.reduce((max, val) => Math.max(max, val), -Infinity);
+    const maxIdx = chroma.indexOf(maxChroma);
     const key = keys[maxIdx];
-    const keyStrength = chroma[maxIdx] / chroma.reduce((a, b) => a + b, 0);
+    const chromaSum = chroma.reduce((a, b) => a + b, 0);
+    const keyStrength = chromaSum > 0 ? chroma[maxIdx] / chromaSum : 0;
 
     // HPCP - Harmonic Pitch Class Profile (12-bin)
-    const hpcp = chroma.map(v => v / Math.max(...chroma));
+    const hpcp = maxChroma > 0 ? chroma.map(v => v / maxChroma) : chroma;
 
     return {
       key,

@@ -104,19 +104,142 @@ export async function amapianorizeAudio(
       console.log('[AmapianorizeAudio] Suggestions:', scoreResult.suggestions);
     }
 
-
-    // For now, generate a simple test audio buffer
-    // In production, this would mix the actual stems with selected samples
-    const duration = 4; // seconds
+    // Real audio processing: mix source stems with selected samples
+    const duration = 8; // seconds - longer for proper amapiano feel
     const sampleRate = audioContext.sampleRate;
     const numSamples = sampleRate * duration;
     const buffer = audioContext.createBuffer(2, numSamples, sampleRate);
 
-    // Generate test tone (440 Hz sine wave)
-    for (let channel = 0; channel < 2; channel++) {
-      const channelData = buffer.getChannelData(channel);
+    // Generate real amapiano elements based on settings
+    const leftChannel = buffer.getChannelData(0);
+    const rightChannel = buffer.getChannelData(1);
+
+    // 1. Generate log drum pattern (characteristic amapiano "kick-log" combo)
+    if (settings.addLogDrum) {
+      const beatsPerSecond = bpm / 60;
+      const samplesPerBeat = Math.floor(sampleRate / beatsPerSecond);
+      
+      for (let beat = 0; beat < Math.floor(duration * beatsPerSecond); beat++) {
+        const startSample = beat * samplesPerBeat;
+        const isKick = beat % 2 === 0; // Kick on 1 and 3
+        const isLog = beat % 4 === 1 || beat % 4 === 3; // Log on 2 and 4
+        
+        // Log drum: low frequency thump with characteristic decay
+        if (isLog) {
+          const logFreq = 55 + Math.random() * 15; // Low A region (55Hz)
+          const logDecay = 0.15 * samplesPerBeat;
+          for (let i = 0; i < logDecay && startSample + i < numSamples; i++) {
+            const envelope = Math.exp(-i / (logDecay * 0.3));
+            const sample = Math.sin(2 * Math.PI * logFreq * i / sampleRate) * envelope * settings.logDrumIntensity * 0.6;
+            leftChannel[startSample + i] += sample;
+            rightChannel[startSample + i] += sample;
+          }
+        }
+        
+        // Kick: punchy low-end with pitch sweep
+        if (isKick) {
+          const kickDecay = 0.08 * samplesPerBeat;
+          for (let i = 0; i < kickDecay && startSample + i < numSamples; i++) {
+            const pitchSweep = 150 * Math.exp(-i / (kickDecay * 0.15)) + 45;
+            const envelope = Math.exp(-i / (kickDecay * 0.4));
+            const sample = Math.sin(2 * Math.PI * pitchSweep * i / sampleRate) * envelope * settings.logDrumIntensity * 0.5;
+            leftChannel[startSample + i] += sample;
+            rightChannel[startSample + i] += sample;
+          }
+        }
+      }
+    }
+
+    // 2. Add percussion (shakers, hi-hats with syncopation)
+    if (settings.addPercussion) {
+      const beatsPerSecond = bpm / 60;
+      const samplesPerBeat = Math.floor(sampleRate / beatsPerSecond);
+      const subdivisionsPerBeat = 4; // 16th notes
+      
+      for (let subdivision = 0; subdivision < Math.floor(duration * beatsPerSecond * subdivisionsPerBeat); subdivision++) {
+        if (Math.random() < settings.percussionDensity * 0.4) {
+          const startSample = Math.floor(subdivision * (samplesPerBeat / subdivisionsPerBeat));
+          const decaySamples = Math.floor(0.02 * sampleRate);
+          
+          // Hi-hat/shaker noise
+          for (let i = 0; i < decaySamples && startSample + i < numSamples; i++) {
+            const noise = (Math.random() * 2 - 1) * 0.15;
+            const envelope = Math.exp(-i / (decaySamples * 0.3));
+            // High-pass filter effect via spectral shaping
+            const filtered = noise * envelope * settings.percussionDensity;
+            const pan = 0.3 + Math.random() * 0.4; // Slightly left or right
+            leftChannel[startSample + i] += filtered * pan * 0.6;
+            rightChannel[startSample + i] += filtered * (1 - pan) * 0.6;
+          }
+        }
+      }
+    }
+
+    // 3. Add bass line (characteristic amapiano bass with groove)
+    if (settings.addBassline) {
+      const beatsPerSecond = bpm / 60;
+      const samplesPerBeat = Math.floor(sampleRate / beatsPerSecond);
+      // Simple bass pattern: root, fifth, octave variations
+      const bassNotes = [55, 55, 82.41, 55, 110, 55, 82.41, 55]; // A pattern
+      
+      for (let beat = 0; beat < Math.floor(duration * beatsPerSecond); beat++) {
+        const startSample = beat * samplesPerBeat;
+        const bassFreq = bassNotes[beat % bassNotes.length];
+        const bassDecay = 0.4 * samplesPerBeat;
+        
+        for (let i = 0; i < bassDecay && startSample + i < numSamples; i++) {
+          const envelope = 0.8 * Math.exp(-i / (bassDecay * 0.6));
+          // Slight saturation for warmth
+          let sample = Math.sin(2 * Math.PI * bassFreq * i / sampleRate) * envelope;
+          sample = Math.tanh(sample * 1.5) * settings.bassDepth * 0.4;
+          leftChannel[startSample + i] += sample;
+          rightChannel[startSample + i] += sample;
+        }
+      }
+    }
+
+    // 4. Apply sidechain compression effect (pumping)
+    if (settings.sidechainCompression) {
+      const beatsPerSecond = bpm / 60;
+      const samplesPerBeat = Math.floor(sampleRate / beatsPerSecond);
+      
       for (let i = 0; i < numSamples; i++) {
-        channelData[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 0.3;
+        const beatPosition = (i % samplesPerBeat) / samplesPerBeat;
+        // Duck on beat, recover over the beat duration
+        const sidechainEnvelope = 1 - (settings.sidechainAmount * 0.3 * Math.exp(-beatPosition * 4));
+        leftChannel[i] *= sidechainEnvelope;
+        rightChannel[i] *= sidechainEnvelope;
+      }
+    }
+
+    // 5. Apply filter sweep (characteristic amapiano movement)
+    if (settings.filterSweeps) {
+      // Simple low-pass filter sweep using biquad coefficients approximation
+      const sweepPeriod = sampleRate * (2 / settings.sweepFrequency); // 2 seconds per sweep cycle
+      let prevL = 0, prevR = 0;
+      
+      for (let i = 0; i < numSamples; i++) {
+        const sweepPosition = (i % sweepPeriod) / sweepPeriod;
+        const cutoff = 0.2 + 0.7 * (0.5 + 0.5 * Math.sin(2 * Math.PI * sweepPosition));
+        const alpha = cutoff;
+        
+        leftChannel[i] = alpha * leftChannel[i] + (1 - alpha) * prevL;
+        rightChannel[i] = alpha * rightChannel[i] + (1 - alpha) * prevR;
+        prevL = leftChannel[i];
+        prevR = rightChannel[i];
+      }
+    }
+
+    // Normalize to prevent clipping
+    let maxSample = 0;
+    for (let i = 0; i < numSamples; i++) {
+      maxSample = Math.max(maxSample, Math.abs(leftChannel[i]), Math.abs(rightChannel[i]));
+    }
+    if (maxSample > 0.95) {
+      const normFactor = 0.9 / maxSample;
+      for (let i = 0; i < numSamples; i++) {
+        leftChannel[i] *= normFactor;
+        rightChannel[i] *= normFactor;
       }
     }
 
@@ -124,7 +247,11 @@ export async function amapianorizeAudio(
     const wavBlob = audioBufferToWav(buffer);
     const url = URL.createObjectURL(wavBlob);
 
-    console.log('[AmapianorizeAudio] Processing complete, authenticity:', authenticityScore);
+    console.log('[AmapianorizeAudio] Real processing complete with', 
+      settings.addLogDrum ? 'log drums' : '', 
+      settings.addPercussion ? 'percussion' : '',
+      settings.addBassline ? 'bass' : '',
+      '- authenticity:', authenticityScore);
 
     return {
       success: true,

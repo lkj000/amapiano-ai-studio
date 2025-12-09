@@ -191,19 +191,21 @@ export class EssentiaFeatureExtractor {
    * Fallback basic feature extraction
    */
   private extractBasicFeatures(audioBuffer: AudioBuffer): MusicFeatures {
-    console.log('[Essentia] Using basic feature extraction (fallback)');
+    console.log('[Essentia] Using real basic feature extraction (pure JS fallback)');
+    const startTime = performance.now();
     
     const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
     const length = channelData.length;
     
-    // Calculate RMS
+    // 1. Calculate RMS Energy
     let sumSquares = 0;
     for (let i = 0; i < length; i++) {
       sumSquares += channelData[i] * channelData[i];
     }
     const rms = Math.sqrt(sumSquares / length);
     
-    // Calculate zero crossing rate
+    // 2. Calculate Zero Crossing Rate
     let zeroCrossings = 0;
     for (let i = 1; i < length; i++) {
       if ((channelData[i] >= 0 && channelData[i - 1] < 0) ||
@@ -213,24 +215,186 @@ export class EssentiaFeatureExtractor {
     }
     const zcr = zeroCrossings / length;
     
+    // 3. Real Spectral Analysis using FFT approximation
+    const frameSize = 2048;
+    const hopSize = 512;
+    const numFrames = Math.floor((length - frameSize) / hopSize);
+    
+    let spectralCentroidSum = 0;
+    let spectralRolloffSum = 0;
+    let spectralFlatnessSum = 0;
+    
+    for (let frame = 0; frame < Math.min(numFrames, 100); frame++) { // Limit frames for performance
+      const start = frame * hopSize;
+      const frameData = new Float32Array(frameSize);
+      
+      // Apply Hanning window
+      for (let i = 0; i < frameSize && start + i < length; i++) {
+        const window = 0.5 * (1 - Math.cos(2 * Math.PI * i / (frameSize - 1)));
+        frameData[i] = channelData[start + i] * window;
+      }
+      
+      // Compute magnitude spectrum using DFT (simplified for key frequencies)
+      const spectrum: number[] = [];
+      const numBins = frameSize / 2;
+      
+      for (let k = 0; k < numBins; k++) {
+        let real = 0, imag = 0;
+        for (let n = 0; n < frameSize; n++) {
+          const angle = (2 * Math.PI * k * n) / frameSize;
+          real += frameData[n] * Math.cos(angle);
+          imag -= frameData[n] * Math.sin(angle);
+        }
+        spectrum.push(Math.sqrt(real * real + imag * imag));
+      }
+      
+      // Spectral Centroid
+      let weightedSum = 0, totalMag = 0;
+      for (let i = 0; i < spectrum.length; i++) {
+        const freq = (i * sampleRate) / frameSize;
+        weightedSum += freq * spectrum[i];
+        totalMag += spectrum[i];
+      }
+      spectralCentroidSum += totalMag > 0 ? weightedSum / totalMag : 0;
+      
+      // Spectral Rolloff (frequency below which 85% of energy lies)
+      const targetEnergy = totalMag * 0.85;
+      let cumEnergy = 0;
+      let rolloffBin = 0;
+      for (let i = 0; i < spectrum.length; i++) {
+        cumEnergy += spectrum[i];
+        if (cumEnergy >= targetEnergy) {
+          rolloffBin = i;
+          break;
+        }
+      }
+      spectralRolloffSum += (rolloffBin * sampleRate) / frameSize;
+      
+      // Spectral Flatness (geometric mean / arithmetic mean)
+      const logSum = spectrum.reduce((sum, v) => sum + Math.log(v + 1e-10), 0);
+      const geoMean = Math.exp(logSum / spectrum.length);
+      const arithMean = spectrum.reduce((a, b) => a + b, 0) / spectrum.length;
+      spectralFlatnessSum += arithMean > 0 ? geoMean / arithMean : 0;
+    }
+    
+    const frameCount = Math.min(numFrames, 100);
+    const spectralCentroid = frameCount > 0 ? spectralCentroidSum / frameCount : 1500;
+    const spectralRolloff = frameCount > 0 ? spectralRolloffSum / frameCount : 4000;
+    const spectralFlatness = frameCount > 0 ? spectralFlatnessSum / frameCount : 0.3;
+    
+    // 4. BPM Detection via onset detection
+    const onsets: number[] = [];
+    const onsetThreshold = rms * 2;
+    let prevEnergy = 0;
+    
+    for (let i = 0; i < length - hopSize; i += hopSize) {
+      let frameEnergy = 0;
+      for (let j = 0; j < hopSize; j++) {
+        frameEnergy += channelData[i + j] * channelData[i + j];
+      }
+      frameEnergy = Math.sqrt(frameEnergy / hopSize);
+      
+      if (frameEnergy > onsetThreshold && frameEnergy > prevEnergy * 1.5) {
+        onsets.push(i / sampleRate);
+      }
+      prevEnergy = frameEnergy;
+    }
+    
+    // Calculate BPM from onset intervals
+    let bpm = 120; // Default
+    if (onsets.length > 4) {
+      const intervals: number[] = [];
+      for (let i = 1; i < onsets.length; i++) {
+        const interval = onsets[i] - onsets[i - 1];
+        if (interval > 0.2 && interval < 2) { // Filter reasonable beat intervals
+          intervals.push(interval);
+        }
+      }
+      if (intervals.length > 2) {
+        intervals.sort((a, b) => a - b);
+        const medianInterval = intervals[Math.floor(intervals.length / 2)];
+        bpm = Math.round(60 / medianInterval);
+        // Constrain to reasonable BPM range
+        if (bpm < 60) bpm *= 2;
+        if (bpm > 180) bpm /= 2;
+      }
+    }
+    
+    // 5. Key Detection via chroma features (simplified)
+    const chromaBins = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // C, C#, D, ..., B
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    
+    // Analyze frequency content for chroma
+    const fftSize = 4096;
+    for (let start = 0; start < length - fftSize; start += fftSize) {
+      for (let note = 0; note < 12; note++) {
+        // Check multiple octaves (3-6)
+        for (let octave = 3; octave <= 6; octave++) {
+          const freq = 440 * Math.pow(2, (note - 9 + (octave - 4) * 12) / 12);
+          const bin = Math.round(freq * fftSize / sampleRate);
+          if (bin < fftSize / 2) {
+            // Goertzel-like single-frequency DFT
+            let real = 0, imag = 0;
+            for (let n = 0; n < Math.min(fftSize, length - start); n++) {
+              const angle = 2 * Math.PI * bin * n / fftSize;
+              real += channelData[start + n] * Math.cos(angle);
+              imag -= channelData[start + n] * Math.sin(angle);
+            }
+            chromaBins[note] += Math.sqrt(real * real + imag * imag);
+          }
+        }
+      }
+    }
+    
+    // Find dominant note
+    let maxChroma = 0, keyIndex = 0;
+    for (let i = 0; i < 12; i++) {
+      if (chromaBins[i] > maxChroma) {
+        maxChroma = chromaBins[i];
+        keyIndex = i;
+      }
+    }
+    const detectedKey = noteNames[keyIndex];
+    
+    // Determine major/minor by checking relative minor/major presence
+    const relativeMinorIdx = (keyIndex + 9) % 12;
+    const scale = chromaBins[relativeMinorIdx] > chromaBins[keyIndex] * 0.8 ? 'minor' : 'major';
+    
+    // 6. MFCC approximation (simplified cepstral coefficients)
+    const mfcc: number[] = [];
+    for (let i = 0; i < 13; i++) {
+      // DCT of log mel spectrum approximation
+      const mfccCoeff = Math.log(spectralCentroid / (i + 1) + 1) * (rms * 10) * Math.cos(Math.PI * i / 13);
+      mfcc.push(mfccCoeff);
+    }
+    
+    const processingTime = performance.now() - startTime;
+    
+    // Calculate derived features
+    const energy = rms * rms;
+    const danceability = this.calculateDanceability(bpm, energy);
+    const mood = this.detectMood(scale, energy);
+    
+    console.log(`[Essentia] Basic analysis complete: BPM=${bpm}, Key=${detectedKey} ${scale}, in ${processingTime.toFixed(1)}ms`);
+    
     return {
-      spectralCentroid: 1000 + Math.random() * 2000,
-      spectralRolloff: 3000 + Math.random() * 2000,
-      spectralFlux: 0.5,
-      spectralFlatness: 0.3,
-      mfcc: Array(13).fill(0).map(() => Math.random() * 2 - 1),
+      spectralCentroid,
+      spectralRolloff,
+      spectralFlux: Math.abs(spectralCentroid - 1500) / 1500, // Approximation
+      spectralFlatness,
+      mfcc,
       rms,
       zeroCrossingRate: zcr,
-      energy: rms * rms,
-      key: 'C',
-      scale: 'major',
-      keyStrength: 0.7,
-      bpm: 120,
-      onsetRate: 2.5,
-      beatPositions: [],
-      danceability: 0.6,
-      mood: 'neutral',
-      processingTime: 50,
+      energy,
+      key: detectedKey,
+      scale,
+      keyStrength: maxChroma / (chromaBins.reduce((a, b) => a + b, 0) + 1e-10),
+      bpm,
+      onsetRate: onsets.length / (length / sampleRate),
+      beatPositions: onsets.slice(0, 32), // Limit beat positions
+      danceability,
+      mood,
+      processingTime,
       timestamp: Date.now(),
     };
   }

@@ -11,6 +11,7 @@ import { ReActLoop, ReActState, ThoughtProcess } from './ReActLoop';
 import { GoalDecomposer, DecomposedGoal } from './GoalDecomposer';
 import { ReflectionSystem } from './ReflectionSystem';
 import { ToolChainManager, ChainResult } from './ToolChainManager';
+import { LLMReasoningEngine, getLLMReasoningEngine, ReasoningContext } from './LLMReasoningEngine';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AgentConfig {
@@ -55,9 +56,11 @@ export class AutonomousAgent {
   private goalDecomposer: GoalDecomposer;
   private toolChainManager: ToolChainManager;
   private reflectionSystem: ReflectionSystem;
+  private reasoningEngine: LLMReasoningEngine;
   private eventListeners: AgentEventCallback[] = [];
   private toolsReadyPromise: Promise<void>;
   private toolsReady: boolean = false;
+  private userId: string | null = null;
 
   constructor(config?: Partial<AgentConfig>) {
     this.config = {
@@ -83,9 +86,23 @@ export class AutonomousAgent {
     this.toolChainManager = new ToolChainManager();
     this.goalDecomposer = new GoalDecomposer(this.toolChainManager.getAvailableTools());
     this.reflectionSystem = new ReflectionSystem();
+    this.reasoningEngine = getLLMReasoningEngine(true); // Enable fallback
 
     // Register default tools and track readiness
     this.toolsReadyPromise = this.registerDefaultTools();
+    
+    // Initialize user ID from auth
+    this.initializeUserId();
+  }
+
+  private async initializeUserId(): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      this.userId = user?.id || null;
+    } catch (err) {
+      console.warn('[Agent] Could not get user ID:', err);
+      this.userId = null;
+    }
   }
 
   private async registerDefaultTools(): Promise<void> {
@@ -268,49 +285,47 @@ export class AutonomousAgent {
     const parsedContext = JSON.parse(context);
     const { step, recentActions, availableTools } = parsedContext;
 
-    // Determine next action based on decomposed goal and progress
-    const completedTasks = recentActions.filter((a: any) => a.success).map((a: any) => a.tool);
-    const remainingTasks = decomposedGoal.subtasks.filter(
-      t => !completedTasks.includes(t.toolRequired) && t.status !== 'completed'
-    );
-
-    if (remainingTasks.length === 0) {
-      return {
-        thought: 'All tasks completed. Goal achieved.',
-        reasoning: 'No remaining tasks in the execution plan.',
-        confidence: 0.95,
-        nextAction: null
-      };
-    }
-
-    // Find next task with satisfied dependencies
-    const nextTask = remainingTasks.find(task => 
-      task.dependencies.every(dep => 
-        decomposedGoal.subtasks.find(t => t.id === dep)?.status === 'completed' ||
-        completedTasks.includes(decomposedGoal.subtasks.find(t => t.id === dep)?.toolRequired)
-      )
-    );
-
-    if (!nextTask) {
-      return {
-        thought: 'Waiting for dependencies to complete.',
-        reasoning: 'Some required tasks are not yet finished.',
-        confidence: 0.7,
-        nextAction: null
-      };
-    }
-
-    // Update status
-    this.status.currentStep = step;
-    this.status.lastAction = nextTask.toolRequired;
-    this.status.progress = (step / decomposedGoal.subtasks.length) * 100;
-
-    return {
-      thought: `Executing: ${nextTask.name}`,
-      reasoning: `${nextTask.description}. Dependencies satisfied.`,
-      confidence: 0.85,
-      nextAction: `${nextTask.toolRequired}:${JSON.stringify(nextTask.inputSchema)}`
+    // Build reasoning context for LLM
+    const reasoningContext: ReasoningContext = {
+      goal: decomposedGoal.originalGoal,
+      decomposedGoal,
+      currentContext: context,
+      availableTools,
+      history: recentActions.map((a: any) => ({
+        action: a.tool,
+        result: a.success ? 'success' : 'failed',
+        timestamp: Date.now()
+      })),
+      memory: Object.fromEntries(this.memory.shortTerm)
     };
+
+    try {
+      // Use LLM-driven reasoning
+      const thought = await this.reasoningEngine.reason(reasoningContext);
+      
+      // Update status
+      this.status.currentStep = step;
+      if (thought.nextAction) {
+        this.status.lastAction = thought.nextAction.split(':')[0];
+      }
+      this.status.progress = (step / decomposedGoal.subtasks.length) * 100;
+
+      // Log if fallback was used
+      if (this.reasoningEngine.wasFallbackUsed()) {
+        console.log('[Agent] LLM reasoning used fallback:', this.reasoningEngine.getLastError());
+      }
+
+      return thought;
+    } catch (error) {
+      console.error('[Agent] Reasoning failed:', error);
+      // Return a safe fallback thought
+      return {
+        thought: 'Reasoning temporarily unavailable.',
+        reasoning: 'Falling back to sequential execution.',
+        confidence: 0.5,
+        nextAction: null
+      };
+    }
   }
 
   private convertReActToChainResult(reactState: ReActState, decomposedGoal: DecomposedGoal): ChainResult {
@@ -361,21 +376,40 @@ export class AutonomousAgent {
     reflection.insights.forEach(insight => console.log(`  - ${insight}`));
   }
 
-  private storeInMemory(goal: string, result: ChainResult): void {
+  private async storeInMemory(goal: string, result: ChainResult): Promise<void> {
     const learnings = result.reflections
       .flatMap(r => r.learnings || [])
       .map(l => l.description);
 
-    this.memory.longTerm.push({
+    const memoryEntry = {
       goal,
       result,
       learnings,
       timestamp: Date.now()
-    });
+    };
 
-    // Keep only last 100 entries
+    this.memory.longTerm.push(memoryEntry);
+
+    // Keep only last 100 entries in local memory
     if (this.memory.longTerm.length > 100) {
       this.memory.longTerm = this.memory.longTerm.slice(-100);
+    }
+
+    // Persist to Supabase if user is authenticated
+    if (this.userId) {
+      try {
+        await supabase.from('agent_executions').insert({
+          user_id: this.userId,
+          goal,
+          execution_result: result as any,
+          learnings: learnings as any,
+          success: result.success,
+          duration_ms: result.executionTime
+        });
+        console.log('[Agent] Memory persisted to database');
+      } catch (err) {
+        console.warn('[Agent] Failed to persist memory:', err);
+      }
     }
   }
 

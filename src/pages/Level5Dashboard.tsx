@@ -75,7 +75,9 @@ export default function Level5Dashboard() {
       layer: 'reasoning',
       test: async () => {
         const { GoalDecomposer } = await import('@/lib/agents/GoalDecomposer');
-        const decomposer = new GoalDecomposer([]);
+        // Pass common tool names so subtasks aren't filtered out
+        const availableTools = ['styleAnalyzer', 'lyricsGenerator', 'elementSelector', 'vocalSynthesis', 'trackComposer', 'audioMixer', 'authenticityScorer'];
+        const decomposer = new GoalDecomposer(availableTools);
         const result = decomposer.decompose('Create an Amapiano track');
         return { passed: result.subtasks.length > 0, message: `Decomposed into ${result.subtasks.length} subtasks`, duration: 0 };
       }

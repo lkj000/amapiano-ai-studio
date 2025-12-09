@@ -269,13 +269,17 @@ export const useEssentiaAnalysis = () => {
       intervals.push(onsets[i] - onsets[i - 1]);
     }
     
-    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const bpm = avgInterval > 0 ? 60 / avgInterval : 120;
+    const avgInterval = intervals.length > 0 
+      ? intervals.reduce((a, b) => a + b, 0) / intervals.length 
+      : 0;
+    // Default to 120 BPM if no valid interval detected, clamp to reasonable range
+    const bpm = avgInterval > 0 ? Math.min(Math.max(60 / avgInterval, 60), 200) : 120;
 
-    // Beat positions (quantized to estimated tempo)
+    // Beat positions (quantized to estimated tempo) - limit to prevent infinite loops
     const beatInterval = 60 / bpm;
     const beatPositions: number[] = [];
-    for (let t = 0; t < audioBuffer.duration; t += beatInterval) {
+    const maxBeats = Math.min(audioBuffer.duration / beatInterval, 1000); // Cap at 1000 beats
+    for (let t = 0; t < audioBuffer.duration && beatPositions.length < maxBeats; t += beatInterval) {
       beatPositions.push(t);
     }
 
@@ -325,9 +329,15 @@ export const useEssentiaAnalysis = () => {
       issues.push('High noise level detected');
     }
 
-    // Dynamic range
-    const max = Math.max(...Array.from(channelData).map(Math.abs));
-    const min = Math.min(...Array.from(channelData).filter(v => Math.abs(v) > 0.001).map(Math.abs));
+    // Dynamic range - use reduce to avoid stack overflow with large audio files
+    let max = 0;
+    let min = Infinity;
+    for (let i = 0; i < channelData.length; i++) {
+      const absVal = Math.abs(channelData[i]);
+      if (absVal > max) max = absVal;
+      if (absVal > 0.001 && absVal < min) min = absVal;
+    }
+    if (min === Infinity) min = 0;
     const dynamicRange = max > 0 && min > 0 ? 20 * Math.log10(max / min) : 0;
     if (dynamicRange < 20) {
       issues.push('Low dynamic range (possible over-compression)');

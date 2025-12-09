@@ -196,43 +196,48 @@ export class ToolChainManager {
   }
 
   private async executeFallback(task: Subtask): Promise<{ success: boolean; output?: any; error?: Error }> {
-    console.log(`[ToolChain] Using fallback execution for ${task.toolRequired}`);
+    console.warn(`[ToolChain] No explicit tool definition for ${task.toolRequired} - attempting dynamic resolution`);
 
-    // Simulate execution for tools without explicit implementation
-    // In production, this would integrate with actual services
-    
-    const mockOutputs: Record<string, any> = {
-      'styleAnalyzer': { style: 'authentic', bpm: 115, key: 'Cm', energy: 0.7 },
-      'lyricsGenerator': { lyrics: 'Generated lyrics placeholder', language: 'en' },
-      'elementSelector': { elements: ['log_drum_1', 'perc_1', 'bass_1'], region: 'johannesburg' },
-      'vocalSynthesis': { audioUrl: 'placeholder://vocals.wav', duration: 180 },
-      'trackComposer': { audioUrl: 'placeholder://track.wav', bpm: 115, key: 'Cm' },
-      'audioMixer': { audioUrl: 'placeholder://mixed.wav', levels: 'balanced' },
-      'authenticityScorer': { score: 0.85, breakdown: { rhythm: 0.9, melody: 0.8, elements: 0.85 } },
-      'audioLoader': { buffer: 'placeholder', sampleRate: 44100, duration: 180 },
-      'stemSeparator': { stems: { vocals: 'url', drums: 'url', bass: 'url', other: 'url' } },
-      'stemExporter': { files: ['vocals.wav', 'drums.wav', 'bass.wav', 'other.wav'] },
-      'featureExtractor': { bpm: 115, key: 'Cm', energy: 0.7, danceability: 0.8 },
-      'musicalityAnalyzer': { beatConsistency: 0.92, keyStability: 0.88, transientPreservation: 0.85 },
-      'reportGenerator': { report: 'Analysis complete', metrics: {} },
-      'amapianorizer': { processedAudio: 'placeholder://amapianorized.wav', authenticityScore: 0.82 },
-      'productionPlanner': { plan: 'Production plan created', steps: 5 },
-      'musicGenerator': { audioUrl: 'placeholder://generated.wav', duration: 180 },
-      'audioProcessor': { processedUrl: 'placeholder://processed.wav' },
-      'goalInterpreter': { interpretation: 'Goal understood', confidence: 0.9 },
-      'generalExecutor': { result: 'Executed successfully', output: {} }
-    };
-
-    const output = mockOutputs[task.toolRequired];
-    
-    if (output) {
-      return { success: true, output };
+    // Attempt to dynamically resolve tool from real tools or execute via edge function
+    try {
+      const { getRealToolByName } = await import('./RealToolDefinitions');
+      
+      // Map task tool names to real tool names
+      const toolMapping: Record<string, string> = {
+        'styleAnalyzer': 'audio_analysis',
+        'lyricsGenerator': 'lyrics_generation',
+        'vocalSynthesis': 'voice_synthesis',
+        'stemSeparator': 'stem_separation',
+        'stemExporter': 'export_stems',
+        'amapianorizer': 'amapianorization',
+        'musicGenerator': 'music_generation',
+        'featureExtractor': 'audio_analysis',
+        'elementSelector': 'amapianorization'
+      };
+      
+      const realToolName = toolMapping[task.toolRequired];
+      if (realToolName) {
+        const realTool = getRealToolByName(realToolName);
+        if (realTool) {
+          console.log(`[ToolChain] Resolved ${task.toolRequired} -> ${realToolName}`);
+          const input = this.prepareInput(task);
+          const output = await realTool.execute(input);
+          return { success: true, output };
+        }
+      }
+      
+      // For tools that genuinely have no implementation, fail explicitly
+      console.error(`[ToolChain] Tool ${task.toolRequired} has no implementation`);
+      return { 
+        success: false, 
+        error: new Error(`Tool not implemented: ${task.toolRequired}. Register tool definition or add edge function.`) 
+      };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: new Error(`Failed to resolve tool ${task.toolRequired}: ${error.message}`) 
+      };
     }
-
-    return { 
-      success: false, 
-      error: new Error(`No implementation for tool: ${task.toolRequired}`) 
-    };
   }
 
   getContext(): ExecutionContext | null {

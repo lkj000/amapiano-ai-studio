@@ -11,20 +11,112 @@ interface DeepAnalysisRequest {
   analysisType: 'genre' | 'mood' | 'danceability' | 'cultural' | 'all';
 }
 
+// Fallback heuristic analysis when OpenAI is unavailable
+function generateFallbackAnalysis(audioFeatures: any, analysisType: string) {
+  const bpm = audioFeatures.temporal?.bpm || 120;
+  const energy = audioFeatures.temporal?.energy || 0.5;
+  const spectralCentroid = audioFeatures.spectral?.centroid || 5000;
+  const key = audioFeatures.tonal?.key || 'C';
+  const scale = audioFeatures.tonal?.scale || 'major';
+  
+  // Heuristic genre detection based on BPM and spectral characteristics
+  let primaryGenre = 'Electronic';
+  let subgenre = 'House';
+  if (bpm >= 110 && bpm <= 120) {
+    primaryGenre = 'Amapiano';
+    subgenre = 'Piano';
+  } else if (bpm >= 120 && bpm <= 130) {
+    primaryGenre = 'House';
+    subgenre = 'Deep House';
+  } else if (bpm >= 130 && bpm <= 140) {
+    primaryGenre = 'Afro House';
+    subgenre = 'Tribal';
+  } else if (bpm >= 140) {
+    primaryGenre = 'Gqom';
+    subgenre = 'Durban';
+  }
+
+  // Heuristic mood based on energy and key
+  const valence = scale === 'major' ? 0.7 : 0.4;
+  const arousal = Math.min(energy * 1.5, 1);
+  const primaryMood = valence > 0.5 && arousal > 0.5 ? 'Energetic' : 
+                      valence > 0.5 ? 'Peaceful' : 
+                      arousal > 0.5 ? 'Intense' : 'Melancholic';
+
+  // Danceability based on BPM and rhythm strength
+  const danceScore = bpm >= 100 && bpm <= 140 ? 0.8 : 0.6;
+  
+  const analysis: any = {
+    confidence: 0.65,
+    insights: 'Analysis performed using heuristic fallback (AI quota exceeded). Results are approximate.',
+    source: 'heuristic_fallback'
+  };
+
+  if (analysisType === 'genre' || analysisType === 'all') {
+    analysis.genres = [
+      { name: primaryGenre, confidence: 0.7, subgenre },
+      { name: 'Electronic', confidence: 0.5, subgenre: 'Dance' }
+    ];
+  }
+
+  if (analysisType === 'mood' || analysisType === 'all') {
+    analysis.mood = {
+      primary: primaryMood,
+      secondary: valence > 0.5 ? 'Uplifting' : 'Contemplative',
+      valence,
+      arousal,
+      emotions: [primaryMood.toLowerCase(), 'groovy', 'rhythmic']
+    };
+  }
+
+  if (analysisType === 'danceability' || analysisType === 'all') {
+    analysis.danceability = {
+      score: danceScore,
+      grooveFactor: 0.75,
+      danceStyles: ['House', 'Amapiano', 'Afro Dance'],
+      rhythmicComplexity: 0.6
+    };
+  }
+
+  if (analysisType === 'cultural' || analysisType === 'all') {
+    analysis.cultural = {
+      authenticity: bpm >= 110 && bpm <= 120 ? 0.8 : 0.5,
+      traditions: ['South African Electronic', 'Afro House'],
+      instruments: ['Log drums', 'Synth bass', 'Piano'],
+      regionalMarkers: ['Township sound', 'Johannesburg'],
+      fusionElements: ['House', 'Jazz']
+    };
+  }
+
+  return analysis;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY not configured');
-    }
-
     const { audioFeatures, analysisType }: DeepAnalysisRequest = await req.json();
     
     console.log(`[ESSENTIA-DEEP] Analyzing audio with type: ${analysisType}`);
+
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    
+    // If no API key, use fallback immediately
+    if (!OPENAI_API_KEY) {
+      console.log('[ESSENTIA-DEEP] No OpenAI API key, using heuristic fallback');
+      const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: fallbackAnalysis,
+        analysisType,
+        model: 'heuristic_fallback',
+        timestamp: Date.now(),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Build specialized prompts based on analysis type
     const systemPrompts = {
@@ -90,21 +182,49 @@ ${analysisType === 'cultural' || analysisType === 'all' ? `
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Use cheaper model to conserve quota
         messages: [
           { role: 'system', content: systemPrompts[analysisType] },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        max_tokens: 2000,
+        max_tokens: 1500,
         temperature: 0.3,
       }),
     });
 
+    // Handle rate limit / quota errors with fallback
+    if (response.status === 429 || response.status === 402) {
+      const errorText = await response.text();
+      console.warn('[ESSENTIA-DEEP] OpenAI quota/rate limit hit, using fallback:', errorText);
+      const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: fallbackAnalysis,
+        analysisType,
+        model: 'heuristic_fallback',
+        warning: 'AI quota exceeded - using heuristic analysis',
+        timestamp: Date.now(),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[ESSENTIA-DEEP] OpenAI API error:', response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      // Use fallback for any API error
+      const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: fallbackAnalysis,
+        analysisType,
+        model: 'heuristic_fallback',
+        warning: `API error (${response.status}) - using heuristic analysis`,
+        timestamp: Date.now(),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const aiResponse = await response.json();
@@ -116,7 +236,7 @@ ${analysisType === 'cultural' || analysisType === 'all' ? `
       success: true,
       analysis,
       analysisType,
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       timestamp: Date.now(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

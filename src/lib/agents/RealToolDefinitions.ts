@@ -105,21 +105,18 @@ export const audioAnalysisTool: ToolDefinition = {
     danceability: 'number - Danceability score 0-1'
   },
   execute: async (input: { audioUrl: string }) => {
-    // Use client-side Essentia.js analysis through the hook pattern
-    // For edge function, we'd call a dedicated analysis endpoint
     const { data, error } = await supabase.functions.invoke('analyze-audio', {
       body: { audioUrl: input.audioUrl }
     });
     
     if (error) {
-      // Fallback to estimated values if analysis fails
-      return {
-        bpm: 118,
-        key: 'Am',
-        energy: 0.7,
-        danceability: 0.8
-      };
+      throw new Error(`Audio analysis failed: ${error.message}`);
     }
+    
+    if (!data || !data.bpm) {
+      throw new Error('Audio analysis returned invalid data');
+    }
+    
     return data;
   },
   retryable: true,

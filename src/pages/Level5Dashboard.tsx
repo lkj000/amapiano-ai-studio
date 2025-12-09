@@ -639,7 +639,8 @@ export default function Level5Dashboard() {
                 { criterion: 'Distributed execution', component: 'WebWorkerAgentPool', tested: true },
                 { criterion: 'Multi-model support', component: 'LLMGateway', tested: true },
                 { criterion: 'Neural authenticity', component: 'NeuralAuthenticityModel', tested: true },
-                { criterion: 'True SVD quantization', component: 'TrueSVDQuantizer', tested: true },
+                { criterion: 'Phase-aware quantization', component: 'SVDQuantAudio', tested: true },
+                { criterion: 'Local voice synthesis', component: 'EnhancedLocalVoice', tested: true },
               ].map(({ criterion, component, tested }) => (
                 <div key={criterion} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
                   {tested ? (

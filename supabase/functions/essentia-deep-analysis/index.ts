@@ -13,7 +13,8 @@ interface DeepAnalysisRequest {
 
 // Fallback heuristic analysis when OpenAI is unavailable
 function generateFallbackAnalysis(audioFeatures: any, analysisType: string) {
-  const bpm = audioFeatures.temporal?.bpm || 120;
+  // BPM can be in rhythm or temporal depending on source
+  const bpm = audioFeatures.rhythm?.bpm || audioFeatures.temporal?.bpm || 120;
   const energy = audioFeatures.temporal?.energy || 0.5;
   const spectralCentroid = audioFeatures.spectral?.centroid || 5000;
   const key = audioFeatures.tonal?.key || 'C';

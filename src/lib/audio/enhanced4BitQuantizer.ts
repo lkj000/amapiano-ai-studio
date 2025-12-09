@@ -246,25 +246,67 @@ export class Enhanced4BitQuantizer {
   }
 
   /**
-   * Compute FFT magnitude spectrum
+   * Compute FFT magnitude spectrum using Cooley-Tukey algorithm O(n log n)
    */
   private computeFFT(samples: Float32Array): Float32Array {
     const n = samples.length;
-    const spectrum = new Float32Array(n / 2);
     
-    // Simple DFT for spectrum magnitude (could use FFT library for production)
-    for (let k = 0; k < n / 2; k++) {
-      let real = 0;
-      let imag = 0;
-      for (let t = 0; t < n; t++) {
-        const angle = (2 * Math.PI * k * t) / n;
-        real += samples[t] * Math.cos(angle);
-        imag -= samples[t] * Math.sin(angle);
+    // Ensure power of 2
+    const nextPow2 = Math.pow(2, Math.ceil(Math.log2(n)));
+    const paddedSignal = new Float32Array(nextPow2);
+    paddedSignal.set(samples);
+    
+    const real = new Float32Array(nextPow2);
+    const imag = new Float32Array(nextPow2);
+    real.set(paddedSignal);
+    
+    // Bit-reversal permutation
+    const bits = Math.log2(nextPow2);
+    for (let i = 0; i < nextPow2; i++) {
+      const j = this.reverseBits(i, bits);
+      if (j > i) {
+        [real[i], real[j]] = [real[j], real[i]];
+        [imag[i], imag[j]] = [imag[j], imag[i]];
       }
-      spectrum[k] = Math.sqrt(real * real + imag * imag) / n;
+    }
+    
+    // Cooley-Tukey iterative FFT
+    for (let size = 2; size <= nextPow2; size *= 2) {
+      const halfSize = size / 2;
+      const angle = -2 * Math.PI / size;
+      
+      for (let i = 0; i < nextPow2; i += size) {
+        for (let j = 0; j < halfSize; j++) {
+          const k = i + j;
+          const l = k + halfSize;
+          
+          const tReal = Math.cos(angle * j) * real[l] - Math.sin(angle * j) * imag[l];
+          const tImag = Math.sin(angle * j) * real[l] + Math.cos(angle * j) * imag[l];
+          
+          real[l] = real[k] - tReal;
+          imag[l] = imag[k] - tImag;
+          real[k] = real[k] + tReal;
+          imag[k] = imag[k] + tImag;
+        }
+      }
+    }
+    
+    // Compute magnitude spectrum
+    const spectrum = new Float32Array(n / 2);
+    for (let i = 0; i < n / 2; i++) {
+      spectrum[i] = Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / n;
     }
     
     return spectrum;
+  }
+
+  private reverseBits(x: number, bits: number): number {
+    let result = 0;
+    for (let i = 0; i < bits; i++) {
+      result = (result << 1) | (x & 1);
+      x >>= 1;
+    }
+    return result;
   }
 
   /**

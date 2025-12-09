@@ -112,7 +112,7 @@ export class MultiAgentScaler {
       taskTimeout: config.taskTimeout ?? 300000
     };
     
-    this.signalBus = new AgentSignalBus();
+    this.signalBus = AgentSignalBus.getInstance();
   }
 
   /**
@@ -229,15 +229,12 @@ export class MultiAgentScaler {
     this.agents.set(agentId, agent);
     
     // Emit spawn signal
-    await this.signalBus.emit({
-      id: `signal_${Date.now()}`,
-      type: 'task',
-      sourceAgentId: 'scaler',
-      targetAgentId: agentId,
-      payload: { event: 'agent_spawned', type },
-      priority: 0,
-      timestamp: Date.now()
-    });
+    await this.signalBus.signal(
+      'scaler',
+      agentId,
+      'data',
+      { event: 'agent_spawned', type }
+    );
     
     console.log(`[MultiAgentScaler] Spawned agent: ${agentId}`);
     return agent;
@@ -368,18 +365,13 @@ export class MultiAgentScaler {
     agent.metrics.tasksInProgress++;
     
     // Send task signal
-    await this.signalBus.emit({
-      id: `signal_${Date.now()}`,
-      type: 'task',
-      sourceAgentId: 'scaler',
-      targetAgentId: agent.id,
-      payload: {
-        event: 'task_assigned',
-        task
-      },
-      priority: task.priority,
-      timestamp: Date.now()
-    });
+    await this.signalBus.signal(
+      'scaler',
+      agent.id,
+      'data',
+      { event: 'task_assigned', task },
+      task.priority > 5 ? 'high' : 'normal'
+    );
     
     // Simulate task execution (in real implementation, agent would handle this)
     this.executeTask(task, agent);
@@ -428,14 +420,11 @@ export class MultiAgentScaler {
       }
       
       // Emit completion signal
-      await this.signalBus.emit({
-        id: `signal_${Date.now()}`,
-        type: 'event',
-        sourceAgentId: agent.id,
-        payload: { event: 'task_completed', taskId: task.taskId },
-        priority: 0,
-        timestamp: Date.now()
-      });
+      await this.signalBus.broadcast(
+        agent.id,
+        'data',
+        { event: 'task_completed', taskId: task.taskId }
+      );
       
       // Trigger next distribution
       await this.distributeTasks();
@@ -543,7 +532,9 @@ export class MultiAgentScaler {
    * Subscribe to signal bus for coordination
    */
   private subscribeToSignals(): void {
-    this.signalBus.subscribe('scaler', async (signal) => {
+    // Register scaler as an agent and subscribe to data signals
+    this.signalBus.registerAgent('scaler');
+    this.signalBus.onSignal('scaler', 'data', async (signal) => {
       switch (signal.payload?.event) {
         case 'task_completed':
           // Task completed, may trigger dependent tasks

@@ -358,8 +358,8 @@ export default function Level5Dashboard() {
     },
   ];
 
-  // Calculate category scores
-  const calculateScores = useCallback(() => {
+  // Calculate category scores - run once on mount and when testResults changes
+  useEffect(() => {
     const categories: Record<string, CategorySummary> = {};
     
     componentTests.forEach(test => {
@@ -383,11 +383,8 @@ export default function Level5Dashboard() {
     const totalTests = componentTests.length;
     const passedTests = Array.from(testResults.values()).filter(r => r.passed).length;
     setOverallScore((passedTests / totalTests) * 100);
-  }, [testResults, componentTests]);
-
-  useEffect(() => {
-    calculateScores();
-  }, [testResults, calculateScores]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testResults]);
 
   // Run single test
   const runTest = async (test: ComponentTest) => {

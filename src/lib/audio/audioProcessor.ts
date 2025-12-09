@@ -55,12 +55,17 @@ export async function amapianorizeAudio(
     const audioContext = new AudioContext();
     audioSampleLoader.initialize(audioContext);
 
+    // Extract BPM and key from stems metadata, with sensible defaults
+    const bpm = stems?.metadata?.bpm ?? stems?.bpm ?? 115;
+    const key = stems?.metadata?.key ?? stems?.key ?? 'Cm';
+    console.log(`[AmapianorizeAudio] Using BPM: ${bpm}, Key: ${key}`);
+
     // Select samples based on settings
     const logDrumSamples = settings.addLogDrum 
       ? selectLogDrumSamples(
           settings.regionalStyle,
-          118, // BPM - should come from stems metadata
-          'F#m', // Key - should come from stems metadata
+          bpm,
+          key,
           settings.logDrumIntensity
         )
       : [];
@@ -69,7 +74,7 @@ export async function amapianorizeAudio(
       ? selectPercussionSamples(
           settings.percussionDensity,
           settings.regionalStyle,
-          118 // BPM - should come from stems metadata
+          bpm
         )
       : [];
 

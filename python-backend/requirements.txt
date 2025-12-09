@@ -1,0 +1,72 @@
+# Python Backend Requirements for AURA-X
+# GPU-accelerated audio ML and agent orchestration
+
+# Core Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+python-multipart==0.0.6
+
+# PyTorch (CUDA 12.1)
+torch==2.1.2
+torchaudio==2.1.2
+torchvision==0.16.2
+
+# Audio Processing
+essentia==2.1b6.dev1110
+librosa==0.10.1
+soundfile==0.12.1
+audioread==3.0.1
+demucs==4.0.1
+pedalboard==0.8.7
+
+# Music Generation
+audiocraft==1.3.0
+transformers==4.36.2
+
+# ML & Quantization
+onnx==1.15.0
+onnxruntime-gpu==1.16.3
+bitsandbytes==0.41.3
+accelerate==0.25.0
+scipy==1.11.4
+scikit-learn==1.3.2
+
+# Agent Frameworks
+langchain==0.1.0
+langchain-openai==0.0.3
+langchain-community==0.0.10
+langgraph==0.0.20
+autogen==1.0.0
+
+# Vector Store
+faiss-gpu==1.7.2
+chromadb==0.4.22
+
+# Supabase Integration
+supabase==2.3.4
+python-jose[cryptography]==3.3.0
+
+# Async & HTTP
+httpx==0.26.0
+aiofiles==23.2.1
+websockets==12.0
+
+# Monitoring & Logging
+loguru==0.7.2
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+prometheus-client==0.19.0
+
+# Modal.com Deployment
+modal==0.56.4
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+
+# Development
+black==23.12.1
+isort==5.13.2
+mypy==1.8.0

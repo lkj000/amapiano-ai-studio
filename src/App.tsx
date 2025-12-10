@@ -39,6 +39,7 @@ import ABPairGenerator from "./pages/ABPairGenerator";
 import AgentDemo from "./pages/AgentDemo";
 import Level5Dashboard from "./pages/Level5Dashboard";
 import MLQuantize from "./pages/MLQuantize";
+import ModalDashboard from "./pages/ModalDashboard";
 
 const queryClient = new QueryClient();
 
@@ -151,6 +152,7 @@ const App = () => {
               <Route path="/agent-demo" element={<AgentDemo />} />
               <Route path="/level5-dashboard" element={<Level5Dashboard />} />
               <Route path="/ml/quantize" element={<MLQuantize />} />
+              <Route path="/modal-dashboard" element={<ModalDashboard />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -358,6 +358,100 @@ export default function Level5Dashboard() {
         return { passed: !error && !!data, message: error ? error.message : 'Function responsive', duration: 0 };
       }
     },
+
+    // Modal GPU Backend Tests
+    {
+      id: 'modal-health',
+      name: 'Modal GPU Health Check',
+      category: 'Modal GPU Backend',
+      layer: 'tools',
+      test: async () => {
+        const startTime = Date.now();
+        try {
+          const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/health');
+          const data = await response.json();
+          return { 
+            passed: response.ok && data.status === 'healthy', 
+            message: `GPU: ${data.gpu ? 'A10G available' : 'Not available'}`,
+            duration: Date.now() - startTime 
+          };
+        } catch (error: any) {
+          return { passed: false, message: error.message, duration: Date.now() - startTime };
+        }
+      }
+    },
+    {
+      id: 'modal-quantize',
+      name: 'modal-quantize Edge Function',
+      category: 'Modal GPU Backend',
+      layer: 'tools',
+      test: async () => {
+        const startTime = Date.now();
+        // Use a test public audio URL
+        const testUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        const { data, error } = await supabase.functions.invoke('modal-quantize', {
+          body: { audio_url: testUrl, target_bits: 8 }
+        });
+        return { 
+          passed: !error && data?.success !== false, 
+          message: error ? error.message : `SNR: ${data?.snr_db?.toFixed(1) || 'N/A'}dB`,
+          duration: Date.now() - startTime 
+        };
+      }
+    },
+    {
+      id: 'modal-analyze',
+      name: 'modal-analyze Edge Function',
+      category: 'Modal GPU Backend',
+      layer: 'tools',
+      test: async () => {
+        const startTime = Date.now();
+        const testUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        const { data, error } = await supabase.functions.invoke('modal-analyze', {
+          body: { audio_url: testUrl, analysis_type: 'basic' }
+        });
+        return { 
+          passed: !error && data?.success !== false, 
+          message: error ? error.message : `BPM: ${data?.bpm || 'N/A'}`,
+          duration: Date.now() - startTime 
+        };
+      }
+    },
+    {
+      id: 'modal-separate',
+      name: 'modal-separate Edge Function',
+      category: 'Modal GPU Backend',
+      layer: 'tools',
+      test: async () => {
+        const startTime = Date.now();
+        const testUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        const { data, error } = await supabase.functions.invoke('modal-separate', {
+          body: { audio_url: testUrl, stems: ['drums'] }
+        });
+        return { 
+          passed: !error && data?.success !== false, 
+          message: error ? error.message : 'Demucs ready',
+          duration: Date.now() - startTime 
+        };
+      }
+    },
+    {
+      id: 'modal-agent',
+      name: 'modal-agent Edge Function',
+      category: 'Modal GPU Backend',
+      layer: 'orchestration',
+      test: async () => {
+        const startTime = Date.now();
+        const { data, error } = await supabase.functions.invoke('modal-agent', {
+          body: { goal: 'Test agent connectivity', context: {}, max_steps: 1 }
+        });
+        return { 
+          passed: !error && data?.success !== false, 
+          message: error ? error.message : 'LangChain ready',
+          duration: Date.now() - startTime 
+        };
+      }
+    },
   ];
 
   // Calculate category scores - run once on mount and when testResults changes

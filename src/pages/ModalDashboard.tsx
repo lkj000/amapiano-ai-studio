@@ -150,7 +150,7 @@ export default function ModalDashboard() {
   // LLM Routing
   const [llmPrompt, setLlmPrompt] = useState('');
   const [llmTaskType, setLlmTaskType] = useState<LLMTaskType>('simple');
-  const [llmProvider, setLlmProvider] = useState<LLMProvider | ''>('');
+  const [llmProvider, setLlmProvider] = useState<LLMProvider | 'auto'>('auto');
   const [llmResponse, setLlmResponse] = useState<LLMResponse | null>(null);
   const [llmStats, setLlmStats] = useState<LLMStats | null>(null);
   const [isGeneratingLLM, setIsGeneratingLLM] = useState(false);
@@ -346,7 +346,7 @@ export default function ModalDashboard() {
         body: JSON.stringify({
           prompt: llmPrompt,
           task_type: llmTaskType,
-          provider_override: llmProvider || null,
+          provider_override: llmProvider === 'auto' ? null : llmProvider,
           max_tokens: 1024,
           temperature: 0.7,
           fallback: true
@@ -849,10 +849,10 @@ export default function ModalDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>Provider Override (optional)</Label>
-                    <Select value={llmProvider} onValueChange={(v) => setLlmProvider(v as LLMProvider | '')}>
+                    <Select value={llmProvider} onValueChange={(v) => setLlmProvider(v as LLMProvider | 'auto')}>
                       <SelectTrigger><SelectValue placeholder="Auto-route" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Auto-route (recommended)</SelectItem>
+                        <SelectItem value="auto">Auto-route (recommended)</SelectItem>
                         <SelectItem value="vllm">vLLM (self-hosted)</SelectItem>
                         <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
                         <SelectItem value="openai">OpenAI (GPT-4o)</SelectItem>

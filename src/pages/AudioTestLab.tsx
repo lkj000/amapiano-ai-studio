@@ -314,31 +314,13 @@ export default function AudioTestLab() {
     try {
       toast.info(`Calling Modal GPU with ${quantBitDepth}-bit quantization...`);
       
-      // Fetch audio and convert to base64 (chunked to avoid stack overflow)
-      const response = await fetch(originalAudioUrl);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioContext = new AudioContext();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
-      // Get float32 samples from first channel
-      const samples = audioBuffer.getChannelData(0);
-      const uint8Array = new Uint8Array(samples.buffer);
-      
-      // Chunked base64 encoding to avoid "Maximum call stack size exceeded"
-      let binary = '';
-      const chunkSize = 8192;
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
-      }
-      const base64 = btoa(binary);
-      
-      // Call Modal via edge function
+      // Modal API requires a publicly accessible URL
+      // For blob URLs (local files), we need to use the modalApi service which handles this
+      // For now, pass the URL directly - works if it's a public URL
       const { data, error } = await supabase.functions.invoke('modal-quantize', {
         body: {
-          audio_base64: base64,
+          audio_url: originalAudioUrl,
           target_bits: quantBitDepth,
-          sample_rate: audioBuffer.sampleRate,
         },
       });
 
@@ -346,7 +328,6 @@ export default function AudioTestLab() {
       
       setModalResult(data);
       toast.success(`Modal GPU: SNR=${data.snr_db?.toFixed(2)}dB, rank=${data.rank_used}`);
-      await audioContext.close();
     } catch (error) {
       console.error('Modal quantization failed:', error);
       toast.error(`Modal error: ${error instanceof Error ? error.message : 'Unknown error'}`);

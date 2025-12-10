@@ -14,27 +14,26 @@ serve(async (req) => {
   }
 
   try {
-    const { audio_base64, target_bits = 8, sample_rate = 44100 } = await req.json();
+    const { audio_url, target_bits = 8 } = await req.json();
 
-    if (!audio_base64) {
+    if (!audio_url) {
       return new Response(
-        JSON.stringify({ error: "audio_base64 is required" }),
+        JSON.stringify({ error: "audio_url is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[modal-quantize] Calling Modal with ${target_bits}-bit quantization`);
+    console.log(`[modal-quantize] Calling Modal with ${target_bits}-bit quantization for URL: ${audio_url.substring(0, 50)}...`);
 
-    // Call Modal backend
+    // Call Modal backend with audio_url (what it expects)
     const response = await fetch(`${MODAL_URL}/ml/quantize`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        audio_base64,
+        audio_url,
         target_bits,
-        sample_rate,
       }),
     });
 

@@ -8,6 +8,7 @@ Architecture inspired by Suno's Modal usage:
 - Model chaining for end-to-end inference
 - Web endpoints for direct function exposure
 - Real Librosa analysis, Demucs stem separation, SVDQuant
+- Intelligent LLM Provider Routing (vLLM/Anthropic/OpenAI)
 """
 
 import modal
@@ -15,13 +16,19 @@ from fastapi import FastAPI, HTTPException, File, UploadFile, Form, BackgroundTa
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
+from enum import Enum
 import io
 import base64
 import hashlib
 import time
 import json
 import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("aura-x")
 
 # Modal App Definition
 app = modal.App("aura-x-backend")
@@ -205,6 +212,326 @@ class HealthResponse(BaseModel):
     endpoints: List[str]
     version: str
 
+
+# ============================================================================
+# LLM Request/Response Models
+# ============================================================================
+
+class LLMTaskType(str, Enum):
+    SIMPLE = "simple"           # Classification, extraction, simple Q&A
+    CREATIVE = "creative"       # Writing, storytelling, lyrics
+    REASONING = "reasoning"     # Complex multi-step reasoning
+    CODE = "code"               # Code generation/review
+    AUDIO_ANALYSIS = "audio_analysis"  # Audio-specific tasks
+    AGENT = "agent"             # Agentic tool-calling tasks
+
+class LLMProvider(str, Enum):
+    VLLM = "vllm"              # Self-hosted, 10-50x cheaper
+    ANTHROPIC = "anthropic"     # Best for creative/nuanced
+    OPENAI = "openai"           # Best for reasoning/function calling
+    LOVABLE = "lovable"         # Lovable AI Gateway (Gemini/GPT-5)
+
+class LLMRequest(BaseModel):
+    prompt: str
+    task_type: LLMTaskType = LLMTaskType.SIMPLE
+    system_prompt: Optional[str] = None
+    max_tokens: int = 1024
+    temperature: float = 0.7
+    provider_override: Optional[LLMProvider] = None  # Force specific provider
+    fallback: bool = True
+    stream: bool = False
+
+class LLMResponse(BaseModel):
+    content: str
+    provider_used: str
+    model_used: str
+    tokens_used: int
+    cost_estimate_usd: float
+    latency_ms: float
+    fallback_triggered: bool
+    success: bool
+
+class LLMRoutingStats(BaseModel):
+    total_requests: int
+    requests_by_provider: Dict[str, int]
+    total_cost_usd: float
+    avg_latency_ms: float
+    fallback_rate: float
+
+
+# ============================================================================
+# Intelligent LLM Provider Routing
+# ============================================================================
+
+# Provider routing configuration with fallback chains
+LLM_ROUTING_TABLE: Dict[LLMTaskType, List[Tuple[LLMProvider, str, float]]] = {
+    # (provider, model, cost_per_1k_tokens)
+    LLMTaskType.SIMPLE: [
+        (LLMProvider.VLLM, "llama-3.1-8b", 0.0001),      # 10-50x cheaper
+        (LLMProvider.LOVABLE, "google/gemini-2.5-flash-lite", 0.001),
+        (LLMProvider.OPENAI, "gpt-4o-mini", 0.002),
+    ],
+    LLMTaskType.CREATIVE: [
+        (LLMProvider.ANTHROPIC, "claude-sonnet-4-20250514", 0.015),
+        (LLMProvider.OPENAI, "gpt-4o", 0.01),
+        (LLMProvider.LOVABLE, "google/gemini-2.5-pro", 0.005),
+    ],
+    LLMTaskType.REASONING: [
+        (LLMProvider.OPENAI, "gpt-4o", 0.01),
+        (LLMProvider.ANTHROPIC, "claude-sonnet-4-20250514", 0.015),
+        (LLMProvider.LOVABLE, "google/gemini-2.5-pro", 0.005),
+    ],
+    LLMTaskType.CODE: [
+        (LLMProvider.ANTHROPIC, "claude-sonnet-4-20250514", 0.015),
+        (LLMProvider.OPENAI, "gpt-4o", 0.01),
+        (LLMProvider.VLLM, "codellama-34b", 0.0005),
+    ],
+    LLMTaskType.AUDIO_ANALYSIS: [
+        (LLMProvider.VLLM, "llama-3.1-8b", 0.0001),      # Fast for structured tasks
+        (LLMProvider.LOVABLE, "google/gemini-2.5-flash", 0.002),
+    ],
+    LLMTaskType.AGENT: [
+        (LLMProvider.OPENAI, "gpt-4o", 0.01),            # Best function calling
+        (LLMProvider.ANTHROPIC, "claude-sonnet-4-20250514", 0.015),
+        (LLMProvider.LOVABLE, "google/gemini-2.5-pro", 0.005),
+    ],
+}
+
+# Runtime statistics tracking
+_llm_stats = {
+    "total_requests": 0,
+    "requests_by_provider": {},
+    "total_cost_usd": 0.0,
+    "total_latency_ms": 0.0,
+    "fallback_count": 0,
+}
+
+
+async def generate_with_vllm(prompt: str, system_prompt: str, model: str, max_tokens: int, temperature: float) -> Tuple[str, int]:
+    """Generate using self-hosted vLLM (requires vLLM deployment)"""
+    import httpx
+    
+    vllm_url = os.getenv("VLLM_API_URL", "http://localhost:8001/v1/chat/completions")
+    
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            vllm_url,
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt or "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        tokens = data.get("usage", {}).get("total_tokens", len(content.split()) * 2)
+        return content, tokens
+
+
+async def generate_with_anthropic(prompt: str, system_prompt: str, model: str, max_tokens: int, temperature: float) -> Tuple[str, int]:
+    """Generate using Anthropic Claude API"""
+    import httpx
+    
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not configured")
+    
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "system": system_prompt or "You are a helpful assistant.",
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["content"][0]["text"]
+        tokens = data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0)
+        return content, tokens
+
+
+async def generate_with_openai(prompt: str, system_prompt: str, model: str, max_tokens: int, temperature: float) -> Tuple[str, int]:
+    """Generate using OpenAI API"""
+    import httpx
+    
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY not configured")
+    
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt or "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        tokens = data.get("usage", {}).get("total_tokens", 0)
+        return content, tokens
+
+
+async def generate_with_lovable(prompt: str, system_prompt: str, model: str, max_tokens: int, temperature: float) -> Tuple[str, int]:
+    """Generate using Lovable AI Gateway"""
+    import httpx
+    
+    api_key = os.getenv("LOVABLE_API_KEY")
+    if not api_key:
+        raise ValueError("LOVABLE_API_KEY not configured")
+    
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            "https://ai.gateway.lovable.dev/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt or "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": max_tokens,
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        tokens = data.get("usage", {}).get("total_tokens", len(content.split()) * 2)
+        return content, tokens
+
+
+async def generate_with_llm_smart(request: LLMRequest) -> LLMResponse:
+    """
+    Intelligent LLM Provider Routing
+    
+    Routes requests to optimal provider based on task type:
+    - SIMPLE → vLLM (10-50x cheaper, fast)
+    - CREATIVE → Claude (best quality for writing)
+    - REASONING → GPT-4o (most capable reasoning)
+    - CODE → Claude (excellent code generation)
+    - AUDIO_ANALYSIS → vLLM (structured extraction)
+    - AGENT → GPT-4o (best function calling)
+    
+    Falls back through provider chain on failure.
+    """
+    global _llm_stats
+    
+    start_time = time.time()
+    _llm_stats["total_requests"] += 1
+    
+    # Get provider chain for task type
+    if request.provider_override:
+        # Find the model for the overridden provider
+        providers = [(request.provider_override, _get_default_model(request.provider_override), 0.01)]
+    else:
+        providers = LLM_ROUTING_TABLE.get(request.task_type, LLM_ROUTING_TABLE[LLMTaskType.SIMPLE])
+    
+    fallback_triggered = False
+    last_error = None
+    
+    for i, (provider, model, cost_per_1k) in enumerate(providers):
+        if i > 0:
+            fallback_triggered = True
+            _llm_stats["fallback_count"] += 1
+            logger.warning(f"Falling back from {providers[i-1][0]} to {provider}")
+        
+        try:
+            # Route to appropriate provider
+            if provider == LLMProvider.VLLM:
+                content, tokens = await generate_with_vllm(
+                    request.prompt, request.system_prompt, model,
+                    request.max_tokens, request.temperature
+                )
+            elif provider == LLMProvider.ANTHROPIC:
+                content, tokens = await generate_with_anthropic(
+                    request.prompt, request.system_prompt, model,
+                    request.max_tokens, request.temperature
+                )
+            elif provider == LLMProvider.OPENAI:
+                content, tokens = await generate_with_openai(
+                    request.prompt, request.system_prompt, model,
+                    request.max_tokens, request.temperature
+                )
+            elif provider == LLMProvider.LOVABLE:
+                content, tokens = await generate_with_lovable(
+                    request.prompt, request.system_prompt, model,
+                    request.max_tokens, request.temperature
+                )
+            else:
+                raise ValueError(f"Unknown provider: {provider}")
+            
+            # Calculate metrics
+            latency_ms = (time.time() - start_time) * 1000
+            cost_estimate = (tokens / 1000) * cost_per_1k
+            
+            # Update stats
+            _llm_stats["requests_by_provider"][provider.value] = \
+                _llm_stats["requests_by_provider"].get(provider.value, 0) + 1
+            _llm_stats["total_cost_usd"] += cost_estimate
+            _llm_stats["total_latency_ms"] += latency_ms
+            
+            logger.info(f"LLM request completed: provider={provider}, model={model}, tokens={tokens}, latency={latency_ms:.0f}ms")
+            
+            return LLMResponse(
+                content=content,
+                provider_used=provider.value,
+                model_used=model,
+                tokens_used=tokens,
+                cost_estimate_usd=cost_estimate,
+                latency_ms=latency_ms,
+                fallback_triggered=fallback_triggered,
+                success=True
+            )
+            
+        except Exception as e:
+            last_error = e
+            logger.error(f"Provider {provider} failed: {str(e)}")
+            
+            if not request.fallback:
+                raise HTTPException(status_code=500, detail=f"LLM provider failed: {str(e)}")
+            continue
+    
+    # All providers failed
+    raise HTTPException(status_code=503, detail=f"All LLM providers failed. Last error: {str(last_error)}")
+
+
+def _get_default_model(provider: LLMProvider) -> str:
+    """Get default model for a provider"""
+    defaults = {
+        LLMProvider.VLLM: "llama-3.1-8b",
+        LLMProvider.ANTHROPIC: "claude-sonnet-4-20250514",
+        LLMProvider.OPENAI: "gpt-4o",
+        LLMProvider.LOVABLE: "google/gemini-2.5-flash",
+    }
+    return defaults.get(provider, "llama-3.1-8b")
+
+
 # ============================================================================
 # Utility Functions
 # ============================================================================
@@ -289,7 +616,8 @@ async def health_check():
     
     endpoints = [
         "/audio/analyze", "/audio/separate", "/audio/generate",
-        "/ml/quantize", "/agent/execute", "/batch/submit"
+        "/ml/quantize", "/agent/execute", "/batch/submit",
+        "/llm/generate", "/llm/stats"
     ]
     
     return HealthResponse(
@@ -297,10 +625,61 @@ async def health_check():
         gpu=gpu_available,
         gpu_name=gpu_name,
         cuda_version=cuda_version,
-        architecture="suno-style-modal",
+        architecture="suno-style-modal-with-llm-routing",
         endpoints=endpoints,
-        version="2.1.0"
+        version="2.2.0"
     )
+
+# ============================================================================
+# LLM Routing Endpoints
+# ============================================================================
+
+@web_app.post("/llm/generate", response_model=LLMResponse)
+async def generate_llm(request: LLMRequest):
+    """
+    Intelligent LLM Generation with Provider Routing
+    
+    Routes to optimal provider based on task type:
+    - simple → vLLM (10-50x cheaper)
+    - creative → Claude (best quality)
+    - reasoning → GPT-4o (most capable)
+    - code → Claude (excellent code gen)
+    - audio_analysis → vLLM (fast structured)
+    - agent → GPT-4o (best function calling)
+    """
+    return await generate_with_llm_smart(request)
+
+
+@web_app.get("/llm/stats", response_model=LLMRoutingStats)
+async def get_llm_stats():
+    """Get LLM routing statistics"""
+    global _llm_stats
+    
+    total = _llm_stats["total_requests"]
+    fallback_rate = _llm_stats["fallback_count"] / total if total > 0 else 0.0
+    avg_latency = _llm_stats["total_latency_ms"] / total if total > 0 else 0.0
+    
+    return LLMRoutingStats(
+        total_requests=total,
+        requests_by_provider=_llm_stats["requests_by_provider"],
+        total_cost_usd=_llm_stats["total_cost_usd"],
+        avg_latency_ms=avg_latency,
+        fallback_rate=fallback_rate
+    )
+
+
+@web_app.post("/llm/reset-stats")
+async def reset_llm_stats():
+    """Reset LLM routing statistics"""
+    global _llm_stats
+    _llm_stats = {
+        "total_requests": 0,
+        "requests_by_provider": {},
+        "total_cost_usd": 0.0,
+        "total_latency_ms": 0.0,
+        "fallback_count": 0,
+    }
+    return {"status": "stats_reset", "success": True}
 
 @web_app.post("/audio/analyze", response_model=AudioAnalysisResponse)
 async def analyze_audio(request: AudioAnalysisRequest):

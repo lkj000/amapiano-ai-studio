@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Play, Pause, Download, Volume2, Music, Wand2, Upload, Zap, BarChart3 } from 'lucide-react';
+import { Play, Pause, Download, Volume2, Music, Wand2, Upload, Zap, BarChart3, Cloud } from 'lucide-react';
 import { AmapianorizeSettings } from '@/lib/audio/audioProcessor';
 import { amapianorizeAudio } from '@/lib/audio/audioProcessor';
 import { LOG_DRUM_SAMPLES } from '@/lib/audio/logDrumLibrary';
@@ -12,6 +12,7 @@ import { PERCUSSION_SAMPLES } from '@/lib/audio/percussionLibrary';
 import { SampleGenerator } from '@/lib/audio/sampleGenerator';
 import { SVDQuantAudio, QuantizationResult } from '@/lib/audio/svdQuantAudio';
 import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AudioTestLab() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -32,6 +33,15 @@ export default function AudioTestLab() {
   const originalAudioRef = useRef<HTMLAudioElement | null>(null);
   const quantizedAudioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  
+  // Modal GPU state
+  const [isModalQuantizing, setIsModalQuantizing] = useState(false);
+  const [modalResult, setModalResult] = useState<{
+    snr_db: number;
+    compression_ratio: number;
+    rank_used: number;
+    success: boolean;
+  } | null>(null);
   
   const [settings, setSettings] = useState<AmapianorizeSettings>({
     addLogDrum: true,
@@ -291,6 +301,51 @@ export default function AudioTestLab() {
       quantizedAudioRef.current.play();
     }
     setPlayingQuantized(!playingQuantized);
+  };
+
+  // Modal GPU Quantization
+  const runModalQuantization = async () => {
+    if (!originalAudioUrl) {
+      toast.error('Please upload an audio file first');
+      return;
+    }
+
+    setIsModalQuantizing(true);
+    try {
+      toast.info(`Calling Modal GPU with ${quantBitDepth}-bit quantization...`);
+      
+      // Fetch audio and convert to base64
+      const response = await fetch(originalAudioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioContext = new AudioContext();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Get float32 samples from first channel
+      const samples = audioBuffer.getChannelData(0);
+      const base64 = btoa(
+        String.fromCharCode(...new Uint8Array(samples.buffer))
+      );
+      
+      // Call Modal via edge function
+      const { data, error } = await supabase.functions.invoke('modal-quantize', {
+        body: {
+          audio_base64: base64,
+          target_bits: quantBitDepth,
+          sample_rate: audioBuffer.sampleRate,
+        },
+      });
+
+      if (error) throw error;
+      
+      setModalResult(data);
+      toast.success(`Modal GPU: SNR=${data.snr_db?.toFixed(2)}dB, rank=${data.rank_used}`);
+      await audioContext.close();
+    } catch (error) {
+      console.error('Modal quantization failed:', error);
+      toast.error(`Modal error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsModalQuantizing(false);
+    }
   };
 
   return (
@@ -717,6 +772,65 @@ export default function AudioTestLab() {
                   <Download className="mr-2 h-4 w-4" />
                   Download Quantized Audio
                 </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Modal GPU Test Section */}
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Cloud className="w-5 h-5 text-green-500" />
+              <CardTitle>Modal GPU Quantization</CardTitle>
+              <Badge variant="outline" className="text-green-500 border-green-500">
+                A10G GPU
+              </Badge>
+            </div>
+            <CardDescription>
+              Run SVDQuant-Audio on Modal's A10G GPU (PyTorch + CUDA)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This calls your deployed Modal backend at <code className="text-xs bg-muted px-1 py-0.5 rounded">aura-x-backend</code> for 
+              GPU-accelerated quantization with Hann window and phase preservation.
+            </p>
+            
+            <Button
+              onClick={runModalQuantization}
+              disabled={!originalAudioUrl || isModalQuantizing}
+              className="w-full bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              <Cloud className="mr-2 h-4 w-4" />
+              {isModalQuantizing ? 'Processing on GPU...' : `Run ${quantBitDepth}-bit on Modal GPU`}
+            </Button>
+
+            {modalResult && (
+              <div className="space-y-3 pt-4 border-t border-green-500/20">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-green-500" />
+                  <span className="font-medium">Modal GPU Results</span>
+                  <Badge variant={modalResult.success ? 'default' : 'destructive'} className="bg-green-600">
+                    {modalResult.success ? 'SUCCESS' : 'FAILED'}
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-green-500">{modalResult.snr_db?.toFixed(1)}</div>
+                    <div className="text-xs text-muted-foreground">SNR (dB)</div>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-green-500">{modalResult.compression_ratio?.toFixed(1)}x</div>
+                    <div className="text-xs text-muted-foreground">Compression</div>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-green-500">{modalResult.rank_used}</div>
+                    <div className="text-xs text-muted-foreground">SVD Rank</div>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>

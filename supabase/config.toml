@@ -141,3 +141,6 @@ verify_jwt = false
 
 [functions.generate-music]
 verify_jwt = false
+
+[functions.modal-quantize]
+verify_jwt = false

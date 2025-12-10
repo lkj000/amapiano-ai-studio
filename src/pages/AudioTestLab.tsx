@@ -314,7 +314,7 @@ export default function AudioTestLab() {
     try {
       toast.info(`Calling Modal GPU with ${quantBitDepth}-bit quantization...`);
       
-      // Fetch audio and convert to base64
+      // Fetch audio and convert to base64 (chunked to avoid stack overflow)
       const response = await fetch(originalAudioUrl);
       const arrayBuffer = await response.arrayBuffer();
       const audioContext = new AudioContext();
@@ -322,9 +322,16 @@ export default function AudioTestLab() {
       
       // Get float32 samples from first channel
       const samples = audioBuffer.getChannelData(0);
-      const base64 = btoa(
-        String.fromCharCode(...new Uint8Array(samples.buffer))
-      );
+      const uint8Array = new Uint8Array(samples.buffer);
+      
+      // Chunked base64 encoding to avoid "Maximum call stack size exceeded"
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64 = btoa(binary);
       
       // Call Modal via edge function
       const { data, error } = await supabase.functions.invoke('modal-quantize', {

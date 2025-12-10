@@ -26,7 +26,9 @@ serve(async (req) => {
     console.log(`[modal-generate] Calling Modal GPU backend with prompt: "${prompt.substring(0, 50)}..."`);
     console.log(`[modal-generate] Parameters: genre=${genre}, bpm=${bpm}, duration=${duration}s, key=${key}, mood=${mood}`);
 
-    // Call Modal backend for GPU-accelerated music generation
+    const startTime = Date.now();
+
+    // Call Modal backend for GPU-accelerated music generation (Suno-style)
     const response = await fetch(`${MODAL_URL}/audio/generate`, {
       method: "POST",
       headers: {
@@ -42,6 +44,8 @@ serve(async (req) => {
       }),
     });
 
+    const processingTime = Date.now() - startTime;
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[modal-generate] Modal error: ${response.status}`, errorText);
@@ -52,10 +56,14 @@ serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log(`[modal-generate] Success: audio_url=${result.audio_url?.substring(0, 50)}...`);
+    console.log(`[modal-generate] Success in ${processingTime}ms: audio_url=${result.audio_url?.substring(0, 50)}...`);
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        ...result,
+        processing_time_ms: processingTime,
+        infrastructure: "modal-suno-style"
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

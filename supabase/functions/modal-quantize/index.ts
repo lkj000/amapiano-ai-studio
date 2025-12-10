@@ -14,18 +14,28 @@ serve(async (req) => {
   }
 
   try {
-    const { audio_url, target_bits = 8 } = await req.json();
+    const { 
+      audio_url, 
+      target_bits = 8,
+      use_mid_side = true,
+      use_dithering = true,
+      noise_shaping = true
+    } = await req.json();
 
     if (!audio_url) {
       return new Response(
-        JSON.stringify({ error: "audio_url is required" }),
+        JSON.stringify({ error: "audio_url is required", success: false }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[modal-quantize] Calling Modal with ${target_bits}-bit quantization for URL: ${audio_url.substring(0, 50)}...`);
+    console.log(`[modal-quantize] SVDQuant-Audio v2: ${target_bits}-bit quantization`);
+    console.log(`[modal-quantize] Options: mid_side=${use_mid_side}, dither=${use_dithering}, noise_shaping=${noise_shaping}`);
+    console.log(`[modal-quantize] Audio URL: ${audio_url.substring(0, 60)}...`);
 
-    // Call Modal backend with audio_url (what it expects)
+    const startTime = Date.now();
+
+    // Call Modal backend with full options
     const response = await fetch(`${MODAL_URL}/ml/quantize`, {
       method: "POST",
       headers: {
@@ -34,6 +44,9 @@ serve(async (req) => {
       body: JSON.stringify({
         audio_url,
         target_bits,
+        use_mid_side,
+        use_dithering,
+        noise_shaping,
       }),
     });
 
@@ -41,22 +54,29 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error(`[modal-quantize] Modal error: ${response.status}`, errorText);
       return new Response(
-        JSON.stringify({ error: `Modal API error: ${response.status}`, details: errorText }),
+        JSON.stringify({ error: `Modal API error: ${response.status}`, details: errorText, success: false }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const result = await response.json();
-    console.log(`[modal-quantize] Success: SNR=${result.snr_db?.toFixed(2)}dB, rank=${result.rank_used}`);
+    const totalTime = Date.now() - startTime;
+
+    console.log(`[modal-quantize] Success: SNR=${result.snr_db?.toFixed(2)}dB, FAD=${(result.fad_score * 100)?.toFixed(2)}%, rank=${result.rank_used}`);
+    console.log(`[modal-quantize] Quality: phase=${(result.phase_coherence * 100)?.toFixed(1)}%, transient=${(result.transient_preservation * 100)?.toFixed(1)}%, stereo=${(result.stereo_imaging * 100)?.toFixed(1)}%`);
+    console.log(`[modal-quantize] Total time: ${totalTime}ms (Modal: ${result.processing_time?.toFixed(2)}s)`);
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        ...result,
+        edge_function_time: totalTime
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("[modal-quantize] Error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error", success: false }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload } from "lucide-react";
+import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
 import SunoStyleWorkflow from "@/components/ai/SunoStyleWorkflow";
 import { AIPromptParser } from "@/components/AIPromptParser";
@@ -22,6 +22,7 @@ import { HighSpeedDAWEngine } from "@/components/HighSpeedDAWEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 import { useWasmAcceleratedGeneration } from "@/hooks/useWasmAcceleratedGeneration";
+import { ModalGPUGenerator } from "@/components/generate/ModalGPUGenerator";
 
 interface GenerateProps {
   user: User | null;
@@ -36,7 +37,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood" | "voice-midi" | "suno-style">("prompt");
+  const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood" | "voice-midi" | "suno-style" | "modal-gpu">("prompt");
   const [trackType, setTrackType] = useState<"full" | "loop">("full");
   const [useAIParsing, setUseAIParsing] = useState(true);
   const [parsedPrompt, setParsedPrompt] = useState<any>(null);
@@ -251,15 +252,19 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           </div>
 
           <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-4 sm:mb-6">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 h-auto gap-1">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 h-auto gap-1">
               <TabsTrigger value="prompt" className="text-xs sm:text-sm py-2">Prompt</TabsTrigger>
               <TabsTrigger value="reference" className="text-xs sm:text-sm py-2">Reference</TabsTrigger>
               <TabsTrigger value="stem" className="text-xs sm:text-sm py-2">Stem by Stem</TabsTrigger>
               <TabsTrigger value="mood" className="text-xs sm:text-sm py-2">Mood Based</TabsTrigger>
               <TabsTrigger value="voice-midi" className="text-xs sm:text-sm py-2">Voice-to-MIDI</TabsTrigger>
-              <TabsTrigger value="suno-style" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-xs sm:text-sm py-2 col-span-2 sm:col-span-1">
+              <TabsTrigger value="suno-style" className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 text-xs sm:text-sm py-2">
                 <Music className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                 Suno-Style
+              </TabsTrigger>
+              <TabsTrigger value="modal-gpu" className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-xs sm:text-sm py-2">
+                <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                Modal GPU
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -690,6 +695,19 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     />
                   </CardContent>
                 </Card>
+              ) : generationType === "modal-gpu" ? (
+                <ModalGPUGenerator 
+                  onTrackGenerated={(track) => setGeneratedTrack({
+                    id: track.id,
+                    title: track.title,
+                    type: "full",
+                    bpm: track.bpm,
+                    genre: track.genre,
+                    duration: track.duration,
+                    audioUrl: track.audioUrl,
+                    stems: null
+                  })}
+                />
               ) : null}
 
               {/* Generate Button */}

@@ -153,3 +153,6 @@ verify_jwt = false
 
 [functions.modal-agent]
 verify_jwt = false
+
+[functions.modal-generate]
+verify_jwt = false

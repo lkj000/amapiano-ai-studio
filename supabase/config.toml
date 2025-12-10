@@ -144,3 +144,12 @@ verify_jwt = false
 
 [functions.modal-quantize]
 verify_jwt = false
+
+[functions.modal-analyze]
+verify_jwt = false
+
+[functions.modal-separate]
+verify_jwt = false
+
+[functions.modal-agent]
+verify_jwt = false

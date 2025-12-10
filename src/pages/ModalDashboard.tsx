@@ -19,8 +19,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Cpu, Zap, Music, Mic2, Play, Pause, Download, Upload, 
   Activity, CheckCircle2, XCircle, AlertTriangle, Server,
-  Brain, Wand2, Layers, BarChart3, Timer, HardDrive
+  Brain, Wand2, Layers, BarChart3, Timer, HardDrive, MessageSquare,
+  DollarSign, Clock, TrendingUp
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -87,6 +89,29 @@ interface AgentResult {
   success: boolean;
 }
 
+// LLM Types
+type LLMTaskType = 'simple' | 'creative' | 'reasoning' | 'code' | 'audio_analysis' | 'agent';
+type LLMProvider = 'vllm' | 'anthropic' | 'openai' | 'lovable';
+
+interface LLMResponse {
+  content: string;
+  provider_used: string;
+  model_used: string;
+  tokens_used: number;
+  cost_estimate_usd: number;
+  latency_ms: number;
+  fallback_triggered: boolean;
+  success: boolean;
+}
+
+interface LLMStats {
+  total_requests: number;
+  requests_by_provider: Record<string, number>;
+  total_cost_usd: number;
+  avg_latency_ms: number;
+  fallback_rate: number;
+}
+
 export default function ModalDashboard() {
   // Health
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -121,6 +146,14 @@ export default function ModalDashboard() {
   const [agentGoal, setAgentGoal] = useState('');
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [isExecutingAgent, setIsExecutingAgent] = useState(false);
+
+  // LLM Routing
+  const [llmPrompt, setLlmPrompt] = useState('');
+  const [llmTaskType, setLlmTaskType] = useState<LLMTaskType>('simple');
+  const [llmProvider, setLlmProvider] = useState<LLMProvider | ''>('');
+  const [llmResponse, setLlmResponse] = useState<LLMResponse | null>(null);
+  const [llmStats, setLlmStats] = useState<LLMStats | null>(null);
+  const [isGeneratingLLM, setIsGeneratingLLM] = useState(false);
 
   // Check Modal health on mount
   useEffect(() => {
@@ -298,10 +331,67 @@ export default function ModalDashboard() {
     }
   };
 
+  // LLM Generation with smart routing
+  const runLLMGenerate = async () => {
+    if (!llmPrompt.trim()) {
+      toast.error('Please enter a prompt');
+      return;
+    }
+
+    setIsGeneratingLLM(true);
+    try {
+      const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/llm/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: llmPrompt,
+          task_type: llmTaskType,
+          provider_override: llmProvider || null,
+          max_tokens: 1024,
+          temperature: 0.7,
+          fallback: true
+        })
+      });
+
+      if (!response.ok) throw new Error('LLM generation failed');
+      const data = await response.json();
+      setLlmResponse(data);
+      toast.success(`Generated via ${data.provider_used}/${data.model_used}`);
+    } catch (error) {
+      console.error('LLM generation failed:', error);
+      toast.error('LLM generation failed');
+    } finally {
+      setIsGeneratingLLM(false);
+    }
+  };
+
+  const fetchLLMStats = async () => {
+    try {
+      const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/llm/stats');
+      if (!response.ok) throw new Error('Failed to fetch stats');
+      const data = await response.json();
+      setLlmStats(data);
+    } catch (error) {
+      console.error('Failed to fetch LLM stats:', error);
+    }
+  };
+
   const getQualityBadge = (value: number, thresholds: { good: number; fair: number }) => {
     if (value >= thresholds.good) return { variant: 'default' as const, label: 'Excellent' };
     if (value >= thresholds.fair) return { variant: 'secondary' as const, label: 'Good' };
     return { variant: 'destructive' as const, label: 'Poor' };
+  };
+
+  const getTaskTypeDescription = (type: LLMTaskType): string => {
+    const descriptions: Record<LLMTaskType, string> = {
+      simple: 'vLLM → Lovable → OpenAI (10-50x cheaper)',
+      creative: 'Claude → GPT-4o → Gemini (best quality)',
+      reasoning: 'GPT-4o → Claude → Gemini (most capable)',
+      code: 'Claude → GPT-4o → CodeLlama (excellent code)',
+      audio_analysis: 'vLLM → Gemini (fast structured)',
+      agent: 'GPT-4o → Claude → Gemini (best function calling)'
+    };
+    return descriptions[type];
   };
 
   return (
@@ -425,7 +515,7 @@ export default function ModalDashboard() {
 
         {/* Main Tabs */}
         <Tabs defaultValue="analyze" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full max-w-xl">
+          <TabsList className="grid grid-cols-5 w-full max-w-2xl">
             <TabsTrigger value="analyze" className="gap-1">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Analyze</span>
@@ -437,6 +527,10 @@ export default function ModalDashboard() {
             <TabsTrigger value="quantize" className="gap-1">
               <Cpu className="h-4 w-4" />
               <span className="hidden sm:inline">Quantize</span>
+            </TabsTrigger>
+            <TabsTrigger value="llm" className="gap-1">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">LLM</span>
             </TabsTrigger>
             <TabsTrigger value="agent" className="gap-1">
               <Brain className="h-4 w-4" />
@@ -718,6 +812,106 @@ export default function ModalDashboard() {
                         Download Quantized Audio
                       </Button>
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* LLM Routing Tab */}
+          <TabsContent value="llm" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Intelligent LLM Routing
+                </CardTitle>
+                <CardDescription>
+                  Smart provider selection: vLLM (cheap) → Claude (creative) → GPT-4o (reasoning)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Task Type</Label>
+                    <Select value={llmTaskType} onValueChange={(v) => setLlmTaskType(v as LLMTaskType)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="simple">Simple (vLLM first)</SelectItem>
+                        <SelectItem value="creative">Creative (Claude first)</SelectItem>
+                        <SelectItem value="reasoning">Reasoning (GPT-4o first)</SelectItem>
+                        <SelectItem value="code">Code (Claude first)</SelectItem>
+                        <SelectItem value="audio_analysis">Audio Analysis (vLLM)</SelectItem>
+                        <SelectItem value="agent">Agent (GPT-4o first)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{getTaskTypeDescription(llmTaskType)}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Provider Override (optional)</Label>
+                    <Select value={llmProvider} onValueChange={(v) => setLlmProvider(v as LLMProvider | '')}>
+                      <SelectTrigger><SelectValue placeholder="Auto-route" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Auto-route (recommended)</SelectItem>
+                        <SelectItem value="vllm">vLLM (self-hosted)</SelectItem>
+                        <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                        <SelectItem value="openai">OpenAI (GPT-4o)</SelectItem>
+                        <SelectItem value="lovable">Lovable AI (Gemini)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Textarea
+                  placeholder="Enter your prompt..."
+                  value={llmPrompt}
+                  onChange={(e) => setLlmPrompt(e.target.value)}
+                  rows={4}
+                />
+
+                <div className="flex gap-2">
+                  <Button onClick={runLLMGenerate} disabled={!llmPrompt.trim() || isGeneratingLLM} className="flex-1">
+                    {isGeneratingLLM ? 'Generating...' : 'Generate'}
+                  </Button>
+                  <Button variant="outline" onClick={fetchLLMStats}>
+                    <TrendingUp className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {llmResponse && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant={llmResponse.fallback_triggered ? 'secondary' : 'default'}>
+                        {llmResponse.provider_used}/{llmResponse.model_used}
+                      </Badge>
+                      <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{llmResponse.latency_ms.toFixed(0)}ms</Badge>
+                      <Badge variant="outline"><DollarSign className="h-3 w-3 mr-1" />${llmResponse.cost_estimate_usd.toFixed(4)}</Badge>
+                      <Badge variant="outline">{llmResponse.tokens_used} tokens</Badge>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-3">
+                      <p className="text-sm whitespace-pre-wrap">{llmResponse.content}</p>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {llmStats && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t text-center">
+                    <div className="p-2 bg-muted/50 rounded">
+                      <p className="text-lg font-bold">{llmStats.total_requests}</p>
+                      <p className="text-xs text-muted-foreground">Total Requests</p>
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded">
+                      <p className="text-lg font-bold">${llmStats.total_cost_usd.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">Total Cost</p>
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded">
+                      <p className="text-lg font-bold">{llmStats.avg_latency_ms.toFixed(0)}ms</p>
+                      <p className="text-xs text-muted-foreground">Avg Latency</p>
+                    </div>
+                    <div className="p-2 bg-muted/50 rounded">
+                      <p className="text-lg font-bold">{(llmStats.fallback_rate * 100).toFixed(1)}%</p>
+                      <p className="text-xs text-muted-foreground">Fallback Rate</p>
+                    </div>
                   </div>
                 )}
               </CardContent>

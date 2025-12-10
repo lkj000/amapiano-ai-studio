@@ -74,6 +74,8 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     { path: "/vast-demo", label: "VAST Demo", icon: Brain },
     { path: "/essentia-demo", label: "Essentia", icon: Search },
     { path: "/performance", label: "Performance", icon: Activity },
+    { path: "/ml/quantize", label: "SVDQuant", icon: Activity },
+    { path: "/level5-dashboard", label: "Level 5", icon: Shield },
   ];
 
   const isActive = (path: string) => {

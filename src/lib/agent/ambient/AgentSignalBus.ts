@@ -56,7 +56,7 @@ export class AgentSignalBus {
         .insert([{
           memory_key: `signal_${signal.id}`,
           memory_type: 'signal',
-          memory_data: signal as unknown as Record<string, unknown>,
+          memory_data: JSON.parse(JSON.stringify(signal)),
           importance_score: 0.7,
           user_id: '00000000-0000-0000-0000-000000000000' // System signals
         }]);

@@ -161,7 +161,7 @@ export class DurableAgentState {
       .upsert([{
         memory_key: `workflow_${this.workflowId}`,
         memory_type: 'workflow_state',
-        memory_data: this.state as unknown as Record<string, unknown>,
+        memory_data: JSON.parse(JSON.stringify(this.state)),
         importance_score: 0.9,
         user_id: this.userId,
         updated_at: new Date().toISOString()

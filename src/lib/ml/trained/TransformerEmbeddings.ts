@@ -220,7 +220,7 @@ class TransformerEmbedder {
     }
     
     // Mean pooling
-    const pooled = tf.layers.globalAveragePooling1D().apply(x) as tf.SymbolicTensor;
+    const pooled = tf.layers.globalAveragePooling1d().apply(x) as tf.SymbolicTensor;
     
     // Final projection
     const output = tf.layers.dense({

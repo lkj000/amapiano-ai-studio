@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Music, Search, Headphones, Grid3X3, Volume2, Sparkles, Users, BookOpen, Zap, Crown, ShoppingCart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { User } from '@supabase/supabase-js';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionModal } from '@/components/SubscriptionModal';
@@ -11,9 +11,9 @@ import { SubscriptionManagement } from '@/components/SubscriptionManagement';
 import { MarketplaceModal } from '@/components/MarketplaceModal';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
+import { PricingSection } from '@/components/PricingSection';
 import { toast } from 'sonner';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
-
 interface IndexProps {
   user: User | null;
   showSubscription?: boolean;
@@ -22,12 +22,23 @@ interface IndexProps {
 
 const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarketplace = false }) => {
   const { subscribed } = useSubscription(user);
+  const [searchParams] = useSearchParams();
   
   // Show subscription management for existing subscribers, subscription modal for new users
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(showSubscription && !subscribed);
   const [subscriptionManagementOpen, setSubscriptionManagementOpen] = useState(showSubscription && subscribed);
   const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(showMarketplace);
   const { subscription_tier, hasFeature } = useSubscription(user);
+
+  // Handle subscription success/cancel from Stripe redirect
+  useEffect(() => {
+    const subscriptionStatus = searchParams.get('subscription');
+    if (subscriptionStatus === 'success') {
+      toast.success('Subscription activated! Welcome to AURA-X Pro.');
+    } else if (subscriptionStatus === 'canceled') {
+      toast.info('Subscription checkout was canceled.');
+    }
+  }, [searchParams]);
   const features = [
     {
       icon: Users,
@@ -361,6 +372,9 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
           </div>
         </div>
       </section>
+
+      {/* Pricing Section */}
+      <PricingSection user={user} />
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-primary">

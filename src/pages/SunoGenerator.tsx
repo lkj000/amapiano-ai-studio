@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User } from '@supabase/supabase-js';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { Music, Loader2, Play, Download, Sparkles } from 'lucide-react';
+import { Music, Loader2, Download, Sparkles, Mic, Music2, Radio, Scissors } from 'lucide-react';
+import LyricsGenerator from '@/components/music/LyricsGenerator';
 
 interface SunoGeneratorProps {
   user: User | null;
@@ -126,9 +128,26 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2 justify-center mb-8">
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/ai-lyrics-generator"><Sparkles className="mr-1 h-4 w-4" /> AI Lyrics</Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/generate-song-elevenlabs-singing"><Mic className="mr-1 h-4 w-4" /> ElevenLabs Vocals</Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/generate-instrumental"><Music2 className="mr-1 h-4 w-4" /> Instrumental</Link>
+        </Button>
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/stem-splitter"><Scissors className="mr-1 h-4 w-4" /> Stem Splitter</Link>
+        </Button>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
+        <div className="space-y-6">
+          <LyricsGenerator compact onLyricsGenerated={(l) => setLyrics(l)} />
+          <Card>
+            <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5" />
               Song Configuration
@@ -197,7 +216,8 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
               />
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>

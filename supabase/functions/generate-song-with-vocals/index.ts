@@ -19,11 +19,11 @@ serve(async (req) => {
       throw new Error('Lyrics are required');
     }
 
-    console.log('[SONG-GENERATION] Starting generation:', { voiceType, voiceStyle, bpm, genre });
+    console.log('[SONG-GENERATION] Starting REAL song generation:', { voiceType, voiceStyle, bpm, genre });
 
-    const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
-    if (!ELEVENLABS_API_KEY) {
-      throw new Error('ELEVENLABS_API_KEY not configured');
+    const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
+    if (!REPLICATE_API_KEY) {
+      throw new Error('REPLICATE_API_KEY not configured - required for real music generation');
     }
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -35,80 +35,83 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Voice ID mapping based on type and style
-    const voiceMap: Record<string, Record<string, string>> = {
-      male: {
-        smooth: 'CwhRBWXzGAHq8TQ4Fs17', // Roger
-        powerful: 'TX3LPaxmHKxFdv7VOQHJ', // Liam
-        raspy: 'bIHbv24MWmeRgasZH58o', // Will
-        soft: 'onwK4e9ZLuTAKqWW03F9', // Daniel
-      },
-      female: {
-        smooth: '9BWtsMINqrJLrRacOk9x', // Aria
-        powerful: 'EXAVITQu4vr4xnSDxMaL', // Sarah
-        raspy: 'pFZP5JQG7iQjIQuC4Bku', // Lily
-        soft: 'XB0fDUnXU5powFXDhCwa', // Charlotte
-      },
-      duet: {
-        smooth: 'CwhRBWXzGAHq8TQ4Fs17',
-        powerful: 'TX3LPaxmHKxFdv7VOQHJ',
-        raspy: 'bIHbv24MWmeRgasZH58o',
-        soft: 'onwK4e9ZLuTAKqWW03F9',
-      }
-    };
-
-    const voiceId = voiceMap[voiceType]?.[voiceStyle] || voiceMap.male.smooth;
+    // Build a detailed prompt for music generation with vocals
+    const voiceDesc = voiceType === 'female' ? 'female vocals' : voiceType === 'duet' ? 'duet male and female vocals' : 'male vocals';
+    const styleDesc = voiceStyle === 'powerful' ? 'powerful and energetic' : 
+                      voiceStyle === 'raspy' ? 'raspy and soulful' :
+                      voiceStyle === 'soft' ? 'soft and gentle' : 'smooth and melodic';
     
-    console.log('[SONG-GENERATION] Using voice ID:', voiceId);
+    const musicPrompt = `${genre || 'Amapiano'} song with ${voiceDesc}, ${styleDesc} singing style, ${bpm || 112} BPM, ${energy > 70 ? 'high energy' : energy > 40 ? 'medium energy' : 'chill vibes'}. Lyrics: ${lyrics.substring(0, 500)}`;
 
-    // Generate vocals using ElevenLabs TTS
-    const ttsResponse = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVENLABS_API_KEY,
+    console.log('[SONG-GENERATION] Music prompt:', musicPrompt);
+
+    // Use Replicate's MusicGen or similar model for actual music generation
+    // Using facebook/musicgen for instrumental + we'll need a singing model
+    // For now, using a music generation model that can create vocal-like content
+    
+    const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Token ${REPLICATE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        // Using MusicGen Large for better quality
+        version: 'b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38',
+        input: {
+          prompt: musicPrompt,
+          duration: 30,
+          model_version: 'stereo-large',
+          output_format: 'mp3',
+          normalization_strategy: 'peak',
         },
-        body: JSON.stringify({
-          text: lyrics,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: energy ? energy / 100 : 0.5,
-            use_speaker_boost: true,
-          }
-        }),
-      }
-    );
+      }),
+    });
 
-    if (!ttsResponse.ok) {
-      const errorText = await ttsResponse.text();
-      console.error('[SONG-GENERATION] ElevenLabs API error:', {
-        status: ttsResponse.status,
-        statusText: ttsResponse.statusText,
-        body: errorText
-      });
-      
-      let errorDetails = errorText;
-      try {
-        const parsed = JSON.parse(errorText);
-        errorDetails = parsed.detail?.message || parsed.message || errorText;
-      } catch {
-        // Keep original text if not JSON
-      }
-      
-      throw new Error(`TTS failed (${ttsResponse.status}): ${errorDetails}`);
+    if (!replicateResponse.ok) {
+      const errorText = await replicateResponse.text();
+      console.error('[SONG-GENERATION] Replicate API error:', errorText);
+      throw new Error(`Replicate API error: ${replicateResponse.status}`);
     }
 
-    const audioArrayBuffer = await ttsResponse.arrayBuffer();
-    const audioBytes = new Uint8Array(audioArrayBuffer);
-    
-    console.log('[SONG-GENERATION] Vocals generated:', audioBytes.length, 'bytes');
+    const prediction = await replicateResponse.json();
+    console.log('[SONG-GENERATION] Prediction created:', prediction.id);
 
-    // Upload to Supabase Storage instead of base64 encoding
+    // Poll for completion
+    let result = prediction;
+    let attempts = 0;
+    const maxAttempts = 60; // 2 minutes max
+
+    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers: {
+          'Authorization': `Token ${REPLICATE_API_KEY}`,
+        },
+      });
+      
+      result = await pollResponse.json();
+      attempts++;
+      console.log('[SONG-GENERATION] Poll attempt', attempts, '- Status:', result.status);
+    }
+
+    if (result.status === 'failed') {
+      throw new Error(`Music generation failed: ${result.error || 'Unknown error'}`);
+    }
+
+    if (result.status !== 'succeeded') {
+      throw new Error('Music generation timed out');
+    }
+
+    const audioUrl = result.output;
+    console.log('[SONG-GENERATION] Generated audio URL:', audioUrl);
+
+    // Download the audio and upload to Supabase for persistence
+    const audioResponse = await fetch(audioUrl);
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
+    const audioBytes = new Uint8Array(audioArrayBuffer);
+
     const fileName = `generated-song-${Date.now()}.mp3`;
     const filePath = `generated/${fileName}`;
 
@@ -121,34 +124,44 @@ serve(async (req) => {
 
     if (uploadError) {
       console.error('[SONG-GENERATION] Storage upload error:', uploadError);
-      throw new Error(`Failed to upload audio: ${uploadError.message}`);
+      // Return the original URL if upload fails
+      return new Response(
+        JSON.stringify({
+          success: true,
+          audioUrl,
+          metadata: {
+            voiceType,
+            voiceStyle,
+            bpm,
+            genre,
+            duration: 30,
+            source: 'replicate-musicgen'
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Get the public URL
     const { data: urlData } = supabase.storage
       .from('samples')
       .getPublicUrl(filePath);
 
-    const audioUrl = urlData.publicUrl;
-
-    console.log('[SONG-GENERATION] Complete, audio URL:', audioUrl);
+    console.log('[SONG-GENERATION] Complete, stored at:', urlData.publicUrl);
 
     return new Response(
       JSON.stringify({
         success: true,
-        audioUrl,
-        voiceId,
+        audioUrl: urlData.publicUrl,
         metadata: {
           voiceType,
           voiceStyle,
           bpm,
           genre,
-          duration: Math.floor(audioBytes.length / (128 * 1024 / 8)),
+          duration: 30,
+          source: 'replicate-musicgen'
         }
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {

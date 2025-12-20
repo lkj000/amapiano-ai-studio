@@ -23,6 +23,8 @@ interface GeneratedTrack {
   genre: string;
   key: string;
   mood: string;
+  isMock?: boolean;
+  processingTime?: number;
 }
 
 export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) {
@@ -65,19 +67,26 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
       }
 
       const track: GeneratedTrack = {
-        id: `modal-${Date.now()}`,
-        title: `Modal Generated: ${prompt.substring(0, 30)}...`,
+        id: data.track_id || `modal-${Date.now()}`,
+        title: data.title || `Generated: ${prompt.substring(0, 30)}...`,
         audioUrl: data.audio_url || data.audioUrl,
-        duration: duration[0],
-        bpm: bpm[0],
-        genre,
-        key,
-        mood,
+        duration: data.duration || duration[0],
+        bpm: data.bpm || bpm[0],
+        genre: data.genre || genre,
+        key: data.key || key,
+        mood: data.mood || mood,
+        isMock: data.is_mock || false,
+        processingTime: data.processing_time_ms,
       };
 
       setGeneratedTrack(track);
       onTrackGenerated?.(track);
-      toast.success("✅ GPU-accelerated track generated successfully!");
+      
+      if (track.isMock) {
+        toast.success("✅ Track generated (development mode - deploy Modal for real AI generation)");
+      } else {
+        toast.success(`✅ GPU-accelerated track generated in ${track.processingTime}ms!`);
+      }
     } catch (err) {
       console.error("Modal generate error:", err);
       const message = err instanceof Error ? err.message : "Failed to generate track";
@@ -228,12 +237,18 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
           <Card className="bg-muted/50">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div>
+              <div>
+                <div className="flex items-center gap-2">
                   <p className="font-medium">{generatedTrack.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {generatedTrack.genre} • {generatedTrack.bpm} BPM • {generatedTrack.key} • {generatedTrack.duration}s
-                  </p>
+                  {generatedTrack.isMock && (
+                    <Badge variant="secondary" className="text-xs">Dev Mode</Badge>
+                  )}
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  {generatedTrack.genre} • {generatedTrack.bpm} BPM • {generatedTrack.key} • {generatedTrack.duration}s
+                  {generatedTrack.processingTime && ` • ${generatedTrack.processingTime}ms`}
+                </p>
+              </div>
                 <div className="flex gap-2">
                   {generatedTrack.audioUrl && (
                     <>

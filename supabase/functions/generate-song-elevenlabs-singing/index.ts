@@ -15,6 +15,8 @@ const AMAPIANO_VOICES: Record<string, { voiceId: string; settings: any }> = {
   'boohle': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.75 } }, // Gospel-infused
   'sha-sha': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.7 } }, // Lily - emotive
   'mawhoo': { voiceId: 'XrExE9yKIg1WjnnlVkGX', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.75 } }, // Matilda - powerful
+  'thatohatsi': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.25, style: 0.9, similarity_boost: 0.85 } }, // Transcendent artistry
+  'tracey': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.8 } }, // Nuanced lyricism
   'pabi-cooper': { voiceId: 'cgSgspJ2msm6clMCkdW9', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.7 } }, // Jessica - youthful
   'lady-du': { voiceId: 'XrExE9yKIg1WjnnlVkGX', settings: { stability: 0.25, style: 0.95, similarity_boost: 0.8 } }, // Energetic
   'tyla': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.4, style: 0.7, similarity_boost: 0.75 } }, // Smooth R&B
@@ -40,6 +42,8 @@ const AMAPIANO_VOICES: Record<string, { voiceId: string; settings: any }> = {
   'duet-romantic': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.8 } },
   'duet-gospel': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.85 } },
   'duet-dance': { voiceId: 'cgSgspJ2msm6clMCkdW9', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.7 } },
+  'duet-transcendent': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.25, style: 0.9, similarity_boost: 0.85 } },
+  'duet-storytelling': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.8 } },
   
   // Fallbacks
   'female': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.8, similarity_boost: 0.75 } },

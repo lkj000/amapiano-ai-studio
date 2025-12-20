@@ -48,6 +48,8 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
     { value: 'boohle', label: 'Boohle Style', description: 'Angelic, assured voice with deep gospel roots' },
     { value: 'sha-sha', label: 'Sha Sha Style', description: 'Queen of Amapiano - soulful, emotive singing' },
     { value: 'mawhoo', label: 'Mawhoo Style', description: 'Powerful, versatile with strong storytelling' },
+    { value: 'thatohatsi', label: 'Thatohatsi Style', description: 'Transcendent artistry with unique vision and powerful delivery' },
+    { value: 'tracey', label: 'Tracey Style', description: 'Distinctive voice with nuanced, relatable lyricism' },
     { value: 'pabi-cooper', label: 'Pabi Cooper Style', description: 'Youthful, commanding with warm delivery' },
     { value: 'lady-du', label: 'Lady Du Style', description: 'Energetic, powerful presence' },
     { value: 'tyla', label: 'Tyla Style', description: 'Global star - smooth R&B-infused Amapiano' },
@@ -77,6 +79,8 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
     { value: 'duet-romantic', label: 'Romantic Duet', description: 'Sha Sha x Young Stunna style - emotive connection' },
     { value: 'duet-gospel', label: 'Gospel Duet', description: 'Boohle x Murumba Pitch style - spiritual depth' },
     { value: 'duet-dance', label: 'Dance Duet', description: 'Kamo Mphela x Kabza style - infectious rhythms' },
+    { value: 'duet-transcendent', label: 'Transcendent Duet', description: 'Thatohatsi x Kelvin Momo style - deep emotional artistry' },
+    { value: 'duet-storytelling', label: 'Storytelling Duet', description: 'Tracey x Murumba Pitch style - nuanced narratives' },
   ];
 
   const voiceCategories = [

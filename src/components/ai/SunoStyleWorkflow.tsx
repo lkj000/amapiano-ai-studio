@@ -18,6 +18,7 @@ import {
   Edit,
   Save
 } from 'lucide-react';
+import JSZip from 'jszip';
 import LyricsGenerator from './LyricsGenerator';
 import AmapianorizationControls, { AmapianorizationSettings } from './AmapianorizationControls';
 import { useToast } from '@/hooks/use-toast';
@@ -263,8 +264,6 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         description: "Downloading stems and creating zip archive"
       });
 
-      // Import JSZip dynamically to reduce initial bundle
-      const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
 
       // Download each stem and add to zip

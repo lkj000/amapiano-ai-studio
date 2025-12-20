@@ -159,3 +159,15 @@ verify_jwt = false
 
 [functions.create-checkout]
 verify_jwt = true
+
+[functions.generate-song-suno]
+verify_jwt = false
+
+[functions.generate-song-elevenlabs-singing]
+verify_jwt = false
+
+[functions.generate-instrumental]
+verify_jwt = false
+
+[functions.generate-backing-with-intro]
+verify_jwt = false

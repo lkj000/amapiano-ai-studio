@@ -44,6 +44,8 @@ import SunoGenerator from "./pages/SunoGenerator";
 import ElevenLabsSinging from "./pages/ElevenLabsSinging";
 import InstrumentalGenerator from "./pages/InstrumentalGenerator";
 import BackingWithIntro from "./pages/BackingWithIntro";
+import AILyricsGeneratorPage from "./pages/AILyricsGeneratorPage";
+import StemSplitterPage from "./pages/StemSplitterPage";
 
 const queryClient = new QueryClient();
 
@@ -161,6 +163,8 @@ const App = () => {
               <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
               <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
               <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
+              <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
+              <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

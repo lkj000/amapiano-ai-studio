@@ -509,14 +509,16 @@ export class TrainingDataPipeline {
       return;
     }
     
+    const analysisData = {
+      sample: JSON.parse(JSON.stringify(sample)),
+      metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null,
+      status: 'pending'
+    };
+    
     const { error } = await supabase.from('audio_analysis_results').insert([{
       audio_url: sample.url,
       analysis_type: 'training-sample',
-      analysis_data: {
-        sample,
-        metadata,
-        status: 'pending'
-      },
+      analysis_data: analysisData as unknown as Record<string, never>,
       user_id: userId
     }]);
 

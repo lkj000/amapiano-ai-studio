@@ -177,3 +177,9 @@ verify_jwt = false
 
 [functions.stem-splitter]
 verify_jwt = false
+
+[functions.vocal-remover]
+verify_jwt = false
+
+[functions.sound-effect-generator]
+verify_jwt = false

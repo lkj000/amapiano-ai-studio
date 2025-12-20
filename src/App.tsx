@@ -46,6 +46,8 @@ import InstrumentalGenerator from "./pages/InstrumentalGenerator";
 import BackingWithIntro from "./pages/BackingWithIntro";
 import AILyricsGeneratorPage from "./pages/AILyricsGeneratorPage";
 import StemSplitterPage from "./pages/StemSplitterPage";
+import VocalRemoverPage from "./pages/VocalRemoverPage";
+import SoundEffectPage from "./pages/SoundEffectPage";
 
 const queryClient = new QueryClient();
 
@@ -165,6 +167,8 @@ const App = () => {
               <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
               <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
               <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
+              <Route path="/vocal-remover" element={<VocalRemoverPage />} />
+              <Route path="/sound-effect" element={<SoundEffectPage />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

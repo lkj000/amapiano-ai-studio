@@ -7,11 +7,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ElevenLabs voice IDs optimized for singing/melodic content
-const SINGING_VOICES = {
-  female: 'EXAVITQu4vr4xnSDxMaL', // Sarah - good for melodic
-  male: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - deep and smooth
-  duet: 'pFZP5JQG7iQjIQuC4Bku', // Lily - versatile
+// South African Amapiano-inspired voice mappings
+// Using ElevenLabs voices that best match the vocal characteristics
+const AMAPIANO_VOICES: Record<string, { voiceId: string; settings: any }> = {
+  // Female Vocalists - Soulful/Angelic
+  'nkosazana': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.25, style: 0.9, similarity_boost: 0.8 } }, // Sarah - angelic
+  'boohle': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.75 } }, // Gospel-infused
+  'sha-sha': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.7 } }, // Lily - emotive
+  'mawhoo': { voiceId: 'XrExE9yKIg1WjnnlVkGX', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.75 } }, // Matilda - powerful
+  'pabi-cooper': { voiceId: 'cgSgspJ2msm6clMCkdW9', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.7 } }, // Jessica - youthful
+  'lady-du': { voiceId: 'XrExE9yKIg1WjnnlVkGX', settings: { stability: 0.25, style: 0.95, similarity_boost: 0.8 } }, // Energetic
+  'tyla': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.4, style: 0.7, similarity_boost: 0.75 } }, // Smooth R&B
+  'kamo-mphela': { voiceId: 'cgSgspJ2msm6clMCkdW9', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.7 } }, // Dance energy
+  'babalwa-m': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.85 } }, // Jazzy
+  'nia-pearl': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.45, style: 0.7, similarity_boost: 0.8 } }, // Mature
+  
+  // Male Vocalists - Deep/Soulful
+  'kabza': { voiceId: 'TX3LPaxmHKxFdv7VOQHJ', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.75 } }, // Liam - deep
+  'maphorisa': { voiceId: 'onwK4e9ZLuTAKqWW03F9', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.7 } }, // Daniel
+  'focalistic': { voiceId: 'IKne3meq5aSn9XLyUdCD', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.65 } }, // Charlie - energetic flow
+  'aymos': { voiceId: 'TX3LPaxmHKxFdv7VOQHJ', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.8 } }, // Soulful
+  'young-stunna': { voiceId: 'N2lVS1w4EtoT3dr4eOWO', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.75 } }, // Callum - melodic
+  'murumba-pitch': { voiceId: 'TX3LPaxmHKxFdv7VOQHJ', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.8 } }, // Poignant
+  'kelvin-momo': { voiceId: 'onwK4e9ZLuTAKqWW03F9', settings: { stability: 0.45, style: 0.7, similarity_boost: 0.85 } }, // Deep emotional
+  'sir-trill': { voiceId: 'N2lVS1w4EtoT3dr4eOWO', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.7 } }, // Distinctive
+  'blxckie': { voiceId: 'IKne3meq5aSn9XLyUdCD', settings: { stability: 0.25, style: 0.9, similarity_boost: 0.65 } }, // Slick flow
+  'busta-929': { voiceId: 'onwK4e9ZLuTAKqWW03F9', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.7 } }, // Energetic
+  
+  // Duet styles - Mixed
+  'duet-soulful': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.8 } },
+  'duet-energetic': { voiceId: 'XrExE9yKIg1WjnnlVkGX', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.7 } },
+  'duet-romantic': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.4, style: 0.75, similarity_boost: 0.8 } },
+  'duet-gospel': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.85, similarity_boost: 0.85 } },
+  'duet-dance': { voiceId: 'cgSgspJ2msm6clMCkdW9', settings: { stability: 0.2, style: 0.95, similarity_boost: 0.7 } },
+  
+  // Fallbacks
+  'female': { voiceId: 'EXAVITQu4vr4xnSDxMaL', settings: { stability: 0.3, style: 0.8, similarity_boost: 0.75 } },
+  'male': { voiceId: 'TX3LPaxmHKxFdv7VOQHJ', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.75 } },
+  'duet': { voiceId: 'pFZP5JQG7iQjIQuC4Bku', settings: { stability: 0.35, style: 0.8, similarity_boost: 0.75 } },
 };
 
 serve(async (req) => {
@@ -84,8 +117,11 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Generate sung vocals using ElevenLabs with musical settings
-    const voiceId = SINGING_VOICES[voiceType as keyof typeof SINGING_VOICES] || SINGING_VOICES.female;
+    // Step 2: Generate sung vocals using ElevenLabs with Amapiano voice settings
+    const voiceConfig = AMAPIANO_VOICES[voiceType] || AMAPIANO_VOICES.female;
+    const { voiceId, settings } = voiceConfig;
+    
+    console.log('[ELEVENLABS-SINGING] Using voice:', voiceType, 'with ID:', voiceId);
     
     // Format lyrics for more melodic TTS output
     const formattedLyrics = lyrics
@@ -104,9 +140,9 @@ serve(async (req) => {
         text: formattedLyrics,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
-          stability: 0.3, // Lower for more expressive/melodic
-          similarity_boost: 0.7,
-          style: 0.8, // Higher style for more musical expression
+          stability: settings.stability,
+          similarity_boost: settings.similarity_boost,
+          style: settings.style,
           use_speaker_boost: true,
           speed: 0.9, // Slightly slower for more melodic feel
         },

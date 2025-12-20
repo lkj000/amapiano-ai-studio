@@ -1240,6 +1240,36 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_metrics: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          sample_count: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_date?: string
+          metric_type: string
+          metric_value: number
+          sample_count?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          metric_date?: string
+          metric_type?: string
+          metric_value?: number
+          sample_count?: number | null
+        }
+        Relationships: []
+      }
       licensed_content: {
         Row: {
           content_type: string | null
@@ -1338,6 +1368,51 @@ export type Database = {
           subcategory?: string | null
           tags?: string[] | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      model_versions: {
+        Row: {
+          base_model: string
+          checkpoint_url: string | null
+          completed_at: string | null
+          created_at: string
+          epochs_completed: number | null
+          id: string
+          is_active: boolean | null
+          metrics: Json
+          status: string | null
+          training_config: Json
+          training_examples_count: number | null
+          version_name: string
+        }
+        Insert: {
+          base_model?: string
+          checkpoint_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          epochs_completed?: number | null
+          id?: string
+          is_active?: boolean | null
+          metrics?: Json
+          status?: string | null
+          training_config?: Json
+          training_examples_count?: number | null
+          version_name: string
+        }
+        Update: {
+          base_model?: string
+          checkpoint_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          epochs_completed?: number | null
+          id?: string
+          is_active?: boolean | null
+          metrics?: Json
+          status?: string | null
+          training_config?: Json
+          training_examples_count?: number | null
+          version_name?: string
         }
         Relationships: []
       }
@@ -2011,6 +2086,60 @@ export type Database = {
           },
         ]
       }
+      production_sessions: {
+        Row: {
+          attempts: number | null
+          audio_url: string | null
+          authenticity_score: number | null
+          completed_at: string | null
+          created_at: string
+          generation_params: Json
+          genre: string
+          id: string
+          model_version: string | null
+          passed_threshold: boolean | null
+          quality_score: number | null
+          region: string | null
+          request_data: Json
+          total_duration_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number | null
+          audio_url?: string | null
+          authenticity_score?: number | null
+          completed_at?: string | null
+          created_at?: string
+          generation_params?: Json
+          genre: string
+          id?: string
+          model_version?: string | null
+          passed_threshold?: boolean | null
+          quality_score?: number | null
+          region?: string | null
+          request_data?: Json
+          total_duration_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number | null
+          audio_url?: string | null
+          authenticity_score?: number | null
+          completed_at?: string | null
+          created_at?: string
+          generation_params?: Json
+          genre?: string
+          id?: string
+          model_version?: string | null
+          passed_threshold?: boolean | null
+          quality_score?: number | null
+          region?: string | null
+          request_data?: Json
+          total_duration_ms?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2388,6 +2517,50 @@ export type Database = {
           usage_count?: number | null
         }
         Relationships: []
+      }
+      retraining_triggers: {
+        Row: {
+          current_quality: number | null
+          id: string
+          model_version_id: string | null
+          negative_examples: number | null
+          positive_examples: number | null
+          quality_threshold: number | null
+          resolved_at: string | null
+          trigger_reason: string
+          triggered_at: string
+        }
+        Insert: {
+          current_quality?: number | null
+          id?: string
+          model_version_id?: string | null
+          negative_examples?: number | null
+          positive_examples?: number | null
+          quality_threshold?: number | null
+          resolved_at?: string | null
+          trigger_reason: string
+          triggered_at?: string
+        }
+        Update: {
+          current_quality?: number | null
+          id?: string
+          model_version_id?: string | null
+          negative_examples?: number | null
+          positive_examples?: number | null
+          quality_threshold?: number | null
+          resolved_at?: string | null
+          trigger_reason?: string
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retraining_triggers_model_version_id_fkey"
+            columns: ["model_version_id"]
+            isOneToOne: false
+            referencedRelation: "model_versions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       review_comments: {
         Row: {
@@ -3103,6 +3276,94 @@ export type Database = {
           tipper_id?: string
         }
         Relationships: []
+      }
+      training_examples: {
+        Row: {
+          audio_url: string
+          created_at: string
+          features: Json
+          id: string
+          is_positive: boolean
+          labels: Json
+          quality_score: number | null
+          session_id: string | null
+          source: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_positive: boolean
+          labels?: Json
+          quality_score?: number | null
+          session_id?: string | null
+          source?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_positive?: boolean
+          labels?: Json
+          quality_score?: number | null
+          session_id?: string | null
+          source?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_examples_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "production_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_feedback: {
+        Row: {
+          comments: string | null
+          created_at: string
+          feedback_type: string
+          id: string
+          issues: string[] | null
+          rating: number | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          issues?: string[] | null
+          rating?: number | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          issues?: string[] | null
+          rating?: number | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "production_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_follows: {
         Row: {

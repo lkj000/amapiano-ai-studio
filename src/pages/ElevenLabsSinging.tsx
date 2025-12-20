@@ -38,6 +38,7 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
   const [voiceType, setVoiceType] = useState('nkosazana'); // Default to Nkosazana Daughter style
   const [voiceStyle, setVoiceStyle] = useState('melodic');
   const [genre, setGenre] = useState('Amapiano');
+  const [language, setLanguage] = useState('zulu');
   const [bpm, setBpm] = useState([112]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
@@ -95,6 +96,22 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
     'R&B', 'Soul', 'Jazz'
   ];
 
+  // South African Languages
+  const languages = [
+    { value: 'zulu', label: 'isiZulu', description: 'Most spoken SA language' },
+    { value: 'xhosa', label: 'isiXhosa', description: 'Click consonants, Eastern Cape' },
+    { value: 'sotho', label: 'Sesotho', description: 'Free State & Lesotho' },
+    { value: 'tswana', label: 'Setswana', description: 'North West & Botswana' },
+    { value: 'pedi', label: 'Sepedi', description: 'Northern Sotho, Limpopo' },
+    { value: 'venda', label: 'Tshivenda', description: 'Limpopo region' },
+    { value: 'tsonga', label: 'Xitsonga', description: 'Limpopo & Mpumalanga' },
+    { value: 'swati', label: 'siSwati', description: 'Mpumalanga & Eswatini' },
+    { value: 'ndebele', label: 'isiNdebele', description: 'Mpumalanga' },
+    { value: 'afrikaans', label: 'Afrikaans', description: 'Western Cape & nationwide' },
+    { value: 'english', label: 'English', description: 'Lingua franca' },
+    { value: 'mixed', label: 'Mixed/Multilingual', description: 'Code-switching style' },
+  ];
+
   const handleGenerate = async () => {
     if (!user) {
       toast.error('Please sign in to generate vocals');
@@ -116,6 +133,7 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
           voiceType,
           voiceStyle,
           genre,
+          language,
           bpm: bpm[0],
         },
       });
@@ -205,6 +223,25 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
                           <SelectContent>
                             {genres.map((g) => (
                               <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Language</Label>
+                        <Select value={language} onValueChange={setLanguage}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {languages.map((l) => (
+                              <SelectItem key={l.value} value={l.value}>
+                                <div className="flex flex-col">
+                                  <span>{l.label}</span>
+                                  <span className="text-xs text-muted-foreground">{l.description}</span>
+                                </div>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

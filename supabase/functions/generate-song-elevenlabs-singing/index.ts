@@ -57,7 +57,7 @@ serve(async (req) => {
   }
 
   try {
-    const { lyrics, voiceType, voiceStyle, bpm, genre } = await req.json();
+    const { lyrics, voiceType, voiceStyle, bpm, genre, language } = await req.json();
     
     if (!lyrics) {
       throw new Error('Lyrics are required');
@@ -74,7 +74,7 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    console.log('[ELEVENLABS-SINGING] Starting vocal generation');
+    console.log('[ELEVENLABS-SINGING] Starting vocal generation with language:', language || 'zulu');
 
     // Step 1: Generate instrumental backing track with Replicate MusicGen
     let instrumentalUrl = null;
@@ -187,6 +187,7 @@ serve(async (req) => {
           voiceStyle,
           bpm,
           genre,
+          language: language || 'zulu',
           source: 'elevenlabs-singing',
           hasVocals: true,
           hasBacking: !!instrumentalUrl,

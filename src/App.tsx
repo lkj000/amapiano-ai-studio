@@ -41,6 +41,9 @@ import Level5Dashboard from "./pages/Level5Dashboard";
 import MLQuantize from "./pages/MLQuantize";
 import ModalDashboard from "./pages/ModalDashboard";
 import SunoGenerator from "./pages/SunoGenerator";
+import ElevenLabsSinging from "./pages/ElevenLabsSinging";
+import InstrumentalGenerator from "./pages/InstrumentalGenerator";
+import BackingWithIntro from "./pages/BackingWithIntro";
 
 const queryClient = new QueryClient();
 
@@ -155,6 +158,9 @@ const App = () => {
               <Route path="/ml/quantize" element={<MLQuantize />} />
               <Route path="/modal-dashboard" element={<ModalDashboard />} />
               <Route path="/generate-song-suno" element={<SunoGenerator user={user} />} />
+              <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
+              <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
+              <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

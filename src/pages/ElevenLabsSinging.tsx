@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { Mic, Loader2, Download, Sparkles, Music } from 'lucide-react';
@@ -35,21 +35,60 @@ interface GeneratedTrack {
 
 const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
   const [lyrics, setLyrics] = useState('');
-  const [voiceType, setVoiceType] = useState('female');
+  const [voiceType, setVoiceType] = useState('nkosazana'); // Default to Nkosazana Daughter style
   const [voiceStyle, setVoiceStyle] = useState('melodic');
   const [genre, setGenre] = useState('Amapiano');
   const [bpm, setBpm] = useState([112]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
 
-  const voiceTypes = [
-    { value: 'female', label: 'Female (Sarah)' },
-    { value: 'male', label: 'Male (Liam)' },
-    { value: 'duet', label: 'Duet (Lily)' },
+  // Female Amapiano Vocalists
+  const femaleVoices = [
+    { value: 'nkosazana', label: 'Nkosazana Daughter Style', description: 'Angelic, soulful, gospel-infused purity with smooth harmonies' },
+    { value: 'boohle', label: 'Boohle Style', description: 'Angelic, assured voice with deep gospel roots' },
+    { value: 'sha-sha', label: 'Sha Sha Style', description: 'Queen of Amapiano - soulful, emotive singing' },
+    { value: 'mawhoo', label: 'Mawhoo Style', description: 'Powerful, versatile with strong storytelling' },
+    { value: 'pabi-cooper', label: 'Pabi Cooper Style', description: 'Youthful, commanding with warm delivery' },
+    { value: 'lady-du', label: 'Lady Du Style', description: 'Energetic, powerful presence' },
+    { value: 'tyla', label: 'Tyla Style', description: 'Global star - smooth R&B-infused Amapiano' },
+    { value: 'kamo-mphela', label: 'Kamo Mphela Style', description: 'Energetic dance-focused with Afrobeat rhythms' },
+    { value: 'babalwa-m', label: 'Babalwa M Style', description: 'Ethereal, jazzy tones with intricate layering' },
+    { value: 'nia-pearl', label: 'Nia Pearl Style', description: 'Smooth, soulful with mature melodic touch' },
+  ];
+
+  // Male Amapiano Vocalists & Artists
+  const maleVoices = [
+    { value: 'kabza', label: 'Kabza De Small Style', description: 'King of Amapiano - deep house roots, genre-defining' },
+    { value: 'maphorisa', label: 'DJ Maphorisa Style', description: 'Pioneer blending Kwaito, House, and Bacardi' },
+    { value: 'focalistic', label: 'Focalistic Style', description: 'Pitori Maradona - slick flows, motivational lyrics' },
+    { value: 'aymos', label: 'Aymos Style', description: 'Soulful vocals with melodic storytelling' },
+    { value: 'young-stunna', label: 'Young Stunna Style', description: 'Melodic, emotive with lyrical storytelling' },
+    { value: 'murumba-pitch', label: 'Murumba Pitch Style', description: 'Melodic flows, soulful with poignant lyrics' },
+    { value: 'kelvin-momo', label: 'Kelvin Momo Style', description: 'Soulful, deep, and emotional Amapiano' },
+    { value: 'sir-trill', label: 'Sir Trill Style', description: 'Distinctive featured vocalist delivery' },
+    { value: 'blxckie', label: 'Blxckie Style', description: 'Slick melodic bars with effortless flow' },
+    { value: 'busta-929', label: 'Busta 929 Style', description: 'Energetic and captivating signature sound' },
+  ];
+
+  // Duet combinations
+  const duetVoices = [
+    { value: 'duet-soulful', label: 'Soulful Duet', description: 'Nkosazana x Aymos style - angelic harmonies' },
+    { value: 'duet-energetic', label: 'Energetic Duet', description: 'Lady Du x Focalistic style - powerful energy' },
+    { value: 'duet-romantic', label: 'Romantic Duet', description: 'Sha Sha x Young Stunna style - emotive connection' },
+    { value: 'duet-gospel', label: 'Gospel Duet', description: 'Boohle x Murumba Pitch style - spiritual depth' },
+    { value: 'duet-dance', label: 'Dance Duet', description: 'Kamo Mphela x Kabza style - infectious rhythms' },
+  ];
+
+  const voiceCategories = [
+    { category: 'Female Vocalists', voices: femaleVoices },
+    { category: 'Male Vocalists', voices: maleVoices },
+    { category: 'Duet Styles', voices: duetVoices },
   ];
 
   const genres = [
-    'Amapiano', 'Afrobeats', 'R&B', 'Pop', 'Soul', 'Jazz', 'Gospel'
+    'Amapiano', 'Amapiano (Soweto)', 'Amapiano (Pretoria/Pitori)', 'Amapiano (Durban)', 
+    'Afrobeats', 'Afro-House', 'Bacardi', 'Kwaito', 'Deep House SA', 'Gospel House', 
+    'R&B', 'Soul', 'Jazz'
   ];
 
   const handleGenerate = async () => {
@@ -130,14 +169,24 @@ const ElevenLabsSinging: React.FC<ElevenLabsSingingProps> = ({ user }) => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Voice Type</Label>
+                        <Label>Voice Style</Label>
                         <Select value={voiceType} onValueChange={setVoiceType}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select voice" />
+                            <SelectValue placeholder="Select Amapiano voice style" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {voiceTypes.map((v) => (
-                              <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                          <SelectContent className="max-h-[400px]">
+                            {voiceCategories.map((cat) => (
+                              <SelectGroup key={cat.category}>
+                                <SelectLabel className="text-primary font-semibold">{cat.category}</SelectLabel>
+                                {cat.voices.map((v) => (
+                                  <SelectItem key={v.value} value={v.value}>
+                                    <div className="flex flex-col">
+                                      <span>{v.label}</span>
+                                      <span className="text-xs text-muted-foreground">{v.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
                             ))}
                           </SelectContent>
                         </Select>

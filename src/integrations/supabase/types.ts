@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_test_results: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          test_type: string
+          time_to_decide_ms: number | null
+          user_id: string
+          variant_a_id: string
+          variant_b_id: string
+          winner: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          test_type: string
+          time_to_decide_ms?: number | null
+          user_id: string
+          variant_a_id: string
+          variant_b_id: string
+          winner?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          test_type?: string
+          time_to_decide_ms?: number | null
+          user_id?: string
+          variant_a_id?: string
+          variant_b_id?: string
+          winner?: string | null
+        }
+        Relationships: []
+      }
       academy_courses: {
         Row: {
           category: string
@@ -1201,6 +1237,48 @@ export type Database = {
           id?: string
           mix_settings?: Json | null
           original_post_id?: string
+        }
+        Relationships: []
+      }
+      expert_annotations: {
+        Row: {
+          authenticity_score: number | null
+          content_id: string
+          content_type: string
+          created_at: string
+          cultural_elements: Json | null
+          expert_id: string
+          id: string
+          is_certified: boolean | null
+          language_accuracy: string | null
+          notes: string | null
+          regional_accuracy: string | null
+        }
+        Insert: {
+          authenticity_score?: number | null
+          content_id: string
+          content_type: string
+          created_at?: string
+          cultural_elements?: Json | null
+          expert_id: string
+          id?: string
+          is_certified?: boolean | null
+          language_accuracy?: string | null
+          notes?: string | null
+          regional_accuracy?: string | null
+        }
+        Update: {
+          authenticity_score?: number | null
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          cultural_elements?: Json | null
+          expert_id?: string
+          id?: string
+          is_certified?: boolean | null
+          language_accuracy?: string | null
+          notes?: string | null
+          regional_accuracy?: string | null
         }
         Relationships: []
       }
@@ -3324,6 +3402,57 @@ export type Database = {
           },
         ]
       }
+      training_feedback: {
+        Row: {
+          authenticity_rating: number | null
+          created_at: string
+          cultural_accuracy_rating: number | null
+          feedback_text: string | null
+          generation_params: Json | null
+          id: string
+          is_preferred: boolean | null
+          output_id: string | null
+          output_type: string
+          output_url: string | null
+          quality_rating: number | null
+          tags: string[] | null
+          user_id: string
+          voice_style_match_rating: number | null
+        }
+        Insert: {
+          authenticity_rating?: number | null
+          created_at?: string
+          cultural_accuracy_rating?: number | null
+          feedback_text?: string | null
+          generation_params?: Json | null
+          id?: string
+          is_preferred?: boolean | null
+          output_id?: string | null
+          output_type: string
+          output_url?: string | null
+          quality_rating?: number | null
+          tags?: string[] | null
+          user_id: string
+          voice_style_match_rating?: number | null
+        }
+        Update: {
+          authenticity_rating?: number | null
+          created_at?: string
+          cultural_accuracy_rating?: number | null
+          feedback_text?: string | null
+          generation_params?: Json | null
+          id?: string
+          is_preferred?: boolean | null
+          output_id?: string | null
+          output_type?: string
+          output_url?: string | null
+          quality_rating?: number | null
+          tags?: string[] | null
+          user_id?: string
+          voice_style_match_rating?: number | null
+        }
+        Relationships: []
+      }
       user_feedback: {
         Row: {
           comments: string | null
@@ -3583,6 +3712,54 @@ export type Database = {
           total_withdrawn_cents?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      voice_training_samples: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          is_verified: boolean | null
+          language: string | null
+          metadata: Json | null
+          quality_score: number | null
+          region: string | null
+          sample_url: string
+          updated_at: string
+          user_id: string
+          verified_by: string | null
+          voice_style_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_verified?: boolean | null
+          language?: string | null
+          metadata?: Json | null
+          quality_score?: number | null
+          region?: string | null
+          sample_url: string
+          updated_at?: string
+          user_id: string
+          verified_by?: string | null
+          voice_style_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          is_verified?: boolean | null
+          language?: string | null
+          metadata?: Json | null
+          quality_score?: number | null
+          region?: string | null
+          sample_url?: string
+          updated_at?: string
+          user_id?: string
+          verified_by?: string | null
+          voice_style_id?: string
         }
         Relationships: []
       }

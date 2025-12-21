@@ -49,6 +49,8 @@ import StemSplitterPage from "./pages/StemSplitterPage";
 import VocalRemoverPage from "./pages/VocalRemoverPage";
 import SoundEffectPage from "./pages/SoundEffectPage";
 
+import TrainingDataCollection from "./pages/TrainingDataCollection";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -169,6 +171,7 @@ const App = () => {
               <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
               <Route path="/vocal-remover" element={<VocalRemoverPage />} />
               <Route path="/sound-effect" element={<SoundEffectPage />} />
+              <Route path="/training" element={<TrainingDataCollection />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

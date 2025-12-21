@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import VocalRemover from '@/components/music/VocalRemover';
 import SoundEffectGenerator from '@/components/music/SoundEffectGenerator';
 import { MusicToolsSidebar } from '@/components/music/MusicToolsSidebar';
 import { SA_LANGUAGES } from '@/constants/languages';
+import { AMAPIANO_VOICE_CATEGORIES, SA_GENRES } from '@/constants/amapianoVoices';
 
 interface SunoGeneratorProps {
   user: User | null;
@@ -44,16 +45,12 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('Amapiano');
   const [mood, setMood] = useState('energetic');
+  const [voiceStyle, setVoiceStyle] = useState('nkosazana');
   const [bpm, setBpm] = useState([112]);
   const [language, setLanguage] = useState('zulu');
   const [instrumental, setInstrumental] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
-
-  const genres = [
-    'Amapiano', 'Afrobeats', 'Hip Hop', 'R&B', 'Pop', 'Electronic', 
-    'House', 'Jazz', 'Rock', 'Classical', 'Reggae', 'Latin'
-  ];
 
   const moods = [
     'energetic', 'chill', 'melancholic', 'uplifting', 'dark', 
@@ -81,6 +78,7 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
           title: title || `${genre} Track`,
           genre,
           mood,
+          voiceStyle,
           bpm: bpm[0],
           language,
           instrumental,
@@ -168,8 +166,32 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
                             <SelectValue placeholder="Select genre" />
                           </SelectTrigger>
                           <SelectContent>
-                            {genres.map((g) => (
+                            {SA_GENRES.map((g) => (
                               <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Voice Style</Label>
+                        <Select value={voiceStyle} onValueChange={setVoiceStyle} disabled={instrumental}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Amapiano voice style" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[400px]">
+                            {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                              <SelectGroup key={cat.category}>
+                                <SelectLabel className="text-primary font-semibold">{cat.category}</SelectLabel>
+                                {cat.voices.map((v) => (
+                                  <SelectItem key={v.value} value={v.value}>
+                                    <div className="flex flex-col">
+                                      <span>{v.label}</span>
+                                      <span className="text-xs text-muted-foreground">{v.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
                             ))}
                           </SelectContent>
                         </Select>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { AmapianorizationEngine } from '@/lib/audio/amapianorizationEngine';
+import { AMAPIANO_VOICE_CATEGORIES, SA_GENRES } from '@/constants/amapianoVoices';
 
 interface WorkflowStep {
   id: number;
@@ -41,9 +42,8 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
   const [currentStep, setCurrentStep] = useState(1);
   const [lyrics, setLyrics] = useState('');
   const [isEditingLyrics, setIsEditingLyrics] = useState(false);
-  const [voiceType, setVoiceType] = useState('male');
-  const [voiceStyle, setVoiceStyle] = useState('smooth');
-  const [genre, setGenre] = useState('amapiano');
+  const [voiceStyle, setVoiceStyle] = useState('nkosazana');
+  const [genre, setGenre] = useState('Amapiano');
   const [bpm, setBpm] = useState(112);
   const [energy, setEnergy] = useState(75);
   const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
@@ -84,7 +84,6 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
       const { data, error } = await supabase.functions.invoke('generate-song-with-vocals', {
         body: {
           lyrics,
-          voiceType,
           voiceStyle,
           bpm,
           genre,
@@ -102,13 +101,12 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
         if (onComplete) {
           onComplete({
             audioUrl: data.audioUrl,
-            title: `${voiceType.charAt(0).toUpperCase() + voiceType.slice(1)} Amapiano Song`,
+            title: `${voiceStyle.charAt(0).toUpperCase() + voiceStyle.slice(1)} Amapiano Song`,
             genre,
             bpm,
             type: 'full',
             duration: 180,
             metadata: {
-              voiceType,
               voiceStyle,
               energy,
               lyrics: lyrics.substring(0, 100) + '...'
@@ -365,30 +363,39 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Voice Type</label>
-                    <Select value={voiceType} onValueChange={setVoiceType}>
+                    <label className="text-sm font-medium">Voice Style</label>
+                    <Select value={voiceStyle} onValueChange={setVoiceStyle}>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select Amapiano voice style" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male Voice</SelectItem>
-                        <SelectItem value="female">Female Voice</SelectItem>
-                        <SelectItem value="duet">Male & Female Duet</SelectItem>
+                      <SelectContent className="max-h-[400px]">
+                        {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                          <SelectGroup key={cat.category}>
+                            <SelectLabel className="text-primary font-semibold">{cat.category}</SelectLabel>
+                            {cat.voices.map((v) => (
+                              <SelectItem key={v.value} value={v.value}>
+                                <div className="flex flex-col">
+                                  <span>{v.label}</span>
+                                  <span className="text-xs text-muted-foreground">{v.description}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Voice Style</label>
-                    <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+                    <label className="text-sm font-medium">Genre</label>
+                    <Select value={genre} onValueChange={setGenre}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="smooth">Smooth & Melodic</SelectItem>
-                        <SelectItem value="powerful">Powerful & Energetic</SelectItem>
-                        <SelectItem value="raspy">Raspy & Soulful</SelectItem>
-                        <SelectItem value="soft">Soft & Intimate</SelectItem>
+                        {SA_GENRES.map((g) => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -472,8 +479,8 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm font-medium mb-1">Voice</p>
-                    <Badge variant="secondary">{voiceType} - {voiceStyle}</Badge>
+                    <p className="text-sm font-medium mb-1">Voice Style</p>
+                    <Badge variant="secondary">{voiceStyle}</Badge>
                   </div>
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="text-sm font-medium mb-1">Music</p>
@@ -484,7 +491,7 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                 <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
                   <p className="text-sm">
                     🎵 Your song will be generated with authentic {genre} instrumentals,
-                    {voiceType} vocals, and the lyrics you created. This process takes 1-2 minutes.
+                    {voiceStyle} vocals, and the lyrics you created. This process takes 1-2 minutes.
                   </p>
                 </div>
               </div>

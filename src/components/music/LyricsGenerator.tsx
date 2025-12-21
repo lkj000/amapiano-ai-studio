@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { SA_LANGUAGES } from '@/constants/languages';
+import { AMAPIANO_VOICE_CATEGORIES, SA_GENRES } from '@/constants/amapianoVoices';
 
 interface LyricsGeneratorProps {
   onLyricsGenerated?: (lyrics: string) => void;
@@ -21,14 +22,14 @@ interface GeneratedLyrics {
 
 const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, compact = false }) => {
   const [theme, setTheme] = useState('');
-  const [genre, setGenre] = useState('Pop');
+  const [genre, setGenre] = useState('Amapiano');
   const [mood, setMood] = useState('uplifting');
+  const [voiceStyle, setVoiceStyle] = useState('nkosazana');
   const [language, setLanguage] = useState('zulu');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLyrics, setGeneratedLyrics] = useState<GeneratedLyrics | null>(null);
   const [copiedVersion, setCopiedVersion] = useState<'A' | 'B' | null>(null);
 
-  const genres = ['Pop', 'R&B', 'Hip Hop', 'Amapiano', 'Afrobeats', 'Rock', 'Country', 'Jazz', 'Gospel', 'Electronic'];
   const moods = ['uplifting', 'melancholic', 'romantic', 'energetic', 'chill', 'nostalgic', 'empowering', 'dreamy'];
 
   const handleGenerate = async () => {
@@ -42,7 +43,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-lyrics', {
-        body: { theme, genre, mood, language },
+        body: { theme, genre, mood, voiceStyle, language },
       });
 
       if (error) throw error;
@@ -105,9 +106,28 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {genres.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                {SA_GENRES.slice(0, 6).map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Voice" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                  <SelectGroup key={cat.category}>
+                    <SelectLabel className="text-primary font-semibold text-xs">{cat.category}</SelectLabel>
+                    {cat.voices.slice(0, 4).map((v) => (
+                      <SelectItem key={v.value} value={v.value}>
+                        {v.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
             <Select value={language} onValueChange={setLanguage}>
               <SelectTrigger className="flex-1">
                 <SelectValue />
@@ -161,7 +181,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
           <p className="text-xs text-muted-foreground text-right">{theme.length}/200</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Genre</Label>
             <Select value={genre} onValueChange={setGenre}>
@@ -169,7 +189,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {genres.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                {SA_GENRES.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -181,6 +201,32 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
               </SelectTrigger>
               <SelectContent>
                 {moods.map(m => <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Voice Style</Label>
+            <Select value={voiceStyle} onValueChange={setVoiceStyle}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Amapiano voice style" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[400px]">
+                {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                  <SelectGroup key={cat.category}>
+                    <SelectLabel className="text-primary font-semibold">{cat.category}</SelectLabel>
+                    {cat.voices.map((v) => (
+                      <SelectItem key={v.value} value={v.value}>
+                        <div className="flex flex-col">
+                          <span>{v.label}</span>
+                          <span className="text-xs text-muted-foreground">{v.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
               </SelectContent>
             </Select>
           </div>

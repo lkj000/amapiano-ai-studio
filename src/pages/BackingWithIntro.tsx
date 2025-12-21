@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { Radio, Loader2, Download, Sparkles, Music, Mic2 } from 'lucide-react';
@@ -15,6 +15,7 @@ import VocalRemover from '@/components/music/VocalRemover';
 import SoundEffectGenerator from '@/components/music/SoundEffectGenerator';
 import { MusicToolsSidebar } from '@/components/music/MusicToolsSidebar';
 import { SA_LANGUAGES } from '@/constants/languages';
+import { AMAPIANO_VOICE_CATEGORIES, SA_GENRES } from '@/constants/amapianoVoices';
 
 interface BackingWithIntroProps {
   user: User | null;
@@ -37,23 +38,13 @@ interface GeneratedTracks {
 const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
   const [lyrics, setLyrics] = useState('');
   const [artistName, setArtistName] = useState('');
-  const [voiceType, setVoiceType] = useState('hype');
+  const [voiceStyle, setVoiceStyle] = useState('nkosazana');
   const [genre, setGenre] = useState('Amapiano');
   const [mood, setMood] = useState('energetic African dance');
   const [bpm, setBpm] = useState([112]);
   const [language, setLanguage] = useState('zulu');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTracks, setGeneratedTracks] = useState<GeneratedTracks | null>(null);
-
-  const voiceTypes = [
-    { value: 'male', label: 'Male (Daniel)' },
-    { value: 'female', label: 'Female (Sarah)' },
-    { value: 'hype', label: 'Hype (Eric)' },
-  ];
-
-  const genres = [
-    'Amapiano', 'Afrobeats', 'House', 'Hip Hop', 'R&B', 'Pop', 'Electronic'
-  ];
 
   const moods = [
     'energetic African dance',
@@ -78,7 +69,7 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
         body: {
           lyrics,
           artistName: artistName || 'Amapiano Studios',
-          voiceType,
+          voiceStyle,
           genre,
           mood,
           language,
@@ -149,14 +140,24 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Intro Voice</Label>
-                        <Select value={voiceType} onValueChange={setVoiceType}>
+                        <Label>Voice Style</Label>
+                        <Select value={voiceStyle} onValueChange={setVoiceStyle}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select voice" />
+                            <SelectValue placeholder="Select Amapiano voice style" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {voiceTypes.map((v) => (
-                              <SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>
+                          <SelectContent className="max-h-[400px]">
+                            {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                              <SelectGroup key={cat.category}>
+                                <SelectLabel className="text-primary font-semibold">{cat.category}</SelectLabel>
+                                {cat.voices.map((v) => (
+                                  <SelectItem key={v.value} value={v.value}>
+                                    <div className="flex flex-col">
+                                      <span>{v.label}</span>
+                                      <span className="text-xs text-muted-foreground">{v.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
                             ))}
                           </SelectContent>
                         </Select>
@@ -169,7 +170,7 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
                             <SelectValue placeholder="Select genre" />
                           </SelectTrigger>
                           <SelectContent>
-                            {genres.map((g) => (
+                            {SA_GENRES.map((g) => (
                               <SelectItem key={g} value={g}>{g}</SelectItem>
                             ))}
                           </SelectContent>

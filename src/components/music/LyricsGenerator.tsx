@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Sparkles, Loader2, Copy, Check } from 'lucide-react';
+import { SA_LANGUAGES } from '@/constants/languages';
 
 interface LyricsGeneratorProps {
   onLyricsGenerated?: (lyrics: string) => void;
@@ -22,6 +23,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
   const [theme, setTheme] = useState('');
   const [genre, setGenre] = useState('Pop');
   const [mood, setMood] = useState('uplifting');
+  const [language, setLanguage] = useState('zulu');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedLyrics, setGeneratedLyrics] = useState<GeneratedLyrics | null>(null);
   const [copiedVersion, setCopiedVersion] = useState<'A' | 'B' | null>(null);
@@ -40,7 +42,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-lyrics', {
-        body: { theme, genre, mood },
+        body: { theme, genre, mood, language },
       });
 
       if (error) throw error;
@@ -106,6 +108,14 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
                 {genres.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SA_LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button onClick={handleGenerate} disabled={isGenerating || !theme.trim()}>
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             </Button>
@@ -151,7 +161,7 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
           <p className="text-xs text-muted-foreground text-right">{theme.length}/200</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Genre</Label>
             <Select value={genre} onValueChange={setGenre}>
@@ -171,6 +181,24 @@ const LyricsGenerator: React.FC<LyricsGeneratorProps> = ({ onLyricsGenerated, co
               </SelectTrigger>
               <SelectContent>
                 {moods.map(m => <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Language</Label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SA_LANGUAGES.map(l => (
+                  <SelectItem key={l.value} value={l.value}>
+                    <div className="flex flex-col">
+                      <span>{l.label}</span>
+                      <span className="text-xs text-muted-foreground">{l.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

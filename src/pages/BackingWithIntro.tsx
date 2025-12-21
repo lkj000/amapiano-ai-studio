@@ -14,6 +14,7 @@ import LyricsGenerator from '@/components/music/LyricsGenerator';
 import VocalRemover from '@/components/music/VocalRemover';
 import SoundEffectGenerator from '@/components/music/SoundEffectGenerator';
 import { MusicToolsSidebar } from '@/components/music/MusicToolsSidebar';
+import { SA_LANGUAGES } from '@/constants/languages';
 
 interface BackingWithIntroProps {
   user: User | null;
@@ -40,6 +41,7 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
   const [genre, setGenre] = useState('Amapiano');
   const [mood, setMood] = useState('energetic African dance');
   const [bpm, setBpm] = useState([112]);
+  const [language, setLanguage] = useState('zulu');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTracks, setGeneratedTracks] = useState<GeneratedTracks | null>(null);
 
@@ -79,6 +81,7 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
           voiceType,
           genre,
           mood,
+          language,
           bpm: bpm[0],
         },
       });
@@ -182,6 +185,25 @@ const BackingWithIntro: React.FC<BackingWithIntroProps> = ({ user }) => {
                           <SelectContent>
                             {moods.map((m) => (
                               <SelectItem key={m} value={m}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Language</Label>
+                        <Select value={language} onValueChange={setLanguage}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SA_LANGUAGES.map((l) => (
+                              <SelectItem key={l.value} value={l.value}>
+                                <div className="flex flex-col">
+                                  <span>{l.label}</span>
+                                  <span className="text-xs text-muted-foreground">{l.description}</span>
+                                </div>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { theme, genre, mood, style } = await req.json();
+    const { theme, genre, mood, style, language } = await req.json();
     
     if (!theme) {
       throw new Error('Theme or story idea is required');
@@ -23,26 +23,48 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('[LYRICS] Generating lyrics for theme:', theme);
+    console.log('[LYRICS] Generating lyrics for theme:', theme, 'language:', language || 'zulu');
 
-    const systemPrompt = `You are a professional songwriter and lyricist. Generate creative, original song lyrics based on the user's theme or story idea.
+    // Language mapping for prompts
+    const languageNames: Record<string, string> = {
+      zulu: 'isiZulu (South African Zulu)',
+      xhosa: 'isiXhosa (South African Xhosa with click consonants)',
+      sotho: 'Sesotho (Southern Sotho)',
+      tswana: 'Setswana (Tswana)',
+      pedi: 'Sepedi (Northern Sotho)',
+      venda: 'Tshivenda (Venda)',
+      tsonga: 'Xitsonga (Tsonga)',
+      swati: 'siSwati (Swazi)',
+      ndebele: 'isiNdebele (South African Ndebele)',
+      afrikaans: 'Afrikaans',
+      english: 'English',
+      mixed: 'Mixed/Multilingual (code-switching between English and South African languages)',
+    };
+
+    const selectedLanguage = languageNames[language] || languageNames.zulu;
+
+    const systemPrompt = `You are a professional songwriter and lyricist specializing in South African music. Generate creative, original song lyrics based on the user's theme or story idea.
 
 Guidelines:
 - Create complete song lyrics with verse, chorus, and bridge sections
 - Use clear section markers like [Verse 1], [Chorus], [Verse 2], [Bridge]
 - Match the requested genre and mood
+- Write lyrics in the specified language with authentic expressions and idioms
 - Make lyrics emotionally resonant and memorable
 - Include rhyme schemes appropriate for the genre
 - Keep verses 4-8 lines, choruses 4-6 lines
-- Avoid clichés, be creative and unique`;
+- Avoid clichés, be creative and unique
+- For African languages, use proper spelling and grammar
+- For mixed/multilingual, naturally code-switch between languages`;
 
     const userPrompt = `Create song lyrics for the following:
 Theme/Story: ${theme}
-Genre: ${genre || 'Pop'}
+Genre: ${genre || 'Amapiano'}
 Mood: ${mood || 'uplifting'}
 Style: ${style || 'contemporary'}
+Language: ${selectedLanguage}
 
-Generate TWO different versions of the lyrics - Version A and Version B. Each should have a unique take on the theme while maintaining the same structure (verses, chorus, bridge).
+Generate TWO different versions of the lyrics - Version A and Version B. Each should have a unique take on the theme while maintaining the same structure (verses, chorus, bridge). Write the lyrics in ${selectedLanguage}.
 
 Format your response as JSON with this structure:
 {

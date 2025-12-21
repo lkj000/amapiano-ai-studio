@@ -15,6 +15,7 @@ import LyricsGenerator from '@/components/music/LyricsGenerator';
 import VocalRemover from '@/components/music/VocalRemover';
 import SoundEffectGenerator from '@/components/music/SoundEffectGenerator';
 import { MusicToolsSidebar } from '@/components/music/MusicToolsSidebar';
+import { SA_LANGUAGES } from '@/constants/languages';
 
 interface SunoGeneratorProps {
   user: User | null;
@@ -44,6 +45,7 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
   const [genre, setGenre] = useState('Amapiano');
   const [mood, setMood] = useState('energetic');
   const [bpm, setBpm] = useState([112]);
+  const [language, setLanguage] = useState('zulu');
   const [instrumental, setInstrumental] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
@@ -80,6 +82,7 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
           genre,
           mood,
           bpm: bpm[0],
+          language,
           instrumental,
           customMode: true,
         },
@@ -181,6 +184,25 @@ const SunoGenerator: React.FC<SunoGeneratorProps> = ({ user }) => {
                           <SelectContent>
                             {moods.map((m) => (
                               <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Language</Label>
+                        <Select value={language} onValueChange={setLanguage}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SA_LANGUAGES.map((l) => (
+                              <SelectItem key={l.value} value={l.value}>
+                                <div className="flex flex-col">
+                                  <span>{l.label}</span>
+                                  <span className="text-xs text-muted-foreground">{l.description}</span>
+                                </div>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

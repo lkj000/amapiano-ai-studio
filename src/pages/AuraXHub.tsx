@@ -58,10 +58,15 @@ const AuraXHub = () => {
     { title: 'Sample Library', description: 'Curated Amapiano samples', icon: Database, route: '/samples', status: 'live', category: 'Studio' },
     
     // AI & Agents
+    { title: 'Text to Production', description: 'Natural language to full track', icon: Wand2, route: '/aura-x/text-to-production', status: 'live', category: 'AI' },
     { title: 'AI Hub', description: 'Central AI assistant interface', icon: Brain, route: '/ai-hub', status: 'live', category: 'AI' },
     { title: 'Agent Demo', description: 'Autonomous production agents', icon: Zap, route: '/agent-demo', status: 'beta', category: 'AI' },
     { title: 'Level 5 Dashboard', description: 'Full autonomy monitoring', icon: Target, route: '/level5-dashboard', status: 'beta', category: 'AI' },
     { title: 'AURA Platform', description: 'Integrated AI production', icon: Sparkles, route: '/aura', status: 'live', category: 'AI' },
+    
+    // Voice & Licensing
+    { title: 'Voice Licensing', description: 'Artist voice licensing & revenue share', icon: Mic, route: '/aura-x/voice-licensing', status: 'live', category: 'Voice & Licensing' },
+    { title: 'Voice Models', description: 'Browse licensed artist voices', icon: Users, route: '/aura-x/voice-licensing', status: 'live', category: 'Voice & Licensing' },
     
     // Training & Data
     { title: 'Training Data Collection', description: 'Collect voice & feedback data', icon: Database, route: '/training', status: 'live', category: 'Training' },

@@ -534,6 +534,62 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_payouts: {
+        Row: {
+          artist_user_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          period_end: string
+          period_start: string
+          total_earnings_cents: number | null
+          total_generations: number | null
+          voice_model_id: string | null
+        }
+        Insert: {
+          artist_user_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          period_end: string
+          period_start: string
+          total_earnings_cents?: number | null
+          total_generations?: number | null
+          voice_model_id?: string | null
+        }
+        Update: {
+          artist_user_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          period_end?: string
+          period_start?: string
+          total_earnings_cents?: number | null
+          total_generations?: number | null
+          voice_model_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_payouts_voice_model_id_fkey"
+            columns: ["voice_model_id"]
+            isOneToOne: false
+            referencedRelation: "voice_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audio_analysis_results: {
         Row: {
           analysis_data: Json
@@ -3715,6 +3771,159 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_license_requests: {
+        Row: {
+          artist_email: string
+          artist_name: string
+          artist_phone: string | null
+          created_at: string
+          genre_specialization: string[] | null
+          id: string
+          languages: string[] | null
+          minimum_revenue_share: number | null
+          preferred_license_type: string | null
+          requester_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sample_audio_urls: string[] | null
+          sample_description: string | null
+          social_links: Json | null
+          status: string | null
+          updated_at: string
+          voice_type: string | null
+        }
+        Insert: {
+          artist_email: string
+          artist_name: string
+          artist_phone?: string | null
+          created_at?: string
+          genre_specialization?: string[] | null
+          id?: string
+          languages?: string[] | null
+          minimum_revenue_share?: number | null
+          preferred_license_type?: string | null
+          requester_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_audio_urls?: string[] | null
+          sample_description?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string
+          voice_type?: string | null
+        }
+        Update: {
+          artist_email?: string
+          artist_name?: string
+          artist_phone?: string | null
+          created_at?: string
+          genre_specialization?: string[] | null
+          id?: string
+          languages?: string[] | null
+          minimum_revenue_share?: number | null
+          preferred_license_type?: string | null
+          requester_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sample_audio_urls?: string[] | null
+          sample_description?: string | null
+          social_links?: Json | null
+          status?: string | null
+          updated_at?: string
+          voice_type?: string | null
+        }
+        Relationships: []
+      }
+      voice_models: {
+        Row: {
+          approval_status: string | null
+          artist_name: string
+          artist_user_id: string | null
+          consent_document_url: string | null
+          contract_id: string | null
+          created_at: string
+          description: string | null
+          gender: string | null
+          genre_specialization: string[] | null
+          id: string
+          is_active: boolean | null
+          is_premium: boolean | null
+          is_public: boolean | null
+          language_codes: string[] | null
+          license_type: string | null
+          model_version: string | null
+          premium_fee_cents: number | null
+          preview_audio_url: string | null
+          quality_score: number | null
+          revenue_share_percentage: number | null
+          sample_count: number | null
+          sample_urls: string[] | null
+          training_hours: number | null
+          updated_at: string
+          voice_name: string
+          voice_type: string | null
+        }
+        Insert: {
+          approval_status?: string | null
+          artist_name: string
+          artist_user_id?: string | null
+          consent_document_url?: string | null
+          contract_id?: string | null
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          genre_specialization?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          is_public?: boolean | null
+          language_codes?: string[] | null
+          license_type?: string | null
+          model_version?: string | null
+          premium_fee_cents?: number | null
+          preview_audio_url?: string | null
+          quality_score?: number | null
+          revenue_share_percentage?: number | null
+          sample_count?: number | null
+          sample_urls?: string[] | null
+          training_hours?: number | null
+          updated_at?: string
+          voice_name: string
+          voice_type?: string | null
+        }
+        Update: {
+          approval_status?: string | null
+          artist_name?: string
+          artist_user_id?: string | null
+          consent_document_url?: string | null
+          contract_id?: string | null
+          created_at?: string
+          description?: string | null
+          gender?: string | null
+          genre_specialization?: string[] | null
+          id?: string
+          is_active?: boolean | null
+          is_premium?: boolean | null
+          is_public?: boolean | null
+          language_codes?: string[] | null
+          license_type?: string | null
+          model_version?: string | null
+          premium_fee_cents?: number | null
+          preview_audio_url?: string | null
+          quality_score?: number | null
+          revenue_share_percentage?: number | null
+          sample_count?: number | null
+          sample_urls?: string[] | null
+          training_hours?: number | null
+          updated_at?: string
+          voice_name?: string
+          voice_type?: string | null
+        }
+        Relationships: []
+      }
       voice_training_samples: {
         Row: {
           created_at: string
@@ -3762,6 +3971,71 @@ export type Database = {
           voice_style_id?: string
         }
         Relationships: []
+      }
+      voice_usage: {
+        Row: {
+          artist_earnings_cents: number | null
+          base_cost_cents: number | null
+          created_at: string
+          duration_seconds: number | null
+          generation_params: Json | null
+          generation_type: string
+          id: string
+          output_audio_url: string | null
+          payment_status: string | null
+          platform_earnings_cents: number | null
+          premium_cost_cents: number | null
+          processed_at: string | null
+          quality_score: number | null
+          user_id: string
+          user_rating: number | null
+          voice_model_id: string | null
+        }
+        Insert: {
+          artist_earnings_cents?: number | null
+          base_cost_cents?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          generation_params?: Json | null
+          generation_type: string
+          id?: string
+          output_audio_url?: string | null
+          payment_status?: string | null
+          platform_earnings_cents?: number | null
+          premium_cost_cents?: number | null
+          processed_at?: string | null
+          quality_score?: number | null
+          user_id: string
+          user_rating?: number | null
+          voice_model_id?: string | null
+        }
+        Update: {
+          artist_earnings_cents?: number | null
+          base_cost_cents?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          generation_params?: Json | null
+          generation_type?: string
+          id?: string
+          output_audio_url?: string | null
+          payment_status?: string | null
+          platform_earnings_cents?: number | null
+          premium_cost_cents?: number | null
+          processed_at?: string | null
+          quality_score?: number | null
+          user_id?: string
+          user_rating?: number | null
+          voice_model_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_usage_voice_model_id_fkey"
+            columns: ["voice_model_id"]
+            isOneToOne: false
+            referencedRelation: "voice_models"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       web_plugins: {
         Row: {

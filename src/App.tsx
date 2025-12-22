@@ -51,6 +51,8 @@ import SoundEffectPage from "./pages/SoundEffectPage";
 import TrainingDataCollection from "./pages/TrainingDataCollection";
 import AuraXHub from "./pages/AuraXHub";
 import AuraXArchitecture from "./pages/AuraXArchitecture";
+import VoiceLicensing from "./pages/VoiceLicensing";
+import TextToProduction from "./pages/TextToProduction";
 
 const queryClient = new QueryClient();
 
@@ -175,6 +177,8 @@ const App = () => {
               <Route path="/training" element={<TrainingDataCollection />} />
               <Route path="/aura-x" element={<AuraXHub />} />
               <Route path="/aura-x/architecture" element={<AuraXArchitecture />} />
+              <Route path="/aura-x/voice-licensing" element={<VoiceLicensing user={user} />} />
+              <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

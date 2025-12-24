@@ -77,6 +77,20 @@
     --sidebar-accent-foreground: 0 0% 90%;
     --sidebar-border: 220 13% 20%;
     --sidebar-ring: 45 96% 64%;
+    
+    /* AURA X Genre Colors */
+    --genre-amapiano: 45 96% 64%;
+    --genre-private-school: 270 75% 65%;
+    --genre-three-step: 160 80% 45%;
+    --genre-gqom: 0 85% 55%;
+    --genre-bacardi: 320 80% 60%;
+    
+    /* Agent Status Colors */
+    --agent-idle: 215 20% 50%;
+    --agent-planning: 45 96% 64%;
+    --agent-executing: 160 80% 45%;
+    --agent-synthesizing: 270 75% 65%;
+    --agent-complete: 142 76% 46%;
   }
   
   /* Light mode overrides (keeping dark as primary) */

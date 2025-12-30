@@ -256,7 +256,8 @@ export class AutonomousProductionLoop {
         if (section.instruments.some(i => ['kick', 'log_drum', 'hi_hat', 'shaker'].includes(i))) {
           const rhythmPatterns = await this.rhythmAgent.process({
             section,
-            globalParams: this.currentPlan.globalParams
+            globalParams: this.currentPlan.globalParams,
+            style: goal.genre
           });
           this.generatedPatterns.push(...rhythmPatterns);
           this.recordThought('Rhythm', `Generated ${rhythmPatterns.length} patterns for ${section.name}`, 'generate_rhythm', rhythmPatterns);
@@ -270,8 +271,7 @@ export class AutonomousProductionLoop {
         if (section.instruments.some(i => ['keys', 'bass', 'lead', 'pad'].includes(i))) {
           const melodyPatterns = await this.melodyAgent.process({
             section,
-            globalParams: this.currentPlan.globalParams,
-            style: goal.genre
+            globalParams: this.currentPlan.globalParams
           });
           this.generatedPatterns.push(...melodyPatterns);
           this.recordThought('Melody', `Generated melodic content for ${section.name}`, 'generate_melody', melodyPatterns);

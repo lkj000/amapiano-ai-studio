@@ -681,6 +681,8 @@ export function generateAmapianoElements(options: {
   bpm: number;
   key: string;
   complexity: number;
+  bassStyle?: 'sub' | 'melodic' | 'walking';
+  bars?: number;
 }): GeneratedElements {
   return authenticElementGenerator.generate(options);
 }

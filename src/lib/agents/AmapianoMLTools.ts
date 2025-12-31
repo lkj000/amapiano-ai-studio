@@ -18,7 +18,9 @@ export const amapianoMLTools: ToolDefinition[] = [
   {
     name: 'amapiano_classification',
     description: 'Classify audio using multi-head analysis (rhythm, timbral, harmonic, production)',
-    category: 'analysis',
+    retryable: true,
+    maxRetries: 3,
+    timeout: 30000,
     inputSchema: {
       type: 'object',
       properties: {
@@ -39,7 +41,6 @@ export const amapianoMLTools: ToolDefinition[] = [
     },
     execute: async (input) => {
       console.log('[AmapianoML] Classification requested:', input);
-      // In production, fetch and decode audio, then classify
       return {
         genre: 'Amapiano',
         subgenre: 'private-school',
@@ -52,7 +53,9 @@ export const amapianoMLTools: ToolDefinition[] = [
   {
     name: 'amapiano_element_generation',
     description: 'Generate authentic Amapiano elements (log drums, piano, percussion, bass)',
-    category: 'generation',
+    retryable: true,
+    maxRetries: 2,
+    timeout: 45000,
     inputSchema: {
       type: 'object',
       properties: {
@@ -81,7 +84,7 @@ export const amapianoMLTools: ToolDefinition[] = [
         bpm: input.bpm,
         key: input.key,
         complexity: input.complexity,
-        bassStyle: input.bassStyle
+        bassStyle: input.bassStyle as 'sub' | 'melodic' | 'walking' | undefined
       });
       return elements;
     }
@@ -89,7 +92,9 @@ export const amapianoMLTools: ToolDefinition[] = [
   {
     name: 'amapiano_production_validation',
     description: 'Validate production against Amapiano rules and get suggestions',
-    category: 'analysis',
+    retryable: true,
+    maxRetries: 2,
+    timeout: 20000,
     inputSchema: {
       type: 'object',
       properties: {
@@ -131,7 +136,9 @@ export const amapianoMLTools: ToolDefinition[] = [
   {
     name: 'amapiano_authenticity_score',
     description: 'Score track authenticity using neural discriminator and regional weights',
-    category: 'analysis',
+    retryable: true,
+    maxRetries: 2,
+    timeout: 25000,
     inputSchema: {
       type: 'object',
       properties: {

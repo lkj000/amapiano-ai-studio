@@ -992,7 +992,7 @@ export default function DawPage({ user }: DawPageProps) {
   const handleImportMIDI = async () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.mid,.midi,.project';
+    input.accept = '.mid,.midi,.project,.json';
     
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -1005,6 +1005,105 @@ export default function DawPage({ user }: DawPageProps) {
         if (file.name.match(/\.(wav|flac|mp3|ogg|aac)$/i)) {
           toast.info('This is an audio file. Use "Upload Audio" instead.');
           console.log('DAW: Audio file detected, use audio upload instead');
+          return;
+        }
+        
+        // Check if it's a JSON file (possibly from audio-to-midi converter)
+        if (file.name.endsWith('.json')) {
+          toast.info('Loading converted MIDI data...');
+          const text = await file.text();
+          const jsonData = JSON.parse(text);
+          
+          console.log('DAW: Loaded JSON MIDI data:', jsonData);
+          
+          // Check if this is our converted MIDI format (has notes array)
+          if (jsonData.notes && Array.isArray(jsonData.notes)) {
+            const notes = jsonData.notes.map((n: any, idx: number) => ({
+              id: n.id || `note_${Date.now()}_${idx}`,
+              pitch: n.pitch ?? n.note ?? 60,
+              velocity: n.velocity ?? 100,
+              startTime: n.startTime ?? (n.timestamp ? n.timestamp / 1000 : 0),
+              duration: n.duration ?? 0.5
+            }));
+            
+            const maxTime = notes.length > 0 
+              ? Math.max(...notes.map((n: any) => n.startTime + n.duration))
+              : 4;
+            
+            const newClip: MidiClip = {
+              id: `clip_${Date.now()}`,
+              name: file.name.replace('.json', ''),
+              startTime: 0,
+              duration: maxTime,
+              notes: notes as MidiNote[]
+            };
+            
+            const newTrack: DawTrackV2 = {
+              id: `track_${Date.now()}`,
+              name: `Converted MIDI`,
+              type: 'midi',
+              instrument: 'Piano',
+              clips: [newClip],
+              mixer: {
+                volume: 0.8,
+                pan: 0,
+                isMuted: false,
+                isSolo: false,
+                effects: []
+              },
+              isArmed: false,
+              color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+              automationLanes: []
+            };
+            
+            const updatedProjectData = {
+              ...projectData,
+              tracks: [...projectData.tracks, newTrack]
+            };
+            
+            setProjectData(updatedProjectData);
+            undoRedoControls.pushState(updatedProjectData, 'Imported converted MIDI');
+            
+            toast.success(`Imported ${notes.length} notes from converted MIDI`);
+            console.log('DAW: Imported converted MIDI with', notes.length, 'notes');
+            return;
+          }
+          
+          // Otherwise treat as project file
+          const projectJson = jsonData;
+          if (projectJson.tracks) {
+            const newProjectData: DawProjectData = {
+              bpm: projectJson.bpm || 120,
+              keySignature: projectJson.key || 'C',
+              timeSignature: '4/4',
+              masterVolume: 0.8,
+              tracks: projectJson.tracks?.map((t: any, idx: number) => ({
+                id: t.id || `track_${Date.now()}_${idx}`,
+                name: t.name || `Track ${idx + 1}`,
+                type: t.type || 'audio',
+                clips: t.clips || [],
+                mixer: {
+                  volume: t.volume ?? 0.8,
+                  pan: t.pan ?? 0,
+                  isMuted: false,
+                  isSolo: false,
+                  effects: []
+                },
+                isArmed: false,
+                color: t.color || `hsl(${(idx * 137.5) % 360}, 70%, 50%)`,
+                automationLanes: [],
+                ...(t.type === 'midi' ? { instrument: t.instrument || 'Piano' } : { recordings: [] })
+              })) || []
+            };
+            
+            setProjectData(newProjectData);
+            undoRedoControls.pushState(newProjectData, 'Imported JSON project');
+            
+            toast.success(`Project loaded successfully`);
+            return;
+          }
+          
+          toast.error('Unrecognized JSON format');
           return;
         }
         

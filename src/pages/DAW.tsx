@@ -222,10 +222,12 @@ export default function DawPage({ user }: DawPageProps) {
   const [showGhostProducer, setShowGhostProducer] = useState(false);
   const [showTutorials, setShowTutorials] = useState(false);
   const [showCursorTracking, setShowCursorTracking] = useState(true);
-const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
-const [pianoRollTime, setPianoRollTime] = useState(0);
-const pianoRollTimerRef = useRef<number | null>(null);
-const [zoom, setZoom] = useState([100]);
+  const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
+  const [pianoRollTime, setPianoRollTime] = useState(0);
+  const pianoRollTimerRef = useRef<number | null>(null);
+  const [zoom, setZoom] = useState([100]);
+  const [selectedRegion, setSelectedRegion] = useState('johannesburg');
+  const [selectedNotes, setSelectedNotes] = useState<MidiNote[]>([]);
   const dawContainerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -1858,6 +1860,16 @@ const [zoom, setZoom] = useState([100]);
                 id: 'user-1',
                 name: 'Producer',
                 avatar: undefined,
+              }}
+              selectedNotes={selectedNotes}
+              onNotesUpdate={(notes) => {
+                setSelectedNotes(notes);
+                toast.success('Notes updated with ML processing');
+              }}
+              selectedRegion={selectedRegion}
+              onRegionChange={(region) => {
+                setSelectedRegion(region);
+                toast.info(`Regional style set to ${region}`);
               }}
             />
           </div>

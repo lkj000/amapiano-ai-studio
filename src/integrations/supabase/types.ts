@@ -3411,6 +3411,78 @@ export type Database = {
         }
         Relationships: []
       }
+      training_batch_samples: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          id: string
+          sample_id: string | null
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          sample_id?: string | null
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          id?: string
+          sample_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_batch_samples_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "training_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_batch_samples_sample_id_fkey"
+            columns: ["sample_id"]
+            isOneToOne: false
+            referencedRelation: "training_samples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_batches: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          purpose: string | null
+          sample_count: number | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          purpose?: string | null
+          sample_count?: number | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          purpose?: string | null
+          sample_count?: number | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_examples: {
         Row: {
           audio_url: string
@@ -3506,6 +3578,132 @@ export type Database = {
           tags?: string[] | null
           user_id?: string
           voice_style_match_rating?: number | null
+        }
+        Relationships: []
+      }
+      training_samples: {
+        Row: {
+          annotated_by: string | null
+          annotation_notes: string | null
+          authenticity_score: number | null
+          bassline_score: number | null
+          bpm: number | null
+          created_at: string
+          danceability: number | null
+          duration_seconds: number | null
+          embedding: string | null
+          energy: number | null
+          era: string | null
+          error_message: string | null
+          file_size_bytes: number | null
+          filename: string
+          generation_prompt: string | null
+          id: string
+          is_verified: boolean | null
+          key_signature: string | null
+          log_drum_presence: number | null
+          mood: string[] | null
+          primary_genre: string | null
+          processing_status: string | null
+          quality_rating: number | null
+          region: string | null
+          shaker_presence: number | null
+          source_platform: string | null
+          source_url: string | null
+          spectral_centroid: number | null
+          spectral_rolloff: number | null
+          stems_path: string | null
+          stems_separated: boolean | null
+          storage_path: string
+          subgenre: string | null
+          tags: string[] | null
+          time_signature: string | null
+          updated_at: string
+          user_id: string
+          valence: number | null
+          vocal_style_score: number | null
+        }
+        Insert: {
+          annotated_by?: string | null
+          annotation_notes?: string | null
+          authenticity_score?: number | null
+          bassline_score?: number | null
+          bpm?: number | null
+          created_at?: string
+          danceability?: number | null
+          duration_seconds?: number | null
+          embedding?: string | null
+          energy?: number | null
+          era?: string | null
+          error_message?: string | null
+          file_size_bytes?: number | null
+          filename: string
+          generation_prompt?: string | null
+          id?: string
+          is_verified?: boolean | null
+          key_signature?: string | null
+          log_drum_presence?: number | null
+          mood?: string[] | null
+          primary_genre?: string | null
+          processing_status?: string | null
+          quality_rating?: number | null
+          region?: string | null
+          shaker_presence?: number | null
+          source_platform?: string | null
+          source_url?: string | null
+          spectral_centroid?: number | null
+          spectral_rolloff?: number | null
+          stems_path?: string | null
+          stems_separated?: boolean | null
+          storage_path: string
+          subgenre?: string | null
+          tags?: string[] | null
+          time_signature?: string | null
+          updated_at?: string
+          user_id: string
+          valence?: number | null
+          vocal_style_score?: number | null
+        }
+        Update: {
+          annotated_by?: string | null
+          annotation_notes?: string | null
+          authenticity_score?: number | null
+          bassline_score?: number | null
+          bpm?: number | null
+          created_at?: string
+          danceability?: number | null
+          duration_seconds?: number | null
+          embedding?: string | null
+          energy?: number | null
+          era?: string | null
+          error_message?: string | null
+          file_size_bytes?: number | null
+          filename?: string
+          generation_prompt?: string | null
+          id?: string
+          is_verified?: boolean | null
+          key_signature?: string | null
+          log_drum_presence?: number | null
+          mood?: string[] | null
+          primary_genre?: string | null
+          processing_status?: string | null
+          quality_rating?: number | null
+          region?: string | null
+          shaker_presence?: number | null
+          source_platform?: string | null
+          source_url?: string | null
+          spectral_centroid?: number | null
+          spectral_rolloff?: number | null
+          stems_path?: string | null
+          stems_separated?: boolean | null
+          storage_path?: string
+          subgenre?: string | null
+          tags?: string[] | null
+          time_signature?: string | null
+          updated_at?: string
+          user_id?: string
+          valence?: number | null
+          vocal_style_score?: number | null
         }
         Relationships: []
       }

@@ -233,47 +233,47 @@ export default function TrainingDataset() {
                       className="h-9"
                     />
                   </div>
-                  <Select value={filterRegion} onValueChange={setFilterRegion}>
+                  <Select value={filterRegion || "all"} onValueChange={v => setFilterRegion(v === "all" ? "" : v)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Region" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Regions</SelectItem>
+                      <SelectItem value="all">All Regions</SelectItem>
                       <SelectItem value="gauteng">Gauteng</SelectItem>
                       <SelectItem value="kwazulu-natal">KwaZulu-Natal</SelectItem>
                       <SelectItem value="western-cape">Western Cape</SelectItem>
                       <SelectItem value="eastern-cape">Eastern Cape</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={filterSubgenre} onValueChange={setFilterSubgenre}>
+                  <Select value={filterSubgenre || "all"} onValueChange={v => setFilterSubgenre(v === "all" ? "" : v)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Subgenre" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Subgenres</SelectItem>
+                      <SelectItem value="all">All Subgenres</SelectItem>
                       <SelectItem value="private-school">Private School</SelectItem>
                       <SelectItem value="dust">Dust</SelectItem>
                       <SelectItem value="kabza-style">Kabza Style</SelectItem>
                       <SelectItem value="vocal-deep">Vocal Deep</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Status</SelectItem>
+                      <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="analyzed">Analyzed</SelectItem>
                       <SelectItem value="complete">Complete</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={filterVerified} onValueChange={setFilterVerified}>
+                  <Select value={filterVerified || "all"} onValueChange={v => setFilterVerified(v === "all" ? "" : v)}>
                     <SelectTrigger className="h-9">
                       <SelectValue placeholder="Verification" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All</SelectItem>
+                      <SelectItem value="all">All</SelectItem>
                       <SelectItem value="verified">Verified Only</SelectItem>
                       <SelectItem value="unverified">Needs Verification</SelectItem>
                     </SelectContent>

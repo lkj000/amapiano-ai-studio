@@ -203,7 +203,8 @@
     }
     
     /* Larger touch targets on mobile */
-    button, a {
+    button:not(.icon-btn), 
+    a:not(.inline-link) {
       min-height: 44px;
     }
   }
@@ -216,6 +217,172 @@
     
     .safe-bottom {
       padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+    
+    .safe-left {
+      padding-left: max(env(safe-area-inset-left), 0px);
+    }
+    
+    .safe-right {
+      padding-right: max(env(safe-area-inset-right), 0px);
+    }
+  }
+
+  /* Responsive container utilities */
+  .container-fluid {
+    width: 100%;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  }
+
+  @media (min-width: 640px) {
+    .container-fluid {
+      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-fluid {
+      padding-left: max(2rem, env(safe-area-inset-left, 0px));
+      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    }
+  }
+
+  /* Mobile-first responsive typography */
+  .text-responsive-hero {
+    font-size: clamp(1.875rem, 5vw + 1rem, 4rem);
+    line-height: 1.1;
+  }
+
+  .text-responsive-title {
+    font-size: clamp(1.5rem, 3vw + 0.5rem, 2.5rem);
+    line-height: 1.2;
+  }
+
+  .text-responsive-subtitle {
+    font-size: clamp(1rem, 2vw + 0.25rem, 1.5rem);
+    line-height: 1.4;
+  }
+
+  /* Mobile-optimized cards */
+  .card-responsive {
+    @apply p-4 sm:p-6;
+  }
+
+  /* Touch scroll snap for horizontal carousels */
+  .snap-x-mandatory {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .snap-start {
+    scroll-snap-align: start;
+  }
+
+  /* Improved focus states for accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Skeleton loading animation */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+
+  /* Mobile-friendly modal/dialog adjustments */
+  @media (max-width: 640px) {
+    [role="dialog"] {
+      max-width: calc(100vw - 2rem) !important;
+      max-height: calc(100vh - 4rem) !important;
+    }
+  }
+
+  /* DAW-specific mobile optimizations */
+  .daw-timeline-mobile {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .daw-mixer-channel {
+    min-width: 80px;
+  }
+
+  @media (min-width: 640px) {
+    .daw-mixer-channel {
+      min-width: 100px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .daw-mixer-channel {
+      min-width: 120px;
+    }
+  }
+
+  /* Agent status indicator animations */
+  .agent-pulse {
+    animation: agent-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes agent-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(1.05);
+    }
+  }
+
+  /* Mobile bottom navigation bar spacing */
+  .mobile-nav-spacer {
+    height: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Prevent body scroll when modal is open */
+  .body-scroll-lock {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Responsive grid utilities */
+  .grid-auto-fit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .grid-auto-fit {
+      gap: 1.5rem;
+    }
+  }
+
+  /* Piano roll mobile touch optimization */
+  .piano-roll-touch {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Waveform visualization responsive */
+  .waveform-container {
+    min-height: 60px;
+  }
+
+  @media (min-width: 640px) {
+    .waveform-container {
+      min-height: 80px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .waveform-container {
+      min-height: 120px;
     }
   }
 }

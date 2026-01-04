@@ -572,22 +572,23 @@ export default function Level5Dashboard() {
   }, {} as Record<string, ComponentTest[]>);
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              <Bot className="h-8 w-8 text-primary" />
-              Level 5 Agent Compliance Dashboard
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+              <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <span className="hidden xs:inline">Level 5 Agent Compliance Dashboard</span>
+              <span className="xs:hidden">L5 Agent Dashboard</span>
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Real-time verification of all autonomous agent components
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              Real-time verification of autonomous agent components
             </p>
           </div>
-          <Button onClick={runAllTests} disabled={isRunning} size="lg">
+          <Button onClick={runAllTests} disabled={isRunning} size="lg" className="w-full sm:w-auto">
             {isRunning ? (
-              <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Running Tests...</>
+              <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Running...</>
             ) : (
               <><Play className="mr-2 h-4 w-4" /> Run All Tests</>
             )}
@@ -596,17 +597,17 @@ export default function Level5Dashboard() {
 
         {/* Overall Score Card */}
         <Card className="border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Overall Level 5 Compliance</span>
-              <Badge variant={overallScore >= 90 ? 'default' : overallScore >= 70 ? 'secondary' : 'destructive'} className="text-lg px-4 py-1">
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-base sm:text-lg">Overall Level 5 Compliance</span>
+              <Badge variant={overallScore >= 90 ? 'default' : overallScore >= 70 ? 'secondary' : 'destructive'} className="text-base sm:text-lg px-3 sm:px-4 py-1 w-fit">
                 {overallScore.toFixed(1)}%
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={overallScore} className="h-4" />
-            <div className="grid grid-cols-5 gap-4 mt-6">
+            <Progress value={overallScore} className="h-3 sm:h-4" />
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 mt-4 sm:mt-6">
               {[
                 { icon: Brain, label: 'Reasoning', layer: 'reasoning', color: 'text-purple-500' },
                 { icon: Code, label: 'Tools', layer: 'tools', color: 'text-blue-500' },
@@ -617,11 +618,11 @@ export default function Level5Dashboard() {
                 const layerTests = componentTests.filter(t => t.layer === layer);
                 const layerPassed = layerTests.filter(t => testResults.get(t.id)?.passed).length;
                 return (
-                  <div key={layer} className="text-center p-4 rounded-lg bg-muted/50">
-                    <Icon className={`h-8 w-8 mx-auto ${color}`} />
-                    <div className="font-medium mt-2">{label}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {layerPassed}/{layerTests.length} passed
+                  <div key={layer} className="text-center p-2 sm:p-4 rounded-lg bg-muted/50">
+                    <Icon className={`h-5 w-5 sm:h-8 sm:w-8 mx-auto ${color}`} />
+                    <div className="font-medium mt-1 sm:mt-2 text-xs sm:text-sm">{label}</div>
+                    <div className="text-[10px] sm:text-sm text-muted-foreground">
+                      {layerPassed}/{layerTests.length}
                     </div>
                   </div>
                 );

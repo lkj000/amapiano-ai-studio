@@ -164,18 +164,39 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
   return (
     <div 
       ref={containerRef}
-      className="h-screen overflow-hidden bg-black relative"
+      className="h-screen overflow-hidden bg-black relative safe-top safe-bottom"
       onWheel={handleScroll}
+      onTouchStart={(e) => {
+        const touch = e.touches[0];
+        containerRef.current?.setAttribute('data-touch-start', String(touch.clientY));
+      }}
+      onTouchEnd={(e) => {
+        const startY = Number(containerRef.current?.getAttribute('data-touch-start') || 0);
+        const endY = e.changedTouches[0].clientY;
+        const diff = startY - endY;
+        
+        if (Math.abs(diff) > 50) { // Minimum swipe distance
+          if (diff > 0 && currentIndex < posts.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+            if (user?.id && posts[currentIndex]) {
+              trackInteraction(posts[currentIndex].id, 'swipe_up', 0.15);
+            }
+          } else if (diff < 0 && currentIndex > 0) {
+            setCurrentIndex(prev => prev - 1);
+          }
+        }
+      }}
     >
-      {/* Fixed Controls */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-3 flex-wrap">
+      {/* Fixed Controls - Mobile optimized */}
+      <div className="fixed top-2 sm:top-4 right-2 sm:right-4 z-50 flex items-center gap-2 sm:gap-3 flex-wrap">
         <Button
           variant="ghost"
           size="sm"
           onClick={refreshFeed}
-          className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20"
+          className="h-9 w-9 sm:h-10 sm:w-auto sm:px-3 bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border border-white/20 p-0 sm:p-2"
         >
           <RefreshCw className="w-4 h-4" />
+          <span className="hidden sm:inline ml-1">Refresh</span>
         </Button>
         
         <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
@@ -279,16 +300,16 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
         ))}
       </div>
 
-      {/* Navigation Indicators */}
-      <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-40">
-        <div className="flex flex-col gap-2">
+      {/* Navigation Indicators - Mobile optimized */}
+      <div className="fixed left-2 sm:left-4 top-1/2 transform -translate-y-1/2 z-40">
+        <div className="flex flex-col gap-1 sm:gap-2">
           {posts.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
             const actualIndex = Math.max(0, currentIndex - 2) + relativeIndex;
             return (
               <button
                 key={actualIndex}
                 onClick={() => setCurrentIndex(actualIndex)}
-                className={`w-2 h-8 rounded-full transition-all ${
+                className={`w-1.5 sm:w-2 h-6 sm:h-8 rounded-full transition-all touch-manipulation ${
                   actualIndex === currentIndex ? 'bg-white' : 'bg-white/40'
                 }`}
               />
@@ -311,10 +332,10 @@ const SocialFeed: React.FC<SocialFeedProps> = ({ user }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Instructions */}
-      <div className="fixed bottom-4 left-4 text-white/60 text-xs">
-        <p>Use ↑↓ arrow keys or scroll to navigate</p>
-        <p>Space to pause/play • Click remix to create your version</p>
+      {/* Instructions - Hidden on very small screens */}
+      <div className="fixed bottom-2 sm:bottom-4 left-2 sm:left-4 text-white/60 text-[10px] sm:text-xs hidden xs:block safe-bottom">
+        <p className="hidden sm:block">Use ↑↓ arrow keys or scroll to navigate</p>
+        <p>Swipe up/down • Tap remix to create</p>
       </div>
 
       {/* Social Onboarding */}

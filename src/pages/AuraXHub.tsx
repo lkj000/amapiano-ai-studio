@@ -69,6 +69,7 @@ const AuraXHub = () => {
     { title: 'Voice Models', description: 'Browse licensed artist voices', icon: Users, route: '/aura-x/voice-licensing', status: 'live', category: 'Voice & Licensing' },
     
     // Training & Data
+    { title: 'Training Dataset', description: 'Bulk upload & annotate training data', icon: Database, route: '/training-dataset', status: 'live', category: 'Training' },
     { title: 'Training Data Collection', description: 'Collect voice & feedback data', icon: Database, route: '/training', status: 'live', category: 'Training' },
     { title: 'User Study', description: 'A/B testing & preferences', icon: Users, route: '/user-study', status: 'live', category: 'Training' },
     { title: 'Study Analytics', description: 'Training data analytics', icon: BarChart3, route: '/study-analytics', status: 'live', category: 'Training' },

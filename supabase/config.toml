@@ -183,3 +183,6 @@ verify_jwt = false
 
 [functions.sound-effect-generator]
 verify_jwt = false
+
+[functions.analyze-training-sample]
+verify_jwt = true

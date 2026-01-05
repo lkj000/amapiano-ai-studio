@@ -219,9 +219,16 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
     setAnalysisProgress(0);
 
     try {
-      // Convert file to base64 for analysis
+      // Convert file to base64 for analysis (chunked to avoid stack overflow)
       const arrayBuffer = await uploadedFile.arrayBuffer();
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64Audio = btoa(binary);
 
       const steps = [
         { progress: 20, message: "Processing audio file..." },

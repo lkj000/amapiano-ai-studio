@@ -1374,6 +1374,104 @@ export type Database = {
         }
         Relationships: []
       }
+      instrument_presets: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          instrument_id: string
+          is_public: boolean | null
+          name: string
+          parameters: Json | null
+          tags: string[] | null
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instrument_id: string
+          is_public?: boolean | null
+          name: string
+          parameters?: Json | null
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          instrument_id?: string
+          is_public?: boolean | null
+          name?: string
+          parameters?: Json | null
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instrument_presets_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instruments_catalog: {
+        Row: {
+          category: string
+          created_at: string
+          default_parameters: Json | null
+          description: string | null
+          example_audio_url: string | null
+          icon_name: string | null
+          id: string
+          instrument_id: string
+          is_core: boolean | null
+          name: string
+          processing_options: Json | null
+          style_options: string[] | null
+          subgenre_compatibility: string[] | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          default_parameters?: Json | null
+          description?: string | null
+          example_audio_url?: string | null
+          icon_name?: string | null
+          id?: string
+          instrument_id: string
+          is_core?: boolean | null
+          name: string
+          processing_options?: Json | null
+          style_options?: string[] | null
+          subgenre_compatibility?: string[] | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          default_parameters?: Json | null
+          description?: string | null
+          example_audio_url?: string | null
+          icon_name?: string | null
+          id?: string
+          instrument_id?: string
+          is_core?: boolean | null
+          name?: string
+          processing_options?: Json | null
+          style_options?: string[] | null
+          subgenre_compatibility?: string[] | null
+        }
+        Relationships: []
+      }
       learning_metrics: {
         Row: {
           created_at: string
@@ -3172,6 +3270,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subgenre_profiles: {
+        Row: {
+          characteristics: Json | null
+          core_instruments: string[] | null
+          created_at: string
+          default_processing: Json | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          optional_instruments: string[] | null
+          subgenre_id: string
+          tempo_range: number[] | null
+        }
+        Insert: {
+          characteristics?: Json | null
+          core_instruments?: string[] | null
+          created_at?: string
+          default_processing?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          optional_instruments?: string[] | null
+          subgenre_id: string
+          tempo_range?: number[] | null
+        }
+        Update: {
+          characteristics?: Json | null
+          core_instruments?: string[] | null
+          created_at?: string
+          default_processing?: Json | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          optional_instruments?: string[] | null
+          subgenre_id?: string
+          tempo_range?: number[] | null
+        }
+        Relationships: []
+      }
       subscribers: {
         Row: {
           created_at: string
@@ -3411,6 +3551,62 @@ export type Database = {
         }
         Relationships: []
       }
+      track_instruments: {
+        Row: {
+          created_at: string
+          id: string
+          instrument_id: string
+          muted: boolean | null
+          order_index: number | null
+          pan: number | null
+          presence: number | null
+          processing: Json | null
+          solo: boolean | null
+          style: string | null
+          track_id: string
+          user_id: string
+          volume: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instrument_id: string
+          muted?: boolean | null
+          order_index?: number | null
+          pan?: number | null
+          presence?: number | null
+          processing?: Json | null
+          solo?: boolean | null
+          style?: string | null
+          track_id: string
+          user_id: string
+          volume?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instrument_id?: string
+          muted?: boolean | null
+          order_index?: number | null
+          pan?: number | null
+          presence?: number | null
+          processing?: Json | null
+          solo?: boolean | null
+          style?: string | null
+          track_id?: string
+          user_id?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_instruments_instrument_id_fkey"
+            columns: ["instrument_id"]
+            isOneToOne: false
+            referencedRelation: "instruments_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_batch_samples: {
         Row: {
           batch_id: string | null
@@ -3598,16 +3794,25 @@ export type Database = {
           file_size_bytes: number | null
           filename: string
           generation_prompt: string | null
+          has_vocals: boolean | null
           id: string
           is_verified: boolean | null
           key_signature: string | null
+          language: string | null
           log_drum_presence: number | null
           mood: string[] | null
           primary_genre: string | null
           processing_status: string | null
+          prompt: string | null
+          quality_chords: number | null
+          quality_log_drum: number | null
+          quality_overall: number | null
           quality_rating: number | null
+          quality_rhythm: number | null
           region: string | null
+          section_type: string | null
           shaker_presence: number | null
+          source: string | null
           source_platform: string | null
           source_url: string | null
           spectral_centroid: number | null
@@ -3639,16 +3844,25 @@ export type Database = {
           file_size_bytes?: number | null
           filename: string
           generation_prompt?: string | null
+          has_vocals?: boolean | null
           id?: string
           is_verified?: boolean | null
           key_signature?: string | null
+          language?: string | null
           log_drum_presence?: number | null
           mood?: string[] | null
           primary_genre?: string | null
           processing_status?: string | null
+          prompt?: string | null
+          quality_chords?: number | null
+          quality_log_drum?: number | null
+          quality_overall?: number | null
           quality_rating?: number | null
+          quality_rhythm?: number | null
           region?: string | null
+          section_type?: string | null
           shaker_presence?: number | null
+          source?: string | null
           source_platform?: string | null
           source_url?: string | null
           spectral_centroid?: number | null
@@ -3680,16 +3894,25 @@ export type Database = {
           file_size_bytes?: number | null
           filename?: string
           generation_prompt?: string | null
+          has_vocals?: boolean | null
           id?: string
           is_verified?: boolean | null
           key_signature?: string | null
+          language?: string | null
           log_drum_presence?: number | null
           mood?: string[] | null
           primary_genre?: string | null
           processing_status?: string | null
+          prompt?: string | null
+          quality_chords?: number | null
+          quality_log_drum?: number | null
+          quality_overall?: number | null
           quality_rating?: number | null
+          quality_rhythm?: number | null
           region?: string | null
+          section_type?: string | null
           shaker_presence?: number | null
+          source?: string | null
           source_platform?: string | null
           source_url?: string | null
           spectral_centroid?: number | null

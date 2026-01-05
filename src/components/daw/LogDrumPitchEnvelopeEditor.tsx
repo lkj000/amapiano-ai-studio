@@ -199,13 +199,13 @@ export const LogDrumPitchEnvelopeEditor: React.FC<LogDrumPitchEnvelopeEditorProp
     ctx.closePath();
     
     const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
-    gradient.addColorStop(0, 'hsl(var(--primary) / 0.3)');
-    gradient.addColorStop(1, 'hsl(var(--primary) / 0.05)');
+    gradient.addColorStop(0, 'rgba(168, 85, 247, 0.3)');
+    gradient.addColorStop(1, 'rgba(168, 85, 247, 0.05)');
     ctx.fillStyle = gradient;
     ctx.fill();
     
     // Draw pitch labels
-    ctx.fillStyle = 'hsl(var(--muted-foreground))';
+    ctx.fillStyle = 'rgba(160, 160, 170, 0.8)';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`${startPitch}Hz`, padding - 5, padding + 10);

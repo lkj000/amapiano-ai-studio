@@ -255,6 +255,10 @@ export default function TrainingDataset() {
                       <SelectItem value="dust">Dust</SelectItem>
                       <SelectItem value="kabza-style">Kabza Style</SelectItem>
                       <SelectItem value="vocal-deep">Vocal Deep</SelectItem>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="sgija">Sgija</SelectItem>
+                      <SelectItem value="bacardi">Bacardi</SelectItem>
+                      <SelectItem value="piano-hub">Piano Hub</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>

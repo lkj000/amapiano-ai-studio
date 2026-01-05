@@ -47,7 +47,7 @@ const ProjectSharingManager: React.FC<ProjectSharingManagerProps> = ({
         projectId,
         email,
         permission,
-        expiresInDays ? parseInt(expiresInDays) : undefined
+        expiresInDays && expiresInDays !== 'never' ? parseInt(expiresInDays) : undefined
       );
       setEmail('');
       setPermission('view');
@@ -151,7 +151,7 @@ const ProjectSharingManager: React.FC<ProjectSharingManagerProps> = ({
                       <SelectItem value="1">1 Day</SelectItem>
                       <SelectItem value="7">7 Days</SelectItem>
                       <SelectItem value="30">30 Days</SelectItem>
-                      <SelectItem value="">Never</SelectItem>
+                      <SelectItem value="never">Never</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

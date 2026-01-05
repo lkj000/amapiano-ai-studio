@@ -7,6 +7,165 @@ import { Upload, Music, Download, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { MidiNote } from '@/types/daw';
 
+// Parse MIDI binary data to extract notes
+const parseMidiData = (base64Data: string): MidiNote[] => {
+  try {
+    // Decode base64 to binary
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const notes: MidiNote[] = [];
+    let pos = 0;
+    let ticksPerBeat = 480; // Default
+    let tempo = 500000; // Default (120 BPM)
+
+    // Read header
+    if (bytes.length < 14) return notes;
+    
+    // Check MIDI header "MThd"
+    const headerChunk = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+    if (headerChunk !== 'MThd') {
+      console.warn('Not a valid MIDI file');
+      return notes;
+    }
+
+    // Header length (should be 6)
+    pos = 8;
+    // Format type
+    pos += 2;
+    // Number of tracks
+    const numTracks = (bytes[pos] << 8) | bytes[pos + 1];
+    pos += 2;
+    // Ticks per beat
+    ticksPerBeat = (bytes[pos] << 8) | bytes[pos + 1];
+    pos += 2;
+
+    // Process each track
+    let noteId = 0;
+    const activeNotes: Map<number, { startTick: number; velocity: number }> = new Map();
+
+    for (let track = 0; track < numTracks && pos < bytes.length - 8; track++) {
+      // Check track header "MTrk"
+      const trackChunk = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
+      if (trackChunk !== 'MTrk') {
+        console.warn('Invalid track header at', pos);
+        break;
+      }
+      pos += 4;
+
+      // Track length
+      const trackLength = (bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3];
+      pos += 4;
+
+      const trackEnd = pos + trackLength;
+      let currentTick = 0;
+      let runningStatus = 0;
+
+      while (pos < trackEnd && pos < bytes.length) {
+        // Read variable-length delta time
+        let deltaTime = 0;
+        let byte = bytes[pos++];
+        while (byte & 0x80) {
+          deltaTime = (deltaTime << 7) | (byte & 0x7f);
+          if (pos >= bytes.length) break;
+          byte = bytes[pos++];
+        }
+        deltaTime = (deltaTime << 7) | (byte & 0x7f);
+        currentTick += deltaTime;
+
+        if (pos >= bytes.length) break;
+
+        // Read event
+        let eventType = bytes[pos];
+        
+        // Handle running status
+        if (eventType < 0x80) {
+          eventType = runningStatus;
+          // Don't increment pos - reuse this byte as data
+        } else {
+          pos++;
+          runningStatus = eventType;
+        }
+
+        const channel = eventType & 0x0f;
+        const command = eventType & 0xf0;
+
+        if (command === 0x90 || command === 0x80) {
+          // Note On or Note Off
+          const pitch = bytes[pos++] || 0;
+          const velocity = bytes[pos++] || 0;
+
+          const isNoteOn = command === 0x90 && velocity > 0;
+          const isNoteOff = command === 0x80 || (command === 0x90 && velocity === 0);
+
+          if (isNoteOn) {
+            activeNotes.set(pitch, { startTick: currentTick, velocity });
+          } else if (isNoteOff) {
+            const noteStart = activeNotes.get(pitch);
+            if (noteStart) {
+              const startTime = (noteStart.startTick / ticksPerBeat) * (tempo / 1000000);
+              const endTime = (currentTick / ticksPerBeat) * (tempo / 1000000);
+              
+              notes.push({
+                id: `midi_${noteId++}`,
+                pitch,
+                velocity: noteStart.velocity,
+                startTime,
+                duration: Math.max(0.01, endTime - startTime),
+              });
+              activeNotes.delete(pitch);
+            }
+          }
+        } else if (command === 0xa0 || command === 0xb0 || command === 0xe0) {
+          // Polyphonic pressure, Control Change, Pitch Bend - 2 data bytes
+          pos += 2;
+        } else if (command === 0xc0 || command === 0xd0) {
+          // Program Change, Channel Pressure - 1 data byte
+          pos += 1;
+        } else if (eventType === 0xff) {
+          // Meta event
+          const metaType = bytes[pos++] || 0;
+          let metaLength = 0;
+          let byte = bytes[pos++] || 0;
+          while (byte & 0x80) {
+            metaLength = (metaLength << 7) | (byte & 0x7f);
+            byte = bytes[pos++] || 0;
+          }
+          metaLength = (metaLength << 7) | (byte & 0x7f);
+
+          if (metaType === 0x51 && metaLength === 3) {
+            // Tempo
+            tempo = (bytes[pos] << 16) | (bytes[pos + 1] << 8) | bytes[pos + 2];
+          }
+          pos += metaLength;
+        } else if (eventType === 0xf0 || eventType === 0xf7) {
+          // SysEx
+          let sysexLength = 0;
+          let byte = bytes[pos++] || 0;
+          while (byte & 0x80) {
+            sysexLength = (sysexLength << 7) | (byte & 0x7f);
+            byte = bytes[pos++] || 0;
+          }
+          sysexLength = (sysexLength << 7) | (byte & 0x7f);
+          pos += sysexLength;
+        }
+      }
+    }
+
+    // Sort notes by start time
+    notes.sort((a, b) => a.startTime - b.startTime);
+    
+    console.log(`Parsed ${notes.length} notes from MIDI`);
+    return notes;
+  } catch (error) {
+    console.error('Error parsing MIDI:', error);
+    return [];
+  }
+};
+
 interface AudioToMidiConverterProps {
   onMidiGenerated?: (midiData: MidiNote[]) => void;
 }
@@ -110,16 +269,22 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
 
       setProgress(90);
 
-      // Parse MIDI data into notes
-      // For now, create a simple placeholder structure
-      // TODO: Implement proper MIDI parsing from conversionResult.midiData
-      const generatedMidi: MidiNote[] = [{
-        id: `midi_note_${Date.now()}`,
-        pitch: 60,
-        velocity: 80,
-        startTime: 0,
-        duration: 1,
-      }];
+      // Parse actual MIDI data from the response
+      let generatedMidi: MidiNote[] = [];
+      
+      if (conversionResult.midiData) {
+        generatedMidi = parseMidiData(conversionResult.midiData);
+      }
+      
+      // Fallback if parsing failed
+      if (generatedMidi.length === 0) {
+        console.warn('No notes parsed from MIDI, conversion may have failed');
+        toast({
+          title: 'Warning',
+          description: 'MIDI file created but no notes detected. You can still download the raw MIDI.',
+          variant: 'destructive',
+        });
+      }
 
       // Store the MIDI URL for download
       const midiUrl = conversionResult.midiUrl;

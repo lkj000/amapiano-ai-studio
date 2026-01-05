@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { BulkAudioUploader } from '@/components/training/BulkAudioUploader';
 import { TrainingSampleCard } from '@/components/training/TrainingSampleCard';
 import { toast } from 'sonner';
+import { useModalApi } from '@/hooks/useModalApi';
 import { 
   Database, 
   Upload, 
@@ -28,7 +29,9 @@ import {
   Music2,
   Brain,
   CheckCircle2,
-  Clock
+  Clock,
+  Sparkles,
+  StopCircle
 } from 'lucide-react';
 
 interface TrainingSample {
@@ -71,6 +74,11 @@ export default function TrainingDataset() {
   const [filterSubgenre, setFilterSubgenre] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterVerified, setFilterVerified] = useState<string>('');
+  const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState({ current: 0, total: 0 });
+  const [analyzeAborted, setAnalyzeAborted] = useState(false);
+  
+  const { analyzeAudio } = useModalApi();
 
   const fetchSamples = useCallback(async () => {
     setIsLoading(true);
@@ -171,6 +179,79 @@ export default function TrainingDataset() {
 
   const hasFilters = searchQuery || filterRegion || filterSubgenre || filterStatus || filterVerified;
 
+  const handleAnalyzeAll = async () => {
+    const pendingSamples = samples.filter(s => s.processing_status === 'pending' || s.processing_status !== 'analyzed');
+    
+    if (pendingSamples.length === 0) {
+      toast.info('All samples are already analyzed');
+      return;
+    }
+    
+    setIsAnalyzingAll(true);
+    setAnalyzeAborted(false);
+    setAnalyzeProgress({ current: 0, total: pendingSamples.length });
+    
+    toast.info(`Starting batch analysis of ${pendingSamples.length} samples...`);
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = 0; i < pendingSamples.length; i++) {
+      if (analyzeAborted) {
+        toast.info('Batch analysis stopped');
+        break;
+      }
+      
+      const sample = pendingSamples[i];
+      setAnalyzeProgress({ current: i + 1, total: pendingSamples.length });
+      
+      try {
+        // Get the audio URL from storage
+        const { data: urlData } = await supabase.storage
+          .from('training-audio')
+          .getPublicUrl(sample.storage_path);
+        
+        if (urlData?.publicUrl) {
+          const result = await analyzeAudio(urlData.publicUrl);
+          
+          if (result?.success) {
+            // Update sample with analysis results
+            await supabase
+              .from('training_samples')
+              .update({
+                bpm: result.bpm || null,
+                key_signature: result.key ? `${result.key} ${result.scale || ''}`.trim() : null,
+                processing_status: 'analyzed',
+                authenticity_score: result.danceability || null
+              })
+              .eq('id', sample.id);
+            
+            successCount++;
+          } else {
+            failCount++;
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to analyze ${sample.filename}:`, error);
+        failCount++;
+      }
+    }
+    
+    setIsAnalyzingAll(false);
+    setAnalyzeProgress({ current: 0, total: 0 });
+    
+    if (!analyzeAborted) {
+      toast.success(`Batch analysis complete: ${successCount} successful, ${failCount} failed`);
+    }
+    
+    fetchSamples();
+    fetchStats();
+  };
+
+  const handleStopAnalysis = () => {
+    setAnalyzeAborted(true);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -185,22 +266,46 @@ export default function TrainingDataset() {
               Manage your Amapiano ML training data
             </p>
           </div>
-          {stats && (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="gap-1">
-                <Music2 className="h-3 w-3" />
-                {stats.total} Samples
-              </Badge>
-              <Badge className="bg-green-500/20 text-green-500 border-green-500/30 gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                {stats.verified} Verified
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Clock className="h-3 w-3" />
-                {stats.pending} Pending
-              </Badge>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {stats && (
+              <>
+                <Badge variant="outline" className="gap-1">
+                  <Music2 className="h-3 w-3" />
+                  {stats.total} Samples
+                </Badge>
+                <Badge className="bg-green-500/20 text-green-500 border-green-500/30 gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {stats.verified} Verified
+                </Badge>
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  {stats.pending} Pending
+                </Badge>
+              </>
+            )}
+            {isAnalyzingAll ? (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleStopAnalysis}
+                className="gap-2"
+              >
+                <StopCircle className="h-4 w-4" />
+                Stop ({analyzeProgress.current}/{analyzeProgress.total})
+              </Button>
+            ) : (
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleAnalyzeAll}
+                disabled={samples.length === 0}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Analyze All
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="browse" className="space-y-6">

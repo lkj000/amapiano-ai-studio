@@ -1016,9 +1016,13 @@ export default function DawPage({ user }: DawPageProps) {
           
           console.log('DAW: Loaded JSON MIDI data:', jsonData);
           
-          // Check if this is our converted MIDI format (has notes array)
-          if (jsonData.notes && Array.isArray(jsonData.notes)) {
-            const notes = jsonData.notes.map((n: any, idx: number) => ({
+          // Check if this is our converted MIDI format
+          // Handle both: direct array of notes OR object with notes property
+          const notesArray = Array.isArray(jsonData) ? jsonData : jsonData.notes;
+          
+          if (notesArray && Array.isArray(notesArray) && notesArray.length > 0 && 
+              (notesArray[0].pitch !== undefined || notesArray[0].note !== undefined)) {
+            const notes = notesArray.map((n: any, idx: number) => ({
               id: n.id || `note_${Date.now()}_${idx}`,
               pitch: n.pitch ?? n.note ?? 60,
               velocity: n.velocity ?? 100,

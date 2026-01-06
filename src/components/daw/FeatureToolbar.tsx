@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Scissors, Gauge, MapPin, Music2, Activity, Drum } from 'lucide-react';
+import { Scissors, Gauge, MapPin, Music2, Activity, Drum, Piano } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import { AuthenticityMeter } from './AuthenticityMeter';
 import { RegionalStyleSelector } from './RegionalStyleSelector';
 import { VelocityPatternGenerator } from './VelocityPatternGenerator';
 import { LogDrumPitchEnvelopeEditor } from './LogDrumPitchEnvelopeEditor';
+import { EnhancedInstrumentSelector, type InstrumentSpec } from '@/components/instruments';
 import type { DawProjectDataV2 } from '@/types/daw';
 import type { MidiNote } from '@/types/daw';
 
@@ -41,6 +42,8 @@ interface FeatureToolbarProps {
   onNotesUpdate?: (notes: MidiNote[]) => void;
   onRegionChange?: (region: string) => void;
   selectedRegion?: string;
+  onInstrumentsChange?: (instruments: InstrumentSpec[]) => void;
+  selectedInstruments?: InstrumentSpec[];
 }
 
 const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
@@ -55,6 +58,8 @@ const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
   onNotesUpdate,
   onRegionChange,
   selectedRegion = 'johannesburg',
+  onInstrumentsChange,
+  selectedInstruments = [],
 }) => {
   const [showStemSeparation, setShowStemSeparation] = useState(false);
   const [showSwingQuantizer, setShowSwingQuantizer] = useState(false);
@@ -62,6 +67,7 @@ const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
   const [showRegionalStyle, setShowRegionalStyle] = useState(false);
   const [showVelocityPattern, setShowVelocityPattern] = useState(false);
   const [showLogDrumEditor, setShowLogDrumEditor] = useState(false);
+  const [showInstrumentSelector, setShowInstrumentSelector] = useState(false);
 
   return (
     <div className="flex items-center gap-2 p-2 bg-background/95 border-b flex-wrap">
@@ -102,6 +108,33 @@ const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
         projectId={projectId}
         projectName={projectName}
       />
+
+      <Separator orientation="vertical" className="h-8" />
+
+      {/* Instrument Selector */}
+      <Dialog open={showInstrumentSelector} onOpenChange={setShowInstrumentSelector}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Piano className="w-4 h-4 mr-2" />
+            Instruments
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Instrument Selector</DialogTitle>
+            <DialogDescription>
+              Select and configure instruments for your production
+            </DialogDescription>
+          </DialogHeader>
+          <EnhancedInstrumentSelector
+            selectedInstruments={selectedInstruments}
+            onInstrumentsChange={(instruments) => {
+              if (onInstrumentsChange) onInstrumentsChange(instruments);
+            }}
+            maxInstruments={12}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Separator orientation="vertical" className="h-8" />
 

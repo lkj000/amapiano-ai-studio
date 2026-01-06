@@ -228,6 +228,7 @@ export default function DawPage({ user }: DawPageProps) {
   const [zoom, setZoom] = useState([100]);
   const [selectedRegion, setSelectedRegion] = useState('johannesburg');
   const [selectedNotes, setSelectedNotes] = useState<MidiNote[]>([]);
+  const [selectedInstruments, setSelectedInstruments] = useState<any[]>([]);
   const dawContainerRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
@@ -1973,6 +1974,11 @@ export default function DawPage({ user }: DawPageProps) {
               onRegionChange={(region) => {
                 setSelectedRegion(region);
                 toast.info(`Regional style set to ${region}`);
+              }}
+              selectedInstruments={selectedInstruments}
+              onInstrumentsChange={(instruments) => {
+                setSelectedInstruments(instruments);
+                toast.success(`${instruments.length} instrument(s) selected`);
               }}
             />
           </div>

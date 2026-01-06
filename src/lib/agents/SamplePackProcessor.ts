@@ -22,7 +22,24 @@ export interface SampleMetadata {
   tags: string[];
 }
 
-export type GenreStyle = 'amapiano' | 'private_school' | 'three_step' | 'gqom' | 'bacardi';
+export type GenreStyle = 
+  | 'amapiano' 
+  | 'private_school' 
+  | 'three_step' 
+  | 'gqom' 
+  | 'bacardi'
+  | 'dust'
+  | 'sgija'
+  | 'commercial'
+  | 'kabza_style'
+  | 'vocal_deep'
+  | 'piano_hub'
+  | 'soweto_groove'
+  | 'durban_tech'
+  | 'kwaito_fusion'
+  | 'international'
+  | 'afro_tech'
+  | 'experimental';
 
 export type SubgenreStyle = 
   | 'soulful' 
@@ -30,7 +47,10 @@ export type SubgenreStyle =
   | 'mellow' 
   | 'club' 
   | 'jazzy' 
-  | 'experimental';
+  | 'experimental'
+  | 'minimal'
+  | 'tech'
+  | 'deep';
 
 export type InstrumentRole = 
   | 'kick' 
@@ -112,6 +132,66 @@ export const GENRE_SPECS = {
     tempoRange: [108, 115],
     characteristics: ['vocal_chops', 'melodic_bass', 'tribal_elements'],
     harmonicStyle: 'hybrid',
+  },
+  dust: {
+    tempoRange: [112, 118],
+    characteristics: ['raw_drums', 'minimal_melody', 'street_energy'],
+    harmonicStyle: 'minimal',
+  },
+  sgija: {
+    tempoRange: [115, 120],
+    characteristics: ['heavy_bass', 'aggressive_drums', 'township_energy'],
+    harmonicStyle: 'minimal_dark',
+  },
+  commercial: {
+    tempoRange: [110, 115],
+    characteristics: ['polished_mix', 'catchy_hooks', 'radio_friendly'],
+    harmonicStyle: 'pop_accessible',
+  },
+  kabza_style: {
+    tempoRange: [110, 114],
+    characteristics: ['groovy_bass', 'soulful_keys', 'signature_bounce'],
+    harmonicStyle: 'jazzy_soulful',
+  },
+  vocal_deep: {
+    tempoRange: [108, 114],
+    characteristics: ['emotive_vocals', 'deep_bass', 'atmospheric'],
+    harmonicStyle: 'soulful_deep',
+  },
+  piano_hub: {
+    tempoRange: [110, 116],
+    characteristics: ['piano_focus', 'jazz_chords', 'melodic_runs'],
+    harmonicStyle: 'jazz_piano',
+  },
+  soweto_groove: {
+    tempoRange: [112, 118],
+    characteristics: ['raw_energy', 'township_roots', 'street_vibes'],
+    harmonicStyle: 'minimal_groove',
+  },
+  durban_tech: {
+    tempoRange: [116, 122],
+    characteristics: ['gqom_influence', 'heavy_bass', 'dark_atmosphere'],
+    harmonicStyle: 'dark_minimal',
+  },
+  kwaito_fusion: {
+    tempoRange: [105, 112],
+    characteristics: ['kwaito_roots', 'nostalgic_vibes', 'groovy_bass'],
+    harmonicStyle: 'kwaito_hybrid',
+  },
+  international: {
+    tempoRange: [110, 116],
+    characteristics: ['accessible_sound', 'global_appeal', 'polished_production'],
+    harmonicStyle: 'contemporary_jazz',
+  },
+  afro_tech: {
+    tempoRange: [118, 124],
+    characteristics: ['tech_house_influence', 'driving_rhythm', 'club_oriented'],
+    harmonicStyle: 'tech_minimal',
+  },
+  experimental: {
+    tempoRange: [100, 125],
+    characteristics: ['innovative', 'boundary_pushing', 'unique_textures'],
+    harmonicStyle: 'experimental',
   },
 } as const;
 

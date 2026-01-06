@@ -11,64 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Piano, Drum, Guitar, Music, Mic, Headphones, 
-  Waves, Zap, Settings, Volume2, Activity,
+  Piano, Drum, Guitar, Music, Mic,
+  Waves, Zap, Volume2, Activity,
   Sparkles
 } from 'lucide-react';
 import { InstrumentCard, type InstrumentSpec } from './InstrumentCard';
-
-// Subgenre profiles based on your research docs
-interface SubgenreProfile {
-  name: string;
-  description: string;
-  tempo_range: [number, number];
-  core_instruments: string[];
-  optional_instruments: string[];
-  default_processing: { reverb: number; warmth: number; distortion: number; humanization: number };
-}
-
-const SUBGENRE_PROFILES: Record<string, SubgenreProfile> = {
-  'private_school': {
-    name: 'Private School Amapiano',
-    description: 'Soulful, jazz-influenced with live instrumentation',
-    tempo_range: [108, 112],
-    core_instruments: ['log_drum', 'rhodes', 'shakers', 'synth_pad', 'sub_bass'],
-    optional_instruments: ['saxophone', 'guitar_electric', 'violin', 'trumpet'],
-    default_processing: { reverb: 0.35, warmth: 0.6, distortion: 0.1, humanization: 0.7 }
-  },
-  'dust': {
-    name: 'Dust Amapiano',
-    description: 'Raw, gritty percussion-focused sound',
-    tempo_range: [112, 118],
-    core_instruments: ['log_drum', 'kick', 'shakers', 'congas', 'bongos'],
-    optional_instruments: ['synth_bass', 'vocal_chops'],
-    default_processing: { reverb: 0.2, warmth: 0.4, distortion: 0.3, humanization: 0.4 }
-  },
-  'commercial': {
-    name: 'Commercial Amapiano',
-    description: 'Radio-ready, polished production',
-    tempo_range: [110, 115],
-    core_instruments: ['log_drum', 'rhodes', 'synth_pad', 'shakers', 'vocals'],
-    optional_instruments: ['saxophone', 'synth_lead', 'guitar_acoustic'],
-    default_processing: { reverb: 0.3, warmth: 0.5, distortion: 0.15, humanization: 0.5 }
-  },
-  'sgija': {
-    name: 'Sgija',
-    description: 'High-energy, bass-heavy township style',
-    tempo_range: [115, 120],
-    core_instruments: ['log_drum', 'kick', 'sub_bass', 'shakers', 'claps'],
-    optional_instruments: ['synth_bass', 'vocal_chops', 'rimshot'],
-    default_processing: { reverb: 0.15, warmth: 0.3, distortion: 0.4, humanization: 0.3 }
-  },
-  'kabza_style': {
-    name: 'Kabza Style',
-    description: 'Signature Kabza De Small production aesthetic',
-    tempo_range: [110, 114],
-    core_instruments: ['log_drum', 'rhodes', 'shakers', 'synth_pad', 'congas'],
-    optional_instruments: ['saxophone', 'guitar_electric', 'vocal_chops'],
-    default_processing: { reverb: 0.3, warmth: 0.55, distortion: 0.15, humanization: 0.6 }
-  }
-};
+import { SUBGENRE_PROFILES } from '@/constants/subgenreProfiles';
 
 // Complete instrument catalog
 const INSTRUMENTS_CATALOG: Omit<InstrumentSpec, 'presence' | 'style' | 'processing'>[] = [

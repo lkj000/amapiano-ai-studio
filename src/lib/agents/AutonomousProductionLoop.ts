@@ -566,12 +566,24 @@ Respond in JSON format: { genre, substyle, bpm, key, elements }`
   }
 
   private calculateAuthenticityScore(genre: GenreStyle, elements: string[]): number {
-    const requiredElements: Record<GenreStyle, string[]> = {
+    const requiredElements: Partial<Record<GenreStyle, string[]>> = {
       amapiano: ['log_drum', 'keys', 'shaker', 'kick'],
       private_school: ['log_drum', 'keys', 'pad', 'rhodes'],
       three_step: ['kick', 'log_drum', 'hi_hat', 'shaker'],
       gqom: ['kick', 'bass', 'hi_hat'],
-      bacardi: ['kick', 'shaker', 'bass']
+      bacardi: ['kick', 'shaker', 'bass'],
+      dust: ['log_drum', 'kick', 'shaker', 'congas'],
+      sgija: ['log_drum', 'kick', 'sub_bass', 'claps'],
+      commercial: ['log_drum', 'rhodes', 'synth_pad', 'shaker'],
+      kabza_style: ['log_drum', 'rhodes', 'shaker', 'congas'],
+      vocal_deep: ['log_drum', 'rhodes', 'vocals', 'sub_bass'],
+      piano_hub: ['rhodes', 'acoustic_piano', 'log_drum', 'shaker'],
+      soweto_groove: ['log_drum', 'kick', 'congas', 'shaker'],
+      durban_tech: ['kick', 'sub_bass', 'shaker', 'claps'],
+      kwaito_fusion: ['kick', 'log_drum', 'synth_bass', 'vocals'],
+      international: ['log_drum', 'rhodes', 'synth_pad', 'shaker'],
+      afro_tech: ['kick', 'shaker', 'synth_bass', 'synth_pad'],
+      experimental: ['log_drum', 'synth_pad', 'synth_lead', 'sub_bass']
     };
 
     const required = requiredElements[genre] || requiredElements.amapiano;

@@ -384,10 +384,15 @@ class CNNGenreClassifier {
     allGenres: Array<{ genre: string; probability: number }>
   ): string | undefined {
     const subgenreMap: Record<string, string[]> = {
-      'amapiano': ['piano_amapiano', 'vocal_amapiano', 'private_school'],
-      'house': ['deep_house', 'tech_house', 'progressive_house'],
+      'amapiano': [
+        'private_school', 'dust', 'commercial', 'sgija', 'kabza_style', 
+        'bacardi', 'vocal_deep', 'piano_hub', 'three_step', 'soweto_groove',
+        'durban_tech', 'kwaito_fusion', 'international', 'afro_tech', 'experimental'
+      ],
+      'house': ['deep_house', 'tech_house', 'progressive_house', 'afro_house'],
       'hip_hop': ['trap', 'boom_bap', 'conscious'],
-      'electronic': ['ambient', 'experimental', 'idm']
+      'electronic': ['ambient', 'experimental', 'idm'],
+      'gqom': ['durban_tech', 'sgija']
     };
     
     const subgenres = subgenreMap[primaryGenre];

@@ -161,7 +161,7 @@ const AMAPIANO_PATTERNS: PatternTemplate[] = [
 ];
 
 // Chord progressions by genre
-const CHORD_PROGRESSIONS: Record<GenreStyle, number[][]> = {
+const CHORD_PROGRESSIONS: Partial<Record<GenreStyle, number[][]>> = {
   amapiano: [
     [0, 4, 7, 11],   // maj7
     [5, 9, 12, 16],  // maj7
@@ -191,6 +191,78 @@ const CHORD_PROGRESSIONS: Record<GenreStyle, number[][]> = {
     [5, 9, 12],
     [7, 11, 14],
     [0, 4, 7],
+  ],
+  dust: [
+    [0, 3, 7],      // minor
+    [5, 8, 12],     // minor
+    [0, 3, 7],      // minor
+    [3, 7, 10],     // minor
+  ],
+  sgija: [
+    [0, 3, 7],      // minor
+    [0, 3, 7],      // minor
+    [5, 8, 12],     // minor
+    [0, 3, 7],      // minor
+  ],
+  commercial: [
+    [0, 4, 7, 11],   // maj7
+    [5, 9, 12, 16],  // maj7
+    [7, 11, 14, 17], // maj7
+    [0, 4, 7],       // major
+  ],
+  kabza_style: [
+    [0, 4, 7, 11],   // maj7
+    [5, 9, 12, 16],  // maj7
+    [7, 10, 14, 17], // min7
+    [0, 4, 7, 10],   // dom7
+  ],
+  vocal_deep: [
+    [0, 4, 7, 11, 14],   // maj9
+    [5, 8, 12, 15],      // min7
+    [7, 11, 14, 17],     // maj7
+    [2, 5, 9, 12],       // min7
+  ],
+  piano_hub: [
+    [0, 4, 7, 11, 14],   // maj9
+    [5, 9, 12, 16, 19],  // maj9
+    [7, 11, 14, 17, 21], // maj9
+    [2, 5, 9, 12, 16],   // min9
+  ],
+  soweto_groove: [
+    [0, 3, 7],      // minor
+    [5, 8, 12],     // minor
+    [7, 10, 14],    // minor
+    [0, 3, 7],      // minor
+  ],
+  durban_tech: [
+    [0, 3, 7],      // minor
+    [0, 3, 7],      // minor
+    [5, 8, 12],     // minor
+    [3, 7, 10],     // minor
+  ],
+  kwaito_fusion: [
+    [0, 4, 7],      // major
+    [5, 9, 12],     // major
+    [0, 3, 7],      // minor
+    [0, 4, 7],      // major
+  ],
+  international: [
+    [0, 4, 7, 11],   // maj7
+    [5, 9, 12, 16],  // maj7
+    [7, 11, 14, 17], // maj7
+    [0, 4, 7, 11],   // maj7
+  ],
+  afro_tech: [
+    [0, 3, 7],      // minor
+    [5, 8, 12],     // minor
+    [0, 3, 7],      // minor
+    [7, 10, 14],    // minor
+  ],
+  experimental: [
+    [0, 4, 7, 11, 14],   // maj9
+    [3, 7, 10, 14],      // min7
+    [6, 9, 13, 16],      // altered
+    [0, 5, 7, 10],       // sus4
   ]
 };
 

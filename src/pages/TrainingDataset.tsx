@@ -356,14 +356,21 @@ export default function TrainingDataset() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Subgenres</SelectItem>
-                      <SelectItem value="private-school">Private School</SelectItem>
+                      <SelectItem value="private_school">Private School</SelectItem>
                       <SelectItem value="dust">Dust</SelectItem>
-                      <SelectItem value="kabza-style">Kabza Style</SelectItem>
-                      <SelectItem value="vocal-deep">Vocal Deep</SelectItem>
+                      <SelectItem value="kabza_style">Kabza Style</SelectItem>
+                      <SelectItem value="vocal_deep">Vocal Deep</SelectItem>
                       <SelectItem value="commercial">Commercial</SelectItem>
                       <SelectItem value="sgija">Sgija</SelectItem>
                       <SelectItem value="bacardi">Bacardi</SelectItem>
-                      <SelectItem value="piano-hub">Piano Hub</SelectItem>
+                      <SelectItem value="piano_hub">Piano Hub</SelectItem>
+                      <SelectItem value="three_step">Three Step</SelectItem>
+                      <SelectItem value="soweto_groove">Soweto Groove</SelectItem>
+                      <SelectItem value="durban_tech">Durban Tech</SelectItem>
+                      <SelectItem value="kwaito_fusion">Kwaito Fusion</SelectItem>
+                      <SelectItem value="international">International</SelectItem>
+                      <SelectItem value="afro_tech">Afro Tech</SelectItem>
+                      <SelectItem value="experimental">Experimental</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={filterStatus || "all"} onValueChange={v => setFilterStatus(v === "all" ? "" : v)}>

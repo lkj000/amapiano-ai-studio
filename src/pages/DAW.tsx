@@ -616,22 +616,42 @@ export default function DawPage({ user }: DawPageProps) {
             return;
           }
 
-          // Create empty audio tracks for each stem (ready for clips later)
-          const newTracks = data.stems.map((s: any) => ({
-            id: `track_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
-            type: 'audio' as const,
-            name: s.name,
-            clips: [],
-            mixer: { volume: (s.volume ?? 80) / 100, pan: 0, isMuted: false, isSolo: false, effects: [] },
-            isArmed: false,
-            color: s.color || 'bg-green-500',
-            automationLanes: [],
-            recordings: [],
-            metadata: { instrument: s.instrument }
-          }));
+          console.log('[DAW] Importing stems with audio URLs:', data.stems);
+
+          // Create audio tracks with actual clips containing audioUrl
+          const newTracks = data.stems.map((s: any, idx: number) => {
+            const trackId = `track_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+            const clips: AudioClip[] = [];
+
+            // If stem has audioUrl, create a clip for it
+            if (s.audioUrl) {
+              clips.push({
+                id: `clip_${Date.now()}_${idx}`,
+                name: s.name,
+                startTime: 0,
+                duration: 16, // Default 16 beats, will adjust on load
+                audioUrl: s.audioUrl,
+              });
+            }
+
+            return {
+              id: trackId,
+              type: 'audio' as const,
+              name: s.name,
+              clips,
+              mixer: { volume: (s.volume ?? 80) / 100, pan: 0, isMuted: false, isSolo: false, effects: [] },
+              isArmed: false,
+              color: s.color || 'bg-green-500',
+              automationLanes: [],
+              recordings: [],
+              metadata: { instrument: s.instrument }
+            };
+          });
 
           setProjectData(prev => prev ? { ...prev, tracks: [...prev.tracks, ...newTracks] } : prev);
-          toast.success(`🎚️ Imported ${data.stems.length} stems into DAW`);
+          
+          const stemsWithAudio = data.stems.filter((s: any) => s.audioUrl).length;
+          toast.success(`🎚️ Imported ${newTracks.length} stems (${stemsWithAudio} with audio) into DAW`);
         } catch (e) {
           console.error('Failed to import stems:', e);
           localStorage.removeItem('pendingDAWImport');

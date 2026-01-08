@@ -22,6 +22,7 @@ interface SeparatedStem {
   confidence: number;
   waveformData: number[];
   audioBuffer?: AudioBuffer;
+  audioUrl?: string; // Real audio URL from backend
   isPlaying: boolean;
   volume: number;
   isMuted: boolean;
@@ -91,70 +92,71 @@ export const SourceSeparationEngine: React.FC<{
     });
   }, []);
 
-  const simulateSourceSeparation = useCallback(async (file: File): Promise<SeparatedStem[]> => {
-    const stems: SeparatedStem[] = [
+  const performRealStemSeparation = useCallback(async (file: File): Promise<SeparatedStem[]> => {
+    // Upload file to stem-splitter edge function
+    const formData = new FormData();
+    formData.append('audio', file);
+
+    setSeparationProgress(10);
+    toast.info('Uploading audio for AI stem separation...');
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stem-splitter`,
       {
-        id: 'drums',
-        name: 'Log Drums',
-        instrument: 'drums',
-        confidence: 94.2,
-        waveformData: generateMockWaveform(),
-        isPlaying: false,
-        volume: 80,
-        isMuted: false,
-        color: INSTRUMENT_COLORS.drums
-      },
-      {
-        id: 'bass',
-        name: 'Deep Bass',
-        instrument: 'bass',
-        confidence: 91.7,
-        waveformData: generateMockWaveform(),
-        isPlaying: false,
-        volume: 75,
-        isMuted: false,
-        color: INSTRUMENT_COLORS.bass
-      },
-      {
-        id: 'piano',
-        name: 'Amapiano Keys',
-        instrument: 'piano',
-        confidence: 89.3,
-        waveformData: generateMockWaveform(),
-        isPlaying: false,
-        volume: 70,
-        isMuted: false,
-        color: INSTRUMENT_COLORS.piano
-      },
-      {
-        id: 'percussion',
-        name: 'Shakers & Perc',
-        instrument: 'percussion',
-        confidence: 86.8,
-        waveformData: generateMockWaveform(),
-        isPlaying: false,
-        volume: 65,
-        isMuted: false,
-        color: INSTRUMENT_COLORS.percussion
-      },
-      {
-        id: 'synth',
-        name: 'Synth Lead',
-        instrument: 'synth',
-        confidence: 82.4,
-        waveformData: generateMockWaveform(),
-        isPlaying: false,
-        volume: 60,
-        isMuted: false,
-        color: INSTRUMENT_COLORS.synth
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: formData,
       }
+    );
+
+    setSeparationProgress(30);
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Stem separation failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[SourceSeparation] Backend response:', data);
+
+    if (!data.success || !data.stems) {
+      throw new Error(data.error || 'No stems returned from backend');
+    }
+
+    setSeparationProgress(80);
+
+    // Map backend stems to our SeparatedStem format
+    const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
+      { key: 'vocals', name: 'Vocals', instrument: 'vocals', color: INSTRUMENT_COLORS.vocals },
+      { key: 'drums', name: 'Drums', instrument: 'drums', color: INSTRUMENT_COLORS.drums },
+      { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
+      { key: 'other', name: 'Other', instrument: 'other', color: INSTRUMENT_COLORS.other },
     ];
 
-    // Simulate processing time
-    for (let progress = 0; progress <= 100; progress += 5) {
-      setSeparationProgress(progress);
-      await new Promise(resolve => setTimeout(resolve, 150));
+    const stems: SeparatedStem[] = stemMapping
+      .filter(m => data.stems[m.key]) // Only include stems that have URLs
+      .map((m, idx) => ({
+        id: m.key,
+        name: m.name,
+        instrument: m.instrument,
+        confidence: 90 - idx * 3,
+        waveformData: generateMockWaveform(),
+        audioUrl: data.stems[m.key], // Real audio URL!
+        isPlaying: false,
+        volume: 80 - idx * 5,
+        isMuted: false,
+        color: m.color,
+      }));
+
+    setSeparationProgress(100);
+
+    if (stems.length === 0) {
+      throw new Error('No valid stems returned from separation');
     }
+
+    console.log('[SourceSeparation] Parsed stems:', stems.map(s => ({ id: s.id, audioUrl: s.audioUrl?.substring(0, 60) })));
 
     return stems;
   }, [generateMockWaveform]);
@@ -194,10 +196,10 @@ export const SourceSeparationEngine: React.FC<{
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      toast.info("Starting source separation...");
+      toast.info("Starting AI stem separation... (this may take 2-4 minutes)");
 
-      // Perform source separation
-      const stems = await simulateSourceSeparation(file);
+      // Perform real source separation via edge function
+      const stems = await performRealStemSeparation(file);
       setSeparatedStems(stems);
 
       if (enablePatternExtraction) {
@@ -213,12 +215,13 @@ export const SourceSeparationEngine: React.FC<{
 
       toast.success(`Successfully separated audio into ${stems.length} stems!`);
     } catch (error) {
-      toast.error("Failed to process audio file");
-      console.error(error);
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Stem separation failed: ${msg}`);
+      console.error('[SourceSeparation] Error:', error);
     } finally {
       setIsProcessing(false);
     }
-  }, [initializeAudioContext, simulateSourceSeparation, analyzeAudioPatterns, enablePatternExtraction]);
+  }, [initializeAudioContext, performRealStemSeparation, analyzeAudioPatterns, enablePatternExtraction, onSeparationComplete]);
 
   // Auto-start processing if an initial URL is provided
   useEffect(() => {
@@ -246,25 +249,55 @@ export const SourceSeparationEngine: React.FC<{
     await initializeAudioContext();
 
     const ctx = audioContextRef.current!;
+    const stem = separatedStems.find(s => s.id === stemId);
+    if (!stem) return;
 
-    setSeparatedStems(prev => prev.map(stem => {
-      if (stem.id !== stemId) return stem;
-      const newIsPlaying = !stem.isPlaying;
+    // If currently playing, stop it
+    if (stem.isPlaying) {
+      const source = audioSourcesRef.current.get(stemId);
+      source?.stop();
+      audioSourcesRef.current.delete(stemId);
+      const gain = gainNodesRef.current.get(stemId);
+      gain?.disconnect();
+      gainNodesRef.current.delete(stemId);
+      setSeparatedStems(prev => prev.map(s => s.id === stemId ? { ...s, isPlaying: false } : s));
+      return;
+    }
 
-      // Stop audio if playing
-      if (!newIsPlaying) {
-        const source = audioSourcesRef.current.get(stemId);
-        source?.stop();
-        audioSourcesRef.current.delete(stemId);
-        const gain = gainNodesRef.current.get(stemId);
-        gain?.disconnect();
-        gainNodesRef.current.delete(stemId);
-        return { ...stem, isPlaying: false };
+    // Play the real audio URL if available
+    if (stem.audioUrl) {
+      try {
+        console.log('[SourceSeparation] Playing real audio:', stem.audioUrl.substring(0, 60));
+        const response = await fetch(stem.audioUrl);
+        if (!response.ok) throw new Error(`Failed to fetch audio: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+        const src = ctx.createBufferSource();
+        src.buffer = audioBuffer;
+
+        const gain = ctx.createGain();
+        const linearVol = (stem.volume / 100) * (stem.isMuted ? 0 : 1);
+        gain.gain.value = linearVol;
+
+        src.connect(gain).connect(ctx.destination);
+        src.onended = () => {
+          setSeparatedStems(prev => prev.map(s => s.id === stemId ? { ...s, isPlaying: false } : s));
+          audioSourcesRef.current.delete(stemId);
+        };
+        src.start();
+
+        audioSourcesRef.current.set(stemId, src);
+        gainNodesRef.current.set(stemId, gain);
+        setSeparatedStems(prev => prev.map(s => s.id === stemId ? { ...s, isPlaying: true } : s));
+      } catch (error) {
+        console.error('[SourceSeparation] Audio playback error:', error);
+        toast.error(`Failed to play ${stem.name}. The audio URL may have expired.`);
       }
-
-      // Create a simple looped buffer from the waveform data as a placeholder stem
+    } else {
+      // Fallback: generate placeholder tone (old behavior)
       const sampleRate = ctx.sampleRate || 44100;
-      const duration = 2; // seconds per loop
+      const duration = 2;
       const numSamples = Math.floor(sampleRate * duration);
       const audioBuffer = ctx.createBuffer(1, numSamples, sampleRate);
       const data = audioBuffer.getChannelData(0);
@@ -273,7 +306,6 @@ export const SourceSeparationEngine: React.FC<{
         const t = i / sampleRate;
         const idx = Math.floor((i / numSamples) * stem.waveformData.length);
         const amp = (stem.waveformData[idx] || 0) * 0.6;
-        // simple harmonic to hear something
         data[i] = amp * Math.sin(2 * Math.PI * 220 * t);
       }
 
@@ -290,9 +322,9 @@ export const SourceSeparationEngine: React.FC<{
 
       audioSourcesRef.current.set(stemId, src);
       gainNodesRef.current.set(stemId, gain);
-      return { ...stem, isPlaying: true };
-    }));
-  }, [initializeAudioContext]);
+      setSeparatedStems(prev => prev.map(s => s.id === stemId ? { ...s, isPlaying: true } : s));
+    }
+  }, [initializeAudioContext, separatedStems]);
 
   const updateStemVolume = useCallback((stemId: string, volume: number) => {
     setSeparatedStems(prev => prev.map(stem => 
@@ -489,12 +521,13 @@ export const SourceSeparationEngine: React.FC<{
     try {
       toast.info('Importing stems to DAW...');
       
-      // Store stems data in localStorage to be picked up by DAW
+      // Store stems data in localStorage to be picked up by DAW - include audioUrl!
       const stemData = separatedStems.map(stem => ({
         name: stem.name,
         instrument: stem.instrument,
         color: stem.color,
         volume: stem.volume,
+        audioUrl: stem.audioUrl, // Critical: pass the real audio URL
       }));
       
       localStorage.setItem('pendingDAWImport', JSON.stringify({

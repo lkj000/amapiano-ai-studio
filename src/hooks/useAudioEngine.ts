@@ -230,14 +230,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
           
           projectData.tracks.forEach((track) => {
             if (track.type === 'midi' && !track.mixer?.isMuted && track.clips) {
-              if (track.clips.length > 0) {
-                console.log(`AudioEngine: Track ${track.name} has ${track.clips.length} clips`);
-              }
               track.clips.forEach((clip) => {
                 if ('notes' in clip && clip.notes) {
-                  if (clip.notes.length > 0 && newTime === 0) {
-                    console.log(`AudioEngine: Clip ${clip.name} has ${clip.notes.length} notes`);
-                  }
                   clip.notes.forEach((note) => {
                     const absoluteNoteTime = clip.startTime + note.startTime;
                     const noteKey = `${clip.id}_${note.id}`;

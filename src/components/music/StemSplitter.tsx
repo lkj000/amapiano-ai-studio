@@ -71,6 +71,7 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
       }
 
       if (data.success && data.stems) {
+        console.log('[StemSplitter] Received stems:', data.stems);
         setStems(data.stems);
         toast.success('Stems separated successfully!');
       } else {
@@ -96,11 +97,29 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
       
       if (!audio) {
         const newAudio = new Audio(url);
+        newAudio.crossOrigin = 'anonymous';
         newAudio.onended = () => setPlayingTrack(null);
+        newAudio.onerror = (e) => {
+          console.error('[StemSplitter] Audio playback error:', e, 'URL:', url);
+          toast.error(`Failed to play ${trackName}. The stem URL may have expired.`);
+          setPlayingTrack(null);
+        };
+        newAudio.oncanplay = () => {
+          console.log('[StemSplitter] Audio ready to play:', trackName);
+        };
         audioRefs.current[trackName] = newAudio;
-        newAudio.play();
+        newAudio.play().catch(err => {
+          console.error('[StemSplitter] Play failed:', err);
+          toast.error(`Playback blocked: ${err.message}`);
+          setPlayingTrack(null);
+        });
       } else {
-        audio.play();
+        audio.currentTime = 0;
+        audio.play().catch(err => {
+          console.error('[StemSplitter] Resume failed:', err);
+          toast.error(`Playback error: ${err.message}`);
+          setPlayingTrack(null);
+        });
       }
       setPlayingTrack(trackName);
     }

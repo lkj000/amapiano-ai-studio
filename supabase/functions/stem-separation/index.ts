@@ -31,10 +31,13 @@ serve(async (req) => {
 
       if (result.status === 'succeeded') {
         const output = result.output;
+        // 6-stem model outputs: drums, bass, vocals, guitar, piano, other
         const stems = {
           drums: output?.drums,
           bass: output?.bass,
           vocals: output?.vocals,
+          guitar: output?.guitar,
+          piano: output?.piano,
           other: output?.other,
         };
         return new Response(
@@ -64,11 +67,12 @@ serve(async (req) => {
 
     console.log('[STEM-SEPARATION] Starting prediction for:', audioUrl);
 
+    // Use htdemucs_6s for 6-stem separation (drums, bass, vocals, guitar, piano, other)
     const prediction = await replicate.predictions.create({
       version: "25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953",
       input: {
         audio: audioUrl,
-        model: quality === 'high' ? 'htdemucs_ft' : 'htdemucs',
+        model: quality === 'high' ? 'htdemucs_6s' : 'htdemucs_6s',
       }
     });
 

@@ -168,11 +168,13 @@ export const SourceSeparationEngine: React.FC<{
       if (pollData.status === 'succeeded' && pollData.stems) {
         setSeparationProgress(95);
         
-        // Map backend stems to our SeparatedStem format
+        // Map backend stems to our SeparatedStem format (6-stem model)
         const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
           { key: 'vocals', name: 'Vocals', instrument: 'vocals', color: INSTRUMENT_COLORS.vocals },
           { key: 'drums', name: 'Drums', instrument: 'drums', color: INSTRUMENT_COLORS.drums },
           { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
+          { key: 'guitar', name: 'Guitar', instrument: 'guitar', color: INSTRUMENT_COLORS.guitar },
+          { key: 'piano', name: 'Piano', instrument: 'piano', color: INSTRUMENT_COLORS.piano },
           { key: 'other', name: 'Other', instrument: 'other', color: INSTRUMENT_COLORS.other },
         ];
 

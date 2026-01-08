@@ -93,72 +93,116 @@ export const SourceSeparationEngine: React.FC<{
   }, []);
 
   const performRealStemSeparation = useCallback(async (file: File): Promise<SeparatedStem[]> => {
-    // Upload file to stem-splitter edge function
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    
+    // Step 1: Upload file and start separation job
     const formData = new FormData();
     formData.append('audio', file);
 
-    setSeparationProgress(10);
+    setSeparationProgress(5);
     toast.info('Uploading audio for AI stem separation...');
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stem-splitter`,
+    const startResponse = await fetch(
+      `${supabaseUrl}/functions/v1/stem-splitter`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${supabaseKey}`,
         },
         body: formData,
       }
     );
 
-    setSeparationProgress(30);
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || `Stem separation failed: ${response.status}`);
+    if (!startResponse.ok) {
+      const errData = await startResponse.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to start separation: ${startResponse.status}`);
     }
 
-    const data = await response.json();
-    console.log('[SourceSeparation] Backend response:', data);
+    const startData = await startResponse.json();
+    console.log('[SourceSeparation] Job started:', startData);
 
-    if (!data.success || !data.stems) {
-      throw new Error(data.error || 'No stems returned from backend');
+    if (!startData.predictionId) {
+      throw new Error(startData.error || 'No prediction ID returned');
     }
 
-    setSeparationProgress(80);
+    setSeparationProgress(15);
+    toast.info('AI is separating stems... This takes 2-4 minutes.');
 
-    // Map backend stems to our SeparatedStem format
-    const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
-      { key: 'vocals', name: 'Vocals', instrument: 'vocals', color: INSTRUMENT_COLORS.vocals },
-      { key: 'drums', name: 'Drums', instrument: 'drums', color: INSTRUMENT_COLORS.drums },
-      { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
-      { key: 'other', name: 'Other', instrument: 'other', color: INSTRUMENT_COLORS.other },
-    ];
+    // Step 2: Poll for completion
+    const maxAttempts = 120; // 4 minutes (2s intervals)
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
+      
+      // Update progress (15% to 90% during polling)
+      const pollProgress = 15 + Math.min(75, (attempts / maxAttempts) * 75);
+      setSeparationProgress(Math.round(pollProgress));
 
-    const stems: SeparatedStem[] = stemMapping
-      .filter(m => data.stems[m.key]) // Only include stems that have URLs
-      .map((m, idx) => ({
-        id: m.key,
-        name: m.name,
-        instrument: m.instrument,
-        confidence: 90 - idx * 3,
-        waveformData: generateMockWaveform(),
-        audioUrl: data.stems[m.key], // Real audio URL!
-        isPlaying: false,
-        volume: 80 - idx * 5,
-        isMuted: false,
-        color: m.color,
-      }));
+      const pollResponse = await fetch(
+        `${supabaseUrl}/functions/v1/stem-splitter`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ predictionId: startData.predictionId }),
+        }
+      );
 
-    setSeparationProgress(100);
+      if (!pollResponse.ok) {
+        console.warn('[SourceSeparation] Poll failed:', pollResponse.status);
+        continue;
+      }
 
-    if (stems.length === 0) {
-      throw new Error('No valid stems returned from separation');
+      const pollData = await pollResponse.json();
+      console.log('[SourceSeparation] Poll status:', pollData.status);
+
+      if (pollData.status === 'failed') {
+        throw new Error(pollData.error || 'Stem separation failed');
+      }
+
+      if (pollData.status === 'succeeded' && pollData.stems) {
+        setSeparationProgress(95);
+        
+        // Map backend stems to our SeparatedStem format
+        const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
+          { key: 'vocals', name: 'Vocals', instrument: 'vocals', color: INSTRUMENT_COLORS.vocals },
+          { key: 'drums', name: 'Drums', instrument: 'drums', color: INSTRUMENT_COLORS.drums },
+          { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
+          { key: 'other', name: 'Other', instrument: 'other', color: INSTRUMENT_COLORS.other },
+        ];
+
+        const stems: SeparatedStem[] = stemMapping
+          .filter(m => pollData.stems[m.key])
+          .map((m, idx) => ({
+            id: m.key,
+            name: m.name,
+            instrument: m.instrument,
+            confidence: 90 - idx * 3,
+            waveformData: generateMockWaveform(),
+            audioUrl: pollData.stems[m.key],
+            isPlaying: false,
+            volume: 80 - idx * 5,
+            isMuted: false,
+            color: m.color,
+          }));
+
+        setSeparationProgress(100);
+
+        if (stems.length === 0) {
+          throw new Error('No valid stems returned from separation');
+        }
+
+        console.log('[SourceSeparation] Parsed stems:', stems.map(s => ({ id: s.id, audioUrl: s.audioUrl?.substring(0, 60) })));
+        return stems;
+      }
     }
 
-    console.log('[SourceSeparation] Parsed stems:', stems.map(s => ({ id: s.id, audioUrl: s.audioUrl?.substring(0, 60) })));
-
-    return stems;
+    throw new Error('Stem separation timed out after 4 minutes');
   }, [generateMockWaveform]);
 
   const analyzeAudioPatterns = useCallback(async (stems: SeparatedStem[]): Promise<AnalysisResult> => {

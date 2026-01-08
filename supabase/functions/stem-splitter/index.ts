@@ -13,6 +13,71 @@ serve(async (req) => {
   }
 
   try {
+    const contentType = req.headers.get('content-type') || '';
+    
+    // Handle status check (JSON body with predictionId)
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      const { predictionId } = body;
+      
+      if (!predictionId) {
+        throw new Error('predictionId is required for status check');
+      }
+      
+      const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
+      if (!REPLICATE_API_KEY) {
+        throw new Error('REPLICATE_API_KEY not configured');
+      }
+      
+      console.log('[STEM-SPLITTER] Checking status for:', predictionId);
+      
+      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        headers: { 'Authorization': `Token ${REPLICATE_API_KEY}` },
+      });
+      
+      const result = await pollResponse.json();
+      console.log('[STEM-SPLITTER] Status:', result.status);
+      
+      if (result.status === 'failed') {
+        return new Response(
+          JSON.stringify({ 
+            status: 'failed', 
+            error: result.error || 'Stem separation failed' 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (result.status === 'succeeded') {
+        const stems = result.output;
+        console.log('[STEM-SPLITTER] Separation complete:', stems);
+        
+        return new Response(
+          JSON.stringify({
+            status: 'succeeded',
+            success: true,
+            stems: {
+              vocals: stems.vocals || stems.Vocals,
+              drums: stems.drums || stems.Drums,
+              bass: stems.bass || stems.Bass,
+              other: stems.other || stems.Other,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Still processing
+      return new Response(
+        JSON.stringify({ 
+          status: result.status,
+          progress: result.logs ? result.logs.length : 0
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Handle new separation request (FormData with audio file)
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     
@@ -79,48 +144,13 @@ serve(async (req) => {
     const prediction = await replicateResponse.json();
     console.log('[STEM-SPLITTER] Prediction created:', prediction.id);
 
-    // Poll for completion
-    let result = prediction;
-    let attempts = 0;
-    const maxAttempts = 120; // 4 minutes max
-
-    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: { 'Authorization': `Token ${REPLICATE_API_KEY}` },
-      });
-      
-      result = await pollResponse.json();
-      attempts++;
-      console.log('[STEM-SPLITTER] Poll attempt', attempts, '- Status:', result.status);
-    }
-
-    if (result.status === 'failed') {
-      throw new Error(`Stem separation failed: ${result.error || 'Unknown error'}`);
-    }
-
-    if (result.status !== 'succeeded') {
-      throw new Error('Stem separation timed out');
-    }
-
-    // Result contains URLs for each stem
-    const stems = result.output;
-    console.log('[STEM-SPLITTER] Separation complete:', stems);
-
-    // Clean up temp file
-    await supabase.storage.from('temp-audio').remove([fileName]);
-
+    // Return prediction ID immediately - client will poll for status
     return new Response(
       JSON.stringify({
-        success: true,
-        stems: {
-          vocals: stems.vocals || stems.Vocals,
-          drums: stems.drums || stems.Drums,
-          bass: stems.bass || stems.Bass,
-          other: stems.other || stems.Other,
-        },
+        status: 'starting',
+        predictionId: prediction.id,
         originalFileName: audioFile.name,
+        tempFileName: fileName, // For cleanup later
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

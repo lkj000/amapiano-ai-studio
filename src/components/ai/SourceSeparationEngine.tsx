@@ -42,15 +42,15 @@ interface AnalysisResult {
   };
 }
 
+// Aligned with EnhancedInstrumentSelector categories
 const INSTRUMENT_COLORS = {
-  drums: 'bg-red-500',
   bass: 'bg-purple-500',
-  piano: 'bg-blue-500',
-  guitar: 'bg-green-500',
-  vocals: 'bg-yellow-500',
+  percussion: 'bg-red-500',
+  keys: 'bg-blue-500',
+  strings: 'bg-green-500',
+  brass: 'bg-orange-500',
   synth: 'bg-pink-500',
-  percussion: 'bg-orange-500',
-  strings: 'bg-indigo-500',
+  vocal: 'bg-yellow-500',
   other: 'bg-gray-500'
 };
 
@@ -168,14 +168,14 @@ export const SourceSeparationEngine: React.FC<{
       if (pollData.status === 'succeeded' && pollData.stems) {
         setSeparationProgress(95);
         
-        // Map backend stems to our SeparatedStem format (6-stem model)
+        // Map backend stems to EnhancedInstrumentSelector categories
         const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
-          { key: 'vocals', name: 'Vocals', instrument: 'vocals', color: INSTRUMENT_COLORS.vocals },
-          { key: 'drums', name: 'Drums', instrument: 'drums', color: INSTRUMENT_COLORS.drums },
+          { key: 'vocals', name: 'Vocal', instrument: 'vocal', color: INSTRUMENT_COLORS.vocal },
+          { key: 'drums', name: 'Percussion', instrument: 'percussion', color: INSTRUMENT_COLORS.percussion },
           { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
-          { key: 'guitar', name: 'Guitar', instrument: 'guitar', color: INSTRUMENT_COLORS.guitar },
-          { key: 'piano', name: 'Piano', instrument: 'piano', color: INSTRUMENT_COLORS.piano },
-          { key: 'other', name: 'Other', instrument: 'other', color: INSTRUMENT_COLORS.other },
+          { key: 'guitar', name: 'Strings', instrument: 'strings', color: INSTRUMENT_COLORS.strings },
+          { key: 'piano', name: 'Keys', instrument: 'keys', color: INSTRUMENT_COLORS.keys },
+          { key: 'other', name: 'Other/Synth', instrument: 'synth', color: INSTRUMENT_COLORS.synth },
         ];
 
         const stems: SeparatedStem[] = stemMapping

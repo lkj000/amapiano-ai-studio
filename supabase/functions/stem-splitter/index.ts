@@ -61,10 +61,11 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: 'cfa93589e5a8b78e21d5f69e24182648e5e7b22e488c68c5d40c66a7e7f7c0a8', // Demucs
+        version: '25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953', // cjwbw/demucs htdemucs
         input: {
           audio: audioUrl,
-          stem: 'all', // vocals, drums, bass, other, all
+          model_name: 'htdemucs',
+          output_format: 'mp3',
         },
       }),
     });

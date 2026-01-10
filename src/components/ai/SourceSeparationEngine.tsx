@@ -64,6 +64,8 @@ const INSTRUMENT_COLORS = {
   other: 'bg-gray-500'
 };
 
+const STEM_STORAGE_KEY = 'aura_separated_stems';
+
 export const SourceSeparationEngine: React.FC<{ 
   initialAudioUrl?: string; 
   autoStart?: boolean;
@@ -80,6 +82,7 @@ export const SourceSeparationEngine: React.FC<{
   const [enablePatternExtraction, setEnablePatternExtraction] = useState(true);
   const [enableAIClassification, setEnableAIClassification] = useState(true);
   const [classificationProgress, setClassificationProgress] = useState(0);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   
   // Spectral analysis hook
   const { analyzeStems, classifyFromFeatures, isAnalyzing } = useSpectralAnalysis();
@@ -89,6 +92,51 @@ export const SourceSeparationEngine: React.FC<{
   const analyzerNodes = useRef<Map<string, AnalyserNode>>(new Map());
   const audioSourcesRef = useRef<Map<string, AudioBufferSourceNode>>(new Map());
   const gainNodesRef = useRef<Map<string, GainNode>>(new Map());
+
+  // Restore stems from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STEM_STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        // Check if data is less than 24 hours old (URLs expire)
+        if (data.timestamp && Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+          setSeparatedStems(data.stems.map((s: any) => ({ ...s, isPlaying: false })));
+          setSeparationProgress(100);
+          console.log('[SourceSeparation] Restored stems from localStorage:', data.stems.length);
+        } else {
+          localStorage.removeItem(STEM_STORAGE_KEY);
+        }
+      }
+    } catch (e) {
+      console.warn('[SourceSeparation] Failed to restore stems:', e);
+    }
+  }, []);
+
+  // Persist stems to localStorage when they change
+  useEffect(() => {
+    if (separatedStems.length > 0 && separationProgress === 100) {
+      try {
+        localStorage.setItem(STEM_STORAGE_KEY, JSON.stringify({
+          stems: separatedStems.map(s => ({
+            id: s.id,
+            name: s.name,
+            instrument: s.instrument,
+            confidence: s.confidence,
+            waveformData: s.waveformData,
+            audioUrl: s.audioUrl,
+            volume: s.volume,
+            isMuted: s.isMuted,
+            color: s.color,
+            category: s.category,
+          })),
+          timestamp: Date.now(),
+        }));
+      } catch (e) {
+        console.warn('[SourceSeparation] Failed to persist stems:', e);
+      }
+    }
+  }, [separatedStems, separationProgress]);
 
   const initializeAudioContext = useCallback(async () => {
     if (!audioContextRef.current) {
@@ -661,6 +709,65 @@ export const SourceSeparationEngine: React.FC<{
     }
   }, [separatedStems, exportStem]);
 
+  const downloadAsZip = useCallback(async () => {
+    const stemsWithUrls = separatedStems.filter(s => s.audioUrl);
+    if (stemsWithUrls.length === 0) {
+      toast.error('No stems with audio URLs available');
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    try {
+      toast.info('Creating ZIP archive...');
+
+      const { data, error } = await supabase.functions.invoke('zip-stems', {
+        body: {
+          stems: stemsWithUrls.map(s => ({
+            name: `${s.name.toLowerCase().replace(/\s+/g, '-')}.wav`,
+            url: s.audioUrl,
+          })),
+          projectName: originalFile?.name.replace(/\.[^.]+$/, '') || 'stems',
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.zipData) throw new Error('No ZIP data returned');
+
+      // Convert base64 to blob and download
+      const binaryString = atob(data.zipData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'stems-export.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('ZIP file downloaded!');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`ZIP download failed: ${msg}`);
+      console.error('[ZIP] Error:', error);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  }, [separatedStems, originalFile]);
+
+  const clearStems = useCallback(() => {
+    setSeparatedStems([]);
+    setSeparationProgress(0);
+    setAnalysisResult(null);
+    setOriginalFile(null);
+    localStorage.removeItem(STEM_STORAGE_KEY);
+    toast.info('Stems cleared');
+  }, []);
+
   const convertToMidi = useCallback(async () => {
     try {
       if (!originalFile) {
@@ -1044,9 +1151,22 @@ export const SourceSeparationEngine: React.FC<{
                     <Separator className="my-4" />
                     <h3 className="font-medium mb-3">Batch Actions</h3>
                     <div className="grid gap-3">
-                      <Button className="justify-start" onClick={exportAllStems}>
+                      <Button className="justify-start" onClick={downloadAsZip} disabled={isDownloadingZip}>
+                        {isDownloadingZip ? (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                            Creating ZIP...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Download All as ZIP
+                          </>
+                        )}
+                      </Button>
+                      <Button variant="outline" className="justify-start" onClick={exportAllStems}>
                         <Download className="w-4 h-4 mr-2" />
-                        Download All Stems
+                        Download Stems Individually
                       </Button>
                       <Button variant="outline" className="justify-start" onClick={convertToMidi}>
                         <Music4 className="w-4 h-4 mr-2" />
@@ -1055,6 +1175,11 @@ export const SourceSeparationEngine: React.FC<{
                       <Button variant="outline" className="justify-start" onClick={importToDAW}>
                         <Layers3 className="w-4 h-4 mr-2" />
                         Import All to DAW Tracks
+                      </Button>
+                      <Separator className="my-2" />
+                      <Button variant="ghost" className="justify-start text-muted-foreground" onClick={clearStems}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        Clear Stems & Start Over
                       </Button>
                     </div>
                   </Card>

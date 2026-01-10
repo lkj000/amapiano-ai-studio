@@ -531,15 +531,34 @@ export const SourceSeparationEngine: React.FC<{
 
   const exportStem = useCallback(async (stem: SeparatedStem) => {
     try {
-      toast.info(`Exporting ${stem.name}...`);
+      toast.info(`Downloading ${stem.name}...`);
       
-      // Create a simple WAV file from the stem data
+      // If we have a real audio URL from the separation, download it directly
+      if (stem.audioUrl) {
+        const response = await fetch(stem.audioUrl);
+        if (!response.ok) throw new Error('Failed to fetch stem audio');
+        
+        const blob = await response.blob();
+        const ext = stem.audioUrl.includes('.wav') ? 'wav' : 'mp3';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${stem.name.toLowerCase().replace(/\s+/g, '-')}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`${stem.name} downloaded!`);
+        return;
+      }
+      
+      // Fallback: Create a WAV file from mock data (if no real audio URL)
       const sampleRate = 44100;
-      const duration = 10; // 10 seconds
+      const duration = 10;
       const numSamples = sampleRate * duration;
       const buffer = new Float32Array(numSamples);
       
-      // Generate audio based on waveform pattern (mock data for now)
       for (let i = 0; i < numSamples; i++) {
         const t = i / sampleRate;
         const waveformIndex = Math.floor((i / numSamples) * stem.waveformData.length);
@@ -547,10 +566,7 @@ export const SourceSeparationEngine: React.FC<{
         buffer[i] = amplitude * Math.sin(2 * Math.PI * 440 * t);
       }
       
-      // Convert to WAV blob
       const wavBlob = createWavBlob(buffer, sampleRate);
-      
-      // Create download link
       const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -562,7 +578,7 @@ export const SourceSeparationEngine: React.FC<{
       
       toast.success(`${stem.name} exported successfully!`);
     } catch (error) {
-      toast.error('Export failed');
+      toast.error('Download failed - stem URL may have expired');
       console.error(error);
     }
   }, []);
@@ -834,11 +850,25 @@ export const SourceSeparationEngine: React.FC<{
               </div>
             )}
 
+            {/* Success Message */}
+            {!isProcessing && separationProgress === 100 && separatedStems.length > 0 && (
+              <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <Sparkles className="w-5 h-5" />
+                  <span className="font-medium">
+                    Separation Complete! {separatedStems.length} stems extracted.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Results Section */}
             {separatedStems.length > 0 && (
               <Tabs defaultValue="stems" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="stems">Separated Stems</TabsTrigger>
+                  <TabsTrigger value="stems">
+                    Separated Stems ({separatedStems.length})
+                  </TabsTrigger>
                   <TabsTrigger value="analysis">Pattern Analysis</TabsTrigger>
                   <TabsTrigger value="export">Export & Use</TabsTrigger>
                 </TabsList>
@@ -995,20 +1025,63 @@ export const SourceSeparationEngine: React.FC<{
 
                 <TabsContent value="export" className="space-y-4">
                   <Card className="p-4">
-                    <h3 className="font-medium mb-3">Export Options</h3>
+                    <h3 className="font-medium mb-3">Download Individual Stems</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                      {separatedStems.map((stem) => (
+                        <Button
+                          key={stem.id}
+                          variant="outline"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => exportStem(stem)}
+                        >
+                          <div className={`w-3 h-3 rounded mr-2 ${stem.color}`} />
+                          <Download className="w-3 h-3 mr-1" />
+                          {stem.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <Separator className="my-4" />
+                    <h3 className="font-medium mb-3">Batch Actions</h3>
                     <div className="grid gap-3">
                       <Button className="justify-start" onClick={exportAllStems}>
                         <Download className="w-4 h-4 mr-2" />
-                        Export All Stems as WAV Files
+                        Download All Stems
                       </Button>
                       <Button variant="outline" className="justify-start" onClick={convertToMidi}>
                         <Music4 className="w-4 h-4 mr-2" />
                         Convert to MIDI Patterns
                       </Button>
                       <Button variant="outline" className="justify-start" onClick={importToDAW}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        Import to DAW Tracks
+                        <Layers3 className="w-4 h-4 mr-2" />
+                        Import All to DAW Tracks
                       </Button>
+                    </div>
+                  </Card>
+
+                  <Card className="p-4">
+                    <h3 className="font-medium mb-3">Stem URLs (Expire in 24h)</h3>
+                    <div className="space-y-2 text-xs">
+                      {separatedStems.filter(s => s.audioUrl).map((stem) => (
+                        <div key={stem.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                          <div className={`w-2 h-2 rounded ${stem.color}`} />
+                          <span className="font-medium">{stem.name}:</span>
+                          <span className="text-muted-foreground truncate flex-1">
+                            {stem.audioUrl?.substring(0, 50)}...
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(stem.audioUrl || '');
+                              toast.success('URL copied!');
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </Card>
                 </TabsContent>

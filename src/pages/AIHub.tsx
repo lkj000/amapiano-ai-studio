@@ -185,7 +185,7 @@ export default function AIHub({ user }: AIHubProps) {
 
         {/* Main AI Hub Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="assistant" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               Assistant
@@ -193,6 +193,10 @@ export default function AIHub({ user }: AIHubProps) {
             <TabsTrigger value="voice" className="flex items-center gap-2">
               <Mic className="w-4 h-4" />
               Voice
+            </TabsTrigger>
+            <TabsTrigger value="stems" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              Stems
             </TabsTrigger>
             <TabsTrigger value="realtime" className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
@@ -268,6 +272,23 @@ export default function AIHub({ user }: AIHubProps) {
                 }}
               />
             </div>
+          </TabsContent>
+
+          <TabsContent value="stems" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-primary" />
+                  AI Stem Separation & Classification
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4">
+                  Upload audio to separate into stems (vocals, drums, bass, etc.) with AI-powered sub-instrument classification using spectral analysis.
+                </p>
+                <SourceSeparationEngine initialAudioUrl={pendingStemUrl ?? undefined} autoStart={!!pendingStemUrl} />
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="realtime" className="space-y-6">

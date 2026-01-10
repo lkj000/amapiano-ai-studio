@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,18 @@ import { toast } from 'sonner';
 export default function Amapianorize() {
   const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'enhance'>('upload');
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioObjectUrl, setAudioObjectUrl] = useState<string | null>(null);
   const [separatedStems, setSeparatedStems] = useState<any>(null);
   const [enhancedStems, setEnhancedStems] = useState<any>(null);
+
+  // Clean up object URL on unmount or when file changes
+  useEffect(() => {
+    return () => {
+      if (audioObjectUrl) {
+        URL.revokeObjectURL(audioObjectUrl);
+      }
+    };
+  }, [audioObjectUrl]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -20,14 +30,46 @@ export default function Amapianorize() {
         toast.error('Please select a valid audio file');
         return;
       }
+      // Clean up previous URL
+      if (audioObjectUrl) {
+        URL.revokeObjectURL(audioObjectUrl);
+      }
       setAudioFile(file);
+      setAudioObjectUrl(URL.createObjectURL(file));
       setActiveTab('separate');
       toast.success(`File "${file.name}" ready for separation`);
     }
   };
 
   const handleSeparationComplete = (stems: any) => {
-    setSeparatedStems(stems);
+    // Convert SeparatedStem[] to the format AmapianorizationEngine expects
+    const stemUrls: Record<string, string> = {};
+    if (Array.isArray(stems)) {
+      stems.forEach((stem: any) => {
+        if (stem.audioUrl) {
+          // Map to standard keys
+          const keyMap: Record<string, string> = {
+            'vocals': 'vocals',
+            'vocal': 'vocals',
+            'drums': 'drums',
+            'percussion': 'drums',
+            'bass': 'bass',
+            'piano': 'piano',
+            'keys': 'piano',
+            'other': 'other',
+            'synth': 'other',
+            'strings': 'other',
+          };
+          const mappedKey = keyMap[stem.id?.toLowerCase()] || keyMap[stem.instrument?.toLowerCase()] || 'other';
+          stemUrls[mappedKey] = stem.audioUrl;
+        }
+      });
+    } else if (stems && typeof stems === 'object') {
+      // Already in correct format
+      Object.assign(stemUrls, stems);
+    }
+    
+    setSeparatedStems(stemUrls);
     setActiveTab('enhance');
     toast.success('Stems separated! Ready for Amapianorization');
   };
@@ -109,14 +151,11 @@ export default function Amapianorize() {
             </TabsContent>
 
             <TabsContent value="separate" className="space-y-6">
-              {audioFile && (
+              {audioFile && audioObjectUrl && (
                 <SourceSeparationEngine
-                  initialAudioUrl={URL.createObjectURL(audioFile)}
+                  initialAudioUrl={audioObjectUrl}
                   autoStart={true}
-                  onSeparationComplete={(stems) => {
-                    setSeparatedStems(stems);
-                    handleSeparationComplete(stems);
-                  }}
+                  onSeparationComplete={handleSeparationComplete}
                 />
               )}
             </TabsContent>

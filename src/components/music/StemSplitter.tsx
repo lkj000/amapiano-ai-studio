@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Upload, Loader2, Play, Pause, Download, Music, Mic2, Drum, Guitar } from 'lucide-react';
+import { Upload, Loader2, Play, Pause, Download, Music, Mic2, Drum, Guitar, FileArchive } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StemSplitterProps {
   compact?: boolean;
@@ -53,7 +54,10 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
       const formData = new FormData();
       formData.append('audio', file);
 
-      const response = await fetch(
+      // Step 1: Start the separation job
+      toast.info('Uploading audio for AI stem separation...');
+      
+      const startResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stem-splitter`,
         {
           method: 'POST',
@@ -64,19 +68,60 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
         }
       );
 
-      const data = await response.json();
+      const startData = await startResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Stem separation failed');
+      if (!startResponse.ok) {
+        throw new Error(startData.error || 'Failed to start stem separation');
       }
 
-      if (data.success && data.stems) {
-        console.log('[StemSplitter] Received stems:', data.stems);
-        setStems(data.stems);
-        toast.success('Stems separated successfully!');
-      } else {
-        throw new Error(data.error || 'Separation failed');
+      if (!startData.predictionId) {
+        throw new Error(startData.error || 'No prediction ID returned');
       }
+
+      console.log('[StemSplitter] Job started:', startData.predictionId);
+      toast.info('AI is separating stems... This may take 2-4 minutes.');
+
+      // Step 2: Poll for completion
+      const maxAttempts = 120; // 4 minutes (2s intervals)
+      let attempts = 0;
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        attempts++;
+
+        const pollResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stem-splitter`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ predictionId: startData.predictionId }),
+          }
+        );
+
+        if (!pollResponse.ok) {
+          console.warn('[StemSplitter] Poll failed:', pollResponse.status);
+          continue;
+        }
+
+        const pollData = await pollResponse.json();
+        console.log('[StemSplitter] Poll status:', pollData.status);
+
+        if (pollData.status === 'failed') {
+          throw new Error(pollData.error || 'Stem separation failed');
+        }
+
+        if (pollData.status === 'succeeded' && pollData.stems) {
+          console.log('[StemSplitter] Received stems:', pollData.stems);
+          setStems(pollData.stems);
+          toast.success('Stems separated successfully!');
+          return;
+        }
+      }
+
+      throw new Error('Stem separation timed out after 4 minutes');
     } catch (error) {
       console.error('Stem splitting error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to split stems');
@@ -125,12 +170,91 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
     }
   };
 
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
   const stemItems = [
     { key: 'vocals', label: 'Vocals', icon: Mic2, color: 'text-pink-500' },
     { key: 'drums', label: 'Drums', icon: Drum, color: 'text-orange-500' },
     { key: 'bass', label: 'Bass', icon: Guitar, color: 'text-blue-500' },
     { key: 'other', label: 'Other', icon: Music, color: 'text-green-500' },
   ];
+
+  const downloadAllAsZip = async () => {
+    if (!stems) return;
+    
+    const stemsWithUrls = stemItems
+      .filter(item => stems[item.key as keyof StemResult])
+      .map(item => ({
+        name: `${item.key}.wav`,
+        url: stems[item.key as keyof StemResult]!,
+      }));
+
+    if (stemsWithUrls.length === 0) {
+      toast.error('No stems available to download');
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    try {
+      toast.info('Creating ZIP archive...');
+
+      const { data, error } = await supabase.functions.invoke('zip-stems', {
+        body: {
+          stems: stemsWithUrls,
+          projectName: file?.name.replace(/\.[^.]+$/, '') || 'stems',
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.zipData) throw new Error('No ZIP data returned');
+
+      // Convert base64 to blob and download
+      const binaryString = atob(data.zipData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'stems-export.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('ZIP file downloaded!');
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`ZIP download failed: ${msg}`);
+      console.error('[ZIP] Error:', error);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
+  const importToDAW = () => {
+    if (!stems) return;
+    
+    const stemData = stemItems
+      .filter(item => stems[item.key as keyof StemResult])
+      .map(item => ({
+        name: item.label,
+        instrument: item.key,
+        color: item.color.replace('text-', 'bg-'),
+        volume: 80,
+        audioUrl: stems[item.key as keyof StemResult],
+      }));
+
+    localStorage.setItem('pendingDAWImport', JSON.stringify({
+      stems: stemData,
+      timestamp: Date.now(),
+    }));
+
+    window.location.href = '/daw';
+    toast.success('Navigating to DAW...');
+  };
 
   if (compact) {
     return (
@@ -282,6 +406,26 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
                   </div>
                 );
               })}
+            </div>
+            
+            {/* Batch Actions */}
+            <div className="flex flex-wrap gap-2 pt-4 border-t">
+              <Button
+                onClick={downloadAllAsZip}
+                disabled={isDownloadingZip}
+                variant="outline"
+              >
+                {isDownloadingZip ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileArchive className="mr-2 h-4 w-4" />
+                )}
+                Download All as ZIP
+              </Button>
+              <Button onClick={importToDAW} variant="outline">
+                <Music className="mr-2 h-4 w-4" />
+                Import to DAW
+              </Button>
             </div>
           </div>
         )}

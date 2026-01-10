@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   Upload, Radio, Layers3, Music4, Drum, Guitar, 
-  Mic, Piano, Volume2, Download, Eye, Zap 
+  Mic, Piano, Volume2, Download, Eye, Zap, Sparkles
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSpectralAnalysis, type SpectralFeatures } from "@/hooks/useSpectralAnalysis";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SeparatedStem {
   id: string;
@@ -22,11 +24,19 @@ interface SeparatedStem {
   confidence: number;
   waveformData: number[];
   audioBuffer?: AudioBuffer;
-  audioUrl?: string; // Real audio URL from backend
+  audioUrl?: string;
   isPlaying: boolean;
   volume: number;
   isMuted: boolean;
   color: string;
+  // Enhanced classification fields
+  subInstruments?: {
+    id: string;
+    name: string;
+    confidence: number;
+  }[];
+  spectralFeatures?: SpectralFeatures;
+  category?: string;
 }
 
 interface AnalysisResult {
@@ -68,6 +78,11 @@ export const SourceSeparationEngine: React.FC<{
   const [enableRealTimeProcessing, setEnableRealTimeProcessing] = useState(false);
   const [separationQuality, setSeparationQuality] = useState(85);
   const [enablePatternExtraction, setEnablePatternExtraction] = useState(true);
+  const [enableAIClassification, setEnableAIClassification] = useState(true);
+  const [classificationProgress, setClassificationProgress] = useState(0);
+  
+  // Spectral analysis hook
+  const { analyzeStems, classifyFromFeatures, isAnalyzing } = useSpectralAnalysis();
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -191,6 +206,7 @@ export const SourceSeparationEngine: React.FC<{
             volume: 80 - idx * 5,
             isMuted: false,
             color: m.color,
+            category: m.instrument,
           }));
 
         setSeparationProgress(100);
@@ -206,6 +222,119 @@ export const SourceSeparationEngine: React.FC<{
 
     throw new Error('Stem separation timed out after 4 minutes');
   }, [generateMockWaveform]);
+
+  /**
+   * Perform AI-powered sub-classification of stems
+   * Analyzes spectral features and uses Lovable AI for granular instrument detection
+   */
+  const performAIClassification = useCallback(async (stems: SeparatedStem[]): Promise<SeparatedStem[]> => {
+    if (!stems.length) return stems;
+
+    setClassificationProgress(10);
+    toast.info("Analyzing stem spectral characteristics...");
+
+    try {
+      // Step 1: Analyze spectral features for each stem
+      const stemsToAnalyze = stems
+        .filter(s => s.audioUrl)
+        .map(s => ({ name: s.name, audioUrl: s.audioUrl! }));
+
+      const spectralAnalysis = await analyzeStems(stemsToAnalyze);
+      setClassificationProgress(40);
+
+      // Step 2: Prepare data for AI classification
+      const stemData = stems.map((stem, idx) => ({
+        stemName: stem.name,
+        audioUrl: stem.audioUrl || '',
+      }));
+
+      const spectralData = spectralAnalysis.map(a => a.features);
+
+      setClassificationProgress(50);
+      toast.info("Running AI instrument classification...");
+
+      // Step 3: Call AI classification edge function
+      const { data: classificationResult, error } = await supabase.functions.invoke('stem-classify', {
+        body: { stems: stemData, spectralData }
+      });
+
+      if (error) {
+        console.warn('[Classification] AI classification failed, using rule-based fallback:', error);
+        // Fallback to rule-based classification
+        return stems.map((stem, idx) => {
+          const features = spectralAnalysis[idx]?.features;
+          if (!features) return stem;
+
+          const classification = classifyFromFeatures(features);
+          return {
+            ...stem,
+            category: classification.category,
+            confidence: Math.round(classification.confidence * 100),
+            spectralFeatures: features,
+            subInstruments: classification.possibleInstruments.map((id, i) => ({
+              id,
+              name: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              confidence: Math.round((classification.confidence - i * 0.1) * 100)
+            })),
+            color: INSTRUMENT_COLORS[classification.category as keyof typeof INSTRUMENT_COLORS] || INSTRUMENT_COLORS.other
+          };
+        });
+      }
+
+      setClassificationProgress(80);
+
+      // Step 4: Merge AI classifications with stems
+      const classifications = classificationResult?.classifications || [];
+      const enhancedStems = stems.map((stem, idx) => {
+        const aiClass = classifications[idx];
+        const features = spectralAnalysis[idx]?.features;
+
+        if (aiClass) {
+          return {
+            ...stem,
+            name: aiClass.stemName || stem.name,
+            category: aiClass.primaryCategory,
+            instrument: aiClass.primaryCategory,
+            confidence: Math.round((aiClass.confidence || 0.8) * 100),
+            spectralFeatures: features,
+            subInstruments: aiClass.instruments?.map((inst: any) => ({
+              id: inst.id,
+              name: inst.name,
+              confidence: Math.round((inst.confidence || 0.7) * 100)
+            })),
+            color: INSTRUMENT_COLORS[aiClass.primaryCategory as keyof typeof INSTRUMENT_COLORS] || INSTRUMENT_COLORS.other
+          };
+        }
+
+        // Fallback for unclassified stems
+        if (features) {
+          const fallback = classifyFromFeatures(features);
+          return {
+            ...stem,
+            category: fallback.category,
+            confidence: Math.round(fallback.confidence * 100),
+            spectralFeatures: features,
+            color: INSTRUMENT_COLORS[fallback.category as keyof typeof INSTRUMENT_COLORS] || INSTRUMENT_COLORS.other
+          };
+        }
+
+        return stem;
+      });
+
+      setClassificationProgress(100);
+      console.log('[Classification] Enhanced stems:', enhancedStems.map(s => ({
+        name: s.name,
+        category: s.category,
+        subInstruments: s.subInstruments?.length
+      })));
+
+      return enhancedStems;
+    } catch (error) {
+      console.error('[Classification] Error:', error);
+      toast.error("AI classification failed, using basic categories");
+      return stems;
+    }
+  }, [analyzeStems, classifyFromFeatures]);
 
   const analyzeAudioPatterns = useCallback(async (stems: SeparatedStem[]): Promise<AnalysisResult> => {
     // Simulate pattern analysis
@@ -245,7 +374,14 @@ export const SourceSeparationEngine: React.FC<{
       toast.info("Starting AI stem separation... (this may take 2-4 minutes)");
 
       // Perform real source separation via edge function
-      const stems = await performRealStemSeparation(file);
+      let stems = await performRealStemSeparation(file);
+      
+      // Perform AI-powered sub-classification if enabled
+      if (enableAIClassification && stems.length > 0) {
+        toast.info("Running AI instrument sub-classification...");
+        stems = await performAIClassification(stems);
+      }
+      
       setSeparatedStems(stems);
 
       if (enablePatternExtraction) {
@@ -259,7 +395,7 @@ export const SourceSeparationEngine: React.FC<{
         onSeparationComplete(stems);
       }
 
-      toast.success(`Successfully separated audio into ${stems.length} stems!`);
+      toast.success(`Successfully separated audio into ${stems.length} stems with AI classification!`);
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
       toast.error(`Stem separation failed: ${msg}`);
@@ -267,7 +403,7 @@ export const SourceSeparationEngine: React.FC<{
     } finally {
       setIsProcessing(false);
     }
-  }, [initializeAudioContext, performRealStemSeparation, analyzeAudioPatterns, enablePatternExtraction, onSeparationComplete]);
+  }, [initializeAudioContext, performRealStemSeparation, performAIClassification, analyzeAudioPatterns, enablePatternExtraction, enableAIClassification, onSeparationComplete]);
 
   // Auto-start processing if an initial URL is provided
   useEffect(() => {

@@ -186,3 +186,6 @@ verify_jwt = false
 
 [functions.analyze-training-sample]
 verify_jwt = true
+
+[functions.stem-classify]
+verify_jwt = false

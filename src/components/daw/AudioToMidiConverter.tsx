@@ -226,6 +226,9 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      setProgress(10);
+      toast({ title: 'Uploading audio...', description: 'Preparing for MIDI conversion' });
+
       // Upload audio file to storage
       const fileName = `${Date.now()}_${audioFile.name}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -237,6 +240,8 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
       const { data: { publicUrl } } = supabase.storage
         .from('samples')
         .getPublicUrl(uploadData.path);
+
+      setProgress(30);
 
       // Create conversion record
       const { data: conversionData, error: conversionError } = await supabase
@@ -251,9 +256,10 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
 
       if (conversionError) throw conversionError;
 
-      setProgress(20);
+      setProgress(40);
+      toast({ title: 'Converting...', description: 'AI is analyzing the audio (this may take 1-2 minutes)' });
 
-      // Call real AI conversion edge function
+      // Call the edge function with JSON body (not FormData)
       const { data: conversionResult, error: functionError } = await supabase.functions.invoke(
         'audio-to-midi',
         {

@@ -3,7 +3,7 @@
  * AI co-producer that creates unique musical layers
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,11 +31,14 @@ import {
   ChevronRight,
   Loader2,
   CheckCircle2,
-  Info
+  Info,
+  LayoutGrid
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { LayersTimeline } from './LayersTimeline';
 
 interface GeneratedLayer {
   id: string;
@@ -59,6 +62,14 @@ interface LayerPreset {
   color: string;
 }
 
+const LAYER_COLORS: Record<string, string> = {
+  drums: 'hsl(25, 95%, 53%)',
+  bass: 'hsl(280, 87%, 65%)',
+  harmony: 'hsl(217, 91%, 60%)',
+  texture: 'hsl(142, 71%, 45%)',
+  melody: 'hsl(330, 81%, 60%)',
+};
+
 const LAYER_PRESETS: LayerPreset[] = [
   { id: 'drums', name: 'Drums', icon: <Drum className="w-5 h-5" />, description: 'Generate drum patterns', color: 'bg-orange-500' },
   { id: 'bass', name: 'Bass', icon: <Waves className="w-5 h-5" />, description: 'Create basslines', color: 'bg-purple-500' },
@@ -68,6 +79,7 @@ const LAYER_PRESETS: LayerPreset[] = [
 ];
 
 export const LANDRLayers: React.FC = () => {
+  const navigate = useNavigate();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -78,6 +90,7 @@ export const LANDRLayers: React.FC = () => {
   const [layers, setLayers] = useState<GeneratedLayer[]>([]);
   const [availableStems, setAvailableStems] = useState<StemResult | null>(null);
   const [isExportingAll, setIsExportingAll] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(true);
   const [layerSettings, setLayerSettings] = useState({
     intensity: 50,
     complexity: 50,
@@ -495,6 +508,44 @@ export const LANDRLayers: React.FC = () => {
     }
   };
 
+  // Prepare layers data for timeline component
+  const timelineLayers = layers.map(layer => ({
+    ...layer,
+    color: LAYER_COLORS[layer.type] || 'hsl(var(--muted-foreground))'
+  }));
+
+  // Handle layer mute toggle from timeline
+  const handleTimelineMuteToggle = useCallback((layerId: string) => {
+    toggleLayerMute(layerId);
+  }, []);
+
+  // Handle layer volume change from timeline
+  const handleTimelineVolumeChange = useCallback((layerId: string, volume: number) => {
+    updateLayerVolume(layerId, volume);
+  }, []);
+
+  // Handle opening layers in DAW
+  const handleOpenInDAW = useCallback(() => {
+    const dawImportData = {
+      layers: layers.map(l => ({
+        id: l.id,
+        name: l.name,
+        type: l.type,
+        audioUrl: l.audioUrl,
+        color: LAYER_COLORS[l.type]
+      })),
+      originalTrack: uploadedUrl ? {
+        name: uploadedFile?.name || 'Original Track',
+        audioUrl: uploadedUrl
+      } : null,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem('pendingLayersImport', JSON.stringify(dawImportData));
+    toast.success('Layers prepared for DAW import');
+    navigate('/daw');
+  }, [layers, uploadedUrl, uploadedFile, navigate]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -508,11 +559,33 @@ export const LANDRLayers: React.FC = () => {
             AI co-producer that creates unique musical layers
           </p>
         </div>
-        <Badge variant="secondary" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20">
-          <Sparkles className="w-3 h-3 mr-1" />
-          AI Powered
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showTimeline ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowTimeline(!showTimeline)}
+          >
+            <LayoutGrid className="w-4 h-4 mr-2" />
+            Timeline
+          </Button>
+          <Badge variant="secondary" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20">
+            <Sparkles className="w-3 h-3 mr-1" />
+            AI Powered
+          </Badge>
+        </div>
       </div>
+
+      {/* DAW-style Timeline Preview */}
+      {showTimeline && (uploadedUrl || layers.length > 0) && (
+        <LayersTimeline
+          layers={timelineLayers}
+          originalTrackUrl={uploadedUrl}
+          originalTrackName={uploadedFile?.name || 'Original'}
+          onLayerVolumeChange={handleTimelineVolumeChange}
+          onLayerMuteToggle={handleTimelineMuteToggle}
+          onOpenInDAW={handleOpenInDAW}
+        />
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Upload & Controls */}

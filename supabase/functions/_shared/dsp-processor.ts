@@ -20,15 +20,16 @@ export function linearToDb(linear: number): number {
 }
 
 /**
- * Soft clip function for saturation
+ * Soft clip function for saturation - gentle limiting to prevent harsh distortion
  */
-export function softClip(sample: number, threshold: number = 0.8): number {
+export function softClip(sample: number, threshold: number = 0.95): number {
   if (Math.abs(sample) <= threshold) {
     return sample;
   }
   const sign = sample > 0 ? 1 : -1;
   const excess = Math.abs(sample) - threshold;
-  return sign * (threshold + Math.tanh(excess * 3) * (1 - threshold));
+  // Gentler curve to preserve dynamics
+  return sign * (threshold + Math.tanh(excess * 1.5) * (1 - threshold));
 }
 
 /**
@@ -595,30 +596,32 @@ export function processMasteringSample(
     right = processSaturation(right, drive, mix);
   }
   
-  // 6. Compression (process mid signal for linked stereo)
+  // 6. Compression (process mid signal for linked stereo) - more gentle settings
   if (settings.compression > 0) {
     const compressionAmount = settings.compression / 100;
     const compSettings: CompressorSettings = {
-      threshold: -18 + (compressionAmount * 6), // -18 to -12 dB
-      ratio: stylePresets.compressionRatio + (compressionAmount * 2),
-      attack: stylePresets.attackMs,
+      threshold: -12 + (compressionAmount * 4), // -12 to -8 dB (higher threshold = less compression)
+      ratio: 1.5 + (compressionAmount * 1.5), // 1.5:1 to 3:1 (gentler ratios)
+      attack: stylePresets.attackMs * 1.5, // Slower attack preserves transients
       release: stylePresets.releaseMs,
-      knee: 6,
-      makeupGain: compressionAmount * 4 // Auto makeup
+      knee: 10, // Wider knee for smoother compression
+      makeupGain: compressionAmount * 1.5 // Much less makeup gain to avoid over-loudness
     };
     
     const mid = (left + right) / 2;
     const compressedMid = processCompressor(mid, compSettings, state.compressor, sampleRate);
     const gainRatio = mid !== 0 ? compressedMid / mid : 1;
     
-    left *= gainRatio;
-    right *= gainRatio;
+    // Limit the gain ratio to prevent extreme changes
+    const clampedRatio = Math.max(0.5, Math.min(1.5, gainRatio));
+    left *= clampedRatio;
+    right *= clampedRatio;
   }
   
-  // 7. Limiting
+  // 7. Limiting - gentler settings to preserve dynamics
   const limiterSettings: LimiterSettings = {
-    ceiling: -0.3, // Leave headroom for codec
-    release: 50,
+    ceiling: -1.0, // More headroom for codec and to avoid harshness
+    release: 100, // Slower release for smoother limiting
     lookahead: state.limiter.delayBuffer.length
   };
   
@@ -627,8 +630,10 @@ export function processMasteringSample(
   const limitedMono = processLimiter(mono, limiterSettings, state.limiter, sampleRate);
   const limitGain = mono !== 0 ? limitedMono / mono : 1;
   
-  left *= limitGain;
-  right *= limitGain;
+  // Clamp limit gain to prevent artifacts
+  const clampedLimitGain = Math.max(0.3, Math.min(1.0, limitGain));
+  left *= clampedLimitGain;
+  right *= clampedLimitGain;
   
   return [left, right];
 }
@@ -658,9 +663,12 @@ export function processAudioBuffer(
   // Create processing state
   const state = createMasteringState(sampleRate);
   
-  // Calculate loudness adjustment
+  // Calculate loudness adjustment - but limit the range to avoid extreme changes
   const targetLufs = settings.loudness;
-  const loudnessAdjustment = dbToLinear(targetLufs - inputLoudness.lufs);
+  const loudnessDiff = targetLufs - inputLoudness.lufs;
+  // Clamp adjustment to +/- 6dB to prevent destroying the audio
+  const clampedDiff = Math.max(-6, Math.min(6, loudnessDiff));
+  const loudnessAdjustment = dbToLinear(clampedDiff);
   
   // Process samples
   const outputSamples = new Float32Array(inputSamples.length);

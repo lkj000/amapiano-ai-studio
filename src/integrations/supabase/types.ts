@@ -1266,6 +1266,84 @@ export type Database = {
         }
         Relationships: []
       }
+      distribution_releases: {
+        Row: {
+          album_name: string | null
+          artist_name: string
+          artwork_url: string | null
+          audio_url: string
+          copyright: string | null
+          created_at: string | null
+          description: string | null
+          genre: string | null
+          id: string
+          is_explicit: boolean | null
+          isrc_code: string | null
+          lyrics: string | null
+          metadata: Json | null
+          platforms: Json | null
+          record_label: string | null
+          region: string | null
+          release_date: string | null
+          status: string | null
+          subgenre: string | null
+          title: string
+          upc_code: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          album_name?: string | null
+          artist_name: string
+          artwork_url?: string | null
+          audio_url: string
+          copyright?: string | null
+          created_at?: string | null
+          description?: string | null
+          genre?: string | null
+          id?: string
+          is_explicit?: boolean | null
+          isrc_code?: string | null
+          lyrics?: string | null
+          metadata?: Json | null
+          platforms?: Json | null
+          record_label?: string | null
+          region?: string | null
+          release_date?: string | null
+          status?: string | null
+          subgenre?: string | null
+          title: string
+          upc_code?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          album_name?: string | null
+          artist_name?: string
+          artwork_url?: string | null
+          audio_url?: string
+          copyright?: string | null
+          created_at?: string | null
+          description?: string | null
+          genre?: string | null
+          id?: string
+          is_explicit?: boolean | null
+          isrc_code?: string | null
+          lyrics?: string | null
+          metadata?: Json | null
+          platforms?: Json | null
+          record_label?: string | null
+          region?: string | null
+          release_date?: string | null
+          status?: string | null
+          subgenre?: string | null
+          title?: string
+          upc_code?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       duet_collaborations: {
         Row: {
           collaboration_type: string | null
@@ -2994,6 +3072,113 @@ export type Database = {
         }
         Relationships: []
       }
+      royalty_splits: {
+        Row: {
+          collaborators: Json
+          created_at: string | null
+          id: string
+          is_finalized: boolean | null
+          release_id: string | null
+          total_revenue_cents: number | null
+          total_streams: number | null
+          track_title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          collaborators?: Json
+          created_at?: string | null
+          id?: string
+          is_finalized?: boolean | null
+          release_id?: string | null
+          total_revenue_cents?: number | null
+          total_streams?: number | null
+          track_title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          collaborators?: Json
+          created_at?: string | null
+          id?: string
+          is_finalized?: boolean | null
+          release_id?: string | null
+          total_revenue_cents?: number | null
+          total_streams?: number | null
+          track_title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "royalty_splits_release_id_fkey"
+            columns: ["release_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_releases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sample_library: {
+        Row: {
+          audio_url: string
+          bpm: number | null
+          category: string
+          created_at: string | null
+          download_count: number | null
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          id: string
+          is_favorite: boolean | null
+          is_public: boolean | null
+          key_signature: string | null
+          name: string
+          pack_name: string | null
+          sample_type: string
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          audio_url: string
+          bpm?: number | null
+          category?: string
+          created_at?: string | null
+          download_count?: number | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          key_signature?: string | null
+          name: string
+          pack_name?: string | null
+          sample_type?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          audio_url?: string
+          bpm?: number | null
+          category?: string
+          created_at?: string | null
+          download_count?: number | null
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          key_signature?: string | null
+          name?: string
+          pack_name?: string | null
+          sample_type?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       samples: {
         Row: {
           bpm: number | null
@@ -4026,6 +4211,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_plugins: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          developer: string | null
+          id: string
+          is_favorite: boolean | null
+          is_installed: boolean | null
+          license_key: string | null
+          plugin_id: string
+          plugin_name: string
+          plugin_type: string | null
+          purchase_date: string | null
+          settings: Json | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          developer?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          is_installed?: boolean | null
+          license_key?: string | null
+          plugin_id: string
+          plugin_name: string
+          plugin_type?: string | null
+          purchase_date?: string | null
+          settings?: Json | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          developer?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          is_installed?: boolean | null
+          license_key?: string | null
+          plugin_id?: string
+          plugin_name?: string
+          plugin_type?: string | null
+          purchase_date?: string | null
+          settings?: Json | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_preferences: {
         Row: {

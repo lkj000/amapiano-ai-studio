@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+/**
+ * Music Distribution Component
+ * Real distribution with Supabase storage and database
+ */
+
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +28,14 @@ import {
   Smartphone,
   Music2,
   PlayCircle,
-  Share2
+  Share2,
+  Loader2,
+  Play,
+  Pause
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useDistribution } from '@/hooks/useDistribution';
+import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 
 interface StreamingPlatform {
   id: string;
@@ -34,23 +44,6 @@ interface StreamingPlatform {
   enabled: boolean;
   status: 'pending' | 'live' | 'processing' | 'error';
   estimatedDays: number;
-}
-
-interface ReleaseMetadata {
-  title: string;
-  artist: string;
-  album: string;
-  genre: string;
-  subgenre: string;
-  releaseDate: string;
-  upcCode: string;
-  isrcCode: string;
-  copyright: string;
-  recordLabel: string;
-  description: string;
-  lyrics: string;
-  explicit: boolean;
-  region: string;
 }
 
 const STREAMING_PLATFORMS: StreamingPlatform[] = [
@@ -65,45 +58,34 @@ const STREAMING_PLATFORMS: StreamingPlatform[] = [
 ];
 
 const AMAPIANO_SUBGENRES = [
-  'Private School',
-  'Vocal House Amapiano',
-  'Yanos',
-  'Tech Amapiano',
-  'Deep Amapiano',
-  'Groove Amapiano',
-  'Sgubhu',
-  'Bacardi'
+  'Private School', 'Vocal House Amapiano', 'Yanos', 'Tech Amapiano',
+  'Deep Amapiano', 'Groove Amapiano', 'Sgubhu', 'Bacardi'
 ];
 
 const SA_REGIONS = [
-  'Gauteng (JHB/PTA)',
-  'KwaZulu-Natal',
-  'Western Cape',
-  'Eastern Cape',
-  'Free State',
-  'Limpopo',
-  'Mpumalanga',
-  'North West',
-  'Northern Cape'
+  'Gauteng (JHB/PTA)', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape',
+  'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape'
 ];
 
 export function MusicDistribution() {
   const [platforms, setPlatforms] = useState<StreamingPlatform[]>(STREAMING_PLATFORMS);
-  const [releaseStep, setReleaseStep] = useState<'metadata' | 'platforms' | 'review' | 'submit'>('metadata');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [releaseStep, setReleaseStep] = useState<'metadata' | 'platforms' | 'review' | 'releases'>('metadata');
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const artworkInputRef = useRef<HTMLInputElement>(null);
 
-  const [metadata, setMetadata] = useState<ReleaseMetadata>({
+  const { releases, isLoading, createRelease, uploadProgress } = useDistribution();
+  const audioPlayer = useAudioPlayer();
+
+  const [metadata, setMetadata] = useState({
     title: '',
     artist: '',
     album: '',
     genre: 'Amapiano',
     subgenre: 'Private School',
     releaseDate: '',
-    upcCode: '',
-    isrcCode: '',
     copyright: '',
     recordLabel: '',
     description: '',
@@ -119,44 +101,53 @@ export function MusicDistribution() {
   };
 
   const handleSubmitRelease = async () => {
-    setIsSubmitting(true);
-    setUploadProgress(0);
-
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
-
-    try {
-      await new Promise(resolve => setTimeout(resolve, 5500));
-      
-      // Update platform statuses
-      setPlatforms(prev => prev.map(p => 
-        p.enabled ? { ...p, status: 'processing' } : p
-      ));
-
-      toast.success('Release submitted!', {
-        description: 'Your track is being distributed to selected platforms.'
-      });
-      
-      setReleaseStep('submit');
-    } catch (error) {
-      toast.error('Submission failed', {
-        description: 'Please try again or contact support.'
-      });
-    } finally {
-      setIsSubmitting(false);
+    if (!audioFile) {
+      toast.error('Please upload an audio file');
+      return;
     }
+
+    const enabledPlatformIds = platforms.filter(p => p.enabled).map(p => p.id);
+
+    await createRelease.mutateAsync({
+      title: metadata.title,
+      artistName: metadata.artist,
+      albumName: metadata.album || undefined,
+      genre: metadata.genre,
+      subgenre: metadata.subgenre,
+      audioFile: audioFile,
+      artworkFile: artworkFile || undefined,
+      releaseDate: metadata.releaseDate || undefined,
+      copyright: metadata.copyright || undefined,
+      recordLabel: metadata.recordLabel || undefined,
+      description: metadata.description || undefined,
+      lyrics: metadata.lyrics || undefined,
+      isExplicit: metadata.explicit,
+      region: metadata.region,
+      platforms: enabledPlatformIds,
+    });
+
+    // Reset form
+    setMetadata({
+      title: '', artist: '', album: '', genre: 'Amapiano',
+      subgenre: 'Private School', releaseDate: '', copyright: '',
+      recordLabel: '', description: '', lyrics: '', explicit: false,
+      region: 'Gauteng (JHB/PTA)'
+    });
+    setAudioFile(null);
+    setArtworkFile(null);
+    setReleaseStep('releases');
   };
 
   const enabledPlatforms = platforms.filter(p => p.enabled);
-  const isMetadataComplete = metadata.title && metadata.artist && metadata.releaseDate;
+  const isMetadataComplete = metadata.title && metadata.artist && audioFile;
+
+  const handlePlayRelease = async (audioUrl: string, id: string) => {
+    if (audioPlayer.currentTrackId === id && audioPlayer.isPlaying) {
+      audioPlayer.pause();
+    } else {
+      await audioPlayer.play(audioUrl, id);
+    }
+  };
 
   return (
     <Card className="w-full bg-card/50 backdrop-blur border-border/50">
@@ -195,15 +186,14 @@ export function MusicDistribution() {
               <CheckCircle2 className="w-4 h-4" />
               Review
             </TabsTrigger>
-            <TabsTrigger value="submit" disabled={releaseStep !== 'submit'} className="gap-2">
-              <Upload className="w-4 h-4" />
-              Status
+            <TabsTrigger value="releases" className="gap-2">
+              <Disc3 className="w-4 h-4" />
+              My Releases
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="metadata" className="space-y-4 mt-4">
             <div className="grid gap-4 md:grid-cols-2">
-              {/* Basic Info */}
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Track Title *</Label>
@@ -237,14 +227,12 @@ export function MusicDistribution() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="genre">Genre</Label>
+                    <Label>Genre</Label>
                     <Select
                       value={metadata.genre}
                       onValueChange={(v) => setMetadata(prev => ({ ...prev, genre: v }))}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Amapiano">Amapiano</SelectItem>
                         <SelectItem value="Afrobeats">Afrobeats</SelectItem>
@@ -255,14 +243,12 @@ export function MusicDistribution() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="subgenre">Subgenre</Label>
+                    <Label>Subgenre</Label>
                     <Select
                       value={metadata.subgenre}
                       onValueChange={(v) => setMetadata(prev => ({ ...prev, subgenre: v }))}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {AMAPIANO_SUBGENRES.map(sg => (
                           <SelectItem key={sg} value={sg}>{sg}</SelectItem>
@@ -273,14 +259,12 @@ export function MusicDistribution() {
                 </div>
               </div>
 
-              {/* Release Details */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="releaseDate">Release Date *</Label>
+                  <Label>Release Date</Label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                     <Input
-                      id="releaseDate"
                       type="date"
                       value={metadata.releaseDate}
                       onChange={(e) => setMetadata(prev => ({ ...prev, releaseDate: e.target.value }))}
@@ -290,14 +274,12 @@ export function MusicDistribution() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="region">Regional Origin</Label>
+                  <Label>Regional Origin</Label>
                   <Select
                     value={metadata.region}
                     onValueChange={(v) => setMetadata(prev => ({ ...prev, region: v }))}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {SA_REGIONS.map(r => (
                         <SelectItem key={r} value={r}>{r}</SelectItem>
@@ -307,9 +289,8 @@ export function MusicDistribution() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="recordLabel">Record Label</Label>
+                  <Label>Record Label</Label>
                   <Input
-                    id="recordLabel"
                     value={metadata.recordLabel}
                     onChange={(e) => setMetadata(prev => ({ ...prev, recordLabel: e.target.value }))}
                     placeholder="Self-released or label name"
@@ -322,62 +303,45 @@ export function MusicDistribution() {
                     checked={metadata.explicit}
                     onCheckedChange={(checked) => setMetadata(prev => ({ ...prev, explicit: !!checked }))}
                   />
-                  <Label htmlFor="explicit" className="text-sm">
-                    Contains explicit content
-                  </Label>
+                  <Label htmlFor="explicit" className="text-sm">Contains explicit content</Label>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Upload Files</Label>
+                  <Label>Upload Files *</Label>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    ref={audioInputRef}
+                    className="hidden"
+                    onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={artworkInputRef}
+                    className="hidden"
+                    onChange={(e) => setArtworkFile(e.target.files?.[0] || null)}
+                  />
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="h-20 flex-col gap-1" asChild>
-                      <label>
-                        <Upload className="w-5 h-5" />
-                        <span className="text-xs">Audio File</span>
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          className="hidden"
-                          onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                        />
-                      </label>
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col gap-1"
+                      onClick={() => audioInputRef.current?.click()}
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs">{audioFile ? audioFile.name : 'Audio File *'}</span>
                     </Button>
-                    <Button variant="outline" className="h-20 flex-col gap-1" asChild>
-                      <label>
-                        <Upload className="w-5 h-5" />
-                        <span className="text-xs">Artwork</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => setArtworkFile(e.target.files?.[0] || null)}
-                        />
-                      </label>
+                    <Button
+                      variant="outline"
+                      className="h-20 flex-col gap-1"
+                      onClick={() => artworkInputRef.current?.click()}
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs">{artworkFile ? artworkFile.name : 'Artwork'}</span>
                     </Button>
                   </div>
-                  {audioFile && (
-                    <Badge variant="secondary" className="text-xs">
-                      🎵 {audioFile.name}
-                    </Badge>
-                  )}
-                  {artworkFile && (
-                    <Badge variant="secondary" className="text-xs">
-                      🖼️ {artworkFile.name}
-                    </Badge>
-                  )}
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={metadata.description}
-                onChange={(e) => setMetadata(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Tell the story behind your track..."
-                rows={3}
-              />
             </div>
 
             <Button 
@@ -393,7 +357,7 @@ export function MusicDistribution() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Select platforms for distribution ({enabledPlatforms.length} selected)
+                  Select platforms ({enabledPlatforms.length} selected)
                 </p>
                 <Button 
                   variant="ghost" 
@@ -410,17 +374,13 @@ export function MusicDistribution() {
                     <div
                       key={platform.id}
                       className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                        platform.enabled 
-                          ? 'bg-primary/5 border-primary/20' 
-                          : 'bg-muted/30 border-border'
+                        platform.enabled ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'
                       }`}
                       onClick={() => togglePlatform(platform.id)}
                     >
                       <div className="flex items-center gap-3">
                         <Checkbox checked={platform.enabled} />
-                        <div className="p-2 rounded-md bg-background">
-                          {platform.icon}
-                        </div>
+                        <div className="p-2 rounded-md bg-background">{platform.icon}</div>
                         <span className="font-medium">{platform.name}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -433,14 +393,8 @@ export function MusicDistribution() {
               </ScrollArea>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setReleaseStep('metadata')}>
-                  Back
-                </Button>
-                <Button 
-                  onClick={() => setReleaseStep('review')}
-                  disabled={enabledPlatforms.length === 0}
-                  className="flex-1"
-                >
+                <Button variant="outline" onClick={() => setReleaseStep('metadata')}>Back</Button>
+                <Button onClick={() => setReleaseStep('review')} className="flex-1">
                   Review Release
                 </Button>
               </div>
@@ -457,46 +411,47 @@ export function MusicDistribution() {
                       <dl className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Title:</dt>
-                          <dd className="font-medium">{metadata.title || '-'}</dd>
+                          <dd className="font-medium">{metadata.title}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Artist:</dt>
-                          <dd className="font-medium">{metadata.artist || '-'}</dd>
+                          <dd className="font-medium">{metadata.artist}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Genre:</dt>
-                          <dd className="font-medium">{metadata.genre} / {metadata.subgenre}</dd>
+                          <dd>{metadata.genre} - {metadata.subgenre}</dd>
                         </div>
                         <div className="flex justify-between">
                           <dt className="text-muted-foreground">Region:</dt>
-                          <dd className="font-medium">{metadata.region}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-muted-foreground">Release Date:</dt>
-                          <dd className="font-medium">{metadata.releaseDate || '-'}</dd>
+                          <dd>{metadata.region}</dd>
                         </div>
                       </dl>
                     </div>
                     <div>
                       <h4 className="font-semibold mb-2">Distribution</h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {enabledPlatforms.length} platforms selected
+                      </p>
                       <div className="flex flex-wrap gap-1">
-                        {enabledPlatforms.map(p => (
+                        {enabledPlatforms.slice(0, 5).map(p => (
                           <Badge key={p.id} variant="secondary" className="text-xs">
                             {p.name}
                           </Badge>
                         ))}
+                        {enabledPlatforms.length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{enabledPlatforms.length - 5} more
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {enabledPlatforms.length} platforms selected
-                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {isSubmitting && (
+              {uploadProgress > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex justify-between text-sm">
                     <span>Uploading...</span>
                     <span>{uploadProgress}%</span>
                   </div>
@@ -505,55 +460,84 @@ export function MusicDistribution() {
               )}
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setReleaseStep('platforms')}>
-                  Back
-                </Button>
+                <Button variant="outline" onClick={() => setReleaseStep('platforms')}>Back</Button>
                 <Button 
                   onClick={handleSubmitRelease}
-                  disabled={isSubmitting}
+                  disabled={createRelease.isPending}
                   className="flex-1"
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Release'}
+                  {createRelease.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit for Distribution'
+                  )}
                 </Button>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="submit" className="mt-4">
+          <TabsContent value="releases" className="mt-4">
             <div className="space-y-4">
-              <div className="text-center py-6">
-                <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold">Release Submitted!</h3>
-                <p className="text-muted-foreground">
-                  Your track is being processed and distributed.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-semibold">Distribution Status</h4>
-                {platforms.filter(p => p.enabled).map(platform => (
-                  <div 
-                    key={platform.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+              <h3 className="font-semibold">My Releases</h3>
+              
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                </div>
+              ) : releases.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Disc3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No releases yet</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setReleaseStep('metadata')}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-md bg-background">
-                        {platform.icon}
-                      </div>
-                      <span>{platform.name}</span>
-                    </div>
-                    <Badge 
-                      variant={platform.status === 'live' ? 'default' : 'secondary'}
-                      className="gap-1"
-                    >
-                      {platform.status === 'processing' && <Clock className="w-3 h-3" />}
-                      {platform.status === 'live' && <CheckCircle2 className="w-3 h-3" />}
-                      {platform.status === 'error' && <AlertCircle className="w-3 h-3" />}
-                      {platform.status}
-                    </Badge>
+                    Create Your First Release
+                  </Button>
+                </div>
+              ) : (
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-3">
+                    {releases.map(release => (
+                      <Card key={release.id} className="bg-muted/30">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-10 h-10 rounded-full"
+                              onClick={() => handlePlayRelease(release.audio_url, release.id)}
+                            >
+                              {audioPlayer.currentTrackId === release.id && audioPlayer.isPlaying ? (
+                                <Pause className="w-4 h-4" />
+                              ) : (
+                                <Play className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <div className="flex-1">
+                              <h4 className="font-medium">{release.title}</h4>
+                              <p className="text-sm text-muted-foreground">{release.artist_name}</p>
+                            </div>
+                            <Badge
+                              variant={
+                                release.status === 'live' ? 'default' :
+                                release.status === 'processing' ? 'secondary' :
+                                'outline'
+                              }
+                            >
+                              {release.status}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </ScrollArea>
+              )}
             </div>
           </TabsContent>
         </Tabs>

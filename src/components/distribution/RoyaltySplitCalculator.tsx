@@ -1,3 +1,8 @@
+/**
+ * Royalty Split Calculator Component
+ * Real royalty management with Supabase persistence
+ */
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,22 +20,13 @@ import {
   PieChart,
   TrendingUp,
   Music,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Collaborator {
-  id: string;
-  name: string;
-  role: string;
-  splitPercent: number;
-  email: string;
-}
-
-interface RoyaltyProjection {
-  streams: number;
-  revenue: number;
-}
+import { useRoyaltySplits, Collaborator } from '@/hooks/useRoyaltySplits';
 
 const ROLE_PRESETS = [
   { role: 'Producer', defaultSplit: 50 },
@@ -41,7 +37,6 @@ const ROLE_PRESETS = [
   { role: 'Mastering Engineer', defaultSplit: 3 },
 ];
 
-// Average payout per stream by platform (in cents)
 const PLATFORM_RATES = {
   spotify: 0.003,
   appleMusic: 0.007,
@@ -56,9 +51,10 @@ export function RoyaltySplitCalculator() {
     { id: '1', name: '', role: 'Producer', splitPercent: 50, email: '' },
     { id: '2', name: '', role: 'Vocalist', splitPercent: 25, email: '' },
   ]);
-  
   const [projectedStreams, setProjectedStreams] = useState(10000);
   const [trackTitle, setTrackTitle] = useState('');
+
+  const { splits, isLoading, createSplit, updateSplit } = useRoyaltySplits();
 
   const totalSplit = useMemo(() => 
     collaborators.reduce((sum, c) => sum + c.splitPercent, 0),
@@ -68,7 +64,6 @@ export function RoyaltySplitCalculator() {
   const isValidSplit = totalSplit === 100;
 
   const projectedRevenue = useMemo(() => {
-    // Average across platforms
     const avgRate = Object.values(PLATFORM_RATES).reduce((a, b) => a + b) / Object.keys(PLATFORM_RATES).length;
     return projectedStreams * avgRate;
   }, [projectedStreams]);
@@ -111,7 +106,7 @@ export function RoyaltySplitCalculator() {
     toast.success('Splits distributed equally');
   };
 
-  const handleSaveSplits = () => {
+  const handleSaveSplits = async () => {
     if (!isValidSplit) {
       toast.error('Total split must equal 100%');
       return;
@@ -121,10 +116,23 @@ export function RoyaltySplitCalculator() {
       toast.error('All collaborators must have names');
       return;
     }
+
+    if (!trackTitle) {
+      toast.error('Please enter a track title');
+      return;
+    }
     
-    toast.success('Royalty splits saved!', {
-      description: 'Collaborators will be notified by email.'
+    await createSplit.mutateAsync({
+      trackTitle,
+      collaborators,
     });
+
+    // Reset form after save
+    setTrackTitle('');
+    setCollaborators([
+      { id: '1', name: '', role: 'Producer', splitPercent: 50, email: '' },
+      { id: '2', name: '', role: 'Vocalist', splitPercent: 25, email: '' },
+    ]);
   };
 
   const formatCurrency = (cents: number) => {
@@ -167,7 +175,7 @@ export function RoyaltySplitCalculator() {
       <CardContent className="space-y-6">
         {/* Track Info */}
         <div className="space-y-2">
-          <Label htmlFor="trackTitle">Track Title</Label>
+          <Label htmlFor="trackTitle">Track Title *</Label>
           <div className="relative">
             <Music className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
             <Input
@@ -218,7 +226,7 @@ export function RoyaltySplitCalculator() {
 
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">Name</Label>
+                        <Label className="text-xs">Name *</Label>
                         <Input
                           value={collaborator.name}
                           onChange={(e) => updateCollaborator(collaborator.id, { name: e.target.value })}
@@ -297,12 +305,6 @@ export function RoyaltySplitCalculator() {
                 max={10000000}
                 step={1000}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>1K</span>
-                <span>100K</span>
-                <span>1M</span>
-                <span>10M</span>
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -315,13 +317,10 @@ export function RoyaltySplitCalculator() {
               </div>
               <div className="p-3 rounded-lg bg-background/50">
                 <div className="text-xs text-muted-foreground">Per Stream</div>
-                <div className="text-xl font-bold">
-                  ~$0.004
-                </div>
+                <div className="text-xl font-bold">~$0.004</div>
               </div>
             </div>
 
-            {/* Breakdown by platform */}
             <div className="space-y-2">
               <Label className="text-xs">Platform Breakdown</Label>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -335,6 +334,35 @@ export function RoyaltySplitCalculator() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Saved Splits */}
+        {splits.length > 0 && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              Saved Splits ({splits.length})
+            </Label>
+            <ScrollArea className="h-[120px]">
+              <div className="space-y-2">
+                {splits.map(split => (
+                  <Card key={split.id} className="bg-muted/30">
+                    <CardContent className="p-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{split.track_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {split.collaborators.length} collaborators
+                        </p>
+                      </div>
+                      <Badge variant={split.is_finalized ? 'default' : 'outline'}>
+                        {split.is_finalized ? 'Finalized' : 'Draft'}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-2">
@@ -350,10 +378,20 @@ export function RoyaltySplitCalculator() {
           </Button>
           <Button 
             onClick={handleSaveSplits}
-            disabled={!isValidSplit}
+            disabled={!isValidSplit || createSplit.isPending || !trackTitle}
             className="flex-1"
           >
-            Save Splits
+            {createSplit.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Splits
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

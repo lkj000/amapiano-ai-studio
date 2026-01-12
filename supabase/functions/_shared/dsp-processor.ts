@@ -20,16 +20,16 @@ export function linearToDb(linear: number): number {
 }
 
 /**
- * Soft clip function for saturation - gentle limiting to prevent harsh distortion
+ * Soft clip function for saturation - transparent limiting
  */
-export function softClip(sample: number, threshold: number = 0.95): number {
+export function softClip(sample: number, threshold: number = 0.9): number {
   if (Math.abs(sample) <= threshold) {
     return sample;
   }
   const sign = sample > 0 ? 1 : -1;
   const excess = Math.abs(sample) - threshold;
-  // Gentler curve to preserve dynamics
-  return sign * (threshold + Math.tanh(excess * 1.5) * (1 - threshold));
+  // Smooth curve that preserves character
+  return sign * (threshold + Math.tanh(excess * 2) * (1 - threshold));
 }
 
 /**
@@ -596,32 +596,30 @@ export function processMasteringSample(
     right = processSaturation(right, drive, mix);
   }
   
-  // 6. Compression (process mid signal for linked stereo) - more gentle settings
+  // 6. Compression (process mid signal for linked stereo) - professional mastering compression
   if (settings.compression > 0) {
     const compressionAmount = settings.compression / 100;
     const compSettings: CompressorSettings = {
-      threshold: -12 + (compressionAmount * 4), // -12 to -8 dB (higher threshold = less compression)
-      ratio: 1.5 + (compressionAmount * 1.5), // 1.5:1 to 3:1 (gentler ratios)
-      attack: stylePresets.attackMs * 1.5, // Slower attack preserves transients
+      threshold: -16 + (compressionAmount * 4), // -16 to -12 dB
+      ratio: stylePresets.compressionRatio + (compressionAmount * 1.5), // Style-based ratio
+      attack: stylePresets.attackMs, // Use style preset attack
       release: stylePresets.releaseMs,
-      knee: 10, // Wider knee for smoother compression
-      makeupGain: compressionAmount * 1.5 // Much less makeup gain to avoid over-loudness
+      knee: 6, // Standard soft knee
+      makeupGain: compressionAmount * 3 // Appropriate makeup gain
     };
     
     const mid = (left + right) / 2;
     const compressedMid = processCompressor(mid, compSettings, state.compressor, sampleRate);
     const gainRatio = mid !== 0 ? compressedMid / mid : 1;
     
-    // Limit the gain ratio to prevent extreme changes
-    const clampedRatio = Math.max(0.5, Math.min(1.5, gainRatio));
-    left *= clampedRatio;
-    right *= clampedRatio;
+    left *= gainRatio;
+    right *= gainRatio;
   }
   
-  // 7. Limiting - gentler settings to preserve dynamics
+  // 7. Limiting - transparent brickwall limiting
   const limiterSettings: LimiterSettings = {
-    ceiling: -1.0, // More headroom for codec and to avoid harshness
-    release: 100, // Slower release for smoother limiting
+    ceiling: -0.5, // Professional headroom for streaming
+    release: 80, // Balanced release
     lookahead: state.limiter.delayBuffer.length
   };
   
@@ -630,10 +628,11 @@ export function processMasteringSample(
   const limitedMono = processLimiter(mono, limiterSettings, state.limiter, sampleRate);
   const limitGain = mono !== 0 ? limitedMono / mono : 1;
   
-  // Clamp limit gain to prevent artifacts
-  const clampedLimitGain = Math.max(0.3, Math.min(1.0, limitGain));
-  left *= clampedLimitGain;
-  right *= clampedLimitGain;
+  // Only apply limiting when needed (reducing gain)
+  if (limitGain < 1) {
+    left *= limitGain;
+    right *= limitGain;
+  }
   
   return [left, right];
 }
@@ -663,11 +662,11 @@ export function processAudioBuffer(
   // Create processing state
   const state = createMasteringState(sampleRate);
   
-  // Calculate loudness adjustment - but limit the range to avoid extreme changes
+  // Calculate loudness adjustment to reach target
   const targetLufs = settings.loudness;
   const loudnessDiff = targetLufs - inputLoudness.lufs;
-  // Clamp adjustment to +/- 6dB to prevent destroying the audio
-  const clampedDiff = Math.max(-6, Math.min(6, loudnessDiff));
+  // Allow reasonable adjustment range (+/- 12dB)
+  const clampedDiff = Math.max(-12, Math.min(12, loudnessDiff));
   const loudnessAdjustment = dbToLinear(clampedDiff);
   
   // Process samples

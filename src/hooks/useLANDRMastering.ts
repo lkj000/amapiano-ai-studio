@@ -198,11 +198,30 @@ export function useLANDRMastering() {
       
       setCurrentTrack(track);
 
+      // Check file size limit BEFORE conversion (compressed files expand when decoded)
+      // Max ~3 minutes of audio at 44.1kHz stereo 16-bit = ~30MB WAV
+      // Edge function can handle ~15MB, so limit source to ~5MB compressed (expands ~3x)
+      const MAX_SOURCE_SIZE_MB = 8;
+      const MAX_SOURCE_SIZE = MAX_SOURCE_SIZE_MB * 1024 * 1024;
+      if (file.size > MAX_SOURCE_SIZE) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        throw new Error(`File too large (${sizeMB}MB). Maximum size is ${MAX_SOURCE_SIZE_MB}MB. Try a shorter audio clip.`);
+      }
+
       // Convert file to WAV format (handles MP3, OGG, etc.)
       console.log('[useLANDRMastering] Converting file to WAV...');
       const wavBlob = await convertToWavBlob(file);
+      
+      // Check WAV size after conversion
+      const MAX_WAV_SIZE_MB = 15;
+      const MAX_WAV_SIZE = MAX_WAV_SIZE_MB * 1024 * 1024;
+      if (wavBlob.size > MAX_WAV_SIZE) {
+        const sizeMB = (wavBlob.size / (1024 * 1024)).toFixed(1);
+        throw new Error(`Audio too long for mastering (${sizeMB}MB after conversion). Maximum is ~2.5 minutes of audio. Try a shorter clip.`);
+      }
+      
       const audioBase64 = await blobToDataUrl(wavBlob);
-      console.log('[useLANDRMastering] Converted to WAV, data URL length:', audioBase64.length);
+      console.log('[useLANDRMastering] Converted to WAV, size:', (wavBlob.size / (1024 * 1024)).toFixed(1), 'MB');
 
       track.progress = 20;
       setCurrentTrack({ ...track });

@@ -1,6 +1,6 @@
 /**
  * LANDR Mastering Component
- * AI-driven mastering with drag & drop and style controls
+ * AI-driven mastering with real Supabase integration
  */
 
 import React, { useState, useCallback } from 'react';
@@ -26,15 +26,15 @@ import {
   Sun,
   Activity,
   Radio,
-  Disc3,
   Settings2,
   FileAudio,
   CheckCircle2,
   Clock,
-  ArrowRight,
-  ExternalLink
+  Save,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLANDRMastering, MasteringSettings } from '@/hooks/useLANDRMastering';
 
 interface MasteringPreset {
   id: string;
@@ -42,17 +42,6 @@ interface MasteringPreset {
   style: 'Warm' | 'Balanced' | 'Open';
   lufs: string;
   description?: string;
-}
-
-interface MasteredTrack {
-  id: string;
-  name: string;
-  originalFile: string;
-  style: string;
-  lufs: string;
-  status: 'processing' | 'complete';
-  progress?: number;
-  createdAt: Date;
 }
 
 const MASTERING_STYLES = [
@@ -89,11 +78,9 @@ const PRESETS: MasteringPreset[] = [
 ];
 
 export const LANDRMastering: React.FC = () => {
-  const [selectedStyle, setSelectedStyle] = useState<string>('balanced');
+  const [selectedStyle, setSelectedStyle] = useState<'Warm' | 'Balanced' | 'Open'>('Balanced');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
   // Mastering controls
@@ -109,26 +96,14 @@ export const LANDRMastering: React.FC = () => {
     deEsser: [30]
   });
 
-  const [masteredTracks, setMasteredTracks] = useState<MasteredTrack[]>([
-    { 
-      id: '1', 
-      name: 'Summer Vibes - Master.wav', 
-      originalFile: 'Summer Vibes.wav',
-      style: 'Balanced', 
-      lufs: '-14', 
-      status: 'complete',
-      createdAt: new Date(Date.now() - 86400000)
-    },
-    { 
-      id: '2', 
-      name: 'Night Drive - Master.wav', 
-      originalFile: 'Night Drive.wav',
-      style: 'Warm', 
-      lufs: '-12', 
-      status: 'complete',
-      createdAt: new Date(Date.now() - 172800000)
-    }
-  ]);
+  const { 
+    currentTrack, 
+    masteredTracks, 
+    uploadAndMaster, 
+    downloadMastered, 
+    saveToLibrary,
+    isProcessing 
+  } = useLANDRMastering();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -172,45 +147,24 @@ export const LANDRMastering: React.FC = () => {
       return;
     }
 
-    setIsProcessing(true);
-    setProcessingProgress(0);
+    const settings: MasteringSettings = {
+      style: selectedStyle,
+      loudness: controls.loudness[0],
+      eq_low: controls.eq_low[0],
+      eq_mid: controls.eq_mid[0],
+      eq_high: controls.eq_high[0],
+      presence: controls.presence[0],
+      compression: controls.compression[0],
+      stereoWidth: controls.stereoWidth[0],
+      saturation: controls.saturation[0],
+      deEsser: controls.deEsser[0]
+    };
 
-    // Simulate mastering progress
-    const interval = setInterval(() => {
-      setProcessingProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          
-          const newTrack: MasteredTrack = {
-            id: Date.now().toString(),
-            name: uploadedFile.name.replace(/\.[^/.]+$/, '') + ' - Master.wav',
-            originalFile: uploadedFile.name,
-            style: MASTERING_STYLES.find(s => s.id === selectedStyle)?.name || 'Balanced',
-            lufs: controls.loudness[0].toString(),
-            status: 'complete',
-            createdAt: new Date()
-          };
-          
-          setMasteredTracks(prev => [newTrack, ...prev]);
-          toast.success('Mastering complete!', {
-            description: 'Your track has been mastered and is ready for download'
-          });
-          
-          return 100;
-        }
-        return prev + 2;
-      });
-    }, 100);
+    uploadAndMaster.mutate({ file: uploadedFile, settings });
   };
 
   const applyPreset = (preset: MasteringPreset) => {
-    const styleMap: Record<string, string> = {
-      'Warm': 'warm',
-      'Balanced': 'balanced',
-      'Open': 'open'
-    };
-    setSelectedStyle(styleMap[preset.style]);
+    setSelectedStyle(preset.style);
     setControls(prev => ({
       ...prev,
       loudness: [parseInt(preset.lufs)]
@@ -291,20 +245,52 @@ export const LANDRMastering: React.FC = () => {
               </div>
 
               {/* Processing Progress */}
-              {isProcessing && (
+              {currentTrack && currentTrack.status === 'processing' && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Mastering in progress...</span>
-                    <span className="font-medium">{processingProgress}%</span>
+                    <span className="font-medium">{currentTrack.progress}%</span>
                   </div>
-                  <Progress value={processingProgress} className="h-2" />
+                  <Progress value={currentTrack.progress} className="h-2" />
                   <p className="text-xs text-muted-foreground text-center">
-                    {processingProgress < 30 && "Analyzing audio characteristics..."}
-                    {processingProgress >= 30 && processingProgress < 60 && "Applying AI mastering..."}
-                    {processingProgress >= 60 && processingProgress < 90 && "Optimizing dynamics..."}
-                    {processingProgress >= 90 && "Finalizing master..."}
+                    {currentTrack.progress < 30 && "Uploading audio file..."}
+                    {currentTrack.progress >= 30 && currentTrack.progress < 60 && "Analyzing audio characteristics..."}
+                    {currentTrack.progress >= 60 && currentTrack.progress < 90 && "Applying AI mastering..."}
+                    {currentTrack.progress >= 90 && "Finalizing master..."}
                   </p>
                 </div>
+              )}
+
+              {/* Completed Track */}
+              {currentTrack && currentTrack.status === 'complete' && (
+                <Card className="bg-green-500/10 border-green-500/30">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="w-8 h-8 text-green-500" />
+                      <div>
+                        <p className="font-medium">{currentTrack.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {currentTrack.style} • {currentTrack.lufs} LUFS
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => saveToLibrary.mutate(currentTrack)}
+                        disabled={saveToLibrary.isPending}
+                      >
+                        {saveToLibrary.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                        Save
+                      </Button>
+                      <Button size="sm" onClick={() => downloadMastered(currentTrack)}>
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
             </CardContent>
           </Card>
@@ -325,17 +311,17 @@ export const LANDRMastering: React.FC = () => {
                   {MASTERING_STYLES.map(style => (
                     <Button
                       key={style.id}
-                      variant={selectedStyle === style.id ? 'default' : 'outline'}
-                      className={`h-auto py-4 flex-col gap-2 ${selectedStyle === style.id ? '' : ''}`}
-                      onClick={() => setSelectedStyle(style.id)}
+                      variant={selectedStyle === style.name ? 'default' : 'outline'}
+                      className="h-auto py-4 flex-col gap-2"
+                      onClick={() => setSelectedStyle(style.name as 'Warm' | 'Balanced' | 'Open')}
                     >
-                      <style.icon className={`w-6 h-6 ${selectedStyle === style.id ? '' : style.color}`} />
+                      <style.icon className={`w-6 h-6 ${selectedStyle === style.name ? '' : style.color}`} />
                       <span className="font-medium">{style.name}</span>
                     </Button>
                   ))}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {MASTERING_STYLES.find(s => s.id === selectedStyle)?.description}
+                  {MASTERING_STYLES.find(s => s.name === selectedStyle)?.description}
                 </p>
               </div>
 
@@ -473,48 +459,49 @@ export const LANDRMastering: React.FC = () => {
               {/* Master Button */}
               <Button 
                 className="w-full" 
-                size="lg" 
+                size="lg"
                 onClick={startMastering}
                 disabled={!uploadedFile || isProcessing}
               >
-                <Wand2 className="w-5 h-5 mr-2" />
-                {isProcessing ? 'Mastering...' : 'Master Track'}
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-5 h-5 mr-2" />
+                    Master My Track
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar */}
+        {/* Presets & History */}
         <div className="space-y-6">
           {/* Presets */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Mastering Presets</CardTitle>
-              <CardDescription>Quick-apply saved configurations</CardDescription>
+              <CardTitle className="text-base">Quick Presets</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[280px]">
+              <ScrollArea className="h-[300px]">
                 <div className="space-y-2">
                   {PRESETS.map(preset => (
-                    <div 
+                    <div
                       key={preset.id}
-                      className="p-3 rounded-lg border hover:border-primary/50 cursor-pointer transition-all group"
+                      className="p-3 rounded-lg border cursor-pointer hover:border-primary/50 transition-colors"
                       onClick={() => applyPreset(preset)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm">{preset.name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {preset.style} • {preset.lufs} LUFS
-                          </p>
-                          {preset.description && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate">
-                              {preset.description}
-                            </p>
-                          )}
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm">{preset.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {preset.lufs} LUFS
+                        </Badge>
                       </div>
+                      <p className="text-xs text-muted-foreground">{preset.description}</p>
                     </div>
                   ))}
                 </div>
@@ -526,65 +513,41 @@ export const LANDRMastering: React.FC = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Disc3 className="w-4 h-4" />
-                Recent Masters
+                <Clock className="w-4 h-4" />
+                Recent Masters ({masteredTracks.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-2">
-                  {masteredTracks.map(track => (
-                    <div 
-                      key={track.id}
-                      className="p-3 rounded-lg border hover:border-primary/50 transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-sm truncate">{track.name}</h4>
-                            {track.status === 'complete' && (
-                              <CheckCircle2 className="w-3 h-3 text-green-500 flex-shrink-0" />
-                            )}
-                          </div>
+              {masteredTracks.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No mastered tracks yet
+                </p>
+              ) : (
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-2">
+                    {masteredTracks.map(track => (
+                      <div
+                        key={track.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-muted/30"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{track.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {track.style} • {track.lufs} LUFS
                           </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <Clock className="w-3 h-3" />
-                            {track.createdAt.toLocaleDateString()}
-                          </p>
                         </div>
-                        <Button size="icon" variant="ghost">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => downloadMastered(track)}
+                        >
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* API Info */}
-          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">LANDR Mastering API</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Integrate AI mastering directly into your apps with the LANDR API.
-              </p>
-              <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• 3 previewable loudness settings</li>
-                <li>• Genre-tailored mastering styles</li>
-                <li>• Custom results without presets</li>
-              </ul>
-              <Button variant="outline" size="sm" className="w-full" asChild>
-                <a href="https://www.landr.com/api" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View API Docs
-                </a>
-              </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -592,5 +555,3 @@ export const LANDRMastering: React.FC = () => {
     </div>
   );
 };
-
-export default LANDRMastering;

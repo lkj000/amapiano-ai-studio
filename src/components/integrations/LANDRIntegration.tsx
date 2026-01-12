@@ -30,7 +30,8 @@ import {
   Play,
   Settings2,
   FolderOpen,
-  Library
+  Library,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LANDRSamplesBrowser } from './landr/LANDRSamplesBrowser';
@@ -101,6 +102,16 @@ export const LANDRIntegration: React.FC = () => {
   const [showLicenseKey, setShowLicenseKey] = useState<Record<string, boolean>>({});
   const [selectedPlugin, setSelectedPlugin] = useState<LANDRPlugin | null>(plugins[0]);
   const [dawPath, setDawPath] = useState('/Library/Audio/Plug-Ins/VST3');
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const syncLibrary = async () => {
+    setIsSyncing(true);
+    toast.info('Syncing library...');
+    // Simulate sync - in production this would refresh data from Supabase
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsSyncing(false);
+    toast.success('Library synced successfully!');
+  };
 
   const copyLicenseKey = (key: string) => {
     navigator.clipboard.writeText(key);
@@ -160,9 +171,13 @@ export const LANDRIntegration: React.FC = () => {
               LANDR Website
             </a>
           </Button>
-          <Button size="sm">
-            <Package className="w-4 h-4 mr-2" />
-            Sync Library
+          <Button size="sm" onClick={syncLibrary} disabled={isSyncing}>
+            {isSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Package className="w-4 h-4 mr-2" />
+            )}
+            {isSyncing ? 'Syncing...' : 'Sync Library'}
           </Button>
         </div>
       </div>

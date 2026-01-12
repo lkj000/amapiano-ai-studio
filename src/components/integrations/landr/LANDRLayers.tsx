@@ -47,6 +47,10 @@ interface GeneratedLayer {
   solo: boolean;
 }
 
+type StemKey = 'vocals' | 'drums' | 'bass' | 'other' | 'guitar' | 'piano';
+
+type StemResult = Partial<Record<StemKey, string>>;
+
 interface LayerPreset {
   id: string;
   name: string;
@@ -72,6 +76,8 @@ export const LANDRLayers: React.FC = () => {
   const [generateProgress, setGenerateProgress] = useState(0);
   const [selectedLayer, setSelectedLayer] = useState<string>('drums');
   const [layers, setLayers] = useState<GeneratedLayer[]>([]);
+  const [availableStems, setAvailableStems] = useState<StemResult | null>(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
   const [layerSettings, setLayerSettings] = useState({
     intensity: 50,
     complexity: 50,
@@ -115,6 +121,95 @@ export const LANDRLayers: React.FC = () => {
       .toLowerCase();
   };
 
+  const getStemForLayerType = (layerType: string, stems: StemResult): { stemKey: StemKey; url: string } | null => {
+    const pick = (stemKey: StemKey): { stemKey: StemKey; url: string } | null => {
+      const url = stems[stemKey];
+      return url ? { stemKey, url } : null;
+    };
+
+    switch (layerType) {
+      case 'drums':
+        return pick('drums');
+      case 'bass':
+        return pick('bass');
+      case 'harmony':
+        return pick('piano') || pick('guitar') || pick('other');
+      case 'texture':
+        return pick('other');
+      case 'melody':
+        return pick('vocals') || pick('guitar') || pick('piano') || pick('other');
+      default:
+        return null;
+    }
+  };
+
+  const splitStems = async (file: File): Promise<StemResult> => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase env (VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY)');
+    }
+
+    setGenerateProgress(8);
+    toast.info('Uploading audio for AI stem separation...');
+
+    const formData = new FormData();
+    formData.append('audio', file);
+
+    const startResponse = await fetch(`${supabaseUrl}/functions/v1/stem-splitter`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+      body: formData,
+    });
+
+    const startData = await startResponse.json().catch(() => ({}));
+    if (!startResponse.ok) {
+      throw new Error(startData.error || `Failed to start separation (${startResponse.status})`);
+    }
+
+    if (!startData.predictionId) {
+      throw new Error(startData.error || 'No prediction ID returned');
+    }
+
+    toast.info('AI is separating stems... This may take 2-4 minutes.');
+
+    const maxAttempts = 120; // 4 minutes (2s intervals)
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // 10% -> 90% over polling
+      const pollProgress = 10 + Math.min(80, (attempts / maxAttempts) * 80);
+      setGenerateProgress(Math.round(pollProgress));
+
+      const pollResponse = await fetch(`${supabaseUrl}/functions/v1/stem-splitter`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ predictionId: startData.predictionId }),
+      });
+
+      if (!pollResponse.ok) continue;
+
+      const pollData = await pollResponse.json().catch(() => ({}));
+
+      if (pollData.status === 'failed') {
+        throw new Error(pollData.error || 'Stem separation failed');
+      }
+
+      if (pollData.status === 'succeeded' && pollData.stems) {
+        setGenerateProgress(92);
+        return pollData.stems as StemResult;
+      }
+    }
+
+    throw new Error('Stem separation timed out after 4 minutes');
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -125,7 +220,10 @@ export const LANDRLayers: React.FC = () => {
     }
     
     setUploadedFile(file);
-    
+    setLayers([]);
+    setAvailableStems(null);
+    setPlayingLayerId(null);
+    setIsPlaying(false);
     // Upload to Supabase storage
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -157,47 +255,56 @@ export const LANDRLayers: React.FC = () => {
     mutationFn: async (layerType: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-      
+      if (!uploadedFile) throw new Error('Please upload a track first');
+
       setIsGenerating(true);
-      setGenerateProgress(0);
-      
-      // Simulate progress for now - in production this would call an edge function
-      const progressInterval = setInterval(() => {
-        setGenerateProgress(prev => Math.min(prev + 10, 90));
-      }, 300);
-      
-      // Store generation record in database
+      setGenerateProgress(5);
+
+      // 1) Ensure we have stems (cached per uploaded track)
+      let stems = availableStems;
+      if (!stems) {
+        stems = await splitStems(uploadedFile);
+        setAvailableStems(stems);
+      }
+
+      // 2) Pick the stem for the requested layer type
+      const picked = getStemForLayerType(layerType, stems);
+      if (!picked) {
+        throw new Error(`No separated stem available for "${layerType}"`);
+      }
+
+      // 3) Persist generation record (sample_url must be the layer audio, not the source track)
       const { data, error } = await supabase
         .from('generated_samples')
         .insert({
           user_id: user.id,
           sample_type: 'landr-layer',
-          sample_url: uploadedUrl || '',
+          sample_url: picked.url,
           metadata: {
             layer_type: layerType,
+            stem_key: picked.stemKey,
             settings: layerSettings,
-            source_file: uploadedFile?.name
+            source_file: uploadedFile.name,
+            source_url: uploadedUrl,
           }
         })
         .select()
         .single();
-      
-      clearInterval(progressInterval);
-      setGenerateProgress(100);
-      
+
       if (error) throw error;
-      
-      // Add to local layers state
+
+      setGenerateProgress(100);
+
       const newLayer: GeneratedLayer = {
         id: data.id,
         type: layerType as GeneratedLayer['type'],
         name: `${LAYER_PRESETS.find(p => p.id === layerType)?.name} Layer`,
-        audioUrl: uploadedUrl || '',
+        audioUrl: picked.url,
         volume: 80,
         muted: false,
         solo: false
       };
-      
+
       return newLayer;
     },
     onSuccess: (newLayer) => {
@@ -209,7 +316,7 @@ export const LANDRLayers: React.FC = () => {
     },
     onError: (error) => {
       console.error(error);
-      toast.error('Failed to generate layer');
+      toast.error(error instanceof Error ? error.message : 'Failed to generate layer');
       setIsGenerating(false);
       setGenerateProgress(0);
     }
@@ -239,6 +346,10 @@ export const LANDRLayers: React.FC = () => {
     setLayers(prev => prev.map(l => 
       l.id === layerId ? { ...l, volume } : l
     ));
+
+    if (playingLayerId === layerId && layerAudioRef.current) {
+      layerAudioRef.current.volume = volume / 100;
+    }
   };
 
   const toggleLayerMute = (layerId: string) => {
@@ -274,6 +385,12 @@ export const LANDRLayers: React.FC = () => {
   };
 
   const removeLayer = (layerId: string) => {
+    if (playingLayerId === layerId && layerAudioRef.current) {
+      layerAudioRef.current.pause();
+      layerAudioRef.current.currentTime = 0;
+      setPlayingLayerId(null);
+    }
+
     setLayers(prev => prev.filter(l => l.id !== layerId));
   };
 
@@ -282,19 +399,99 @@ export const LANDRLayers: React.FC = () => {
       toast.error('No audio available to download');
       return;
     }
-    
+
+    const inferExtension = (url: string) => {
+      try {
+        const pathname = new URL(url).pathname;
+        const ext = pathname.split('.').pop();
+        if (!ext) return 'wav';
+        return ext.split('?')[0].toLowerCase();
+      } catch {
+        return 'wav';
+      }
+    };
+
     try {
       const response = await fetch(layer.audioUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const ext = inferExtension(layer.audioUrl);
       a.href = url;
-      a.download = `${layer.name.replace(/\s+/g, '_')}.wav`;
+      a.download = `${layer.name.replace(/\s+/g, '_')}.${ext}`;
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success('Layer downloaded!');
     } catch (error) {
       toast.error('Download failed');
+    }
+  };
+
+  const exportAllLayers = async () => {
+    const layersWithUrls = layers.filter(l => !!l.audioUrl);
+    if (layersWithUrls.length === 0) {
+      toast.error('No layers available to export');
+      return;
+    }
+
+    setIsExportingAll(true);
+    try {
+      toast.info('Creating ZIP archive...');
+
+      const inferExtension = (url: string) => {
+        try {
+          const pathname = new URL(url).pathname;
+          const ext = pathname.split('.').pop();
+          if (!ext) return 'wav';
+          return ext.split('?')[0].toLowerCase();
+        } catch {
+          return 'wav';
+        }
+      };
+
+      const stems = layersWithUrls.map(l => ({
+        name: `${l.type}-${l.name.toLowerCase().replace(/\s+/g, '-')}.${inferExtension(l.audioUrl)}`,
+        url: l.audioUrl,
+      }));
+
+      const projectName = uploadedFile?.name?.replace(/\.[^.]+$/, '') || 'landr-layers';
+
+      const { data, error } = await supabase.functions.invoke('zip-stems', {
+        body: { stems, projectName },
+      });
+
+      if (error) throw error;
+      if (!data?.zipData) throw new Error('No ZIP data returned');
+
+      const binaryString = atob(data.zipData);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || `${projectName}-layers.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('ZIP downloaded!');
+    } catch (error) {
+      console.error('[LANDRLayers] Export All failed:', error);
+      toast.error('Export All failed');
+
+      // Fallback: download layers individually
+      for (let i = 0; i < layersWithUrls.length; i++) {
+        await downloadLayer(layersWithUrls[i]);
+        if (i < layersWithUrls.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    } finally {
+      setIsExportingAll(false);
     }
   };
 
@@ -370,9 +567,21 @@ export const LANDRLayers: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => {
+                        if (audioRef.current) {
+                          audioRef.current.pause();
+                          audioRef.current.currentTime = 0;
+                        }
+                        if (layerAudioRef.current) {
+                          layerAudioRef.current.pause();
+                          layerAudioRef.current.currentTime = 0;
+                        }
+
+                        setIsPlaying(false);
+                        setPlayingLayerId(null);
                         setUploadedFile(null);
                         setUploadedUrl(null);
                         setLayers([]);
+                        setAvailableStems(null);
                       }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -502,8 +711,17 @@ export const LANDRLayers: React.FC = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Generated Layers</CardTitle>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportAllLayers}
+                    disabled={isExportingAll || layers.length === 0}
+                  >
+                    {isExportingAll ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
                     Export All
                   </Button>
                 </div>

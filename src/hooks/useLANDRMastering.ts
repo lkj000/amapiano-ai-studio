@@ -45,15 +45,101 @@ export interface MasteredTrack {
 }
 
 /**
- * Convert File to base64 string
+ * Convert any audio file to WAV format using Web Audio API
+ * This handles MP3, WAV, OGG, FLAC, and other browser-supported formats
  */
-async function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function convertToWav(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  
+  // Create audio context for decoding
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  
+  try {
+    // Decode the audio file (works with MP3, WAV, OGG, etc.)
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Convert to WAV format
+    const wavBuffer = audioBufferToWav(audioBuffer);
+    
+    // Convert to base64
+    const base64 = arrayBufferToBase64(wavBuffer);
+    
+    return `data:audio/wav;base64,${base64}`;
+  } finally {
+    await audioContext.close();
+  }
+}
+
+/**
+ * Convert AudioBuffer to WAV ArrayBuffer
+ */
+function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
+  const numChannels = Math.min(buffer.numberOfChannels, 2); // Limit to stereo
+  const sampleRate = buffer.sampleRate;
+  const bitsPerSample = 16;
+  
+  // Interleave channels
+  const length = buffer.length * numChannels;
+  const interleaved = new Float32Array(length);
+  
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < buffer.length; i++) {
+      interleaved[i * numChannels + channel] = channelData[i];
+    }
+  }
+  
+  // Create WAV file
+  const dataLength = length * (bitsPerSample / 8);
+  const wavBuffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(wavBuffer);
+  
+  // RIFF header
+  writeWavString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, true);
+  writeWavString(view, 8, 'WAVE');
+  
+  // fmt chunk
+  writeWavString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // chunk size
+  view.setUint16(20, 1, true);  // PCM format
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
+  view.setUint16(32, numChannels * (bitsPerSample / 8), true);
+  view.setUint16(34, bitsPerSample, true);
+  
+  // data chunk
+  writeWavString(view, 36, 'data');
+  view.setUint32(40, dataLength, true);
+  
+  // Write audio data
+  let offset = 44;
+  for (let i = 0; i < interleaved.length; i++) {
+    const sample = Math.max(-1, Math.min(1, interleaved[i]));
+    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+    view.setInt16(offset, int16, true);
+    offset += 2;
+  }
+  
+  return wavBuffer;
+}
+
+function writeWavString(view: DataView, offset: number, str: string): void {
+  for (let i = 0; i < str.length; i++) {
+    view.setUint8(offset + i, str.charCodeAt(i));
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
 }
 
 /**
@@ -108,9 +194,10 @@ export function useLANDRMastering() {
       
       setCurrentTrack(track);
 
-      // Convert file to base64 for processing
-      console.log('[useLANDRMastering] Converting file to base64...');
-      const audioBase64 = await fileToBase64(file);
+      // Convert file to WAV format (handles MP3, OGG, etc.)
+      console.log('[useLANDRMastering] Converting file to WAV format...');
+      const audioBase64 = await convertToWav(file);
+      console.log('[useLANDRMastering] Converted to WAV, base64 length:', audioBase64.length);
       
       track.progress = 20;
       setCurrentTrack({ ...track });

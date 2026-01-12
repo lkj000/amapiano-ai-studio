@@ -67,6 +67,7 @@ export const LANDRLayers: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playingLayerId, setPlayingLayerId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateProgress, setGenerateProgress] = useState(0);
   const [selectedLayer, setSelectedLayer] = useState<string>('drums');
@@ -80,6 +81,7 @@ export const LANDRLayers: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const layerAudioRef = useRef<HTMLAudioElement>(null);
   const queryClient = useQueryClient();
 
   // Fetch user's layer generations from database
@@ -102,6 +104,17 @@ export const LANDRLayers: React.FC = () => {
     }
   });
 
+  // Sanitize filename for Supabase storage (remove special characters)
+  const sanitizeFileName = (name: string): string => {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[–—]/g, '-') // Replace em/en dashes with hyphens
+      .replace(/[^\w\s.-]/g, '') // Remove other special chars
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .toLowerCase();
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -120,7 +133,8 @@ export const LANDRLayers: React.FC = () => {
       return;
     }
     
-    const fileName = `${user.id}/layers-input/${Date.now()}-${file.name}`;
+    const sanitizedName = sanitizeFileName(file.name);
+    const fileName = `${user.id}/layers-input/${Date.now()}-${sanitizedName}`;
     const { data, error } = await supabase.storage
       .from('audio-files')
       .upload(fileName, file);
@@ -233,6 +247,32 @@ export const LANDRLayers: React.FC = () => {
     ));
   };
 
+  const playLayer = (layer: GeneratedLayer) => {
+    if (!layer.audioUrl) {
+      toast.error('No audio available for this layer');
+      return;
+    }
+    
+    if (playingLayerId === layer.id) {
+      // Stop playing
+      if (layerAudioRef.current) {
+        layerAudioRef.current.pause();
+        layerAudioRef.current.currentTime = 0;
+      }
+      setPlayingLayerId(null);
+    } else {
+      // Play new layer
+      if (layerAudioRef.current) {
+        layerAudioRef.current.src = layer.audioUrl;
+        layerAudioRef.current.volume = layer.volume / 100;
+        layerAudioRef.current.play().catch(() => {
+          toast.error('Playback failed');
+        });
+      }
+      setPlayingLayerId(layer.id);
+    }
+  };
+
   const removeLayer = (layerId: string) => {
     setLayers(prev => prev.filter(l => l.id !== layerId));
   };
@@ -341,6 +381,8 @@ export const LANDRLayers: React.FC = () => {
                   {uploadedUrl && (
                     <audio ref={audioRef} src={uploadedUrl} onEnded={() => setIsPlaying(false)} />
                   )}
+                  {/* Hidden audio element for layer playback */}
+                  <audio ref={layerAudioRef} onEnded={() => setPlayingLayerId(null)} />
                 </div>
               )}
             </CardContent>
@@ -479,8 +521,10 @@ export const LANDRLayers: React.FC = () => {
                         variant="ghost"
                         size="icon"
                         className="rounded-full"
+                        onClick={() => playLayer(layer)}
+                        disabled={!layer.audioUrl}
                       >
-                        <Play className="w-4 h-4" />
+                        {playingLayerId === layer.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                       </Button>
                       
                       <div className="flex-1 min-w-0">

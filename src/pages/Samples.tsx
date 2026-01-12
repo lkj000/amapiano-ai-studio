@@ -5,11 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Play, Pause, Download, Heart, Filter, Search, Music, Star, Brain } from "lucide-react";
+import { Play, Pause, Download, Heart, Search, Music, Star, Brain, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useSamplesLibrary } from '@/hooks/useSamplesLibrary';
 
 interface SamplesProps {
   user: User | null;
@@ -19,100 +19,14 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");
-  const [playingSample, setPlayingSample] = useState<number | null>(null);
-  const [likedSamples, setLikedSamples] = useState<Set<number>>(new Set([2, 5])); // Initialize with pre-liked samples
-  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [playingSample, setPlayingSample] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const categories = [
-    "All", "Log Drums", "Piano", "Percussion", "Bass", "Vocals", "Saxophone", "Guitar", "Synth"
-  ];
+  // Use real Supabase data
+  const { samples, isLoading, toggleFavorite, downloadSample } = useSamplesLibrary();
 
-  const samples = [
-    {
-      id: 1,
-      name: "Kelvin Momo Style Piano Loop",
-      artist: "In the style of Kelvin Momo",
-      category: "Piano",
-      genre: "Private School",
-      bpm: 118,
-      key: "F#m",
-      duration: "0:08",
-      rating: 4.9,
-      downloads: 2847,
-      tags: ["jazzy", "soulful", "chord progression"],
-      isLiked: false
-    },
-    {
-      id: 2,
-      name: "Classic Log Drum Pattern", 
-      artist: "In the style of Kabza De Small",
-      category: "Log Drums",
-      genre: "Classic",
-      bpm: 120,
-      key: "Cm",
-      duration: "0:04",
-      rating: 4.8,
-      downloads: 1923,
-      tags: ["deep", "rhythmic", "classic"],
-      isLiked: true
-    },
-    {
-      id: 3,
-      name: "Saxophone Melody",
-      artist: "Original composition",
-      category: "Saxophone", 
-      genre: "Private School",
-      bpm: 115,
-      key: "Gm",
-      duration: "0:16",
-      rating: 4.7,
-      downloads: 1534,
-      tags: ["smooth", "jazzy", "melodic"],
-      isLiked: false
-    },
-    {
-      id: 4,
-      name: "Afro Percussion Loop",
-      artist: "Traditional inspired",
-      category: "Percussion",
-      genre: "Classic",
-      bpm: 125,
-      key: "N/A",
-      duration: "0:08",
-      rating: 4.6,
-      downloads: 987,
-      tags: ["traditional", "rhythmic", "african"],
-      isLiked: false
-    },
-    {
-      id: 5,
-      name: "Deep Bass Foundation",
-      artist: "Studio original",
-      category: "Bass",
-      genre: "Deep Amapiano",
-      bpm: 112,
-      key: "Am",
-      duration: "0:12",
-      rating: 4.8,
-      downloads: 2156,
-      tags: ["deep", "sub-bass", "foundation"],
-      isLiked: true
-    },
-    {
-      id: 6,
-      name: "Vocal Chant Sample",
-      artist: "Cultural heritage",
-      category: "Vocals",
-      genre: "Vocal Amapiano",
-      bpm: 118,
-      key: "Dm",
-      duration: "0:06",
-      rating: 4.9,
-      downloads: 3421,
-      tags: ["chant", "cultural", "authentic"],
-      isLiked: false
-    }
+  const categories = [
+    "All", "Log Drums", "Piano", "Percussion", "Bass", "Vocals", "Saxophone", "Guitar", "Synth", "loop", "one-shot"
   ];
 
   const artistStyles = [
@@ -128,9 +42,8 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
     return matchesSearch && matchesCategory && matchesGenre;
   });
 
-  const handlePlaySample = async (sampleId: number, sampleName: string) => {
+  const handlePlaySample = async (sampleId: string, sampleName: string, audioUrl: string) => {
     if (playingSample === sampleId) {
-      // Stop current playback
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -140,13 +53,11 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
     }
 
     try {
-      // Stop any currently playing audio
       if (audioRef.current) {
         audioRef.current.pause();
       }
 
-      // Create new audio element for this sample
-      const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sampleId}`);
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
       
       setPlayingSample(sampleId);
@@ -156,42 +67,37 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
         setPlayingSample(null);
       });
 
-      audio.addEventListener('error', (e) => {
-        console.error('Audio playback error:', e);
-        toast.error("🔊 Demo audio unavailable. Sample preview coming soon!");
+      audio.addEventListener('error', () => {
+        toast.error("Audio playback failed");
         setPlayingSample(null);
       });
 
       await audio.play();
     } catch (error) {
       console.error('Sample playback error:', error);
-      toast.error("🔊 Demo audio unavailable. Sample preview coming soon!");
+      toast.error("Audio playback failed");
       setPlayingSample(null);
     }
   };
 
-  const handleLikeSample = (sampleId: number) => {
-    const newLikedSamples = new Set(likedSamples);
-    if (likedSamples.has(sampleId)) {
-      newLikedSamples.delete(sampleId);
-      toast.success("Removed from favorites");
-    } else {
-      newLikedSamples.add(sampleId);
-      toast.success("Added to favorites");
-    }
-    setLikedSamples(newLikedSamples);
+  const handleLikeSample = (sampleId: string) => {
+    toggleFavorite.mutate(sampleId);
   };
 
-  const handleDownloadSample = (sampleId: number, sampleName: string) => {
-    toast.success(`📁 "${sampleName}" downloaded!`);
-    // Simulate download
-    const element = document.createElement('a');
-    element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sampleId}`;
-    element.download = `${sampleName.replace(/\s+/g, '_')}.wav`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const handleDownloadSample = (sampleId: string, sampleName: string, audioUrl: string) => {
+    downloadSample.mutate({ sampleId, sampleName, audioUrl });
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading samples...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -203,7 +109,9 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
               Sample Library
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Explore 10,000+ authentic amapiano samples curated by South African artists and producers.
+              {samples.length > 0 
+                ? `Explore ${samples.length} authentic amapiano samples from your library.`
+                : 'Your sample library is empty. Upload samples to get started!'}
             </p>
           </div>
 
@@ -240,10 +148,9 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Genres</SelectItem>
-                    <SelectItem value="classic">Classic Amapiano</SelectItem>
-                    <SelectItem value="private">Private School</SelectItem>
-                    <SelectItem value="vocal">Vocal Amapiano</SelectItem>
-                    <SelectItem value="deep">Deep Amapiano</SelectItem>
+                    <SelectItem value="loop">Loops</SelectItem>
+                    <SelectItem value="one-shot">One-shots</SelectItem>
+                    <SelectItem value="amapiano">Amapiano</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -274,10 +181,11 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={likedSamples.has(sample.id) ? "text-red-500" : "text-muted-foreground"}
+                          className={sample.isLiked ? "text-red-500" : "text-muted-foreground"}
                           onClick={() => handleLikeSample(sample.id)}
+                          disabled={toggleFavorite.isPending}
                         >
-                          <Heart className="w-4 h-4" fill={likedSamples.has(sample.id) ? "currentColor" : "none"} />
+                          <Heart className="w-4 h-4" fill={sample.isLiked ? "currentColor" : "none"} />
                         </Button>
                       </div>
                     </CardHeader>
@@ -287,11 +195,11 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">BPM:</span>
-                            <span>{sample.bpm}</span>
+                            <span>{sample.bpm || 'N/A'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Key:</span>
-                            <span>{sample.key}</span>
+                            <span>{sample.key || 'N/A'}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Length:</span>
@@ -318,7 +226,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1">
-                          {sample.tags.map((tag) => (
+                          {sample.tags.slice(0, 3).map((tag) => (
                             <Badge key={tag} variant="outline" className="text-xs opacity-60">
                               #{tag}
                             </Badge>
@@ -331,8 +239,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             <Button 
                               size="sm" 
                               className="btn-glow"
-                              onClick={() => handlePlaySample(sample.id, sample.name)}
-                              disabled={playingSample === sample.id}
+                              onClick={() => handlePlaySample(sample.id, sample.name, sample.audioUrl)}
                             >
                               {playingSample === sample.id ? (
                                 <Pause className="w-3 h-3 mr-1" />
@@ -353,7 +260,8 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             variant="outline" 
                             size="sm" 
                             className="flex-1"
-                            onClick={() => handleDownloadSample(sample.id, sample.name)}
+                            onClick={() => handleDownloadSample(sample.id, sample.name, sample.audioUrl)}
+                            disabled={downloadSample.isPending}
                           >
                             <Download className="w-3 h-3 mr-1" />
                             Download
@@ -362,28 +270,19 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                             size="sm" 
                             className="flex-1" 
                             onClick={() => {
-                              console.log('[Samples] Add to DAW clicked for:', sample.name);
                               const trackData = {
                                 name: `Sample: ${sample.name}`,
-                                audioUrl: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/sample-${sample.id}`,
+                                audioUrl: sample.audioUrl,
                                 type: 'audio',
                                 metadata: {
-                                  bpm: sample.bpm,
+                                  bpm: sample.bpm || 120,
                                   genre: sample.category,
                                   duration: parseInt(sample.duration) || 30
                                 }
                               };
-                              console.log('[Samples] Storing track data:', trackData);
                               localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
-                              console.log('[Samples] Opening DAW window...');
-                              const win = window.open('/daw', '_blank');
-                              if (!win) {
-                                console.log('[Samples] Popup blocked, redirecting in same tab');
-                                window.location.href = '/daw';
-                              } else {
-                                console.log('[Samples] DAW opened in new tab');
-                                toast.success(`🎵 "${sample.name}" sent to DAW!`);
-                              }
+                              window.open('/daw', '_blank');
+                              toast.success(`🎵 "${sample.name}" sent to DAW!`);
                             }}
                           >
                             <Music className="w-3 h-3 mr-1" />
@@ -400,7 +299,11 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                 <div className="text-center py-12">
                   <Music className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No samples found</h3>
-                  <p className="text-muted-foreground">Try adjusting your search criteria</p>
+                  <p className="text-muted-foreground">
+                    {samples.length === 0 
+                      ? 'Upload samples to your library to get started'
+                      : 'Try adjusting your search criteria'}
+                  </p>
                 </div>
               )}
             </TabsContent>
@@ -421,21 +324,9 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                           Contains 50+ samples including piano loops, drum patterns, and signature sounds
                         </div>
                         <div className="flex justify-between items-center">
-                          <Badge variant="secondary">Premium Pack</Badge>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-primary text-primary" />
-                            <span className="text-sm">4.9</span>
-                          </div>
+                          <Badge variant="secondary">Premium</Badge>
+                          <Button size="sm">Explore Pack</Button>
                         </div>
-                        <Button 
-                          className="w-full btn-glow"
-                          onClick={() => {
-                            toast.success(`🎨 Opening ${artist} style pack...`);
-                            // Navigate to artist pack or show more details
-                          }}
-                        >
-                          Explore Pack
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -444,22 +335,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
             </TabsContent>
 
             <TabsContent value="analysis">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
-                    Sample Analysis with AI
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <UnifiedAnalysisPanel 
-                    showOptions={true}
-                    onAnalysisComplete={(result) => {
-                      console.log('Sample analysis complete:', result);
-                    }}
-                  />
-                </CardContent>
-              </Card>
+              <UnifiedAnalysisPanel />
             </TabsContent>
           </Tabs>
         </div>

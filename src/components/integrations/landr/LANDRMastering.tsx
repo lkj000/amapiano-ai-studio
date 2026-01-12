@@ -3,7 +3,7 @@
  * AI-driven mastering with real Supabase integration
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,10 +31,11 @@ import {
   CheckCircle2,
   Clock,
   Save,
-  Loader2
+  Loader2,
+  Square
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLANDRMastering, MasteringSettings } from '@/hooks/useLANDRMastering';
+import { useLANDRMastering, MasteringSettings, MasteredTrack } from '@/hooks/useLANDRMastering';
 
 interface MasteringPreset {
   id: string;
@@ -81,7 +82,13 @@ export const LANDRMastering: React.FC = () => {
   const [selectedStyle, setSelectedStyle] = useState<'Warm' | 'Balanced' | 'Open'>('Balanced');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingOriginal, setIsPlayingOriginal] = useState(false);
+  const [playingMasteredId, setPlayingMasteredId] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
+  // Audio element refs for real playback
+  const originalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const masteredAudioRef = useRef<HTMLAudioElement | null>(null);
   
   // Mastering controls
   const [controls, setControls] = useState({
@@ -95,6 +102,15 @@ export const LANDRMastering: React.FC = () => {
     saturation: [25],
     deEsser: [30]
   });
+  
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   const { 
     currentTrack, 
@@ -126,20 +142,142 @@ export const LANDRMastering: React.FC = () => {
     );
     
     if (audioFile) {
+      // Cleanup previous URL
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
       setUploadedFile(audioFile);
+      // Create object URL for real audio playback
+      const url = URL.createObjectURL(audioFile);
+      setAudioUrl(url);
       toast.success(`File loaded: ${audioFile.name}`);
     } else {
       toast.error('Please drop a valid audio file');
     }
-  }, []);
+  }, [audioUrl]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Cleanup previous URL
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
       setUploadedFile(file);
+      // Create object URL for real audio playback
+      const url = URL.createObjectURL(file);
+      setAudioUrl(url);
       toast.success(`File loaded: ${file.name}`);
     }
   };
+
+  // Real audio playback for original file
+  const toggleOriginalPlayback = useCallback(() => {
+    if (!audioUrl) {
+      toast.error('No audio file loaded');
+      return;
+    }
+
+    if (!originalAudioRef.current) {
+      originalAudioRef.current = new Audio(audioUrl);
+      originalAudioRef.current.onended = () => setIsPlayingOriginal(false);
+      originalAudioRef.current.onerror = () => {
+        toast.error('Failed to play audio');
+        setIsPlayingOriginal(false);
+      };
+    }
+
+    if (isPlayingOriginal) {
+      originalAudioRef.current.pause();
+      setIsPlayingOriginal(false);
+    } else {
+      // Stop mastered audio if playing
+      if (masteredAudioRef.current) {
+        masteredAudioRef.current.pause();
+        setPlayingMasteredId(null);
+      }
+      originalAudioRef.current.currentTime = 0;
+      originalAudioRef.current.play().catch(err => {
+        console.error('Playback error:', err);
+        toast.error('Failed to play audio');
+      });
+      setIsPlayingOriginal(true);
+    }
+  }, [audioUrl, isPlayingOriginal]);
+
+  // Real audio playback for mastered track
+  const toggleMasteredPlayback = useCallback((track: MasteredTrack) => {
+    if (!track.masteredUrl) {
+      toast.error('No mastered audio available');
+      return;
+    }
+
+    if (playingMasteredId === track.id) {
+      // Stop current track
+      if (masteredAudioRef.current) {
+        masteredAudioRef.current.pause();
+      }
+      setPlayingMasteredId(null);
+      return;
+    }
+
+    // Stop original if playing
+    if (originalAudioRef.current) {
+      originalAudioRef.current.pause();
+      setIsPlayingOriginal(false);
+    }
+
+    // Stop previous mastered track
+    if (masteredAudioRef.current) {
+      masteredAudioRef.current.pause();
+    }
+
+    // Create new audio for this track
+    masteredAudioRef.current = new Audio(track.masteredUrl);
+    masteredAudioRef.current.onended = () => setPlayingMasteredId(null);
+    masteredAudioRef.current.onerror = () => {
+      toast.error('Failed to play mastered audio');
+      setPlayingMasteredId(null);
+    };
+    
+    masteredAudioRef.current.play().catch(err => {
+      console.error('Mastered playback error:', err);
+      toast.error('Failed to play mastered audio');
+    });
+    setPlayingMasteredId(track.id);
+  }, [playingMasteredId]);
+
+  // Stop all playback
+  const stopAllPlayback = useCallback(() => {
+    if (originalAudioRef.current) {
+      originalAudioRef.current.pause();
+      setIsPlayingOriginal(false);
+    }
+    if (masteredAudioRef.current) {
+      masteredAudioRef.current.pause();
+      setPlayingMasteredId(null);
+    }
+  }, []);
+
+  // Update audio source when file changes
+  useEffect(() => {
+    if (originalAudioRef.current && audioUrl) {
+      originalAudioRef.current.src = audioUrl;
+    }
+  }, [audioUrl]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAllPlayback();
+      if (originalAudioRef.current) {
+        originalAudioRef.current = null;
+      }
+      if (masteredAudioRef.current) {
+        masteredAudioRef.current = null;
+      }
+    };
+  }, [stopAllPlayback]);
 
   const startMastering = () => {
     if (!uploadedFile) {
@@ -213,11 +351,16 @@ export const LANDRMastering: React.FC = () => {
                       </p>
                     </div>
                     <div className="flex justify-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setIsPlaying(!isPlaying)}>
-                        {isPlaying ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                        Preview Original
+                      <Button variant="outline" size="sm" onClick={toggleOriginalPlayback}>
+                        {isPlayingOriginal ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                        {isPlayingOriginal ? 'Stop' : 'Preview Original'}
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => setUploadedFile(null)}>
+                      <Button variant="outline" size="sm" onClick={() => {
+                        stopAllPlayback();
+                        if (audioUrl) URL.revokeObjectURL(audioUrl);
+                        setAudioUrl(null);
+                        setUploadedFile(null);
+                      }}>
                         Change File
                       </Button>
                     </div>
@@ -275,6 +418,17 @@ export const LANDRMastering: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => toggleMasteredPlayback(currentTrack)}
+                      >
+                        {playingMasteredId === currentTrack.id ? (
+                          <><Square className="w-4 h-4 mr-1" /> Stop</>
+                        ) : (
+                          <><Play className="w-4 h-4 mr-1" /> Play</>
+                        )}
+                      </Button>
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -536,13 +690,26 @@ export const LANDRMastering: React.FC = () => {
                             {track.style} • {track.lufs} LUFS
                           </p>
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => downloadMastered(track)}
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => toggleMasteredPlayback(track)}
+                          >
+                            {playingMasteredId === track.id ? (
+                              <Square className="w-4 h-4" />
+                            ) : (
+                              <Play className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => downloadMastered(track)}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

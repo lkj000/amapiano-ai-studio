@@ -35,6 +35,7 @@ import {
 import { toast } from 'sonner';
 import { LANDRSamplesBrowser } from './landr/LANDRSamplesBrowser';
 import { LANDRMastering } from './landr/LANDRMastering';
+import { LANDRLayers } from './landr/LANDRLayers';
 
 interface LANDRPlugin {
   id: string;
@@ -167,17 +168,21 @@ export const LANDRIntegration: React.FC = () => {
       </div>
 
       <Tabs defaultValue="samples" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="samples" className="flex items-center gap-2">
             <Library className="w-4 h-4" />
             Samples
+          </TabsTrigger>
+          <TabsTrigger value="layers" className="flex items-center gap-2">
+            <Wand2 className="w-4 h-4" />
+            Layers
           </TabsTrigger>
           <TabsTrigger value="plugins" className="flex items-center gap-2">
             <Plug className="w-4 h-4" />
             Plugins
           </TabsTrigger>
           <TabsTrigger value="mastering" className="flex items-center gap-2">
-            <Wand2 className="w-4 h-4" />
+            <Music2 className="w-4 h-4" />
             Mastering
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
@@ -189,6 +194,11 @@ export const LANDRIntegration: React.FC = () => {
         {/* Samples Tab */}
         <TabsContent value="samples" className="space-y-4">
           <LANDRSamplesBrowser />
+        </TabsContent>
+
+        {/* Layers Tab */}
+        <TabsContent value="layers" className="space-y-4">
+          <LANDRLayers />
         </TabsContent>
 
         {/* Plugins Tab */}

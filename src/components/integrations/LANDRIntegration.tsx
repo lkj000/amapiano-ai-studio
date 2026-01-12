@@ -23,16 +23,18 @@ import {
   Package,
   HardDrive,
   Monitor,
-  Apple,
   Plug,
   Copy,
   Eye,
   EyeOff,
   Play,
   Settings2,
-  FolderOpen
+  FolderOpen,
+  Library
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { LANDRSamplesBrowser } from './landr/LANDRSamplesBrowser';
+import { LANDRMastering } from './landr/LANDRMastering';
 
 interface LANDRPlugin {
   id: string;
@@ -47,16 +49,6 @@ interface LANDRPlugin {
   description: string;
   features: string[];
   downloadProgress?: number;
-}
-
-interface LANDRSample {
-  id: string;
-  name: string;
-  category: string;
-  bpm?: number;
-  key?: string;
-  duration: string;
-  downloaded: boolean;
 }
 
 const defaultPlugins: LANDRPlugin[] = [
@@ -82,6 +74,23 @@ const defaultPlugins: LANDRPlugin[] = [
       'Saturation',
       'LUFS Meter',
       'Gain Match & Bypass'
+    ]
+  },
+  {
+    id: 'chromatic',
+    name: 'Chromatic',
+    version: '1.0.0',
+    category: 'Instrument',
+    status: 'available',
+    formats: ['VST3', 'AU'],
+    fileSize: '1.2 GB',
+    compatibility: 'macOS 10.14+ / Windows 10+ (64 bit)',
+    description: 'Loop-based, playable instrument plugin with unlimited access for Samples and Studio subscribers.',
+    features: [
+      'Loop-based playable instrument',
+      'Creative territory exploration',
+      'Integrated with LANDR samples',
+      'Real-time manipulation'
     ]
   }
 ];
@@ -112,7 +121,6 @@ export const LANDRIntegration: React.FC = () => {
       p.id === plugin.id ? { ...p, status: 'downloading' as const, downloadProgress: 0 } : p
     ));
     
-    // Simulate download progress
     const interval = setInterval(() => {
       setPlugins(prev => prev.map(p => {
         if (p.id === plugin.id && p.status === 'downloading') {
@@ -158,8 +166,12 @@ export const LANDRIntegration: React.FC = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="plugins" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="samples" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="samples" className="flex items-center gap-2">
+            <Library className="w-4 h-4" />
+            Samples
+          </TabsTrigger>
           <TabsTrigger value="plugins" className="flex items-center gap-2">
             <Plug className="w-4 h-4" />
             Plugins
@@ -174,6 +186,11 @@ export const LANDRIntegration: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
+        {/* Samples Tab */}
+        <TabsContent value="samples" className="space-y-4">
+          <LANDRSamplesBrowser />
+        </TabsContent>
+
         {/* Plugins Tab */}
         <TabsContent value="plugins" className="space-y-4">
           <div className="grid lg:grid-cols-3 gap-6">
@@ -181,7 +198,7 @@ export const LANDRIntegration: React.FC = () => {
             <div className="lg:col-span-1">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Installed Plugins</CardTitle>
+                  <CardTitle className="text-lg">Your Plugins</CardTitle>
                   <CardDescription>Your LANDR plugin library</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -208,6 +225,11 @@ export const LANDRIntegration: React.FC = () => {
                               <Badge variant="secondary" className="bg-green-500/10 text-green-500 text-xs">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Installed
+                              </Badge>
+                            )}
+                            {plugin.status === 'available' && (
+                              <Badge variant="secondary" className="text-xs">
+                                Available
                               </Badge>
                             )}
                             {plugin.status === 'downloading' && (
@@ -241,15 +263,21 @@ export const LANDRIntegration: React.FC = () => {
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
-                        <Button onClick={() => openInDAW(selectedPlugin)}>
-                          <Play className="w-4 h-4 mr-2" />
-                          Open in DAW
-                        </Button>
+                        {selectedPlugin.status === 'installed' ? (
+                          <Button onClick={() => openInDAW(selectedPlugin)}>
+                            <Play className="w-4 h-4 mr-2" />
+                            Open in DAW
+                          </Button>
+                        ) : selectedPlugin.status === 'available' ? (
+                          <Button onClick={() => downloadPlugin(selectedPlugin)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {/* Description */}
                     <div>
                       <h4 className="font-semibold mb-2">Description</h4>
                       <p className="text-muted-foreground text-sm">
@@ -259,7 +287,6 @@ export const LANDRIntegration: React.FC = () => {
 
                     <Separator />
 
-                    {/* License Key */}
                     {selectedPlugin.licenseKey && (
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -294,9 +321,8 @@ export const LANDRIntegration: React.FC = () => {
                       </div>
                     )}
 
-                    <Separator />
+                    {selectedPlugin.licenseKey && <Separator />}
 
-                    {/* Compatibility */}
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -322,7 +348,6 @@ export const LANDRIntegration: React.FC = () => {
 
                     <Separator />
 
-                    {/* Features */}
                     <div>
                       <h4 className="font-semibold mb-3">Features</h4>
                       <div className="grid md:grid-cols-2 gap-2">
@@ -335,21 +360,23 @@ export const LANDRIntegration: React.FC = () => {
                       </div>
                     </div>
 
-                    <Separator />
-
-                    {/* Installation Instructions */}
-                    <div>
-                      <h4 className="font-semibold mb-3">Installation Instructions</h4>
-                      <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                        <li>Download the installer</li>
-                        <li>Locate the installer in your downloads and run the installation wizard</li>
-                        <li>Once installed, restart your DAW or rescan your plugins folder</li>
-                        <li>Locate the plugin within the LANDR folder in your DAW</li>
-                        <li>Add the plugin to your master track</li>
-                        <li>Enter the license key found above</li>
-                        <li>Start Mastering!</li>
-                      </ol>
-                    </div>
+                    {selectedPlugin.status === 'installed' && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h4 className="font-semibold mb-3">Installation Instructions</h4>
+                          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                            <li>Download the installer</li>
+                            <li>Locate the installer in your downloads and run the installation wizard</li>
+                            <li>Once installed, restart your DAW or rescan your plugins folder</li>
+                            <li>Locate the plugin within the LANDR folder in your DAW</li>
+                            <li>Add the plugin to your master track</li>
+                            <li>Enter the license key found above</li>
+                            <li>Start Mastering!</li>
+                          </ol>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
@@ -366,85 +393,7 @@ export const LANDRIntegration: React.FC = () => {
 
         {/* Mastering Tab */}
         <TabsContent value="mastering" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Wand2 className="w-5 h-5" />
-                  Quick Master
-                </CardTitle>
-                <CardDescription>
-                  Use LANDR AI to master your tracks directly
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                  <HardDrive className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Drag and drop audio file or click to browse
-                  </p>
-                  <Button variant="outline">
-                    <FolderOpen className="w-4 h-4 mr-2" />
-                    Choose File
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Mastering Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['Warm', 'Balanced', 'Open'].map(style => (
-                      <Button key={style} variant="outline" className="flex-1">
-                        {style}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <Button className="w-full" size="lg">
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Master Track
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Mastering Presets</CardTitle>
-                <CardDescription>
-                  Saved mastering configurations for your projects
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-2">
-                    {[
-                      { name: 'Amapiano Master', style: 'Balanced', lufs: '-14' },
-                      { name: 'Club Ready', style: 'Open', lufs: '-8' },
-                      { name: 'Streaming Optimized', style: 'Warm', lufs: '-14' },
-                      { name: 'Vinyl Warmth', style: 'Warm', lufs: '-12' }
-                    ].map((preset, index) => (
-                      <div 
-                        key={index}
-                        className="p-3 rounded-lg border hover:border-primary/50 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium text-sm">{preset.name}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              {preset.style} • {preset.lufs} LUFS
-                            </p>
-                          </div>
-                          <Button size="sm" variant="ghost">
-                            <Play className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+          <LANDRMastering />
         </TabsContent>
 
         {/* Settings Tab */}

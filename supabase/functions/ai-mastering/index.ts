@@ -141,6 +141,20 @@ Deno.serve(async (req) => {
 
     console.log('[ai-mastering] Audio buffer size:', audioBuffer.byteLength);
 
+    // Check file size limit (max 15MB for edge function memory constraints)
+    const MAX_BUFFER_SIZE = 15 * 1024 * 1024; // 15MB
+    if (audioBuffer.byteLength > MAX_BUFFER_SIZE) {
+      const sizeMB = (audioBuffer.byteLength / (1024 * 1024)).toFixed(1);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          status: 'failed', 
+          error: `Audio file too large (${sizeMB}MB). Maximum size is 15MB. Try a shorter clip or lower quality source.` 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Parse WAV header
     const header = parseWavHeader(audioBuffer);
     if (!header) {
@@ -208,8 +222,8 @@ Deno.serve(async (req) => {
     console.log('[ai-mastering] DSP processing complete in', processingTime, 'ms');
     console.log('[ai-mastering] Output loudness:', result.outputLoudness);
 
-    // Encode output to WAV
-    const outputBitsPerSample = quality === 'preview' ? 16 : 24;
+    // Encode output to WAV - always use 16-bit to reduce memory
+    const outputBitsPerSample = 16;
     const outputWav = encodeFloat32ToWav(
       result.samples,
       header.sampleRate,

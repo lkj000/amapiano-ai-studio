@@ -56,6 +56,7 @@ import TextToProduction from "./pages/TextToProduction";
 import TrainingDataset from "./pages/TrainingDataset";
 import VoiceLab from "./pages/VoiceLab";
 import AudioLab from "./pages/AudioLab";
+import Studio from "./pages/Studio";
 
 const queryClient = new QueryClient();
 
@@ -185,6 +186,7 @@ const App = () => {
               <Route path="/training-dataset" element={<TrainingDataset />} />
               <Route path="/voice-lab" element={<VoiceLab />} />
               <Route path="/audio-lab" element={<AudioLab />} />
+              <Route path="/studio" element={<Studio user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -1,16 +1,18 @@
 /**
  * Sample Browser Component
- * LANDR-inspired sample discovery with Amapiano-focused categories
+ * Real sample discovery with Supabase storage and audio playback
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { 
   Music, 
   Search, 
@@ -18,7 +20,6 @@ import {
   Play,
   Pause,
   Heart,
-  Filter,
   Clock,
   Disc3,
   Drum,
@@ -26,57 +27,17 @@ import {
   Mic,
   Waves,
   Folder,
-  Star,
   TrendingUp,
   Sparkles,
-  Volume2
+  Volume2,
+  Upload,
+  Plus,
+  Loader2,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Sample {
-  id: string;
-  name: string;
-  pack: string;
-  category: string;
-  type: 'loop' | 'oneshot' | 'midi';
-  bpm?: number;
-  key?: string;
-  duration: number; // seconds
-  isFavorite: boolean;
-  isNew: boolean;
-  downloadCount: number;
-  tags: string[];
-}
-
-interface SamplePack {
-  id: string;
-  name: string;
-  artist: string;
-  sampleCount: number;
-  imageUrl?: string;
-  isTrending: boolean;
-  isNew: boolean;
-}
-
-const MOCK_SAMPLES: Sample[] = [
-  { id: '1', name: 'Pretoria Log Drum 01', pack: 'Log Drum Essentials', category: 'Log Drums', type: 'oneshot', bpm: 115, key: 'A', duration: 1.2, isFavorite: false, isNew: true, downloadCount: 12500, tags: ['log drum', 'pretoria', 'classic'] },
-  { id: '2', name: 'Private School Piano Loop', pack: 'Private School Vol.1', category: 'Keys', type: 'loop', bpm: 112, key: 'C minor', duration: 8.0, isFavorite: true, isNew: false, downloadCount: 8900, tags: ['piano', 'private school', 'melodic'] },
-  { id: '3', name: 'Bacardi Bass Hit', pack: 'Bacardi Toolkit', category: 'Bass', type: 'oneshot', bpm: 118, key: 'E', duration: 0.8, isFavorite: false, isNew: true, downloadCount: 6700, tags: ['bass', 'bacardi', 'punchy'] },
-  { id: '4', name: 'Shaker Loop 115 BPM', pack: 'Percussion Paradise', category: 'Percussion', type: 'loop', bpm: 115, duration: 4.0, isFavorite: false, isNew: false, downloadCount: 15200, tags: ['shaker', 'percussion', 'groove'] },
-  { id: '5', name: 'Amapiano Vocal Chop', pack: 'Vocal Shots', category: 'Vocals', type: 'oneshot', key: 'F', duration: 1.5, isFavorite: true, isNew: false, downloadCount: 9800, tags: ['vocal', 'chop', 'zulu'] },
-  { id: '6', name: 'Deep House Pad Cm', pack: 'Atmospheric Pads', category: 'Synths', type: 'loop', bpm: 115, key: 'C minor', duration: 16.0, isFavorite: false, isNew: true, downloadCount: 4500, tags: ['pad', 'atmospheric', 'deep'] },
-  { id: '7', name: 'Kick Drum Yanos', pack: 'Drum One-Shots', category: 'Drums', type: 'oneshot', duration: 0.4, isFavorite: false, isNew: false, downloadCount: 23400, tags: ['kick', 'drums', 'punchy'] },
-  { id: '8', name: 'Log Drum Melody MIDI', pack: 'MIDI Collection', category: 'MIDI', type: 'midi', bpm: 115, key: 'A minor', duration: 8.0, isFavorite: true, isNew: true, downloadCount: 7800, tags: ['midi', 'log drum', 'melody'] },
-  { id: '9', name: 'Sgubhu Clap Pattern', pack: 'Sgubhu Essentials', category: 'Percussion', type: 'loop', bpm: 120, duration: 4.0, isFavorite: false, isNew: false, downloadCount: 5600, tags: ['clap', 'sgubhu', 'pattern'] },
-  { id: '10', name: 'Synth Stab Groove', pack: 'Synth Collection', category: 'Synths', type: 'oneshot', key: 'G', duration: 0.6, isFavorite: false, isNew: true, downloadCount: 3400, tags: ['synth', 'stab', 'groove'] },
-];
-
-const TRENDING_PACKS: SamplePack[] = [
-  { id: '1', name: 'Log Drum Essentials', artist: 'Aura Sounds', sampleCount: 150, isTrending: true, isNew: false },
-  { id: '2', name: 'Private School Vol.1', artist: 'SA Producers', sampleCount: 200, isTrending: true, isNew: true },
-  { id: '3', name: 'Bacardi Toolkit', artist: 'Urban Beats', sampleCount: 120, isTrending: false, isNew: true },
-  { id: '4', name: 'Amapiano Paradise', artist: 'Groove Masters', sampleCount: 180, isTrending: true, isNew: false },
-];
+import { useSampleLibrary, Sample } from '@/hooks/useSampleLibrary';
+import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 
 const CATEGORIES = [
   { name: 'All', icon: Music },
@@ -98,13 +59,25 @@ export function SampleBrowser() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [bpmRange, setBpmRange] = useState('All');
   const [keyFilter, setKeyFilter] = useState('All');
-  const [samples, setSamples] = useState<Sample[]>(MOCK_SAMPLES);
-  const [playingSample, setPlayingSample] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  
+  // Upload form state
+  const [uploadName, setUploadName] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('Drums');
+  const [uploadType, setUploadType] = useState<'loop' | 'oneshot' | 'midi'>('oneshot');
+  const [uploadBpm, setUploadBpm] = useState<number | undefined>();
+  const [uploadKey, setUploadKey] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadIsPublic, setUploadIsPublic] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { samples, isLoading, uploadSample, toggleFavorite, deleteSample, downloadSample, uploadProgress } = useSampleLibrary();
+  const audioPlayer = useAudioPlayer();
 
   const filteredSamples = samples.filter(sample => {
     const matchesSearch = sample.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sample.pack.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sample.pack_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
       sample.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesCategory = selectedCategory === 'All' || sample.category === selectedCategory;
@@ -115,36 +88,45 @@ export function SampleBrowser() {
       matchesBpm = sample.bpm >= min && sample.bpm <= max;
     }
     
-    const matchesKey = keyFilter === 'All' || (sample.key && sample.key.startsWith(keyFilter));
+    const matchesKey = keyFilter === 'All' || (sample.key_signature?.startsWith(keyFilter));
     
     return matchesSearch && matchesCategory && matchesBpm && matchesKey;
   });
 
-  const toggleFavorite = (id: string) => {
-    setSamples(prev => prev.map(s => 
-      s.id === id ? { ...s, isFavorite: !s.isFavorite } : s
-    ));
-    toast.success('Updated favorites');
-  };
-
-  const handlePlay = (sample: Sample) => {
-    if (playingSample === sample.id) {
-      setPlayingSample(null);
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+  const handlePlay = useCallback(async (sample: Sample) => {
+    if (audioPlayer.currentTrackId === sample.id && audioPlayer.isPlaying) {
+      audioPlayer.pause();
     } else {
-      setPlayingSample(sample.id);
-      // In production, would play actual audio
-      setTimeout(() => setPlayingSample(null), sample.duration * 1000);
+      await audioPlayer.play(sample.audio_url, sample.id);
     }
+  }, [audioPlayer]);
+
+  const handleUpload = async () => {
+    if (!uploadFile || !uploadName) {
+      toast.error('Please provide a name and file');
+      return;
+    }
+
+    await uploadSample.mutateAsync({
+      file: uploadFile,
+      name: uploadName,
+      category: uploadCategory,
+      sampleType: uploadType,
+      bpm: uploadBpm,
+      keySignature: uploadKey || undefined,
+      isPublic: uploadIsPublic,
+    });
+
+    // Reset form
+    setUploadName('');
+    setUploadFile(null);
+    setUploadBpm(undefined);
+    setUploadKey('');
+    setIsUploadOpen(false);
   };
 
-  const handleDownload = (sample: Sample) => {
-    toast.success(`Downloading ${sample.name}...`);
-  };
-
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return '-';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     if (mins > 0) return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -167,45 +149,142 @@ export function SampleBrowser() {
             <div>
               <CardTitle>Sample Browser</CardTitle>
               <CardDescription>
-                Discover Amapiano samples, loops & one-shots
+                Discover & upload Amapiano samples
               </CardDescription>
             </div>
           </div>
-          <Badge variant="outline" className="gap-1">
-            <Folder className="w-3 h-3" />
-            {samples.length} Samples
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <Folder className="w-3 h-3" />
+              {samples.length} Samples
+            </Badge>
+            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1">
+                  <Upload className="w-4 h-4" />
+                  Upload
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Sample</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Sample Name</Label>
+                    <Input
+                      value={uploadName}
+                      onChange={(e) => setUploadName(e.target.value)}
+                      placeholder="e.g., Log Drum Hit 01"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORIES.filter(c => c.name !== 'All').map(cat => (
+                            <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Select value={uploadType} onValueChange={(v) => setUploadType(v as any)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="oneshot">One-shot</SelectItem>
+                          <SelectItem value="loop">Loop</SelectItem>
+                          <SelectItem value="midi">MIDI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>BPM (optional)</Label>
+                      <Input
+                        type="number"
+                        value={uploadBpm || ''}
+                        onChange={(e) => setUploadBpm(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="115"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Key (optional)</Label>
+                      <Input
+                        value={uploadKey}
+                        onChange={(e) => setUploadKey(e.target.value)}
+                        placeholder="C minor"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Audio File</Label>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                    />
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploadFile ? uploadFile.name : 'Choose audio file...'}
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="public"
+                      checked={uploadIsPublic}
+                      onChange={(e) => setUploadIsPublic(e.target.checked)}
+                    />
+                    <Label htmlFor="public">Make sample public</Label>
+                  </div>
+
+                  {uploadProgress > 0 && (
+                    <Progress value={uploadProgress} className="h-2" />
+                  )}
+
+                  <Button
+                    onClick={handleUpload}
+                    disabled={uploadSample.isPending || !uploadFile || !uploadName}
+                    className="w-full"
+                  >
+                    {uploadSample.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Sample
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Trending Packs */}
-        <div className="space-y-2">
-          <h3 className="font-semibold flex items-center gap-2 text-sm">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            Trending Packs
-          </h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {TRENDING_PACKS.map(pack => (
-              <Card 
-                key={pack.id} 
-                className="min-w-[150px] bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium truncate">{pack.name}</span>
-                    {pack.isNew && (
-                      <Badge className="text-xs bg-green-500/20 text-green-600 h-4">NEW</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{pack.artist}</p>
-                  <p className="text-xs text-muted-foreground">{pack.sampleCount} samples</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
         {/* Category Pills */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           {CATEGORIES.map(category => {
@@ -258,113 +337,143 @@ export function SampleBrowser() {
           </Select>
         </div>
 
-        {/* Sample List */}
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-2">
-            {filteredSamples.map(sample => {
-              const CategoryIcon = getCategoryIcon(sample.category);
-              const isPlaying = playingSample === sample.id;
-              
-              return (
-                <div 
-                  key={sample.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                    isPlaying ? 'bg-primary/10' : 'bg-muted/30 hover:bg-muted/50'
-                  }`}
-                >
-                  {/* Play Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-10 h-10 rounded-full"
-                    onClick={() => handlePlay(sample)}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                  </Button>
-
-                  {/* Waveform Placeholder */}
-                  <div className="w-20 h-8 bg-muted rounded overflow-hidden flex items-center justify-center">
-                    <div className="flex gap-0.5 items-end h-full py-1">
-                      {Array.from({ length: 12 }).map((_, i) => (
-                        <div 
-                          key={i}
-                          className={`w-1 rounded-full transition-all ${
-                            isPlaying ? 'bg-primary animate-pulse' : 'bg-muted-foreground/30'
-                          }`}
-                          style={{ height: `${20 + Math.random() * 60}%` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm truncate">{sample.name}</span>
-                      {sample.isNew && (
-                        <Badge className="text-xs bg-green-500/20 text-green-600 h-4">NEW</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{sample.pack}</span>
-                      <span>•</span>
-                      <Badge variant="outline" className="h-4 text-xs gap-1">
-                        <CategoryIcon className="w-2 h-2" />
-                        {sample.category}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
-                    {sample.bpm && (
-                      <span className="w-12 text-center">{sample.bpm} BPM</span>
-                    )}
-                    {sample.key && (
-                      <span className="w-12 text-center">{sample.key}</span>
-                    )}
-                    <span className="w-10 text-center flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDuration(sample.duration)}
-                    </span>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleFavorite(sample.id)}
-                    >
-                      <Heart 
-                        className={`w-4 h-4 ${sample.isFavorite ? 'text-red-500 fill-red-500' : ''}`} 
-                      />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDownload(sample)}
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Loading state */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
+        )}
 
-          {filteredSamples.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Music className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No samples found</p>
-              <p className="text-sm">Try adjusting your filters</p>
+        {/* Sample List */}
+        {!isLoading && (
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-2">
+              {filteredSamples.map(sample => {
+                const CategoryIcon = getCategoryIcon(sample.category);
+                const isPlaying = audioPlayer.currentTrackId === sample.id && audioPlayer.isPlaying;
+                
+                return (
+                  <div 
+                    key={sample.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                      isPlaying ? 'bg-primary/10' : 'bg-muted/30 hover:bg-muted/50'
+                    }`}
+                  >
+                    {/* Play Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-10 h-10 rounded-full"
+                      onClick={() => handlePlay(sample)}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                    </Button>
+
+                    {/* Waveform Placeholder / Progress */}
+                    <div className="w-20 h-8 bg-muted rounded overflow-hidden flex items-center justify-center relative">
+                      {isPlaying && audioPlayer.duration > 0 && (
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 bg-primary/30"
+                          style={{ width: `${(audioPlayer.currentTime / audioPlayer.duration) * 100}%` }}
+                        />
+                      )}
+                      <div className="flex gap-0.5 items-end h-full py-1 relative z-10">
+                        {Array.from({ length: 12 }).map((_, i) => (
+                          <div 
+                            key={i}
+                            className={`w-1 rounded-full transition-all ${
+                              isPlaying ? 'bg-primary animate-pulse' : 'bg-muted-foreground/30'
+                            }`}
+                            style={{ height: `${20 + Math.random() * 60}%` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate">{sample.name}</span>
+                        {sample.is_public && (
+                          <Badge className="text-xs bg-green-500/20 text-green-600 h-4">PUBLIC</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{sample.pack_name || 'My Samples'}</span>
+                        <span>•</span>
+                        <Badge variant="outline" className="h-4 text-xs gap-1">
+                          <CategoryIcon className="w-2 h-2" />
+                          {sample.category}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+                      {sample.bpm && (
+                        <span className="w-12 text-center">{sample.bpm} BPM</span>
+                      )}
+                      {sample.key_signature && (
+                        <span className="w-12 text-center">{sample.key_signature}</span>
+                      )}
+                      <span className="w-10 text-center flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDuration(sample.duration_seconds)}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFavorite.mutate(sample.id)}
+                      >
+                        <Heart 
+                          className={`w-4 h-4 ${sample.is_favorite ? 'text-red-500 fill-red-500' : ''}`} 
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadSample(sample)}
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteSample.mutate(sample.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </ScrollArea>
+
+            {filteredSamples.length === 0 && !isLoading && (
+              <div className="text-center py-12 text-muted-foreground">
+                <Music className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No samples found</p>
+                <p className="text-sm">Upload your first sample or adjust filters</p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setIsUploadOpen(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Upload Sample
+                </Button>
+              </div>
+            )}
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

@@ -745,6 +745,97 @@ export default function DawPage({ user }: DawPageProps) {
     console.log('[DAW] useEffect running, projectData:', projectData ? 'exists' : 'null');
     if (projectData) {
       checkPendingTrack();
+      
+      // Also check for pending layers import from LANDR Layers
+      const pendingLayersImport = localStorage.getItem('pendingLayersImport');
+      if (pendingLayersImport) {
+        try {
+          const importData = JSON.parse(pendingLayersImport);
+          localStorage.removeItem('pendingLayersImport');
+          
+          // Check if import is recent (within 5 minutes)
+          if (Date.now() - importData.timestamp < 300000) {
+            console.log('[DAW] Importing layers from LANDR Layers:', importData);
+            
+            const newTracks: DawTrackV2[] = [];
+            
+            // Add original track if available
+            if (importData.originalTrack?.audioUrl) {
+              const originalTrack: DawTrackV2 = {
+                id: `track_${Date.now()}_original`,
+                type: 'audio' as const,
+                name: importData.originalTrack.name || 'Original',
+                clips: [{
+                  id: `clip_${Date.now()}_original`,
+                  name: importData.originalTrack.name || 'Original',
+                  startTime: 0,
+                  duration: 60, // Will be updated when audio loads
+                  audioUrl: importData.originalTrack.audioUrl
+                }] as AudioClip[],
+                mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
+                isArmed: false,
+                color: 'bg-gray-500',
+                automationLanes: [],
+                recordings: [],
+              } as DawTrackV2;
+              newTracks.push(originalTrack);
+            }
+            
+            // Add each layer as an audio track
+            for (const layer of importData.layers) {
+              if (!layer.audioUrl) continue;
+              
+              const colorMap: Record<string, string> = {
+                drums: 'bg-orange-500',
+                bass: 'bg-purple-500',
+                harmony: 'bg-blue-500',
+                texture: 'bg-green-500',
+                melody: 'bg-pink-500',
+              };
+              
+              const layerTrack: DawTrackV2 = {
+                id: `track_${Date.now()}_${layer.type}`,
+                type: 'audio' as const,
+                name: layer.name,
+                clips: [{
+                  id: `clip_${Date.now()}_${layer.type}`,
+                  name: layer.name,
+                  startTime: 0,
+                  duration: 60,
+                  audioUrl: layer.audioUrl
+                }] as AudioClip[],
+                mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+                isArmed: false,
+                color: colorMap[layer.type] || 'bg-cyan-500',
+                automationLanes: [],
+                recordings: [],
+              } as DawTrackV2;
+              newTracks.push(layerTrack);
+            }
+            
+            if (newTracks.length > 0) {
+              const newData = {
+                ...projectData,
+                tracks: [...projectData.tracks, ...newTracks]
+              };
+              undoRedoControls.pushState(newData, `Imported ${newTracks.length} tracks from LANDR Layers`);
+              setProjectData(newData);
+              
+              // Auto-save
+              saveMutation.mutate({
+                name: projectName,
+                projectData: newData,
+                projectId: activeProjectId
+              });
+              
+              toast.success(`🎹 Imported ${newTracks.length} tracks from LANDR Layers!`);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to import layers:', error);
+          localStorage.removeItem('pendingLayersImport');
+        }
+      }
     }
   }, [projectData]);
 

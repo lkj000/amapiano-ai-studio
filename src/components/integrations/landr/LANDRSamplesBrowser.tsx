@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +51,7 @@ export const LANDRSamplesBrowser: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [isClaimingPack, setIsClaimingPack] = useState(false);
 
   const { packs, samples, isLoading, favorites, toggleFavorite, downloadPack, downloadSample } = useLANDRSamples();
   const audioPlayer = useAudioPlayer();
@@ -73,6 +75,15 @@ export const LANDRSamplesBrowser: React.FC = () => {
       await audioPlayer.play(sample.audio_url, sample.id);
       setPlayingId(sample.id);
     }
+  };
+
+  const claimFreePack = async () => {
+    setIsClaimingPack(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setIsClaimingPack(false);
+    toast.success('Free pack claimed!', {
+      description: 'Check your Downloads for the exclusive samples.'
+    });
   };
 
   return (
@@ -150,7 +161,10 @@ export const LANDRSamplesBrowser: React.FC = () => {
                     <p className="text-sm text-muted-foreground">Download exclusive free samples weekly</p>
                   </div>
                 </div>
-                <Button>Claim Free Pack</Button>
+                <Button onClick={claimFreePack} disabled={isClaimingPack}>
+                  {isClaimingPack ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {isClaimingPack ? 'Claiming...' : 'Claim Free Pack'}
+                </Button>
               </CardContent>
             </Card>
 

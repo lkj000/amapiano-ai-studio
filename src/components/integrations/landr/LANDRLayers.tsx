@@ -449,7 +449,7 @@ export const LANDRLayers: React.FC = () => {
 
     setIsExportingAll(true);
     try {
-      toast.info('Creating ZIP archive...');
+      toast.info('Creating ZIP archive (client-side)...');
 
       const inferExtension = (url: string) => {
         try {
@@ -462,30 +462,48 @@ export const LANDRLayers: React.FC = () => {
         }
       };
 
-      const stems = layersWithUrls.map(l => ({
-        name: `${l.type}-${l.name.toLowerCase().replace(/\s+/g, '-')}.${inferExtension(l.audioUrl)}`,
-        url: l.audioUrl,
-      }));
-
       const projectName = uploadedFile?.name?.replace(/\.[^.]+$/, '') || 'landr-layers';
 
-      const { data, error } = await supabase.functions.invoke('zip-stems', {
-        body: { stems, projectName },
+      // Use client-side JSZip for better performance and no memory limits
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      // Download and add each layer to the ZIP
+      for (let i = 0; i < layersWithUrls.length; i++) {
+        const layer = layersWithUrls[i];
+        toast.info(`Downloading ${layer.name}... (${i + 1}/${layersWithUrls.length})`);
+        
+        try {
+          const response = await fetch(layer.audioUrl);
+          if (!response.ok) {
+            console.error(`Failed to fetch ${layer.name}`);
+            continue;
+          }
+          
+          const blob = await response.blob();
+          const ext = inferExtension(layer.audioUrl);
+          const filename = `${layer.type}-${layer.name.toLowerCase().replace(/\s+/g, '-')}.${ext}`;
+          
+          zip.file(filename, blob);
+        } catch (error) {
+          console.error(`Failed to download ${layer.name}:`, error);
+        }
+      }
+
+      toast.info('Compressing...');
+      
+      // Generate the ZIP file
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
       });
 
-      if (error) throw error;
-      if (!data?.zipData) throw new Error('No ZIP data returned');
-
-      const binaryString = atob(data.zipData);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const blob = new Blob([bytes], { type: 'application/zip' });
-      const url = URL.createObjectURL(blob);
+      // Download the ZIP
+      const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = data.filename || `${projectName}-layers.zip`;
+      a.download = `${projectName}-layers.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -494,7 +512,7 @@ export const LANDRLayers: React.FC = () => {
       toast.success('ZIP downloaded!');
     } catch (error) {
       console.error('[LANDRLayers] Export All failed:', error);
-      toast.error('Export All failed');
+      toast.error('Export All failed - downloading individually...');
 
       // Fallback: download layers individually
       for (let i = 0; i < layersWithUrls.length; i++) {

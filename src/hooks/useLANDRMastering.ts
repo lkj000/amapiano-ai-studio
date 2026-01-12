@@ -45,29 +45,43 @@ export interface MasteredTrack {
 }
 
 /**
- * Convert any audio file to WAV format using Web Audio API
- * This handles MP3, WAV, OGG, FLAC, and other browser-supported formats
+ * Convert any audio file to a WAV Blob using the Web Audio API.
+ *
+ * Note: WAV is uncompressed and can get very large; we prefer uploading the WAV
+ * to Storage and sending a signed URL to the Edge Function to avoid request-size limits.
  */
-async function convertToWav(file: File): Promise<string> {
+async function convertToWavBlob(file: File): Promise<Blob> {
   const arrayBuffer = await file.arrayBuffer();
-  
-  // Create audio context for decoding
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  
+
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  const audioContext: AudioContext = new AudioContextCtor();
+
   try {
-    // Decode the audio file (works with MP3, WAV, OGG, etc.)
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    
-    // Convert to WAV format
-    const wavBuffer = audioBufferToWav(audioBuffer);
-    
-    // Convert to base64
-    const base64 = arrayBufferToBase64(wavBuffer);
-    
-    return `data:audio/wav;base64,${base64}`;
+    // Called from a user gesture ("Master" click), so resume should be allowed.
+    if (audioContext.state === 'suspended') {
+      try {
+        await audioContext.resume();
+      } catch {
+        // If resume is blocked for any reason, decodeAudioData may still work.
+      }
+    }
+
+    // Some browsers expect a non-detached buffer
+    const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    const wavBuffer = audioBufferToWav(decoded);
+    return new Blob([wavBuffer], { type: 'audio/wav' });
   } finally {
     await audioContext.close();
   }
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
@@ -77,51 +91,51 @@ function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
   const numChannels = Math.min(buffer.numberOfChannels, 2); // Limit to stereo
   const sampleRate = buffer.sampleRate;
   const bitsPerSample = 16;
-  
+
   // Interleave channels
   const length = buffer.length * numChannels;
   const interleaved = new Float32Array(length);
-  
+
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
     for (let i = 0; i < buffer.length; i++) {
       interleaved[i * numChannels + channel] = channelData[i];
     }
   }
-  
+
   // Create WAV file
   const dataLength = length * (bitsPerSample / 8);
   const wavBuffer = new ArrayBuffer(44 + dataLength);
   const view = new DataView(wavBuffer);
-  
+
   // RIFF header
   writeWavString(view, 0, 'RIFF');
   view.setUint32(4, 36 + dataLength, true);
   writeWavString(view, 8, 'WAVE');
-  
+
   // fmt chunk
   writeWavString(view, 12, 'fmt ');
   view.setUint32(16, 16, true); // chunk size
-  view.setUint16(20, 1, true);  // PCM format
+  view.setUint16(20, 1, true); // PCM format
   view.setUint16(22, numChannels, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true);
   view.setUint16(32, numChannels * (bitsPerSample / 8), true);
   view.setUint16(34, bitsPerSample, true);
-  
+
   // data chunk
   writeWavString(view, 36, 'data');
   view.setUint32(40, dataLength, true);
-  
+
   // Write audio data
   let offset = 44;
   for (let i = 0; i < interleaved.length; i++) {
     const sample = Math.max(-1, Math.min(1, interleaved[i]));
-    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+    const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
     view.setInt16(offset, int16, true);
     offset += 2;
   }
-  
+
   return wavBuffer;
 }
 
@@ -131,16 +145,6 @@ function writeWavString(view: DataView, offset: number, str: string): void {
   }
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
-}
 
 /**
  * Convert base64 data URL to Blob
@@ -195,10 +199,11 @@ export function useLANDRMastering() {
       setCurrentTrack(track);
 
       // Convert file to WAV format (handles MP3, OGG, etc.)
-      console.log('[useLANDRMastering] Converting file to WAV format...');
-      const audioBase64 = await convertToWav(file);
-      console.log('[useLANDRMastering] Converted to WAV, base64 length:', audioBase64.length);
-      
+      console.log('[useLANDRMastering] Converting file to WAV...');
+      const wavBlob = await convertToWavBlob(file);
+      const audioBase64 = await blobToDataUrl(wavBlob);
+      console.log('[useLANDRMastering] Converted to WAV, data URL length:', audioBase64.length);
+
       track.progress = 20;
       setCurrentTrack({ ...track });
 

@@ -50,6 +50,11 @@ interface GeneratedLayer {
   solo: boolean;
 }
 
+// Solo state management
+const toggleLayerSolo = (layers: GeneratedLayer[], layerId: string): GeneratedLayer[] => {
+  return layers.map(l => l.id === layerId ? { ...l, solo: !l.solo } : l);
+};
+
 type StemKey = 'vocals' | 'drums' | 'bass' | 'other' | 'guitar' | 'piano';
 
 type StemResult = Partial<Record<StemKey, string>>;
@@ -542,6 +547,11 @@ export const LANDRLayers: React.FC = () => {
     updateLayerVolume(layerId, volume);
   }, []);
 
+  // Handle layer solo toggle from timeline
+  const handleTimelineSoloToggle = useCallback((layerId: string) => {
+    setLayers(prev => toggleLayerSolo(prev, layerId));
+  }, []);
+
   // Handle opening layers in DAW
   const handleOpenInDAW = useCallback(() => {
     const dawImportData = {
@@ -601,6 +611,7 @@ export const LANDRLayers: React.FC = () => {
           originalTrackName={uploadedFile?.name || 'Original'}
           onLayerVolumeChange={handleTimelineVolumeChange}
           onLayerMuteToggle={handleTimelineMuteToggle}
+          onLayerSoloToggle={handleTimelineSoloToggle}
           onOpenInDAW={handleOpenInDAW}
         />
       )}

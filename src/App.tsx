@@ -55,6 +55,7 @@ import VoiceLicensing from "./pages/VoiceLicensing";
 import TextToProduction from "./pages/TextToProduction";
 import TrainingDataset from "./pages/TrainingDataset";
 import VoiceLab from "./pages/VoiceLab";
+import AudioLab from "./pages/AudioLab";
 
 const queryClient = new QueryClient();
 
@@ -183,6 +184,7 @@ const App = () => {
               <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
               <Route path="/training-dataset" element={<TrainingDataset />} />
               <Route path="/voice-lab" element={<VoiceLab />} />
+              <Route path="/audio-lab" element={<AudioLab />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

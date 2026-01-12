@@ -144,7 +144,38 @@ Deno.serve(async (req) => {
     // Parse WAV header
     const header = parseWavHeader(audioBuffer);
     if (!header) {
-      throw new Error('Invalid WAV file format');
+      const magic = new Uint8Array(audioBuffer.slice(0, 4));
+      const looksLikeMp3 =
+        (magic[0] === 0x49 && magic[1] === 0x44 && magic[2] === 0x33) || // "ID3"
+        (magic[0] === 0xff && (magic[1] & 0xe0) === 0xe0); // frame sync
+
+      const hint = looksLikeMp3
+        ? 'Unsupported input format (looks like MP3). Please upload WAV/PCM or convert to WAV before mastering.'
+        : 'Invalid WAV file format (WAV/PCM required).';
+
+      // Best-effort: mark the job failed
+      if (job?.id) {
+        try {
+          await supabase
+            .from('audio_analysis_results')
+            .update({
+              analysis_data: {
+                settings,
+                status: 'failed',
+                error: hint,
+                failedAt: new Date().toISOString(),
+              },
+            })
+            .eq('id', job.id);
+        } catch {
+          // ignore
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, status: 'failed', error: hint }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     console.log('[ai-mastering] WAV info:', {

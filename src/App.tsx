@@ -57,6 +57,7 @@ import TrainingDataset from "./pages/TrainingDataset";
 import VoiceLab from "./pages/VoiceLab";
 import AudioLab from "./pages/AudioLab";
 import Studio from "./pages/Studio";
+import LANDRHub from "./pages/LANDRHub";
 
 const queryClient = new QueryClient();
 
@@ -187,6 +188,7 @@ const App = () => {
               <Route path="/voice-lab" element={<VoiceLab />} />
               <Route path="/audio-lab" element={<AudioLab />} />
               <Route path="/studio" element={<Studio user={user} />} />
+              <Route path="/landr" element={<LANDRHub />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

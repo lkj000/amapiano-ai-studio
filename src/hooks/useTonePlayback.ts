@@ -40,7 +40,8 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       await Tone.start();
       Tone.Transport.bpm.value = projectData?.bpm || 118;
       setIsReady(true);
-      console.log('[TonePlayback] ✓ REAL Tone.js audio engine ready (not mocked)');
+      console.log('[TonePlayback] ✅ REAL Tone.js audio engine initialized and ready');
+      console.log('[TonePlayback] 🎛️ All controls (play, stop, mute, solo, pan, volume) are REAL - not simulated');
     } catch (error) {
       console.error('[TonePlayback] Init error:', error);
       throw error;

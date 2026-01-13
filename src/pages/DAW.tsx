@@ -308,6 +308,55 @@ export default function DawPage({ user }: DawPageProps) {
     }
   }, [tonePlayback]);
 
+  // Real-time automation playback - apply automation values during playback
+  useEffect(() => {
+    if (!tonePlayback.isPlaying || !projectData) return;
+    
+    const applyAutomation = () => {
+      const currentBeat = tonePlayback.currentTime;
+      
+      projectData.tracks.forEach((track) => {
+        const trackV2 = track as DawTrackV2;
+        if (!trackV2.automationLanes) return;
+        
+        trackV2.automationLanes.forEach((lane) => {
+          if (!lane.isEnabled || lane.points.length === 0) return;
+          
+          const points = [...lane.points].sort((a, b) => a.time - b.time);
+          
+          // Find interpolated value at current time
+          let value = points[0]?.value || 0;
+          
+          if (currentBeat <= points[0].time) {
+            value = points[0].value;
+          } else if (currentBeat >= points[points.length - 1].time) {
+            value = points[points.length - 1].value;
+          } else {
+            for (let i = 0; i < points.length - 1; i++) {
+              if (currentBeat >= points[i].time && currentBeat < points[i + 1].time) {
+                const t = (currentBeat - points[i].time) / (points[i + 1].time - points[i].time);
+                value = points[i].value + t * (points[i + 1].value - points[i].value);
+                break;
+              }
+            }
+          }
+          
+          // Apply to Tone.js based on parameter type
+          if (lane.parameterType === 'volume') {
+            tonePlayback.setTrackVolume(track.id, value);
+          } else if (lane.parameterType === 'pan') {
+            tonePlayback.setTrackPan(track.id, (value - 0.5) * 2); // Convert 0-1 to -1 to 1
+          }
+        });
+      });
+    };
+    
+    // Apply automation at 30fps for smooth parameter changes
+    const intervalId = setInterval(applyAutomation, 33);
+    
+    return () => clearInterval(intervalId);
+  }, [tonePlayback.isPlaying, tonePlayback.currentTime, projectData, tonePlayback]);
+
   // Plugin System
   const { createPluginInstance, installedPlugins } = usePluginSystem(getAudioContext());
   
@@ -873,14 +922,20 @@ export default function DawPage({ user }: DawPageProps) {
         tonePlayback.setTrackVolume(trackId, updates.volume);
       }
 
+      // Update Tone.js pan in real-time
+      if (updates.pan !== undefined) {
+        tonePlayback.setTrackPan(trackId, updates.pan);
+        console.log(`[DAW] Track ${trackId} pan: ${updates.pan} (REAL Tone.js)`);
+      }
+
       // Update Tone.js mute/solo in real-time
       if (updates.isMuted !== undefined) {
         tonePlayback.setTrackMute(trackId, updates.isMuted);
-        console.log(`[DAW] Track ${trackId} mute: ${updates.isMuted}`);
+        console.log(`[DAW] Track ${trackId} mute: ${updates.isMuted} (REAL Tone.js)`);
       }
       if (updates.isSolo !== undefined) {
         tonePlayback.setTrackSolo(trackId, updates.isSolo);
-        console.log(`[DAW] Track ${trackId} solo: ${updates.isSolo}`);
+        console.log(`[DAW] Track ${trackId} solo: ${updates.isSolo} (REAL Tone.js)`);
       }
 
       const newData = { ...prev, tracks: newTracks };
@@ -1407,8 +1462,40 @@ export default function DawPage({ user }: DawPageProps) {
       undoRedoControls.pushState(newData, `Updated automation for track`);
       return newData;
     });
+    
+    // Apply automation values to Tone.js in real-time
+    lanes.forEach(lane => {
+      if (!lane.isEnabled || lane.points.length === 0) return;
+      
+      // Get interpolated value at current time
+      const currentBeat = currentTime;
+      const points = lane.points.sort((a, b) => a.time - b.time);
+      
+      // Find the two points surrounding current time
+      let value = points[0]?.value || 0;
+      for (let i = 0; i < points.length - 1; i++) {
+        if (currentBeat >= points[i].time && currentBeat < points[i + 1].time) {
+          // Linear interpolation between points
+          const t = (currentBeat - points[i].time) / (points[i + 1].time - points[i].time);
+          value = points[i].value + t * (points[i + 1].value - points[i].value);
+          break;
+        } else if (currentBeat >= points[points.length - 1].time) {
+          value = points[points.length - 1].value;
+        }
+      }
+      
+      // Apply to Tone.js based on parameter type
+      if (lane.parameterType === 'volume') {
+        tonePlayback.setTrackVolume(trackId, value);
+        console.log(`[DAW Automation] Track ${trackId} volume: ${value.toFixed(2)} (REAL Tone.js)`);
+      } else if (lane.parameterType === 'pan') {
+        tonePlayback.setTrackPan(trackId, (value - 0.5) * 2); // Convert 0-1 to -1 to 1
+        console.log(`[DAW Automation] Track ${trackId} pan: ${((value - 0.5) * 2).toFixed(2)} (REAL Tone.js)`);
+      }
+    });
+    
     toast.success('Automation updated');
-  }, [undoRedoControls]);
+  }, [undoRedoControls, currentTime, tonePlayback]);
 
   const handleRecording = useCallback((recording: AudioRecording) => {
     if (!projectData || !selectedTrackId) return;

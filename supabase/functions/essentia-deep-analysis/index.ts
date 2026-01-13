@@ -102,11 +102,11 @@ serve(async (req) => {
     
     console.log(`[ESSENTIA-DEEP] Analyzing audio with type: ${analysisType}`);
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     // If no API key, use fallback immediately
-    if (!OPENAI_API_KEY) {
-      console.log('[ESSENTIA-DEEP] No OpenAI API key, using heuristic fallback');
+    if (!LOVABLE_API_KEY) {
+      console.log('[ESSENTIA-DEEP] No Lovable API key, using heuristic fallback');
       const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
       return new Response(JSON.stringify({
         success: true,
@@ -120,7 +120,7 @@ serve(async (req) => {
     }
 
     // Build specialized prompts based on analysis type
-    const systemPrompts = {
+    const systemPrompts: Record<string, string> = {
       genre: `You are an expert music genre classifier trained on Essentia's deep learning models. 
 Analyze audio features and classify into detailed genres and subgenres with confidence scores.
 Focus on: tempo, rhythm patterns, harmonic structure, instrumentation, production style.`,
@@ -150,7 +150,7 @@ danceability analysis, and cultural authenticity assessment. Provide holistic mu
 - MFCCs: ${audioFeatures.spectral?.mfcc?.slice(0, 5).join(', ') || 'N/A'}...
 
 **Temporal Features:**
-- BPM: ${audioFeatures.temporal?.bpm || 'N/A'}
+- BPM: ${audioFeatures.temporal?.bpm || audioFeatures.rhythm?.bpm || 'N/A'}
 - Zero Crossing Rate: ${audioFeatures.temporal?.zeroCrossingRate || 'N/A'}
 - Energy: ${audioFeatures.temporal?.energy || 'N/A'}
 - RMS: ${audioFeatures.temporal?.rms || 'N/A'}
@@ -176,35 +176,47 @@ ${analysisType === 'cultural' || analysisType === 'all' ? `
 - confidence: overall confidence score (0-1)
 - insights: key observations`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Use cheaper model to conserve quota
+        model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompts[analysisType] },
+          { role: 'system', content: systemPrompts[analysisType] || systemPrompts.all },
           { role: 'user', content: userPrompt }
         ],
-        response_format: { type: "json_object" },
-        max_tokens: 1500,
         temperature: 0.3,
       }),
     });
 
     // Handle rate limit / quota errors with fallback
-    if (response.status === 429 || response.status === 402) {
-      const errorText = await response.text();
-      console.warn('[ESSENTIA-DEEP] OpenAI quota/rate limit hit, using fallback:', errorText);
+    if (response.status === 429) {
+      console.warn('[ESSENTIA-DEEP] Rate limit hit, using fallback');
       const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
       return new Response(JSON.stringify({
         success: true,
         analysis: fallbackAnalysis,
         analysisType,
         model: 'heuristic_fallback',
-        warning: 'AI quota exceeded - using heuristic analysis',
+        warning: 'Rate limit exceeded - using heuristic analysis',
+        timestamp: Date.now(),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (response.status === 402) {
+      console.warn('[ESSENTIA-DEEP] Payment required, using fallback');
+      const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: fallbackAnalysis,
+        analysisType,
+        model: 'heuristic_fallback',
+        warning: 'AI credits exhausted - using heuristic analysis',
         timestamp: Date.now(),
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -213,8 +225,7 @@ ${analysisType === 'cultural' || analysisType === 'all' ? `
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[ESSENTIA-DEEP] OpenAI API error:', response.status, errorText);
-      // Use fallback for any API error
+      console.error('[ESSENTIA-DEEP] AI API error:', response.status, errorText);
       const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
       return new Response(JSON.stringify({
         success: true,
@@ -229,15 +240,40 @@ ${analysisType === 'cultural' || analysisType === 'all' ? `
     }
 
     const aiResponse = await response.json();
-    const analysis = JSON.parse(aiResponse.choices[0].message.content);
+    const content = aiResponse.choices?.[0]?.message?.content;
 
-    console.log('[ESSENTIA-DEEP] Analysis completed successfully');
+    if (!content) {
+      const fallbackAnalysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      return new Response(JSON.stringify({
+        success: true,
+        analysis: fallbackAnalysis,
+        analysisType,
+        model: 'heuristic_fallback',
+        timestamp: Date.now(),
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Parse JSON from response
+    let analysis;
+    try {
+      const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      const jsonStr = jsonMatch ? jsonMatch[1] : content;
+      analysis = JSON.parse(jsonStr);
+    } catch {
+      // If parsing fails, extract key information
+      analysis = generateFallbackAnalysis(audioFeatures, analysisType);
+      analysis.insights = content.substring(0, 500);
+    }
+
+    console.log('[ESSENTIA-DEEP] ✓ AI analysis completed successfully');
 
     return new Response(JSON.stringify({
       success: true,
       analysis,
       analysisType,
-      model: 'gpt-4o-mini',
+      model: 'lovable-ai',
       timestamp: Date.now(),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

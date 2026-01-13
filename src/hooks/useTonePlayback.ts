@@ -25,6 +25,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  const [audioLoadingCount, setAudioLoadingCount] = useState(0);
 
   const playersRef = useRef<Map<string, Tone.Player>>(new Map());
   const instrumentsRef = useRef<Map<string, TrackInstrument>>(new Map());
@@ -54,7 +55,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     Tone.Transport.bpm.value = projectData?.bpm || 118;
   }, [isReady, projectData?.bpm]);
 
-  // Setup tracks when project changes
+  // Setup tracks when project changes - preload audio files
   useEffect(() => {
     if (!isReady || !projectData) return;
 
@@ -96,9 +97,47 @@ export function useTonePlayback(projectData: DawProjectData | null) {
 
         instrumentsRef.current.set(track.id, { synth, effects, type: instrumentType });
       }
+
+      // PRE-LOAD audio clips for audio tracks
+      if (track.type === 'audio') {
+        track.clips.forEach((clip) => {
+          if ('audioUrl' in clip && clip.audioUrl) {
+            const clipKey = `${track.id}_${clip.id}`;
+            
+            // Skip if already loaded
+            if (playersRef.current.has(clipKey)) return;
+            
+            console.log(`[TonePlayback] 🔄 Pre-loading audio: ${clip.name || clipKey}`);
+            setAudioLoadingCount(prev => prev + 1);
+            
+            const player = new Tone.Player({
+              url: clip.audioUrl,
+              onload: () => {
+                console.log(`[TonePlayback] ✅ Loaded audio: ${clip.name || clipKey}`);
+                setAudioLoadingCount(prev => Math.max(0, prev - 1));
+              },
+              onerror: (err) => {
+                console.error(`[TonePlayback] ❌ Failed to load audio: ${clip.name || clipKey}`, err);
+                setAudioLoadingCount(prev => Math.max(0, prev - 1));
+              },
+            });
+
+            const trackChannel = trackChannelsRef.current.get(track.id);
+            if (trackChannel) {
+              player.connect(trackChannel);
+            } else {
+              player.toDestination();
+            }
+
+            playersRef.current.set(clipKey, player);
+          }
+        });
+      }
     });
 
-    console.log('[TonePlayback] Tracks ready:', trackChannelsRef.current.size, 'instruments:', instrumentsRef.current.size);
+    console.log('[TonePlayback] Tracks ready:', trackChannelsRef.current.size, 
+      'instruments:', instrumentsRef.current.size, 
+      'audio players:', playersRef.current.size);
   }, [isReady, projectData]);
 
   const play = useCallback(async () => {
@@ -123,6 +162,9 @@ export function useTonePlayback(projectData: DawProjectData | null) {
 
       // Schedule MIDI notes + audio clips for the whole project
       projectData.tracks.forEach((track) => {
+        // Skip muted tracks
+        const channel = trackChannelsRef.current.get(track.id);
+        
         if (track.type === 'midi') {
           const instrument = instrumentsRef.current.get(track.id);
           if (!instrument) return;
@@ -153,32 +195,47 @@ export function useTonePlayback(projectData: DawProjectData | null) {
             if ('audioUrl' in clip && clip.audioUrl) {
               const clipKey = `${track.id}_${clip.id}`;
 
+              // Use pre-loaded player if available
               let player = playersRef.current.get(clipKey);
+              
               if (!player) {
+                // Create player if not pre-loaded (shouldn't happen normally)
+                console.log(`[TonePlayback] 🔄 Creating player on-the-fly: ${clip.name || clipKey}`);
                 player = new Tone.Player({
                   url: clip.audioUrl,
                   onload: () => {
-                    console.log(`[TonePlayback] Loaded: ${clip.name}`);
+                    console.log(`[TonePlayback] ✅ Loaded: ${clip.name || clipKey}`);
                   },
                   onerror: (err) => {
-                    console.error(`[TonePlayback] Load error:`, err);
+                    console.error(`[TonePlayback] ❌ Load error:`, err);
                   },
                 });
 
-                const channel = trackChannelsRef.current.get(track.id);
                 if (channel) {
                   player.connect(channel);
+                } else {
+                  player.toDestination();
                 }
 
                 playersRef.current.set(clipKey, player);
               }
 
-              // Always schedule start (stop() cancels schedules)
+              // Schedule audio playback
               const startTime = `0:${clip.startTime || 0}:0`;
+              const playerRef = player; // Capture for closure
+              
               Tone.Transport.schedule((time) => {
                 try {
-                  player!.start(time);
-                } catch {}
+                  // Check if player is loaded before playing
+                  if (playerRef.loaded) {
+                    playerRef.start(time);
+                    console.log(`[TonePlayback] 🎵 Playing audio: ${clip.name || clipKey}`);
+                  } else {
+                    console.warn(`[TonePlayback] ⚠️ Audio not loaded yet: ${clip.name || clipKey}`);
+                  }
+                } catch (err) {
+                  console.error(`[TonePlayback] Play error:`, err);
+                }
               }, startTime);
             }
           });
@@ -197,7 +254,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       setCurrentTime(beats);
     }, 50);
 
-    console.log('[TonePlayback] ▶️ Playing');
+    console.log('[TonePlayback] ▶️ Playing with', playersRef.current.size, 'audio players');
   }, [isReady, initialize, projectData]);
 
   const pause = useCallback(() => {
@@ -353,10 +410,16 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     };
   }, []);
 
+  // Check if all audio is loaded
+  const isAudioLoading = audioLoadingCount > 0;
+  const audioPlayerCount = playersRef.current.size;
+
   return {
     isPlaying,
     currentTime,
     isReady,
+    isAudioLoading,
+    audioPlayerCount,
     initialize,
     play,
     pause,

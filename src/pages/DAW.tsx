@@ -533,7 +533,7 @@ export default function DawPage({ user }: DawPageProps) {
 
   // Track Generation Handler
   const handleTrackGenerated = useCallback((trackData: any) => {
-    console.log('Track generated in DAW:', trackData);
+    console.log('[DAW] Track generated:', trackData);
     
     if (!projectData) {
       toast.error("No project loaded", { description: "Create or load a project first." });
@@ -548,7 +548,7 @@ export default function DawPage({ user }: DawPageProps) {
       clips: trackData.audioUrl ? [{
         id: `clip_${Date.now()}`,
         startTime: 0,
-        duration: 4, // Default duration, will be updated when audio loads
+        duration: 16, // Default duration, will be adjusted
         audioUrl: trackData.audioUrl,
         name: trackData.name || 'Generated Audio'
       }] : [],
@@ -564,9 +564,17 @@ export default function DawPage({ user }: DawPageProps) {
     undoRedoControls.pushState(newData, `AI Generated: ${newTrack.name}`);
     setProjectData(newData);
     
-    toast.success(`🎵 Track "${newTrack.name}" added to project!`, {
-      description: `${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'}`
-    });
+    // Notify user that audio is being loaded
+    if (trackData.audioUrl) {
+      toast.success(`🎵 Track "${newTrack.name}" added!`, {
+        description: `${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'} • Loading audio...`
+      });
+      console.log('[DAW] Audio track added with URL, Tone.js will pre-load it:', trackData.audioUrl);
+    } else {
+      toast.success(`🎵 Track "${newTrack.name}" added to project!`, {
+        description: `${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'}`
+      });
+    }
   }, [projectData, undoRedoControls]);
 
   // Check for pending generated tracks on mount
@@ -2437,20 +2445,35 @@ export default function DawPage({ user }: DawPageProps) {
                       "h-9 w-9 sm:h-10 sm:w-10 rounded-lg shadow-md transition-all",
                       tonePlayback.isPlaying 
                         ? "bg-muted hover:bg-muted/80" 
-                        : "bg-gradient-to-br from-primary via-primary to-primary/80 hover:shadow-lg hover:scale-105"
+                        : "bg-gradient-to-br from-primary via-primary to-primary/80 hover:shadow-lg hover:scale-105",
+                      tonePlayback.isAudioLoading && "opacity-75"
                     )}
                     onClick={async () => {
-                      console.log('DAW Transport: Play/Pause clicked (Tone.js)', { isPlaying: tonePlayback.isPlaying });
+                      console.log('DAW Transport: Play/Pause clicked (Tone.js)', { 
+                        isPlaying: tonePlayback.isPlaying,
+                        isAudioLoading: tonePlayback.isAudioLoading,
+                        audioPlayerCount: tonePlayback.audioPlayerCount
+                      });
                       if (tonePlayback.isPlaying) {
                         tonePlayback.pause();
                         pause(); // Keep legacy for levels/time display
                       } else {
+                        if (tonePlayback.isAudioLoading) {
+                          toast.info('⏳ Audio files are still loading...', { duration: 2000 });
+                        }
                         await tonePlayback.play();
                         play(); // Keep legacy for levels/time display
                       }
                     }}
+                    disabled={!tonePlayback.isReady && !audioGateVisible}
                   >
-                    {tonePlayback.isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5 ml-0.5" />}
+                    {tonePlayback.isAudioLoading ? (
+                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                    ) : tonePlayback.isPlaying ? (
+                      <Pause className="h-4 w-4 sm:h-5 sm:w-5" />
+                    ) : (
+                      <Play className="h-4 w-4 sm:h-5 sm:w-5 ml-0.5" />
+                    )}
                   </Button>
                   <Button 
                     variant={isRecording ? "destructive" : "ghost"}

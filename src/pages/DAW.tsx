@@ -870,6 +870,17 @@ export default function DawPage({ user }: DawPageProps) {
       // Update audio engine volume in real-time
       if (updates.volume !== undefined) {
         setTrackVolume(trackId, updates.volume);
+        tonePlayback.setTrackVolume(trackId, updates.volume);
+      }
+
+      // Update Tone.js mute/solo in real-time
+      if (updates.isMuted !== undefined) {
+        tonePlayback.setTrackMute(trackId, updates.isMuted);
+        console.log(`[DAW] Track ${trackId} mute: ${updates.isMuted}`);
+      }
+      if (updates.isSolo !== undefined) {
+        tonePlayback.setTrackSolo(trackId, updates.isSolo);
+        console.log(`[DAW] Track ${trackId} solo: ${updates.isSolo}`);
       }
 
       const newData = { ...prev, tracks: newTracks };
@@ -883,7 +894,7 @@ export default function DawPage({ user }: DawPageProps) {
       }
       return newData;
     });
-  }, [setTrackVolume, undoRedoControls]);
+  }, [setTrackVolume, tonePlayback, undoRedoControls]);
 
   const handleAddTrack = (instrument?: { name: string, type: string, color: string }) => {
     if (!projectData) return;
@@ -2637,10 +2648,26 @@ export default function DawPage({ user }: DawPageProps) {
           onClose={() => setShowMixer(false)} 
           onTrackVolumeChange={(trackId, volume) => {
             updateMixer(trackId, { volume });
-          }} 
+          }}
+          onTrackPanChange={(trackId, pan) => {
+            updateMixer(trackId, { pan });
+          }}
           onMasterVolumeChange={(volume) => {
             setProjectData({ ...projectData, masterVolume: volume });
             setMasterVolume(volume);
+            tonePlayback.setMasterVolume(volume);
+          }}
+          onMuteToggle={(trackId) => {
+            const track = projectData.tracks.find(t => t.id === trackId);
+            if (track) {
+              updateMixer(trackId, { isMuted: !track.mixer.isMuted });
+            }
+          }}
+          onSoloToggle={(trackId) => {
+            const track = projectData.tracks.find(t => t.id === trackId);
+            if (track) {
+              updateMixer(trackId, { isSolo: !track.mixer.isSolo });
+            }
           }}
           audioLevels={audioLevels}
           masterLevels={masterLevels}

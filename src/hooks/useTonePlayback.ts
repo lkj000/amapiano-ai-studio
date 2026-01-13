@@ -217,6 +217,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     const channel = trackChannelsRef.current.get(trackId);
     if (channel) {
       channel.mute = muted;
+      console.log(`[TonePlayback] Track ${trackId} mute: ${muted}`);
     }
   }, []);
 
@@ -224,6 +225,15 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     const channel = trackChannelsRef.current.get(trackId);
     if (channel) {
       channel.solo = solo;
+      console.log(`[TonePlayback] Track ${trackId} solo: ${solo}`);
+    }
+  }, []);
+
+  const setTrackPan = useCallback((trackId: string, pan: number) => {
+    const channel = trackChannelsRef.current.get(trackId);
+    if (channel) {
+      channel.pan.value = pan;
+      console.log(`[TonePlayback] Track ${trackId} pan: ${pan}`);
     }
   }, []);
 
@@ -253,5 +263,6 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     setTrackVolume,
     setTrackMute,
     setTrackSolo,
+    setTrackPan,
   };
 }

@@ -10,7 +10,10 @@ interface OptimizedMixerProps {
   masterVolume: number;
   onClose: () => void;
   onTrackVolumeChange: (trackId: string, volume: number) => void;
+  onTrackPanChange?: (trackId: string, pan: number) => void;
   onMasterVolumeChange: (volume: number) => void;
+  onMuteToggle: (trackId: string) => void;
+  onSoloToggle: (trackId: string) => void;
   audioLevels?: Map<string, AudioLevels>;
   masterLevels?: AudioLevels;
 }
@@ -43,18 +46,25 @@ const TrackChannel = memo<{
   track: DawTrack;
   audioLevel?: AudioLevels;
   onVolumeChange: (trackId: string, volume: number) => void;
-}>(({ track, audioLevel, onVolumeChange }) => {
+  onPanChange?: (trackId: string, pan: number) => void;
+  onMuteToggle: (trackId: string) => void;
+  onSoloToggle: (trackId: string) => void;
+}>(({ track, audioLevel, onVolumeChange, onPanChange, onMuteToggle, onSoloToggle }) => {
   const handleVolumeChange = useCallback(([value]: number[]) => {
     onVolumeChange(track.id, value / 100);
   }, [onVolumeChange, track.id]);
 
+  const handlePanChange = useCallback(([value]: number[]) => {
+    onPanChange?.(track.id, value / 100);
+  }, [onPanChange, track.id]);
+
   const handleMute = useCallback(() => {
-    // Toggle mute - this should be handled by the parent component
-  }, []);
+    onMuteToggle(track.id);
+  }, [onMuteToggle, track.id]);
 
   const handleSolo = useCallback(() => {
-    // Toggle solo - this should be handled by the parent component
-  }, []);
+    onSoloToggle(track.id);
+  }, [onSoloToggle, track.id]);
 
   return (
     <Card className="w-80">
@@ -70,6 +80,7 @@ const TrackChannel = memo<{
             size="sm" 
             variant={track.mixer.isMuted ? "destructive" : "outline"} 
             onClick={handleMute}
+            className="font-bold"
           >
             M
           </Button>
@@ -77,6 +88,7 @@ const TrackChannel = memo<{
             size="sm" 
             variant={track.mixer.isSolo ? "secondary" : "outline"}
             onClick={handleSolo}
+            className="font-bold"
           >
             S
           </Button>
@@ -113,7 +125,7 @@ const TrackChannel = memo<{
           <label className="text-xs">Pan</label>
           <Slider
             value={[track.mixer.pan * 100]}
-            onValueChange={([value]) => {/* Handle pan change */}}
+            onValueChange={handlePanChange}
             min={-100}
             max={100}
             step={1}
@@ -189,7 +201,10 @@ export const OptimizedMixer: React.FC<OptimizedMixerProps> = memo(({
   masterVolume,
   onClose,
   onTrackVolumeChange,
+  onTrackPanChange,
   onMasterVolumeChange,
+  onMuteToggle,
+  onSoloToggle,
   audioLevels,
   masterLevels
 }) => {
@@ -213,6 +228,9 @@ export const OptimizedMixer: React.FC<OptimizedMixerProps> = memo(({
                 track={track}
                 audioLevel={trackLevel}
                 onVolumeChange={onTrackVolumeChange}
+                onPanChange={onTrackPanChange}
+                onMuteToggle={onMuteToggle}
+                onSoloToggle={onSoloToggle}
               />
             );
           })}

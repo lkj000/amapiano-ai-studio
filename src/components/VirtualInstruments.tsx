@@ -9,6 +9,8 @@ import {
   Radio, Sliders, Zap, AudioWaveform, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAmapianoPlayback } from '@/hooks/useAmapianoPlayback';
+import type { AmapianoInstrumentType } from '@/lib/audio/amapianoSynths';
 
 interface VirtualInstrumentsProps {
   selectedInstrument?: string;
@@ -128,8 +130,8 @@ export const VirtualInstruments: React.FC<VirtualInstrumentsProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeTab, setActiveTab] = useState('instruments');
 
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  // Use Amapiano-specific playback system instead of basic Web Audio
+  const amapianoPlayback = useAmapianoPlayback();
 
   useEffect(() => {
     const instrument = AMAPIANO_INSTRUMENTS.find(i => i.id === activeInstrument);
@@ -137,19 +139,6 @@ export const VirtualInstruments: React.FC<VirtualInstrumentsProps> = ({
       setInstrumentParams(instrument.parameters);
     }
   }, [activeInstrument]);
-
-  useEffect(() => {
-    // Initialize Web Audio API
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-
-    return () => {
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-    };
-  }, []);
 
   const handleInstrumentSelect = (instrumentId: string) => {
     setActiveInstrument(instrumentId);
@@ -176,172 +165,69 @@ export const VirtualInstruments: React.FC<VirtualInstrumentsProps> = ({
     }
   };
 
-  const playTestNote = async () => {
-    if (!audioContextRef.current) return;
-
-    try {
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-
-      // Stop any existing note
-      if (oscillatorRef.current) {
-        oscillatorRef.current.stop();
-      }
-
-      const instrument = AMAPIANO_INSTRUMENTS.find(i => i.id === activeInstrument);
-      if (!instrument) return;
-
-      setIsPlaying(true);
-
-      // Create a simple synthesis based on instrument type
-      switch (instrument.id) {
-        case 'signature-log-drum':
-          playLogDrumSynth();
-          break;
-        case 'amapiano-piano':
-          playPianoSynth();
-          break;
-        case 'deep-bass':
-          playBassSynth();
-          break;
-        default:
-          playGenericSynth();
-      }
-
-      onNotePlay?.('C4', 0.8);
-      
-      // Auto-stop after 2 seconds
-      setTimeout(() => {
-        setIsPlaying(false);
-      }, 2000);
-
-    } catch (error) {
-      console.error('Audio playback error:', error);
-      toast.error('Failed to play test sound');
+  // Map instrument IDs to Amapiano synth types
+  const getInstrumentType = (instrumentId: string): AmapianoInstrumentType => {
+    switch (instrumentId) {
+      case 'signature-log-drum': return 'log_drum';
+      case 'amapiano-piano': return 'piano';
+      case 'deep-bass': return 'bass';
+      case 'percussion-sampler': return 'percussion';
+      default: return 'default';
     }
   };
 
-  const playLogDrumSynth = () => {
-    if (!audioContextRef.current) return;
+  const playTestNote = async () => {
+    const instrument = AMAPIANO_INSTRUMENTS.find(i => i.id === activeInstrument);
+    if (!instrument) return;
 
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
+    try {
+      setIsPlaying(true);
+      const instrumentType = getInstrumentType(activeInstrument);
 
-    // Log drum is typically a pitched percussion sound
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
+      // Play with authentic Amapiano synths
+      switch (instrumentType) {
+        case 'log_drum':
+          // Play log drum sequence
+          await amapianoPlayback.playLogDrumSequence(
+            [60, 64, 67, 72],
+            115,
+            () => setIsPlaying(false)
+          );
+          break;
+        case 'piano':
+          // Play piano chord progression
+          await amapianoPlayback.playChordProgression(
+            ['Am', 'F', 'C', 'G'],
+            'C',
+            115,
+            () => setIsPlaying(false)
+          );
+          break;
+        case 'bass':
+          // Play bass notes
+          await amapianoPlayback.playNote(36, 'bass', 0.9, 0.8);
+          setTimeout(async () => {
+            await amapianoPlayback.playNote(43, 'bass', 0.8, 0.6);
+          }, 400);
+          setTimeout(() => setIsPlaying(false), 1500);
+          break;
+        default:
+          // Generic note
+          await amapianoPlayback.playNote(60, instrumentType, 0.8, 0.5);
+          setTimeout(() => setIsPlaying(false), 600);
+      }
 
-    // Create log drum character
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(instrumentParams.pitch || 60, now);
-    osc.frequency.exponentialRampToValueAtTime((instrumentParams.pitch || 60) * 0.3, now + 0.1);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(800, now);
-    filter.Q.value = instrumentParams.resonance * 10 || 4;
-
-    gain.gain.setValueAtTime(0.8, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + (instrumentParams.decay || 0.7));
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + (instrumentParams.decay || 0.7));
-    oscillatorRef.current = osc;
+      onNotePlay?.('C4', 0.8);
+    } catch (error) {
+      console.error('Audio playback error:', error);
+      toast.error('Failed to play test sound');
+      setIsPlaying(false);
+    }
   };
 
-  const playPianoSynth = () => {
-    if (!audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    // Create a chord (C major)
-    const frequencies = [261.63, 329.63, 392.00]; // C, E, G
-    const oscillators: OscillatorNode[] = [];
-
-    frequencies.forEach((freq, index) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now);
-
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(2000 * (instrumentParams.brightness || 0.6), now);
-
-      const velocity = 0.3 - (index * 0.05); // Decrease velocity for higher notes
-      gain.gain.setValueAtTime(velocity, now);
-      gain.gain.linearRampToValueAtTime(velocity * 0.8, now + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + (instrumentParams.release || 0.9));
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + (instrumentParams.release || 0.9));
-      oscillators.push(osc);
-    });
-
-    oscillatorRef.current = oscillators[0]; // Keep reference to first oscillator
-  };
-
-  const playBassSynth = () => {
-    if (!audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(65.41, now); // C2
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(200, now);
-    filter.Q.value = 2;
-
-    gain.gain.setValueAtTime(0.6, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 1.5);
-    oscillatorRef.current = osc;
-  };
-
-  const playGenericSynth = () => {
-    if (!audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(440, now); // A4
-
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 1);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 1);
-    oscillatorRef.current = osc;
+  const stopPlayback = () => {
+    amapianoPlayback.stop();
+    setIsPlaying(false);
   };
 
   const currentInstrument = AMAPIANO_INSTRUMENTS.find(i => i.id === activeInstrument);

@@ -4931,9 +4931,25 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_room_access: {
+        Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_session_access: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
+      }
       increment_cache_hit: {
         Args: { p_cache_key: string; p_session_id: string }
         Returns: undefined
+      }
+      is_room_participant: {
+        Args: { _room_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_session_participant: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
       }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }

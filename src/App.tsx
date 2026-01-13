@@ -60,6 +60,9 @@ import Studio from "./pages/Studio";
 import LANDRHub from "./pages/LANDRHub";
 import AWSActivatePitchDeck from "./pages/AWSActivatePitchDeck";
 import PitchDeckComparison from "./pages/PitchDeckComparison";
+import MasteringStudio from "./pages/MasteringStudio";
+import ReleaseManager from "./pages/ReleaseManager";
+import PromotionHub from "./pages/PromotionHub";
 
 const queryClient = new QueryClient();
 

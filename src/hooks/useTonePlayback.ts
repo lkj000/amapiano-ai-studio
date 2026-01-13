@@ -30,6 +30,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
   const instrumentsRef = useRef<Map<string, TrackInstrument>>(new Map());
   const trackChannelsRef = useRef<Map<string, Tone.Channel>>(new Map());
   const transportUpdateInterval = useRef<number | null>(null);
+  const scheduledRef = useRef(false);
 
   // Initialize on first user gesture
   const initialize = useCallback(async () => {
@@ -46,11 +47,21 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     }
   }, [isReady, projectData?.bpm]);
 
+  // Keep BPM in sync with project settings
+  useEffect(() => {
+    if (!isReady) return;
+    Tone.Transport.bpm.value = projectData?.bpm || 118;
+  }, [isReady, projectData?.bpm]);
+
   // Setup tracks when project changes
   useEffect(() => {
     if (!isReady || !projectData) return;
 
     console.log('[TonePlayback] Setting up tracks...');
+
+    // Reset any previously scheduled events when switching projects
+    Tone.Transport.cancel();
+    scheduledRef.current = false;
 
     // Clear existing
     playersRef.current.forEach(p => p.dispose());
@@ -75,13 +86,13 @@ export function useTonePlayback(projectData: DawProjectData | null) {
         // Detect instrument type from track name
         const instrumentType = detectInstrumentType(track.name);
         console.log(`[TonePlayback] Track "${track.name}" → ${instrumentType} synth`);
-        
+
         // Create Amapiano-specific instrument
         const { synth, effects } = createAmapianoInstrument(instrumentType);
-        
+
         // Connect through effects chain to channel
         connectSynthWithEffects(synth, effects, channel);
-        
+
         instrumentsRef.current.set(track.id, { synth, effects, type: instrumentType });
       }
     });
@@ -94,31 +105,35 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       await initialize();
     }
 
-    Tone.Transport.start();
-    setIsPlaying(true);
+    if (!projectData) {
+      if (Tone.Transport.state !== 'started') {
+        Tone.Transport.start();
+        setIsPlaying(true);
+      }
+      return;
+    }
 
-    // Update current time display
-    transportUpdateInterval.current = window.setInterval(() => {
-      const beats = Tone.Transport.seconds * (projectData?.bpm || 118) / 60;
-      setCurrentTime(beats);
-    }, 50);
+    // No-op if already playing
+    if (Tone.Transport.state === 'started') return;
 
-    // Schedule MIDI notes
-    if (projectData) {
+    // Only (re)schedule when starting from stopped (or after a stop/cancel)
+    if (Tone.Transport.state === 'stopped' || !scheduledRef.current) {
+      Tone.Transport.cancel();
+
+      // Schedule MIDI notes + audio clips for the whole project
       projectData.tracks.forEach((track) => {
-        if (track.type === 'midi' && !track.mixer?.isMuted) {
+        if (track.type === 'midi') {
           const instrument = instrumentsRef.current.get(track.id);
           if (!instrument) return;
 
           track.clips.forEach((clip) => {
             if ('notes' in clip && clip.notes) {
               clip.notes.forEach((note) => {
-                const noteStartTime = `0:${clip.startTime + note.startTime}:0`;
+                const noteStartTime = `0:${(clip.startTime || 0) + note.startTime}:0`;
                 const noteDuration = `0:${note.duration}:0`;
                 const freq = Tone.Frequency(note.pitch, 'midi').toFrequency();
 
                 Tone.Transport.schedule((time) => {
-                  // Handle different synth types
                   const synth = instrument.synth as any;
                   if (synth.triggerAttackRelease) {
                     synth.triggerAttackRelease(freq, noteDuration, time, note.velocity / 127);
@@ -132,21 +147,21 @@ export function useTonePlayback(projectData: DawProjectData | null) {
           });
         }
 
-        if (track.type === 'audio' && !track.mixer?.isMuted) {
+        if (track.type === 'audio') {
           track.clips.forEach((clip) => {
             if ('audioUrl' in clip && clip.audioUrl) {
               const clipKey = `${track.id}_${clip.id}`;
-              
-              // Check if player already exists
-              if (!playersRef.current.has(clipKey)) {
-                const player = new Tone.Player({
+
+              let player = playersRef.current.get(clipKey);
+              if (!player) {
+                player = new Tone.Player({
                   url: clip.audioUrl,
                   onload: () => {
                     console.log(`[TonePlayback] Loaded: ${clip.name}`);
                   },
                   onerror: (err) => {
                     console.error(`[TonePlayback] Load error:`, err);
-                  }
+                  },
                 });
 
                 const channel = trackChannelsRef.current.get(track.id);
@@ -155,18 +170,31 @@ export function useTonePlayback(projectData: DawProjectData | null) {
                 }
 
                 playersRef.current.set(clipKey, player);
-
-                // Schedule playback
-                const startTime = `0:${clip.startTime}:0`;
-                Tone.Transport.schedule((time) => {
-                  player.start(time);
-                }, startTime);
               }
+
+              // Always schedule start (stop() cancels schedules)
+              const startTime = `0:${clip.startTime || 0}:0`;
+              Tone.Transport.schedule((time) => {
+                try {
+                  player!.start(time);
+                } catch {}
+              }, startTime);
             }
           });
         }
       });
+
+      scheduledRef.current = true;
     }
+
+    Tone.Transport.start();
+    setIsPlaying(true);
+
+    // Update current time display
+    transportUpdateInterval.current = window.setInterval(() => {
+      const beats = Tone.Transport.seconds * (projectData?.bpm || 118) / 60;
+      setCurrentTime(beats);
+    }, 50);
 
     console.log('[TonePlayback] ▶️ Playing');
   }, [isReady, initialize, projectData]);
@@ -186,6 +214,8 @@ export function useTonePlayback(projectData: DawProjectData | null) {
   const stop = useCallback(() => {
     Tone.Transport.stop();
     Tone.Transport.cancel(); // Clear scheduled events
+    scheduledRef.current = false;
+
     setIsPlaying(false);
     setCurrentTime(0);
 
@@ -201,6 +231,16 @@ export function useTonePlayback(projectData: DawProjectData | null) {
 
     console.log('[TonePlayback] ⏹️ Stopped');
   }, []);
+
+  const setPositionBeats = useCallback(async (beats: number) => {
+    if (!isReady) {
+      await initialize();
+    }
+
+    const bpm = projectData?.bpm || 118;
+    Tone.Transport.seconds = (beats * 60) / bpm;
+    setCurrentTime(beats);
+  }, [isReady, initialize, projectData?.bpm]);
 
   const setMasterVolume = useCallback((volume: number) => {
     Tone.Destination.volume.value = Tone.gainToDb(volume);
@@ -252,15 +292,15 @@ export function useTonePlayback(projectData: DawProjectData | null) {
 
     // Try to use the track's existing instrument
     let instrument = trackId ? instrumentsRef.current.get(trackId) : null;
-    
+
     // If no track instrument, create a temporary one
     if (!instrument) {
       const { synth, effects } = createAmapianoInstrument('piano');
       connectSynthWithEffects(synth, effects, Tone.Destination);
-      
+
       const freq = Tone.Frequency(pitch, 'midi').toFrequency();
       const normalizedVelocity = velocity / 127;
-      
+
       try {
         const synthAny = synth as any;
         if (synthAny.triggerAttackRelease) {
@@ -269,19 +309,19 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       } catch (error) {
         console.error('[TonePlayback] Note error:', error);
       }
-      
+
       // Dispose after note finishes
       setTimeout(() => {
         disposeSynthWithEffects(synth, effects);
       }, duration * 1000 + 500);
-      
+
       return;
     }
 
     // Use track's instrument
     const freq = Tone.Frequency(pitch, 'midi').toFrequency();
     const normalizedVelocity = velocity / 127;
-    
+
     try {
       const synthAny = instrument.synth as any;
       if (synthAny.triggerAttackRelease) {
@@ -320,6 +360,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     play,
     pause,
     stop,
+    setPositionBeats,
     setMasterVolume,
     setTrackVolume,
     setTrackMute,

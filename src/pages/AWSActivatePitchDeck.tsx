@@ -1106,10 +1106,15 @@ export default function AWSActivatePitchDeck() {
     setCurrentSlide(index);
   };
 
+  const handleExport = () => {
+    // Open print dialog which allows saving as PDF
+    window.print();
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col print:bg-white">
       {/* Header */}
-      <header className="border-b px-4 md:px-6 py-3 flex items-center justify-between bg-card/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b px-4 md:px-6 py-3 flex items-center justify-between bg-card/80 backdrop-blur-sm sticky top-0 z-10 print:hidden">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
             <Headphones className="w-4 h-4 text-white" />
@@ -1121,7 +1126,7 @@ export default function AWSActivatePitchDeck() {
           <span className="text-sm text-muted-foreground">
             {currentSlide + 1} / {slides.length}
           </span>
-          <Button variant="outline" size="sm" className="hidden md:flex">
+          <Button variant="outline" size="sm" className="hidden md:flex" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>

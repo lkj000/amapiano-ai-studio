@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { User } from '@supabase/supabase-js';
 import { UnifiedAnalysisPanel } from '@/components/UnifiedAnalysisPanel';
 import { usePatternsLibrary } from '@/hooks/usePatternsLibrary';
+import { useAmapianoPlayback } from '@/hooks/useAmapianoPlayback';
 
 interface PatternsProps {
   user: User | null;
@@ -22,6 +23,9 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
 
   // Use real Supabase data
   const { chordProgressions, drumPatterns, isLoading, toggleFavorite, downloadPattern } = usePatternsLibrary();
+  
+  // Amapiano-specific playback system
+  const amapianoPlayback = useAmapianoPlayback();
 
   const complexityLevels = ["All", "Simple", "Intermediate", "Advanced"];
   const genres = ["All", "Classic", "Private School", "Vocal", "Deep"];
@@ -47,25 +51,53 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
     }
   };
 
-  const handlePlayPattern = async (patternId: string, patternName: string) => {
+  const handlePlayPattern = async (patternId: string, patternName: string, patternData?: any, type: 'chord' | 'drum' = 'chord') => {
     if (playingPattern === patternId) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+      // Stop current playback
+      amapianoPlayback.stop();
       setPlayingPattern(null);
       return;
     }
 
-    // Play a synthesized preview using Web Audio API
     try {
       setPlayingPattern(patternId);
-      toast.info(`🎵 Playing "${patternName}"`);
+      toast.info(`🎵 Playing "${patternName}" with Amapiano synths`);
       
-      // Simulate playback with timeout
-      setTimeout(() => {
-        setPlayingPattern(null);
-      }, 3000);
+      if (type === 'chord' && patternData?.chords) {
+        // Parse chord string like "Am - F - C - G"
+        const chordList = patternData.chords.split(/\s*[-–]\s*/).map((c: string) => c.trim());
+        await amapianoPlayback.playChordProgression(
+          chordList,
+          patternData.key || 'C',
+          115,
+          () => setPlayingPattern(null)
+        );
+      } else if (type === 'drum') {
+        // Generate drum pattern notes
+        const drumNotes = [
+          { pitch: 36, time: 0, duration: 0.2, velocity: 0.9 },      // Kick
+          { pitch: 42, time: 0.5, duration: 0.1, velocity: 0.6 },    // HiHat
+          { pitch: 38, time: 1, duration: 0.2, velocity: 0.8 },      // Snare
+          { pitch: 42, time: 1.5, duration: 0.1, velocity: 0.5 },    // HiHat
+          { pitch: 36, time: 2, duration: 0.2, velocity: 0.9 },      // Kick
+          { pitch: 42, time: 2.5, duration: 0.1, velocity: 0.6 },    // HiHat
+          { pitch: 38, time: 3, duration: 0.2, velocity: 0.8 },      // Snare
+          { pitch: 42, time: 3.5, duration: 0.1, velocity: 0.5 },    // HiHat
+        ];
+        await amapianoPlayback.playDrumPattern(
+          drumNotes,
+          115,
+          false,
+          () => setPlayingPattern(null)
+        );
+      } else {
+        // Fallback: play log drum sequence
+        await amapianoPlayback.playLogDrumSequence(
+          [60, 64, 67, 72, 67, 64],
+          115,
+          () => setPlayingPattern(null)
+        );
+      }
     } catch (error) {
       console.error('Pattern playback error:', error);
       toast.error("Pattern preview not available");
@@ -255,7 +287,7 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                             <Button 
                               size="sm" 
                               variant="secondary"
-                              onClick={() => handlePlayPattern(pattern.id, pattern.name)}
+                              onClick={() => handlePlayPattern(pattern.id, pattern.name, pattern, 'chord')}
                             >
                               {playingPattern === pattern.id ? (
                                 <Pause className="w-3 h-3 mr-1" />
@@ -398,7 +430,7 @@ const Patterns: React.FC<PatternsProps> = ({ user }) => {
                             <Button 
                               size="sm" 
                               variant="secondary"
-                              onClick={() => handlePlayPattern(pattern.id, pattern.name)}
+                              onClick={() => handlePlayPattern(pattern.id, pattern.name, pattern, 'drum')}
                             >
                               {playingPattern === pattern.id ? (
                                 <Pause className="w-3 h-3 mr-1" />

@@ -196,6 +196,9 @@ const App = () => {
               <Route path="/landr" element={<LANDRHub />} />
               <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
               <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
+              <Route path="/master" element={<MasteringStudio />} />
+              <Route path="/release" element={<ReleaseManager />} />
+              <Route path="/promote" element={<PromotionHub />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

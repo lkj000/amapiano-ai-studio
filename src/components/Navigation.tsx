@@ -31,7 +31,11 @@ import {
   DollarSign,
   Shield,
   Radio,
-  Activity
+  Activity,
+  Disc3,
+  Upload,
+  Megaphone,
+  Layers
 } from "lucide-react";
 
 interface NavigationProps {
@@ -59,22 +63,23 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
   const navItems = [
     { path: "/", label: "Home", icon: Sparkles },
     { path: "/generate", label: "Generate", icon: Music },
+    { path: "/studio", label: "Studio", icon: Layers },
+    { path: "/master", label: "Master", icon: Disc3 },
+    { path: "/release", label: "Release", icon: Upload },
+    { path: "/promote", label: "Promote", icon: Megaphone },
     { path: "/social", label: "Social", icon: Users },
+    { path: "/daw", label: "DAW", icon: Volume2 },
     { path: "/templates", label: "Templates", icon: Grid3X3 },
     { path: "/analyze", label: "Analyze", icon: Search },
     { path: "/samples", label: "Samples", icon: Headphones },
     { path: "/patterns", label: "Patterns", icon: Grid3X3 },
-    { path: "/daw", label: "DAW", icon: Volume2 },
     { path: "/audio-editor", label: "Audio Editor", icon: Radio },
     { path: "/amapianorize", label: "Amapianorize", icon: Sparkles },
     { path: "/aura808", label: "Aura 808", icon: Music },
     { path: "/aura", label: "AURA-X", icon: Brain },
     { path: "/ai-hub", label: "AI Hub", icon: Brain },
     { path: "/research", label: "Research", icon: Brain },
-    { path: "/vast-demo", label: "VAST Demo", icon: Brain },
-    { path: "/essentia-demo", label: "Essentia", icon: Search },
     { path: "/performance", label: "Performance", icon: Activity },
-    { path: "/ml/quantize", label: "SVDQuant", icon: Activity },
     { path: "/level5-dashboard", label: "Level 5", icon: Shield },
   ];
 

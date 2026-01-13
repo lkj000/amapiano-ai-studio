@@ -2689,7 +2689,7 @@ export default function DawPage({ user }: DawPageProps) {
             }}
             onUpdateNotes={handleUpdateNotes}
             audioContext={getAudioContext()}
-            onPlayNote={(pitch, velocity, duration) => playNote(pitch, velocity, duration, selectedTrack?.type === 'midi' ? selectedTrack.instrument : undefined, selectedTrack?.id)}
+            onPlayNote={(pitch, velocity, duration) => tonePlayback.playNote(pitch, velocity || 80, duration || 0.5, selectedTrack?.id)}
             onPlay={() => {
               if (selectedTrack?.type === 'midi') {
                 const clip = selectedTrack.clips.find((c: any) => 'notes' in c && c.notes && c.notes.length > 0) as MidiClip | undefined;
@@ -2724,8 +2724,8 @@ export default function DawPage({ user }: DawPageProps) {
                     
                     // Give time for currentTime state to update before play
                     setTimeout(() => {
-                      play();
-                      console.log('🎹 PianoRoll: Transport play() called');
+                      tonePlayback.play();
+                      console.log('🎹 PianoRoll: Transport tonePlayback.play() called');
                     }, 10);
                     
                     // Clear any existing timer
@@ -2743,7 +2743,7 @@ export default function DawPage({ user }: DawPageProps) {
                       const elapsedMs = Date.now() - startTimeMs;
                       if (elapsedMs >= durationMs) {
                         console.log('🎹 PianoRoll: Clip end reached, stopping');
-                        stop();
+                        tonePlayback.stop();
                         
                         // Unsolo track
                         setProjectData((prev: any) => {
@@ -2769,7 +2769,7 @@ export default function DawPage({ user }: DawPageProps) {
               }
             }}
             onStop={() => {
-              stop();
+              tonePlayback.stop();
               // Unsolo track on stop
               setProjectData((prev: any) => {
                 if (!prev) return prev;
@@ -2789,8 +2789,8 @@ export default function DawPage({ user }: DawPageProps) {
               setPianoRollIsPlaying(false);
               setPianoRollTime(0);
             }}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
+            isPlaying={tonePlayback.isPlaying}
+            currentTime={tonePlayback.currentTime}
           />
         </>
       )}

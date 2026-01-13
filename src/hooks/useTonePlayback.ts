@@ -237,6 +237,67 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     }
   }, []);
 
+  /**
+   * Play a single note using the track's instrument (or fallback to default synth)
+   */
+  const playNote = useCallback(async (
+    pitch: number,
+    velocity: number = 80,
+    duration: number = 0.5,
+    trackId?: string
+  ) => {
+    if (!isReady) {
+      await initialize();
+    }
+
+    // Try to use the track's existing instrument
+    let instrument = trackId ? instrumentsRef.current.get(trackId) : null;
+    
+    // If no track instrument, create a temporary one
+    if (!instrument) {
+      const { synth, effects } = createAmapianoInstrument('piano');
+      connectSynthWithEffects(synth, effects, Tone.Destination);
+      
+      const freq = Tone.Frequency(pitch, 'midi').toFrequency();
+      const normalizedVelocity = velocity / 127;
+      
+      try {
+        const synthAny = synth as any;
+        if (synthAny.triggerAttackRelease) {
+          synthAny.triggerAttackRelease(freq, duration, Tone.now(), normalizedVelocity);
+        }
+      } catch (error) {
+        console.error('[TonePlayback] Note error:', error);
+      }
+      
+      // Dispose after note finishes
+      setTimeout(() => {
+        disposeSynthWithEffects(synth, effects);
+      }, duration * 1000 + 500);
+      
+      return;
+    }
+
+    // Use track's instrument
+    const freq = Tone.Frequency(pitch, 'midi').toFrequency();
+    const normalizedVelocity = velocity / 127;
+    
+    try {
+      const synthAny = instrument.synth as any;
+      if (synthAny.triggerAttackRelease) {
+        // Handle noise-based synths that don't take frequency
+        if (['snare', 'hihat', 'shaker'].includes(instrument.type)) {
+          synthAny.triggerAttackRelease(duration, Tone.now(), normalizedVelocity);
+        } else {
+          synthAny.triggerAttackRelease(freq, duration, Tone.now(), normalizedVelocity);
+        }
+      }
+      console.log(`[TonePlayback] 🎵 Note: pitch=${pitch}, vel=${velocity}, dur=${duration}, track=${trackId || 'temp'}`);
+    } catch (error) {
+      console.error('[TonePlayback] Note error:', error);
+    }
+  }, [isReady, initialize]);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -264,5 +325,6 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     setTrackMute,
     setTrackSolo,
     setTrackPan,
+    playNote,
   };
 }

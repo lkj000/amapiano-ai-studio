@@ -1106,15 +1106,60 @@ export default function AWSActivatePitchDeck() {
     setCurrentSlide(index);
   };
 
+  const [isPrintMode, setIsPrintMode] = useState(false);
+
   const handleExport = () => {
-    // Open print dialog which allows saving as PDF
-    window.print();
+    // Enable print mode to show all slides, then print
+    setIsPrintMode(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrintMode(false);
+    }, 100);
   };
 
+  // Print mode - render all slides for PDF export
+  if (isPrintMode) {
+    return (
+      <div className="bg-white text-black">
+        <style>{`
+          @media print {
+            @page { size: landscape; margin: 0.5in; }
+            .slide-page { page-break-after: always; min-height: 100vh; }
+            .slide-page:last-child { page-break-after: avoid; }
+          }
+        `}</style>
+        {slides.map((slide, index) => (
+          <div key={slide.id} className="slide-page p-8 flex flex-col">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                  <Headphones className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-semibold">Amapiano AI</span>
+                <span className="text-xs bg-gray-100 px-2 py-1 rounded">AWS Activate</span>
+              </div>
+              <span className="text-sm text-gray-500">
+                {index + 1} / {slides.length}
+              </span>
+            </div>
+            {slide.title && index > 0 && (
+              <h1 className="text-2xl font-bold mb-6 text-center text-black">
+                {slide.title}
+              </h1>
+            )}
+            <div className="flex-1">
+              {slide.content}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background flex flex-col print:bg-white">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b px-4 md:px-6 py-3 flex items-center justify-between bg-card/80 backdrop-blur-sm sticky top-0 z-10 print:hidden">
+      <header className="border-b px-4 md:px-6 py-3 flex items-center justify-between bg-card/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
             <Headphones className="w-4 h-4 text-white" />

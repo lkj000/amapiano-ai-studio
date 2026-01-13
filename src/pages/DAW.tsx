@@ -2719,10 +2719,13 @@ export default function DawPage({ user }: DawPageProps) {
                   
                   // Wait for solo state update, then start transport
                   setTimeout(() => {
-                    console.log('🎹 PianoRoll: Starting transport at beat', clip.startTime || 0);
-                    setCurrentTime(clip.startTime || 0);
-                    
-                    // Give time for currentTime state to update before play
+                    const startBeat = clip.startTime || 0;
+                    console.log('🎹 PianoRoll: Starting transport at beat', startBeat);
+
+                    setCurrentTime(startBeat);
+                    tonePlayback.setPositionBeats(startBeat);
+
+                    // Give a tick before starting transport
                     setTimeout(() => {
                       tonePlayback.play();
                       console.log('🎹 PianoRoll: Transport tonePlayback.play() called');

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Plus, Volume2, VolumeX, Trash2, Play, Pause, Square } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAudioEngine } from "@/hooks/useAudioEngine";
+import { useTonePlayback } from "@/hooks/useTonePlayback";
 import { DawProjectData, DawTrack, AudioTrack, MidiTrack } from "@/types/daw";
 
 interface MultiTrackEditorProps {
@@ -22,15 +22,18 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
     masterVolume: 100
   });
 
+  // Use real Tone.js playback instead of legacy audio engine
   const { 
     isPlaying, 
     currentTime, 
+    isReady,
+    initialize,
     play, 
     pause, 
     stop,
     setMasterVolume,
     setTrackVolume
-  } = useAudioEngine(projectData);
+  } = useTonePlayback(projectData);
 
   const addTrack = (type: 'audio' | 'midi') => {
     let newTrack: DawTrack;
@@ -126,8 +129,15 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
       updateTrack(trackId, {
         mixer: { ...track.mixer, volume }
       });
-      setTrackVolume(trackId, volume);
+      setTrackVolume(trackId, volume / 100); // Convert to 0-1 range
     }
+  };
+
+  const handlePlay = async () => {
+    if (!isReady) {
+      await initialize();
+    }
+    await play();
   };
 
   return (
@@ -142,7 +152,7 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
           </div>
           <div className="flex gap-2">
             {!isPlaying ? (
-              <Button onClick={play} size="sm">
+              <Button onClick={handlePlay} size="sm">
                 <Play className="mr-2 h-4 w-4" />
                 Play
               </Button>
@@ -171,7 +181,7 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
                 step={1}
                 onValueChange={([value]) => {
                   setProjectData({ ...projectData, masterVolume: value });
-                  setMasterVolume(value);
+                  setMasterVolume(value / 100); // Convert to 0-1 range
                 }}
               />
             </div>

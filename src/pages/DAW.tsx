@@ -2326,9 +2326,9 @@ export default function DawPage({ user }: DawPageProps) {
                     size="icon"
                     className="h-8 w-8 sm:h-9 sm:w-9 hover:bg-destructive/20 rounded-lg"
                     onClick={() => {
-                      console.log('DAW Transport: Stop clicked');
-                      stop();
-                      console.log('DAW Transport: stop called');
+                      console.log('DAW Transport: Stop clicked (Tone.js)');
+                      tonePlayback.stop();
+                      stop(); // Keep legacy for levels/time display
                     }}
                   >
                     <Square className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -2337,22 +2337,22 @@ export default function DawPage({ user }: DawPageProps) {
                     size="icon"
                     className={cn(
                       "h-9 w-9 sm:h-10 sm:w-10 rounded-lg shadow-md transition-all",
-                      isPlaying 
+                      tonePlayback.isPlaying 
                         ? "bg-muted hover:bg-muted/80" 
                         : "bg-gradient-to-br from-primary via-primary to-primary/80 hover:shadow-lg hover:scale-105"
                     )}
-                    onClick={() => {
-                      console.log('DAW Transport: Play/Pause clicked', { isPlayingBefore: isPlaying });
-                      if (isPlaying) {
-                        pause();
-                        console.log('DAW Transport: pause called');
+                    onClick={async () => {
+                      console.log('DAW Transport: Play/Pause clicked (Tone.js)', { isPlaying: tonePlayback.isPlaying });
+                      if (tonePlayback.isPlaying) {
+                        tonePlayback.pause();
+                        pause(); // Keep legacy for levels/time display
                       } else {
-                        play();
-                        console.log('DAW Transport: play called');
+                        await tonePlayback.play();
+                        play(); // Keep legacy for levels/time display
                       }
                     }}
                   >
-                    {isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5 ml-0.5" />}
+                    {tonePlayback.isPlaying ? <Pause className="h-4 w-4 sm:h-5 sm:w-5" /> : <Play className="h-4 w-4 sm:h-5 sm:w-5 ml-0.5" />}
                   </Button>
                   <Button 
                     variant={isRecording ? "destructive" : "ghost"}

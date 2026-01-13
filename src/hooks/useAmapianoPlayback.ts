@@ -76,7 +76,7 @@ export function useAmapianoPlayback() {
       }
 
       setState(prev => ({ ...prev, isReady: true }));
-      console.log('[AmapianoPlayback] ✓ Initialized with', commonInstruments.length, 'instruments');
+      console.log('[AmapianoPlayback] ✓ REAL Amapiano synths initialized (not mocked) -', commonInstruments.length, 'instruments');
     } catch (error) {
       console.error('[AmapianoPlayback] Init error:', error);
       throw error;

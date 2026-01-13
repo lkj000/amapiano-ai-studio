@@ -32,8 +32,14 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
     pause, 
     stop,
     setMasterVolume,
-    setTrackVolume
+    setTrackVolume,
+    setTrackMute,
+    setTrackSolo,
+    setTrackPan,
+    playNote,
   } = useTonePlayback(projectData);
+  
+  console.log('[MultiTrackEditor] Using REAL Tone.js playback engine, isReady:', isReady);
 
   const addTrack = (type: 'audio' | 'midi') => {
     let newTrack: DawTrack;
@@ -105,21 +111,31 @@ export const MultiTrackEditor = ({ onProjectUpdate }: MultiTrackEditorProps) => 
     onProjectUpdate?.(updated);
   };
 
+  // Remove duplicate destructuring - we already have setTrackMute/setTrackSolo from above
+
   const toggleMute = (trackId: string) => {
     const track = projectData.tracks.find(t => t.id === trackId);
     if (track) {
+      const newMuted = !track.mixer.isMuted;
       updateTrack(trackId, {
-        mixer: { ...track.mixer, isMuted: !track.mixer.isMuted }
+        mixer: { ...track.mixer, isMuted: newMuted }
       });
+      // Apply to real Tone.js audio engine
+      setTrackMute(trackId, newMuted);
+      console.log(`[MultiTrackEditor] Track ${trackId} mute: ${newMuted} (REAL Tone.js)`);
     }
   };
 
   const toggleSolo = (trackId: string) => {
     const track = projectData.tracks.find(t => t.id === trackId);
     if (track) {
+      const newSolo = !track.mixer.isSolo;
       updateTrack(trackId, {
-        mixer: { ...track.mixer, isSolo: !track.mixer.isSolo }
+        mixer: { ...track.mixer, isSolo: newSolo }
       });
+      // Apply to real Tone.js audio engine
+      setTrackSolo(trackId, newSolo);
+      console.log(`[MultiTrackEditor] Track ${trackId} solo: ${newSolo} (REAL Tone.js)`);
     }
   };
 

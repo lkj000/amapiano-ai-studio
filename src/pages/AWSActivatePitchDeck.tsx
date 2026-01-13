@@ -219,41 +219,35 @@ export default function AWSActivatePitchDeck() {
           
           <div className="space-y-4">
             <Card className="p-6 border-muted">
-              <h3 className="text-lg font-semibold mb-4 text-center">The Opportunity Gap</h3>
+              <h3 className="text-lg font-semibold mb-4 text-center">The Market Reality</h3>
               <div className="space-y-5">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Producers wanting AI tools</span>
-                    <span className="font-semibold text-amber-500">89%</span>
+                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <DollarSign className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">South Africa minimum wage</p>
+                    <p className="text-xs text-muted-foreground">~$250/month vs $500+ DAW cost</p>
                   </div>
-                  <Progress value={89} className="h-3" />
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Who can afford professional tools</span>
-                    <span className="font-semibold text-red-500">Only 18%</span>
+                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <Users className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">Millions of aspiring producers</p>
+                    <p className="text-xs text-muted-foreground">Limited by cost and complexity</p>
                   </div>
-                  <Progress value={18} className="h-3" />
                 </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Using AI for production today</span>
-                    <span className="font-semibold text-red-500">Only 12%</span>
+                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <Globe className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">No genre-specific AI tools</p>
+                    <p className="text-xs text-muted-foreground">Existing AI trained on Western music</p>
                   </div>
-                  <Progress value={12} className="h-3" />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-4 text-center">
-                Source: African Music Producer Survey 2024 (n=320)
-              </p>
             </Card>
             
-            <Card className="p-4 bg-muted/50 border-dashed">
-              <p className="text-sm text-center italic">
-                "I have the melodies in my head, but I can't afford the tools to get them out."
-              </p>
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                — Johannesburg-based producer, beta tester
+            <Card className="p-4 bg-amber-500/10 border-amber-500/30">
+              <p className="text-sm text-center font-medium">
+                The opportunity: Bridge the gap between global demand and local creator access
               </p>
             </Card>
           </div>
@@ -299,14 +293,14 @@ export default function AWSActivatePitchDeck() {
               <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center mb-4">
                 <Music className="w-6 h-6 text-orange-500" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Cloud DAW</h3>
+              <h3 className="text-xl font-semibold mb-2">Browser DAW</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Full digital audio workstation in your browser. No downloads, no expensive licenses. Works on any device.
+                Digital audio workstation in your browser. No downloads, no expensive licenses. Works on any device.
               </p>
               <ul className="text-sm space-y-2">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Unlimited tracks</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Real-time collaboration</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> AI mixing & mastering</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Multi-track timeline</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Built-in instruments</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> AI mixing (planned)</li>
               </ul>
             </Card>
             
@@ -316,12 +310,12 @@ export default function AWSActivatePitchDeck() {
               </div>
               <h3 className="text-xl font-semibold mb-2">Creator Marketplace</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Buy, sell, and license beats, samples, and presets. Built-in monetization with mobile money payouts.
+                Buy, sell, and license beats, samples, and presets. Monetization for creators.
               </p>
               <ul className="text-sm space-y-2">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Rights management</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Instant payouts (M-Pesa)</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> License templates</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Sample library</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> Mobile payments (planned)</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> License templates (planned)</li>
               </ul>
             </Card>
           </div>
@@ -346,18 +340,18 @@ export default function AWSActivatePitchDeck() {
       ),
     },
 
-    // Slide 5: Traction & Validation
+    // Slide 5: Current Status
     {
       id: 5,
-      title: 'Traction & Validation',
+      title: 'Current Status',
       content: (
         <div className="grid lg:grid-cols-2 gap-8 h-full items-center">
           <div className="space-y-6">
             <div className="space-y-2">
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                Validated in Market
+              <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                Pre-Launch Stage
               </Badge>
-              <h2 className="text-2xl md:text-3xl font-bold">Prototype Performance</h2>
+              <h2 className="text-2xl md:text-3xl font-bold">What We've Built</h2>
             </div>
             
             <div className="space-y-4">
@@ -365,42 +359,39 @@ export default function AWSActivatePitchDeck() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <Zap className="w-5 h-5 text-green-500" />
-                    <span className="font-semibold">AI Track Generation</span>
+                    <span className="font-semibold">Functional Prototype</span>
                   </div>
-                  <Badge variant="outline" className="border-green-500/50 text-green-500">Tested</Badge>
+                  <Badge variant="outline" className="border-green-500/50 text-green-500">Built</Badge>
                 </div>
-                <p className="text-3xl font-bold text-green-500">~30 seconds</p>
-                <p className="text-sm text-muted-foreground">For 2-minute full Amapiano arrangement</p>
+                <p className="text-sm text-muted-foreground">Browser-based DAW with multi-track timeline, sample library, and pattern sequencer</p>
+              </Card>
+              
+              <Card className="p-5 bg-gradient-to-r from-green-500/10 to-transparent border-green-500/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <Music className="w-5 h-5 text-green-500" />
+                    <span className="font-semibold">AI Generation Engine</span>
+                  </div>
+                  <Badge variant="outline" className="border-green-500/50 text-green-500">Built</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">Pattern generation, style transfer, and Amapiano-specific instruments</p>
               </Card>
               
               <Card className="p-5 bg-gradient-to-r from-amber-500/10 to-transparent border-amber-500/30">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <BarChart3 className="w-5 h-5 text-amber-500" />
-                    <span className="font-semibold">Mastering Quality</span>
+                    <Database className="w-5 h-5 text-amber-500" />
+                    <span className="font-semibold">Cloud Infrastructure</span>
                   </div>
-                  <Badge variant="outline" className="border-amber-500/50 text-amber-500">Benchmark</Badge>
+                  <Badge variant="outline" className="border-amber-500/50 text-amber-500">Supabase</Badge>
                 </div>
-                <p className="text-3xl font-bold text-amber-500">-14 LUFS</p>
-                <p className="text-sm text-muted-foreground">Spotify/Apple Music streaming standard</p>
-              </Card>
-              
-              <Card className="p-5 bg-gradient-to-r from-orange-500/10 to-transparent border-orange-500/30">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <Award className="w-5 h-5 text-orange-500" />
-                    <span className="font-semibold">Beta User Satisfaction</span>
-                  </div>
-                  <Badge variant="outline" className="border-orange-500/50 text-orange-500">n=50+</Badge>
-                </div>
-                <p className="text-3xl font-bold text-orange-500">4.3/5.0</p>
-                <p className="text-sm text-muted-foreground">South African producers in closed beta</p>
+                <p className="text-sm text-muted-foreground">User auth, project storage, and serverless functions via Lovable Cloud</p>
               </Card>
             </div>
           </div>
           
           <div className="space-y-6">
-            <h2 className="text-2xl md:text-3xl font-bold">Milestones Achieved</h2>
+            <h2 className="text-2xl md:text-3xl font-bold">Development Roadmap</h2>
             
             <div className="space-y-4">
               <div className="flex items-start gap-4">
@@ -408,8 +399,8 @@ export default function AWSActivatePitchDeck() {
                   <Check className="w-5 h-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="font-semibold">Working Prototype</p>
-                  <p className="text-sm text-muted-foreground">End-to-end Amapiano generation + browser DAW functional</p>
+                  <p className="font-semibold">Core Platform</p>
+                  <p className="text-sm text-muted-foreground">DAW interface, sample management, pattern editor</p>
                 </div>
               </div>
               
@@ -418,18 +409,8 @@ export default function AWSActivatePitchDeck() {
                   <Check className="w-5 h-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="font-semibold">Closed Beta Complete</p>
-                  <p className="text-sm text-muted-foreground">50+ producers tested; 12 product iterations shipped</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                  <Check className="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="font-semibold">Waitlist Growth</p>
-                  <p className="text-sm text-muted-foreground">2,400+ signups; 45% from South Africa, 25% diaspora</p>
+                  <p className="font-semibold">AI Integration</p>
+                  <p className="text-sm text-muted-foreground">Pattern generation, style analysis, audio processing</p>
                 </div>
               </div>
               
@@ -439,10 +420,10 @@ export default function AWSActivatePitchDeck() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">Sample Pack Licensing</p>
-                    <Badge variant="outline" className="text-xs">In Pilot</Badge>
+                    <p className="font-semibold">User Testing</p>
+                    <Badge variant="outline" className="text-xs">Next Phase</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">Discussions with 3 established Amapiano producers</p>
+                  <p className="text-sm text-muted-foreground">Seeking initial producers for feedback</p>
                 </div>
               </div>
               
@@ -452,10 +433,23 @@ export default function AWSActivatePitchDeck() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold">Distribution Integration</p>
-                    <Badge variant="outline" className="text-xs">Exploratory</Badge>
+                    <p className="font-semibold">Artist Partnerships</p>
+                    <Badge variant="outline" className="text-xs">Planned</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">Conversations with 2 African digital distributors</p>
+                  <p className="text-sm text-muted-foreground">Sample licensing and collaboration features</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">AWS Migration</p>
+                    <Badge variant="outline" className="text-xs">Planned</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Scale infrastructure with AWS Activate support</p>
                 </div>
               </div>
             </div>
@@ -655,11 +649,11 @@ export default function AWSActivatePitchDeck() {
             </Card>
             
             <Card className="p-5 bg-amber-500/5 border-amber-500/30">
-              <h3 className="font-semibold mb-3">African-First Payments</h3>
+              <h3 className="font-semibold mb-3">African-First Payments (Planned)</h3>
               <ul className="text-sm space-y-2">
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> M-Pesa integration</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> Regional pricing tiers</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500" /> USD/ZAR/NGN support</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> M-Pesa integration</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> Regional pricing tiers</li>
+                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-500" /> Multi-currency support</li>
               </ul>
             </Card>
           </div>
@@ -757,32 +751,32 @@ export default function AWSActivatePitchDeck() {
       content: (
         <div className="space-y-6">
           <div className="text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">Built on AWS for Global Scale</h2>
-            <p className="text-muted-foreground">Cloud-native architecture for real-time audio and AI inference</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-2">Technology Stack & AWS Migration Plan</h2>
+            <p className="text-muted-foreground">From prototype to AWS-native production infrastructure</p>
           </div>
           
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Server className="w-5 h-5 text-amber-500" />
-                Current AWS Stack
+                Current Stack (Prototype)
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <Card className="p-4">
-                  <p className="font-medium text-sm">EC2 + ECS</p>
-                  <p className="text-xs text-muted-foreground">AI inference workloads</p>
+                  <p className="font-medium text-sm">Supabase</p>
+                  <p className="text-xs text-muted-foreground">Database & Auth</p>
                 </Card>
                 <Card className="p-4">
-                  <p className="font-medium text-sm">S3 + CloudFront</p>
-                  <p className="text-xs text-muted-foreground">Global audio CDN</p>
+                  <p className="font-medium text-sm">Lovable Cloud</p>
+                  <p className="text-xs text-muted-foreground">Edge Functions</p>
                 </Card>
                 <Card className="p-4">
-                  <p className="font-medium text-sm">Lambda</p>
-                  <p className="text-xs text-muted-foreground">Serverless processing</p>
+                  <p className="font-medium text-sm">React + Vite</p>
+                  <p className="text-xs text-muted-foreground">Frontend</p>
                 </Card>
                 <Card className="p-4">
-                  <p className="font-medium text-sm">SageMaker</p>
-                  <p className="text-xs text-muted-foreground">ML training pipeline</p>
+                  <p className="font-medium text-sm">TensorFlow.js</p>
+                  <p className="text-xs text-muted-foreground">Client-side AI</p>
                 </Card>
               </div>
             </div>
@@ -790,24 +784,24 @@ export default function AWSActivatePitchDeck() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Rocket className="w-5 h-5 text-orange-500" />
-                Planned Expansion
+                AWS Migration Plan (With Activate)
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                <Card className="p-4 border-dashed">
+                <Card className="p-4 border-dashed border-amber-500/30">
+                  <p className="font-medium text-sm">EC2 + SageMaker</p>
+                  <p className="text-xs text-muted-foreground">AI model training</p>
+                </Card>
+                <Card className="p-4 border-dashed border-amber-500/30">
+                  <p className="font-medium text-sm">S3 + CloudFront</p>
+                  <p className="text-xs text-muted-foreground">Audio CDN</p>
+                </Card>
+                <Card className="p-4 border-dashed border-amber-500/30">
                   <p className="font-medium text-sm">AWS Cape Town</p>
                   <p className="text-xs text-muted-foreground">Low-latency Africa</p>
                 </Card>
-                <Card className="p-4 border-dashed">
+                <Card className="p-4 border-dashed border-amber-500/30">
                   <p className="font-medium text-sm">Amazon Bedrock</p>
                   <p className="text-xs text-muted-foreground">Foundation models</p>
-                </Card>
-                <Card className="p-4 border-dashed">
-                  <p className="font-medium text-sm">AWS Graviton</p>
-                  <p className="text-xs text-muted-foreground">Cost-efficient compute</p>
-                </Card>
-                <Card className="p-4 border-dashed">
-                  <p className="font-medium text-sm">Wavelength</p>
-                  <p className="text-xs text-muted-foreground">Edge collaboration</p>
                 </Card>
               </div>
             </div>
@@ -817,20 +811,20 @@ export default function AWSActivatePitchDeck() {
             <Card className="p-5">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Layers className="w-5 h-5 text-purple-500" />
-                AI Architecture
+                AI Architecture (Built)
               </h3>
               <ul className="text-sm space-y-2">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span>Custom audio transformers trained on licensed African music</span>
+                  <span>Browser-based audio processing with Web Audio API</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span>INT8 quantization for 60%+ inference cost reduction</span>
+                  <span>Pattern recognition for Amapiano style analysis</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span>Streaming audio generation (no batch wait)</span>
+                  <Clock className="w-4 h-4 text-yellow-500 mt-0.5" />
+                  <span>Server-side AI training (requires AWS compute)</span>
                 </li>
               </ul>
             </Card>
@@ -838,16 +832,15 @@ export default function AWSActivatePitchDeck() {
             <Card className="p-5">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Lock className="w-5 h-5 text-blue-500" />
-                Security-First Approach
+                Security (Current)
               </h3>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">AES-256 encryption</Badge>
-                <Badge variant="outline">SOC 2 roadmap</Badge>
-                <Badge variant="outline">GDPR ready</Badge>
-                <Badge variant="outline">Row-level security</Badge>
+                <Badge variant="outline">Supabase RLS</Badge>
+                <Badge variant="outline">HTTPS</Badge>
+                <Badge variant="outline">JWT Auth</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
-                Future: Evaluating post-quantum cryptography for long-term content protection
+                Planned with scale: SOC 2 compliance, advanced encryption, audit logging
               </p>
             </Card>
           </div>
@@ -947,102 +940,89 @@ export default function AWSActivatePitchDeck() {
       ),
     },
 
-    // Slide 11: Team
+    // Slide 11: Team & Vision
     {
       id: 11,
-      title: 'Team',
+      title: 'Team & Vision',
       content: (
         <div className="space-y-6">
           <div className="text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">Built by Music + Tech Experts</h2>
-            <p className="text-muted-foreground">Deep Amapiano knowledge combined with AI and product expertise</p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="p-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 mx-auto mb-4 flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">CEO</span>
-              </div>
-              <h3 className="font-semibold text-lg">Founder & CEO</h3>
-              <p className="text-sm text-amber-500 mb-3">Product & Vision</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>10+ years music production</li>
-                <li>Previously: Product at Music Tech Co</li>
-                <li>Deep Amapiano community ties</li>
-              </ul>
-            </Card>
-            
-            <Card className="p-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-red-500 mx-auto mb-4 flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">CTO</span>
-              </div>
-              <h3 className="font-semibold text-lg">Co-Founder & CTO</h3>
-              <p className="text-sm text-orange-500 mb-3">AI & Engineering</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>ML/AI specialist, 8 years</li>
-                <li>Previously: Audio AI Company</li>
-                <li>Audio signal processing expert</li>
-              </ul>
-            </Card>
-            
-            <Card className="p-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-pink-500 mx-auto mb-4 flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">CPO</span>
-              </div>
-              <h3 className="font-semibold text-lg">Head of Product</h3>
-              <p className="text-sm text-red-500 mb-3">Design & Growth</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>Ex-Spotify, 5 years</li>
-                <li>Launched creator tools at scale</li>
-                <li>Africa market experience</li>
-              </ul>
-            </Card>
+            <h2 className="text-3xl md:text-4xl font-bold mb-2">Early Stage, Big Vision</h2>
+            <p className="text-muted-foreground">Building the foundation for African music's AI future</p>
           </div>
           
           <div className="grid md:grid-cols-2 gap-6">
-            <Card className="p-5">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-500" />
-                Advisory Board
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Rocket className="w-5 h-5 text-amber-500" />
+                Current Stage
               </h3>
-              <ul className="text-sm space-y-2">
-                <li className="flex items-start gap-2">
-                  <Star className="w-4 h-4 text-amber-500 mt-0.5" />
-                  <span><strong>Music Industry:</strong> Former label exec, South Africa</span>
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Solo founder with functional prototype</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Zap className="w-4 h-4 text-amber-500 mt-0.5" />
-                  <span><strong>Technical:</strong> AI/ML researcher, audio focus</span>
+                <li className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Full-stack development (React, Supabase, AI)</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <Globe className="w-4 h-4 text-amber-500 mt-0.5" />
-                  <span><strong>Growth:</strong> Scaled African B2C startup to 10M users</span>
+                <li className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Deep understanding of Amapiano genre and culture</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Clock className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <span>Seeking technical co-founder</span>
                 </li>
               </ul>
             </Card>
             
-            <Card className="p-5">
-              <h3 className="font-semibold mb-3">Hiring Plan (12 Months)</h3>
-              <ul className="text-sm space-y-2">
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>2 Full-stack engineers</span>
+            <Card className="p-6">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-orange-500" />
+                Immediate Goals
+              </h3>
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start gap-3">
+                  <ArrowRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>Secure AWS Activate credits for infrastructure</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>1 ML engineer (audio focus)</span>
+                <li className="flex items-start gap-3">
+                  <ArrowRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>Recruit initial beta testers from SA producer community</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>1 Community/Growth lead</span>
+                <li className="flex items-start gap-3">
+                  <ArrowRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>Build AI training pipeline on AWS</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>1 Amapiano sound designer</span>
+                <li className="flex items-start gap-3">
+                  <ArrowRight className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <span>Establish first artist partnerships for licensed content</span>
                 </li>
               </ul>
             </Card>
           </div>
+          
+          <Card className="p-6 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-amber-500/30">
+            <h3 className="font-semibold mb-4 text-center">Why This Will Work</h3>
+            <div className="grid md:grid-cols-3 gap-6 text-sm">
+              <div className="text-center">
+                <Heart className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                <p className="font-medium">Cultural Authenticity</p>
+                <p className="text-xs text-muted-foreground">Built by someone who understands and loves the genre</p>
+              </div>
+              <div className="text-center">
+                <Zap className="w-8 h-8 text-amber-500 mx-auto mb-2" />
+                <p className="font-medium">Technical Capability</p>
+                <p className="text-xs text-muted-foreground">Functional prototype proves execution ability</p>
+              </div>
+              <div className="text-center">
+                <TrendingUp className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <p className="font-medium">Perfect Timing</p>
+                <p className="text-xs text-muted-foreground">Amapiano's global rise + AI democratization</p>
+              </div>
+            </div>
+          </Card>
         </div>
       ),
     },
@@ -1086,19 +1066,19 @@ export default function AWSActivatePitchDeck() {
             <div className="grid md:grid-cols-2 gap-4 text-left text-sm">
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                <span>Purpose-built for $180M+ African music AI market</span>
+                <span>First-mover in African music AI space</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                <span>AWS-native architecture from day one</span>
+                <span>Functional prototype ready to scale on AWS</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                <span>Validated with 50+ beta producers, 2,400+ waitlist</span>
+                <span>Clear AWS migration path and usage plan</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-green-500 mt-0.5" />
-                <span>Team with music + AI + Africa expertise</span>
+                <span>Riding the Amapiano cultural wave</span>
               </div>
             </div>
           </Card>

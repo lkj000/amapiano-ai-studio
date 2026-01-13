@@ -1,11 +1,25 @@
 /**
  * Tone.js-based DAW Playback Hook
  * Provides real audio playback for DAW clips using Tone.js Transport
+ * Enhanced with Amapiano-specific instrument sounds
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Tone from 'tone';
 import type { DawProjectData, DawTrack } from '@/types/daw';
+import { 
+  detectInstrumentType, 
+  createAmapianoInstrument, 
+  connectSynthWithEffects,
+  disposeSynthWithEffects,
+  type AmapianoInstrumentType
+} from '@/lib/audio/amapianoSynths';
+
+interface TrackInstrument {
+  synth: Tone.ToneAudioNode;
+  effects: Tone.ToneAudioNode[];
+  type: AmapianoInstrumentType;
+}
 
 export function useTonePlayback(projectData: DawProjectData | null) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -13,7 +27,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
   const [isReady, setIsReady] = useState(false);
 
   const playersRef = useRef<Map<string, Tone.Player>>(new Map());
-  const synthsRef = useRef<Map<string, Tone.PolySynth>>(new Map());
+  const instrumentsRef = useRef<Map<string, TrackInstrument>>(new Map());
   const trackChannelsRef = useRef<Map<string, Tone.Channel>>(new Map());
   const transportUpdateInterval = useRef<number | null>(null);
 
@@ -41,8 +55,8 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     // Clear existing
     playersRef.current.forEach(p => p.dispose());
     playersRef.current.clear();
-    synthsRef.current.forEach(s => s.dispose());
-    synthsRef.current.clear();
+    instrumentsRef.current.forEach(inst => disposeSynthWithEffects(inst.synth, inst.effects));
+    instrumentsRef.current.clear();
     trackChannelsRef.current.forEach(c => c.dispose());
     trackChannelsRef.current.clear();
 
@@ -58,16 +72,21 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       trackChannelsRef.current.set(track.id, channel);
 
       if (track.type === 'midi') {
-        // Create a polySynth for MIDI playback
-        const synth = new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle' },
-          envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.5 }
-        }).connect(channel);
-        synthsRef.current.set(track.id, synth);
+        // Detect instrument type from track name
+        const instrumentType = detectInstrumentType(track.name);
+        console.log(`[TonePlayback] Track "${track.name}" → ${instrumentType} synth`);
+        
+        // Create Amapiano-specific instrument
+        const { synth, effects } = createAmapianoInstrument(instrumentType);
+        
+        // Connect through effects chain to channel
+        connectSynthWithEffects(synth, effects, channel);
+        
+        instrumentsRef.current.set(track.id, { synth, effects, type: instrumentType });
       }
     });
 
-    console.log('[TonePlayback] Tracks ready:', trackChannelsRef.current.size);
+    console.log('[TonePlayback] Tracks ready:', trackChannelsRef.current.size, 'instruments:', instrumentsRef.current.size);
   }, [isReady, projectData]);
 
   const play = useCallback(async () => {
@@ -88,8 +107,8 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     if (projectData) {
       projectData.tracks.forEach((track) => {
         if (track.type === 'midi' && !track.mixer?.isMuted) {
-          const synth = synthsRef.current.get(track.id);
-          if (!synth) return;
+          const instrument = instrumentsRef.current.get(track.id);
+          if (!instrument) return;
 
           track.clips.forEach((clip) => {
             if ('notes' in clip && clip.notes) {
@@ -99,7 +118,14 @@ export function useTonePlayback(projectData: DawProjectData | null) {
                 const freq = Tone.Frequency(note.pitch, 'midi').toFrequency();
 
                 Tone.Transport.schedule((time) => {
-                  synth.triggerAttackRelease(freq, noteDuration, time, note.velocity / 127);
+                  // Handle different synth types
+                  const synth = instrument.synth as any;
+                  if (synth.triggerAttackRelease) {
+                    synth.triggerAttackRelease(freq, noteDuration, time, note.velocity / 127);
+                  } else if (synth.triggerAttack) {
+                    // For NoiseSynth/MetalSynth that don't take frequency
+                    synth.triggerAttackRelease(noteDuration, time, note.velocity / 127);
+                  }
                 }, noteStartTime);
               });
             }
@@ -210,7 +236,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       Tone.Transport.stop();
       Tone.Transport.cancel();
       playersRef.current.forEach(p => p.dispose());
-      synthsRef.current.forEach(s => s.dispose());
+      instrumentsRef.current.forEach(inst => disposeSynthWithEffects(inst.synth, inst.effects));
       trackChannelsRef.current.forEach(c => c.dispose());
     };
   }, []);

@@ -49,15 +49,16 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     }
   }, [isReady, projectData?.bpm]);
 
-  // Keep BPM in sync with project settings
+// Keep BPM in sync with project settings (only after audio context is running)
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || Tone.context.state !== 'running') return;
     Tone.Transport.bpm.value = projectData?.bpm || 118;
   }, [isReady, projectData?.bpm]);
 
-  // Setup tracks when project changes - preload audio files
+// Setup tracks when project changes - preload audio files
   useEffect(() => {
-    if (!isReady || !projectData) return;
+    // Only proceed if audio context is actually running
+    if (!isReady || !projectData || Tone.context.state !== 'running') return;
 
     console.log('[TonePlayback] Setting up tracks...');
 
@@ -396,14 +397,17 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     }
   }, [isReady, initialize]);
 
-  // Cleanup
+// Cleanup (only if audio was actually initialized)
   useEffect(() => {
     return () => {
       if (transportUpdateInterval.current) {
         clearInterval(transportUpdateInterval.current);
       }
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      // Only access Transport if context is running (avoid triggering autoplay warning)
+      if (Tone.context.state === 'running') {
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+      }
       playersRef.current.forEach(p => p.dispose());
       instrumentsRef.current.forEach(inst => disposeSynthWithEffects(inst.synth, inst.effects));
       trackChannelsRef.current.forEach(c => c.dispose());

@@ -13,27 +13,26 @@ serve(async (req) => {
   }
 
   try {
-    const { lyrics, voiceType, voiceStyle, bpm, genre, energy } = await req.json();
+    const body = await req.json();
+    
+    // Check if this is a status check request
+    if (body.action === 'check_status' && body.jobId) {
+      return await checkJobStatus(body.jobId);
+    }
+
+    // Otherwise, start a new generation
+    const { lyrics, voiceType, voiceStyle, bpm, genre, energy } = body;
     
     if (!lyrics) {
       throw new Error('Lyrics are required');
     }
 
-    console.log('[SONG-GENERATION] Starting REAL song generation:', { voiceType, voiceStyle, bpm, genre });
+    console.log('[SONG-GENERATION] Starting async song generation:', { voiceType, voiceStyle, bpm, genre });
 
     const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
     if (!REPLICATE_API_KEY) {
       throw new Error('REPLICATE_API_KEY not configured - required for real music generation');
     }
-
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Supabase configuration missing');
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Build a detailed prompt for music generation with vocals
     const voiceDesc = voiceType === 'female' ? 'female vocals' : voiceType === 'duet' ? 'duet male and female vocals' : 'male vocals';
@@ -45,10 +44,7 @@ serve(async (req) => {
 
     console.log('[SONG-GENERATION] Music prompt:', musicPrompt);
 
-    // Use Replicate's MusicGen or similar model for actual music generation
-    // Using facebook/musicgen for instrumental + we'll need a singing model
-    // For now, using a music generation model that can create vocal-like content
-    
+    // Start the Replicate prediction (non-blocking)
     const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -56,7 +52,6 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // Using MusicGen Large for better quality
         version: 'b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38',
         input: {
           prompt: musicPrompt,
@@ -75,83 +70,15 @@ serve(async (req) => {
     }
 
     const prediction = await replicateResponse.json();
-    console.log('[SONG-GENERATION] Prediction created:', prediction.id);
+    console.log('[SONG-GENERATION] Prediction created (async):', prediction.id);
 
-    // Poll for completion
-    let result = prediction;
-    let attempts = 0;
-    const maxAttempts = 60; // 2 minutes max
-
-    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers: {
-          'Authorization': `Token ${REPLICATE_API_KEY}`,
-        },
-      });
-      
-      result = await pollResponse.json();
-      attempts++;
-      console.log('[SONG-GENERATION] Poll attempt', attempts, '- Status:', result.status);
-    }
-
-    if (result.status === 'failed') {
-      throw new Error(`Music generation failed: ${result.error || 'Unknown error'}`);
-    }
-
-    if (result.status !== 'succeeded') {
-      throw new Error('Music generation timed out');
-    }
-
-    const audioUrl = result.output;
-    console.log('[SONG-GENERATION] Generated audio URL:', audioUrl);
-
-    // Download the audio and upload to Supabase for persistence
-    const audioResponse = await fetch(audioUrl);
-    const audioArrayBuffer = await audioResponse.arrayBuffer();
-    const audioBytes = new Uint8Array(audioArrayBuffer);
-
-    const fileName = `generated-song-${Date.now()}.mp3`;
-    const filePath = `generated/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('samples')
-      .upload(filePath, audioBytes, {
-        contentType: 'audio/mpeg',
-        upsert: false
-      });
-
-    if (uploadError) {
-      console.error('[SONG-GENERATION] Storage upload error:', uploadError);
-      // Return the original URL if upload fails
-      return new Response(
-        JSON.stringify({
-          success: true,
-          audioUrl,
-          metadata: {
-            voiceType,
-            voiceStyle,
-            bpm,
-            genre,
-            duration: 30,
-            source: 'replicate-musicgen'
-          }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('samples')
-      .getPublicUrl(filePath);
-
-    console.log('[SONG-GENERATION] Complete, stored at:', urlData.publicUrl);
-
+    // Return immediately with job ID - client will poll for status
     return new Response(
       JSON.stringify({
         success: true,
-        audioUrl: urlData.publicUrl,
+        status: 'processing',
+        jobId: prediction.id,
+        message: 'Song generation started. Poll for status using jobId.',
         metadata: {
           voiceType,
           voiceStyle,
@@ -177,3 +104,100 @@ serve(async (req) => {
     );
   }
 });
+
+async function checkJobStatus(jobId: string): Promise<Response> {
+  const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
+  if (!REPLICATE_API_KEY) {
+    throw new Error('REPLICATE_API_KEY not configured');
+  }
+
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  console.log('[SONG-GENERATION] Checking status for job:', jobId);
+
+  const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
+    headers: {
+      'Authorization': `Token ${REPLICATE_API_KEY}`,
+    },
+  });
+
+  if (!pollResponse.ok) {
+    throw new Error(`Failed to check job status: ${pollResponse.status}`);
+  }
+
+  const result = await pollResponse.json();
+  console.log('[SONG-GENERATION] Job status:', result.status);
+
+  if (result.status === 'failed') {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        status: 'failed',
+        error: result.error || 'Music generation failed',
+        jobId
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (result.status === 'succeeded') {
+    const audioUrl = result.output;
+    console.log('[SONG-GENERATION] Generated audio URL:', audioUrl);
+
+    // Try to persist to Supabase storage
+    let finalUrl = audioUrl;
+    
+    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        
+        const audioResponse = await fetch(audioUrl);
+        const audioArrayBuffer = await audioResponse.arrayBuffer();
+        const audioBytes = new Uint8Array(audioArrayBuffer);
+
+        const fileName = `generated-song-${Date.now()}.mp3`;
+        const filePath = `generated/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('samples')
+          .upload(filePath, audioBytes, {
+            contentType: 'audio/mpeg',
+            upsert: false
+          });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('samples')
+            .getPublicUrl(filePath);
+          finalUrl = urlData.publicUrl;
+          console.log('[SONG-GENERATION] Stored at:', finalUrl);
+        }
+      } catch (storageError) {
+        console.error('[SONG-GENERATION] Storage upload error:', storageError);
+        // Use original URL if storage fails
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        status: 'succeeded',
+        audioUrl: finalUrl,
+        jobId
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Still processing
+  return new Response(
+    JSON.stringify({
+      success: true,
+      status: result.status, // 'starting' or 'processing'
+      jobId,
+      message: 'Generation in progress...'
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}

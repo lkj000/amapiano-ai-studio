@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { 
   Music, 
   Mic2, 
@@ -16,7 +17,8 @@ import {
   ChevronRight,
   Download,
   Edit,
-  Save
+  Save,
+  Loader2
 } from 'lucide-react';
 import JSZip from 'jszip';
 import LyricsGenerator from './LyricsGenerator';
@@ -26,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { AmapianorizationEngine } from '@/lib/audio/amapianorizationEngine';
 import { AMAPIANO_VOICE_CATEGORIES, SA_GENRES } from '@/constants/amapianoVoices';
+import { useAsyncJobPolling } from '@/hooks/useAsyncJobPolling';
 
 interface WorkflowStep {
   id: number;
@@ -50,54 +53,25 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
   const [stems, setStems] = useState<any>(null);
   const [enhancedStems, setEnhancedStems] = useState<any>(null);
   const [authenticityScore, setAuthenticityScore] = useState<number | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // For stem separation and amapianorization
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const steps: WorkflowStep[] = [
-    { id: 1, title: 'Generate Lyrics', icon: Music, completed: !!lyrics },
-    { id: 2, title: 'Voice & Style', icon: Mic2, completed: false },
-    { id: 3, title: 'Generate Song', icon: Wand2, completed: !!generatedAudio },
-    { id: 4, title: 'Stem Separation', icon: Split, completed: !!stems },
-    { id: 5, title: 'Amapianorize', icon: Layers, completed: false }
-  ];
-
-  const handleLyricsGenerated = (generatedLyrics: string) => {
-    setLyrics(generatedLyrics);
-    setCurrentStep(2);
-    toast({
-      title: "Lyrics Ready! ✓",
-      description: "Proceed to voice selection"
-    });
-  };
-
-  const generateSong = async () => {
-    setIsProcessing(true);
-    try {
-      toast({
-        title: "Generating Song...",
-        description: "Creating vocals with ElevenLabs TTS"
-      });
-
-      // Call the new song generation edge function with real vocals
-      const { data, error } = await supabase.functions.invoke('generate-song-with-vocals', {
-        body: {
-          lyrics,
-          voiceStyle,
-          bpm,
-          genre,
-          energy
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.audioUrl) {
+  // Use async job polling for song generation
+  const {
+    jobStatus: songJobStatus,
+    startJob: startSongGeneration,
+    isProcessing: isSongGenerating,
+  } = useAsyncJobPolling({
+    functionName: 'generate-song-with-vocals',
+    pollIntervalMs: 3000,
+    maxPollAttempts: 120,
+    onSuccess: (data) => {
+      if (data?.audioUrl) {
         setGeneratedAudio(data.audioUrl);
         setCurrentStep(4);
         
-        // Pass generated track to parent
         if (onComplete) {
           onComplete({
             audioUrl: data.audioUrl,
@@ -118,18 +92,54 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
           title: "Song Generated! 🎵",
           description: "Ready for stem separation"
         });
-      } else {
-        throw new Error('No audio URL returned');
       }
-    } catch (error) {
-      console.error('Error generating song:', error);
+    },
+    onError: (error) => {
       toast({
         title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: error,
         variant: "destructive"
       });
-    } finally {
-      setIsProcessing(false);
+    },
+    onProgress: (status) => {
+      // Optional progress updates
+      console.log('[SongGeneration] Status:', status);
+    }
+  });
+
+  const steps: WorkflowStep[] = [
+    { id: 1, title: 'Generate Lyrics', icon: Music, completed: !!lyrics },
+    { id: 2, title: 'Voice & Style', icon: Mic2, completed: false },
+    { id: 3, title: 'Generate Song', icon: Wand2, completed: !!generatedAudio },
+    { id: 4, title: 'Stem Separation', icon: Split, completed: !!stems },
+    { id: 5, title: 'Amapianorize', icon: Layers, completed: false }
+  ];
+
+  const handleLyricsGenerated = (generatedLyrics: string) => {
+    setLyrics(generatedLyrics);
+    setCurrentStep(2);
+    toast({
+      title: "Lyrics Ready! ✓",
+      description: "Proceed to voice selection"
+    });
+  };
+
+  const generateSong = async () => {
+    toast({
+      title: "Generating Song...",
+      description: "Starting AI music generation (this may take 2-3 minutes)"
+    });
+
+    try {
+      await startSongGeneration({
+        lyrics,
+        voiceStyle,
+        bpm,
+        genre,
+        energy
+      });
+    } catch (error) {
+      console.error('Error starting song generation:', error);
     }
   };
 
@@ -496,16 +506,37 @@ export default function SunoStyleWorkflow({ onComplete }: SunoStyleWorkflowProps
                 </div>
               </div>
 
+              {/* Progress indicator for song generation */}
+              {isSongGenerating && (
+                <div className="space-y-2 p-4 bg-muted rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm font-medium">
+                      {songJobStatus.status === 'starting' ? 'Starting generation...' : 'Generating music...'}
+                    </span>
+                  </div>
+                  <Progress value={songJobStatus.progress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    This may take 2-3 minutes. Please wait...
+                  </p>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setCurrentStep(2)}>
                   Back
                 </Button>
                 <Button 
                   onClick={generateSong} 
-                  disabled={isProcessing}
+                  disabled={isSongGenerating}
                   className="flex-1"
                 >
-                  {isProcessing ? 'Generating...' : 'Generate Song'}
+                  {isSongGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : 'Generate Song'}
                 </Button>
               </div>
             </div>

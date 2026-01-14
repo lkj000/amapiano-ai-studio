@@ -11,6 +11,50 @@ import { musicProductionTools } from './MusicProductionTools';
 import { Tool } from './ReActLoop';
 import { supabase } from '@/integrations/supabase/client';
 
+// ============= Human-in-the-Loop Types =============
+
+export type HITLCheckpointType = 
+  | 'creative_direction'    // Major creative decisions
+  | 'mix_approval'          // Mix balance review
+  | 'master_approval'       // Final master review
+  | 'release_approval'      // Distribution confirmation
+  | 'stem_selection'        // Choose which stems to keep
+  | 'variation_selection'   // Pick from multiple options
+  | 'lyrics_review'         // Approve/edit lyrics
+  | 'arrangement_review';   // Arrangement structure approval
+
+export interface HITLCheckpoint {
+  id: string;
+  type: HITLCheckpointType;
+  title: string;
+  description: string;
+  options: HITLOption[];
+  audioPreviewUrls?: string[];
+  metadata?: Record<string, unknown>;
+  timeout?: number;  // Auto-proceed after timeout (ms)
+  defaultOptionId?: string;  // Used if timeout expires
+  createdAt: number;
+}
+
+export interface HITLOption {
+  id: string;
+  label: string;
+  description?: string;
+  value?: unknown;  // Optional - not needed for simple approve actions
+  previewUrl?: string;
+  isRecommended?: boolean;
+}
+
+export interface HITLResponse {
+  checkpointId: string;
+  selectedOptionId: string;
+  customValue?: unknown;
+  feedback?: string;
+  respondedAt: number;
+}
+
+export type HITLCallback = (checkpoint: HITLCheckpoint) => Promise<HITLResponse>;
+
 export interface MusicProductionGoal {
   type: 
     | 'create_song'           // Full song from scratch
@@ -42,6 +86,14 @@ export interface MusicProductionGoal {
     targetPlatforms?: string[];
     targetLoudness?: number;
   };
+  
+  // Human-in-the-Loop configuration
+  humanInTheLoop?: {
+    enabled: boolean;
+    checkpoints?: HITLCheckpointType[];  // Which checkpoints to enable
+    autoApproveTimeout?: number;          // Auto-proceed after timeout (ms)
+    callback?: HITLCallback;              // Handler for checkpoints
+  };
 }
 
 export interface Level5Result extends ExecutionReport {
@@ -64,6 +116,12 @@ export interface Level5Result extends ExecutionReport {
 
 export class Level5Agent extends AutonomousAgent {
   private productionContext: Map<string, unknown> = new Map();
+  private hitlCallback?: HITLCallback;
+  private hitlEnabled: boolean = false;
+  private hitlCheckpoints: Set<HITLCheckpointType> = new Set();
+  private hitlAutoApproveTimeout: number = 0;
+  private pendingCheckpoints: Map<string, HITLCheckpoint> = new Map();
+  private checkpointResponses: Map<string, HITLResponse> = new Map();
   
   constructor(config?: Partial<AgentConfig>) {
     super({
@@ -80,6 +138,310 @@ export class Level5Agent extends AutonomousAgent {
     
     // Register meta-tools for complex workflows
     this.registerTools(this.createMetaTools());
+    
+    // Register HITL tools
+    this.registerTools(this.createHITLTools());
+  }
+  
+  /**
+   * Configure human-in-the-loop settings
+   */
+  configureHITL(options: {
+    enabled: boolean;
+    checkpoints?: HITLCheckpointType[];
+    autoApproveTimeout?: number;
+    callback?: HITLCallback;
+  }): void {
+    this.hitlEnabled = options.enabled;
+    this.hitlCheckpoints = new Set(options.checkpoints || [
+      'creative_direction',
+      'mix_approval', 
+      'master_approval',
+      'release_approval'
+    ]);
+    this.hitlAutoApproveTimeout = options.autoApproveTimeout || 0;
+    this.hitlCallback = options.callback;
+  }
+  
+  /**
+   * Set callback for HITL checkpoints
+   */
+  onCheckpoint(callback: HITLCallback): void {
+    this.hitlCallback = callback;
+  }
+  
+  /**
+   * Get pending checkpoints awaiting user response
+   */
+  getPendingCheckpoints(): HITLCheckpoint[] {
+    return Array.from(this.pendingCheckpoints.values());
+  }
+  
+  /**
+   * Submit response to a checkpoint
+   */
+  async respondToCheckpoint(response: HITLResponse): Promise<void> {
+    const checkpoint = this.pendingCheckpoints.get(response.checkpointId);
+    if (!checkpoint) {
+      throw new Error(`Checkpoint ${response.checkpointId} not found`);
+    }
+    
+    this.checkpointResponses.set(response.checkpointId, response);
+    this.pendingCheckpoints.delete(response.checkpointId);
+    
+    this.emit({ type: 'log', data: { event: 'checkpoint_responded', checkpoint, response }, timestamp: Date.now() });
+  }
+  
+  private createHITLTools(): Tool[] {
+    return [
+      {
+        name: 'request_creative_feedback',
+        description: 'Pause execution and request human feedback on creative direction',
+        parameters: {
+          title: { type: 'string', description: 'Title of the decision point', required: true },
+          description: { type: 'string', description: 'What feedback is needed', required: true },
+          options: { type: 'array', description: 'Available options for the user', required: true },
+          preview_urls: { type: 'array', description: 'Audio preview URLs', required: false },
+          checkpoint_type: { type: 'string', description: 'Type of checkpoint', required: false }
+        },
+        execute: async (input) => {
+          if (!this.hitlEnabled) {
+            // Auto-select recommended or first option
+            const options = input.options as HITLOption[];
+            const selected = options.find(o => o.isRecommended) || options[0];
+            return JSON.stringify({ 
+              autoApproved: true, 
+              selectedOption: selected,
+              reason: 'HITL disabled - auto-selected recommended option'
+            });
+          }
+          
+          const checkpoint = await this.createCheckpoint(
+            String(input.checkpoint_type || 'creative_direction') as HITLCheckpointType,
+            String(input.title),
+            String(input.description),
+            input.options as HITLOption[],
+            input.preview_urls as string[]
+          );
+          
+          const response = await this.waitForCheckpointResponse(checkpoint);
+          const selectedOption = (input.options as HITLOption[]).find(o => o.id === response.selectedOptionId);
+          
+          return JSON.stringify({
+            approved: true,
+            selectedOption,
+            feedback: response.feedback,
+            customValue: response.customValue
+          });
+        }
+      },
+      {
+        name: 'request_mix_approval',
+        description: 'Request human approval for mix balance and levels',
+        parameters: {
+          audio_url: { type: 'string', description: 'URL of the mix to review', required: true },
+          mix_details: { type: 'object', description: 'Details about the current mix', required: false }
+        },
+        execute: async (input) => {
+          if (!this.hitlEnabled || !this.hitlCheckpoints.has('mix_approval')) {
+            return JSON.stringify({ approved: true, autoApproved: true });
+          }
+          
+          const checkpoint = await this.createCheckpoint(
+            'mix_approval',
+            'Mix Review Required',
+            'Please review the current mix and approve or request adjustments.',
+            [
+              { id: 'approve', label: 'Approve Mix', description: 'Mix sounds good, proceed', isRecommended: true },
+              { id: 'louder_vocals', label: 'Louder Vocals', description: 'Increase vocal level', value: { adjust: 'vocals', amount: 3 } },
+              { id: 'more_bass', label: 'More Bass', description: 'Increase bass presence', value: { adjust: 'bass', amount: 2 } },
+              { id: 'adjust_eq', label: 'Adjust EQ', description: 'General EQ adjustments needed', value: { adjust: 'eq' } }
+            ],
+            [String(input.audio_url)]
+          );
+          
+          const response = await this.waitForCheckpointResponse(checkpoint);
+          return JSON.stringify({
+            approved: response.selectedOptionId === 'approve',
+            adjustments: response.selectedOptionId !== 'approve' ? response.selectedOptionId : null,
+            feedback: response.feedback
+          });
+        }
+      },
+      {
+        name: 'request_master_approval',
+        description: 'Request human approval for mastered audio before release',
+        parameters: {
+          audio_url: { type: 'string', description: 'URL of mastered audio', required: true },
+          master_specs: { type: 'object', description: 'Mastering specifications applied', required: false }
+        },
+        execute: async (input) => {
+          if (!this.hitlEnabled || !this.hitlCheckpoints.has('master_approval')) {
+            return JSON.stringify({ approved: true, autoApproved: true });
+          }
+          
+          const checkpoint = await this.createCheckpoint(
+            'master_approval',
+            'Master Review Required',
+            'The track has been mastered. Please review before proceeding to distribution.',
+            [
+              { id: 'approve', label: 'Approve Master', description: 'Master sounds professional', isRecommended: true },
+              { id: 'louder', label: 'Make Louder', description: 'Increase overall loudness', value: { loudness: '+2' } },
+              { id: 'softer', label: 'Reduce Loudness', description: 'More dynamic range', value: { loudness: '-2' } },
+              { id: 'remaster', label: 'Remaster', description: 'Apply different mastering approach', value: { remaster: true } }
+            ],
+            [String(input.audio_url)]
+          );
+          
+          const response = await this.waitForCheckpointResponse(checkpoint);
+          return JSON.stringify({
+            approved: response.selectedOptionId === 'approve',
+            adjustment: response.selectedOptionId !== 'approve' ? response.selectedOptionId : null,
+            feedback: response.feedback
+          });
+        }
+      },
+      {
+        name: 'request_release_confirmation',
+        description: 'Final confirmation before distributing to platforms',
+        parameters: {
+          release_details: { type: 'object', description: 'Release metadata and targets', required: true }
+        },
+        execute: async (input) => {
+          if (!this.hitlEnabled || !this.hitlCheckpoints.has('release_approval')) {
+            return JSON.stringify({ confirmed: true, autoApproved: true });
+          }
+          
+          const details = input.release_details as Record<string, unknown>;
+          const checkpoint = await this.createCheckpoint(
+            'release_approval',
+            'Confirm Release',
+            `Ready to distribute "${details.title || 'Untitled'}" to ${(details.platforms as string[])?.join(', ') || 'all platforms'}.`,
+            [
+              { id: 'confirm', label: 'Release Now', description: 'Proceed with distribution', isRecommended: true },
+              { id: 'schedule', label: 'Schedule Later', description: 'Set a release date', value: { action: 'schedule' } },
+              { id: 'cancel', label: 'Cancel', description: 'Do not release', value: { action: 'cancel' } }
+            ]
+          );
+          
+          const response = await this.waitForCheckpointResponse(checkpoint);
+          return JSON.stringify({
+            confirmed: response.selectedOptionId === 'confirm',
+            action: response.selectedOptionId,
+            feedback: response.feedback
+          });
+        }
+      },
+      {
+        name: 'select_from_variations',
+        description: 'Present multiple generated variations for user to choose from',
+        parameters: {
+          title: { type: 'string', description: 'What variations represent', required: true },
+          variations: { type: 'array', description: 'Array of variation objects with urls and descriptions', required: true }
+        },
+        execute: async (input) => {
+          if (!this.hitlEnabled || !this.hitlCheckpoints.has('variation_selection')) {
+            // Auto-select first variation
+            const variations = input.variations as Array<{ url: string; description: string }>;
+            return JSON.stringify({ selected: variations[0], autoSelected: true });
+          }
+          
+          const variations = input.variations as Array<{ url: string; description: string }>;
+          const options: HITLOption[] = variations.map((v, i) => ({
+            id: `variation_${i}`,
+            label: `Option ${i + 1}`,
+            description: v.description,
+            previewUrl: v.url,
+            value: v,
+            isRecommended: i === 0
+          }));
+          
+          const checkpoint = await this.createCheckpoint(
+            'variation_selection',
+            String(input.title),
+            'Multiple variations have been generated. Please select your preferred option.',
+            options,
+            variations.map(v => v.url)
+          );
+          
+          const response = await this.waitForCheckpointResponse(checkpoint);
+          const selectedIndex = parseInt(response.selectedOptionId.replace('variation_', ''));
+          
+          return JSON.stringify({
+            selected: variations[selectedIndex],
+            feedback: response.feedback
+          });
+        }
+      }
+    ];
+  }
+  
+  private async createCheckpoint(
+    type: HITLCheckpointType,
+    title: string,
+    description: string,
+    options: HITLOption[],
+    previewUrls?: string[]
+  ): Promise<HITLCheckpoint> {
+    const checkpoint: HITLCheckpoint = {
+      id: `checkpoint_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      title,
+      description,
+      options,
+      audioPreviewUrls: previewUrls,
+      timeout: this.hitlAutoApproveTimeout,
+      defaultOptionId: options.find(o => o.isRecommended)?.id || options[0]?.id,
+      createdAt: Date.now()
+    };
+    
+    this.pendingCheckpoints.set(checkpoint.id, checkpoint);
+    this.emit({ type: 'log', data: { event: 'checkpoint_created', checkpoint }, timestamp: Date.now() });
+    
+    return checkpoint;
+  }
+  
+  private async waitForCheckpointResponse(checkpoint: HITLCheckpoint): Promise<HITLResponse> {
+    // If callback is set, use it
+    if (this.hitlCallback) {
+      try {
+        const response = await this.hitlCallback(checkpoint);
+        this.checkpointResponses.set(checkpoint.id, response);
+        this.pendingCheckpoints.delete(checkpoint.id);
+        return response;
+      } catch (error) {
+        console.error('HITL callback error:', error);
+      }
+    }
+    
+    // Otherwise wait for external response with optional timeout
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        const response = this.checkpointResponses.get(checkpoint.id);
+        if (response) {
+          clearInterval(checkInterval);
+          resolve(response);
+        }
+      }, 100);
+      
+      // Auto-approve after timeout if configured
+      if (checkpoint.timeout && checkpoint.timeout > 0) {
+        setTimeout(() => {
+          if (!this.checkpointResponses.has(checkpoint.id)) {
+            const autoResponse: HITLResponse = {
+              checkpointId: checkpoint.id,
+              selectedOptionId: checkpoint.defaultOptionId || checkpoint.options[0].id,
+              respondedAt: Date.now()
+            };
+            this.checkpointResponses.set(checkpoint.id, autoResponse);
+            this.pendingCheckpoints.delete(checkpoint.id);
+            this.emit({ type: 'log', data: { event: 'checkpoint_auto_approved', checkpoint, response: autoResponse }, timestamp: Date.now() });
+            clearInterval(checkInterval);
+            resolve(autoResponse);
+          }
+        }, checkpoint.timeout);
+      }
+    });
   }
   
   private createMetaTools(): Tool[] {
@@ -139,6 +501,16 @@ export class Level5Agent extends AutonomousAgent {
    */
   async executeProductionGoal(goal: MusicProductionGoal): Promise<Level5Result> {
     const startTime = Date.now();
+    
+    // Configure HITL from goal if provided
+    if (goal.humanInTheLoop) {
+      this.configureHITL({
+        enabled: goal.humanInTheLoop.enabled,
+        checkpoints: goal.humanInTheLoop.checkpoints,
+        autoApproveTimeout: goal.humanInTheLoop.autoApproveTimeout,
+        callback: goal.humanInTheLoop.callback
+      });
+    }
     
     // Build natural language goal from structured input
     const naturalGoal = this.buildNaturalGoal(goal);

@@ -20,6 +20,13 @@ export type { AgentStatus, AgentEvent, AgentConfig, ExecutionReport } from './Au
 
 export { EventEmitter } from './EventEmitter';
 
+// Level 5 Agent with Full Music Production Capabilities
+export { Level5Agent, level5Agent, createSong, remixTrack, masterAndRelease, extractStems, createBeat } from './Level5Agent';
+export type { MusicProductionGoal, Level5Result } from './Level5Agent';
+
+// Music Production Tools (Suno + Moises + LANDR capabilities)
+export { musicProductionTools } from './MusicProductionTools';
+
 // Ambient Agent Components
 export { AgentSignalBus } from './ambient/AgentSignalBus';
 export { ScheduledAgentHeartbeat } from './ambient/ScheduledAgentHeartbeat';

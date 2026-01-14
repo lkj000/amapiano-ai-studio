@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { ToneAudioEngine, createToneAudioEngine, AudioProcessingStats } from '@/lib/wasm/ToneAudioEngine';
-import * as Tone from 'tone';
+import { safeToneStart, isToneReady } from '@/lib/audio/toneUtils';
 
 export const useHighSpeedAudioEngine = () => {
   const [engine, setEngine] = useState<ToneAudioEngine | null>(null);
@@ -22,20 +22,17 @@ export const useHighSpeedAudioEngine = () => {
   });
 
   useEffect(() => {
-    let mounted = true;
-
     // Do NOT initialize Tone on mount to avoid autoplay policy errors.
     // We'll lazily create and start the engine after a user gesture via startAudio().
 
     return () => {
-      mounted = false;
       if (engine) {
         engine.dispose();
       }
     };
   }, [engine]);
 
-  // Update stats periodically
+  // Update stats periodically (only if engine is initialized)
   useEffect(() => {
     if (!engine || !isInitialized) return;
 
@@ -66,8 +63,9 @@ export const useHighSpeedAudioEngine = () => {
       }
     }
 
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
+    // If engine exists but context isn't running, resume it
+    if (!isToneReady()) {
+      await safeToneStart();
       setStats(engine.getStats());
       console.log('[Hook] Audio context resumed');
     }

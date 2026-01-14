@@ -13,6 +13,7 @@ import {
   disposeSynthWithEffects,
   type AmapianoInstrumentType
 } from '@/lib/audio/amapianoSynths';
+import { safeToneStart, markToneStarted } from '@/lib/audio/toneUtils';
 
 interface PlaybackState {
   isReady: boolean;
@@ -57,7 +58,12 @@ export function useAmapianoPlayback() {
     if (state.isReady) return;
 
     try {
-      await Tone.start();
+      const started = await safeToneStart();
+      if (!started) {
+        console.warn('[AmapianoPlayback] Audio context not started - requires user gesture');
+        return;
+      }
+      markToneStarted();
       
       // Create master channel with limiter
       const limiter = new Tone.Limiter(-1);

@@ -52,6 +52,13 @@ export class ToneAudioEngine {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
+    // Check if we're in a valid context for audio (user gesture required)
+    // Don't proceed if document isn't visible or no user interaction has occurred
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      console.log('[ToneEngine] Deferring init - document not visible');
+      return;
+    }
+
     console.log('[ToneEngine] Initializing professional audio engine...');
     const startTime = performance.now();
 
@@ -88,6 +95,11 @@ export class ToneAudioEngine {
 
       this.isInitialized = true;
       this.stats.isReady = true;
+      
+      // Mark that audio has been started for this session
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('audioContextStarted', 'true');
+      }
     } catch (error) {
       console.error('[ToneEngine] Initialization failed:', error);
       throw error;

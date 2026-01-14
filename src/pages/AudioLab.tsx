@@ -5,6 +5,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AIMastering, SampleSimilaritySearch, ChordDetector } from '@/components/audio';
+import { AgentModeToggle } from '@/components/agent/AgentModeToggle';
 import { Wand2, Search, Piano } from 'lucide-react';
 
 export default function AudioLab() {
@@ -12,11 +13,14 @@ export default function AudioLab() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Audio Lab</h1>
-          <p className="text-muted-foreground text-lg">
-            Professional audio processing powered by AI
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="text-center md:text-left">
+            <h1 className="text-4xl font-bold mb-2">Audio Lab</h1>
+            <p className="text-muted-foreground text-lg">
+              Professional audio processing powered by AI
+            </p>
+          </div>
+          <AgentModeToggle />
         </div>
 
         {/* Tools Tabs */}

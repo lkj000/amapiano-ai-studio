@@ -1,9 +1,9 @@
 /**
  * AI Mastering Component
- * Provides one-click mastering with genre-aware presets
+ * Provides one-click mastering with genre-aware presets and real-time LUFS metering
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -23,9 +23,12 @@ import {
   Music,
   Waves,
   Sparkles,
-  RotateCcw
+  RotateCcw,
+  Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { LUFSMeter } from './LUFSMeter';
+import { AllMasteringPresets } from '@/lib/dsp/masteringPresets';
 
 interface MasteringPreset {
   id: string;
@@ -93,6 +96,7 @@ export function AIMastering() {
   const [selectedPreset, setSelectedPreset] = useState<string>('amapiano');
   const [settings, setSettings] = useState<MasteringSettings>(GENRE_PRESETS[0].settings);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const [showLufsMeters, setShowLufsMeters] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const masteredAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -277,6 +281,20 @@ export function AIMastering() {
                   />
                 )}
 
+                {/* LUFS Meter for Original */}
+                {audioFile && showLufsMeters && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      Original Loudness Analysis
+                    </Label>
+                    <LUFSMeter 
+                      targetLUFS={settings.loudness}
+                      compact
+                    />
+                  </div>
+                )}
+
                 {masteredUrl && (
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
@@ -309,6 +327,20 @@ export function AIMastering() {
                       src={masteredUrl} 
                       onEnded={() => setPlayingMastered(false)}
                     />
+                    
+                    {/* LUFS Meter for Mastered */}
+                    {showLufsMeters && (
+                      <div className="mt-2">
+                        <Label className="flex items-center gap-2 mb-2">
+                          <Activity className="w-4 h-4 text-primary" />
+                          Mastered Loudness
+                        </Label>
+                        <LUFSMeter 
+                          targetLUFS={settings.loudness}
+                          compact
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 

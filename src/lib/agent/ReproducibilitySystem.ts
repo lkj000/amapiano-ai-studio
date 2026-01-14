@@ -10,6 +10,13 @@ import type { Json } from '@/integrations/supabase/types';
 
 // ============= Reproducibility Types =============
 
+/**
+ * Operating Mode for Reproducibility
+ * - creative: Allows variation for exploration, loose determinism
+ * - production: Strict determinism for exact reproduction
+ */
+export type ReproducibilityMode = 'creative' | 'production';
+
 export interface ReproducibleSeed {
   master: string;        // Master seed for entire session
   generation: number;    // Seed for AI generation
@@ -31,15 +38,43 @@ export interface GenerationState {
   reproducible: boolean;
   attempts: number;
   reproductionErrors?: string[];
+  mode: ReproducibilityMode;  // Mode used during generation
+}
+
+/**
+ * Creative Mode Settings - for exploration and variation
+ */
+export interface CreativeModeConfig {
+  variationAmount: number;        // 0-1: How much variation to allow
+  allowParameterDrift: boolean;   // Allow small changes to parameters
+  driftRange: number;             // Max % drift for parameters
+  explorationFactor: number;      // 0-1: Encourages novel outputs
+  preserveCore: boolean;          // Keep core elements consistent
+  variationDomains: ('melody' | 'rhythm' | 'harmony' | 'timbre' | 'dynamics' | 'effects')[];
+}
+
+/**
+ * Production Mode Settings - for exact reproduction
+ */
+export interface ProductionModeConfig {
+  strictDeterminism: boolean;     // Enforce exact same outputs
+  lockAllParameters: boolean;     // No parameter changes allowed
+  requireHashMatch: boolean;      // Must match original hash
+  allowRetries: boolean;          // Retry on mismatch
+  maxRetries: number;             // Max reproduction attempts
+  toleranceThreshold: number;     // 0-1: Acceptable difference (0 = exact)
 }
 
 export interface ReproducibilityConfig {
+  mode: ReproducibilityMode;
   enableDeterminism: boolean;
   seedMode: 'fixed' | 'timestamp' | 'custom';
   customSeed?: string;
   maxReproductionAttempts: number;
   hashVerification: boolean;
   stateLogging: boolean;
+  creativeConfig: CreativeModeConfig;
+  productionConfig: ProductionModeConfig;
 }
 
 export interface ReproductionResult {
@@ -111,6 +146,26 @@ async function generateHash(data: unknown): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ============= Default Configs =============
+
+const DEFAULT_CREATIVE_CONFIG: CreativeModeConfig = {
+  variationAmount: 0.3,
+  allowParameterDrift: true,
+  driftRange: 0.15,
+  explorationFactor: 0.5,
+  preserveCore: true,
+  variationDomains: ['melody', 'rhythm', 'harmony', 'timbre', 'dynamics', 'effects']
+};
+
+const DEFAULT_PRODUCTION_CONFIG: ProductionModeConfig = {
+  strictDeterminism: true,
+  lockAllParameters: true,
+  requireHashMatch: true,
+  allowRetries: true,
+  maxRetries: 5,
+  toleranceThreshold: 0
+};
+
 // ============= Reproducibility Manager =============
 
 export class ReproducibilityManager {
@@ -119,20 +174,110 @@ export class ReproducibilityManager {
   private random: DeterministicRandom;
   private stateHistory: GenerationState[] = [];
   private currentSessionId: string;
+  private creativeRandom: DeterministicRandom | null = null;
   
   constructor(config?: Partial<ReproducibilityConfig>) {
     this.config = {
+      mode: 'production',
       enableDeterminism: true,
       seedMode: 'timestamp',
       maxReproductionAttempts: 3,
       hashVerification: true,
       stateLogging: true,
+      creativeConfig: { ...DEFAULT_CREATIVE_CONFIG },
+      productionConfig: { ...DEFAULT_PRODUCTION_CONFIG },
       ...config
     };
     
     this.currentSessionId = `session_${Date.now()}`;
     this.seeds = this.initializeSeeds();
     this.random = new DeterministicRandom(this.seeds.random);
+    
+    // Creative mode gets a separate random source for variations
+    if (this.config.mode === 'creative') {
+      this.creativeRandom = new DeterministicRandom(Date.now());
+    }
+  }
+  
+  /**
+   * Get current mode
+   */
+  getMode(): ReproducibilityMode {
+    return this.config.mode;
+  }
+  
+  /**
+   * Switch between creative and production modes
+   */
+  setMode(mode: ReproducibilityMode): void {
+    this.config.mode = mode;
+    
+    if (mode === 'creative' && !this.creativeRandom) {
+      this.creativeRandom = new DeterministicRandom(Date.now());
+    }
+    
+    console.log(`[Reproducibility] Switched to ${mode.toUpperCase()} mode`);
+  }
+  
+  /**
+   * Update creative mode settings
+   */
+  setCreativeConfig(config: Partial<CreativeModeConfig>): void {
+    this.config.creativeConfig = { ...this.config.creativeConfig, ...config };
+  }
+  
+  /**
+   * Update production mode settings
+   */
+  setProductionConfig(config: Partial<ProductionModeConfig>): void {
+    this.config.productionConfig = { ...this.config.productionConfig, ...config };
+  }
+  
+  /**
+   * Get variation factor based on mode
+   * In production: 0 (no variation)
+   * In creative: Based on variationAmount setting
+   */
+  getVariationFactor(): number {
+    if (this.config.mode === 'production') {
+      return 0;
+    }
+    return this.config.creativeConfig.variationAmount;
+  }
+  
+  /**
+   * Apply creative variation to a parameter value
+   */
+  applyCreativeVariation(value: number, domain?: string): number {
+    if (this.config.mode === 'production') {
+      return value; // No variation in production mode
+    }
+    
+    const { variationAmount, driftRange, variationDomains, preserveCore } = this.config.creativeConfig;
+    
+    // Check if this domain should have variation
+    if (domain && !variationDomains.includes(domain as any)) {
+      return value;
+    }
+    
+    // Core preservation reduces variation
+    const effectiveVariation = preserveCore ? variationAmount * 0.5 : variationAmount;
+    
+    // Calculate drift
+    const drift = (this.creativeRandom?.next() ?? Math.random()) * 2 - 1; // -1 to 1
+    const adjustedDrift = drift * driftRange * effectiveVariation;
+    
+    return value * (1 + adjustedDrift);
+  }
+  
+  /**
+   * Get exploration bonus for creative mode
+   */
+  getExplorationBonus(): number {
+    if (this.config.mode === 'production') {
+      return 0;
+    }
+    return this.config.creativeConfig.explorationFactor;
   }
   
   /**
@@ -220,12 +365,15 @@ export class ReproducibilityManager {
       parameters: {
         ...parameters,
         _seed: this.seeds.generation,
-        _randomState: this.random.getState()
+        _randomState: this.random.getState(),
+        _mode: this.config.mode,
+        _variationFactor: this.getVariationFactor()
       },
       seed: { ...this.seeds },
       output,
-      reproducible: true,
-      attempts: 0
+      reproducible: this.config.mode === 'production',
+      attempts: 0,
+      mode: this.config.mode
     };
     
     if (output && this.config.hashVerification) {
@@ -449,15 +597,143 @@ export class ReproducibilityManager {
 
 export const reproducibilityTools: Tool[] = [
   {
+    name: 'set_reproducibility_mode',
+    description: 'Switch between creative mode (exploration with variation) and production mode (strict determinism)',
+    parameters: {
+      mode: { type: 'string', description: 'Mode: "creative" or "production"', required: true }
+    },
+    execute: async (input) => {
+      const mode = String(input.mode) as ReproducibilityMode;
+      reproducibilityManager.setMode(mode);
+      
+      const modeInfo = mode === 'creative' 
+        ? {
+            description: 'Creative mode enabled - allows variation for exploration',
+            variationFactor: reproducibilityManager.getVariationFactor(),
+            explorationBonus: reproducibilityManager.getExplorationBonus(),
+            reproducible: false
+          }
+        : {
+            description: 'Production mode enabled - strict determinism for exact reproduction',
+            variationFactor: 0,
+            explorationBonus: 0,
+            reproducible: true
+          };
+      
+      return JSON.stringify({ 
+        success: true, 
+        mode,
+        ...modeInfo
+      });
+    }
+  },
+  {
+    name: 'configure_creative_mode',
+    description: 'Configure creative mode settings for exploration and variation',
+    parameters: {
+      variation_amount: { type: 'number', description: 'Amount of variation (0-1)', required: false },
+      allow_drift: { type: 'boolean', description: 'Allow parameter drift', required: false },
+      drift_range: { type: 'number', description: 'Max drift percentage (0-1)', required: false },
+      exploration_factor: { type: 'number', description: 'Exploration factor (0-1)', required: false },
+      preserve_core: { type: 'boolean', description: 'Preserve core elements', required: false },
+      variation_domains: { type: 'array', description: 'Domains to apply variation', required: false }
+    },
+    execute: async (input) => {
+      const config: Partial<CreativeModeConfig> = {};
+      
+      if (input.variation_amount !== undefined) config.variationAmount = Number(input.variation_amount);
+      if (input.allow_drift !== undefined) config.allowParameterDrift = Boolean(input.allow_drift);
+      if (input.drift_range !== undefined) config.driftRange = Number(input.drift_range);
+      if (input.exploration_factor !== undefined) config.explorationFactor = Number(input.exploration_factor);
+      if (input.preserve_core !== undefined) config.preserveCore = Boolean(input.preserve_core);
+      if (input.variation_domains !== undefined) {
+        config.variationDomains = input.variation_domains as CreativeModeConfig['variationDomains'];
+      }
+      
+      reproducibilityManager.setCreativeConfig(config);
+      
+      return JSON.stringify({ 
+        success: true, 
+        message: 'Creative mode configuration updated',
+        config
+      });
+    }
+  },
+  {
+    name: 'configure_production_mode',
+    description: 'Configure production mode settings for exact reproduction',
+    parameters: {
+      strict_determinism: { type: 'boolean', description: 'Enforce strict determinism', required: false },
+      lock_parameters: { type: 'boolean', description: 'Lock all parameters', required: false },
+      require_hash_match: { type: 'boolean', description: 'Require hash match', required: false },
+      allow_retries: { type: 'boolean', description: 'Allow retries on mismatch', required: false },
+      max_retries: { type: 'number', description: 'Maximum retry attempts', required: false },
+      tolerance: { type: 'number', description: 'Acceptable difference threshold (0-1)', required: false }
+    },
+    execute: async (input) => {
+      const config: Partial<ProductionModeConfig> = {};
+      
+      if (input.strict_determinism !== undefined) config.strictDeterminism = Boolean(input.strict_determinism);
+      if (input.lock_parameters !== undefined) config.lockAllParameters = Boolean(input.lock_parameters);
+      if (input.require_hash_match !== undefined) config.requireHashMatch = Boolean(input.require_hash_match);
+      if (input.allow_retries !== undefined) config.allowRetries = Boolean(input.allow_retries);
+      if (input.max_retries !== undefined) config.maxRetries = Number(input.max_retries);
+      if (input.tolerance !== undefined) config.toleranceThreshold = Number(input.tolerance);
+      
+      reproducibilityManager.setProductionConfig(config);
+      
+      return JSON.stringify({ 
+        success: true, 
+        message: 'Production mode configuration updated',
+        config
+      });
+    }
+  },
+  {
+    name: 'get_current_mode',
+    description: 'Get the current reproducibility mode and its settings',
+    parameters: {},
+    execute: async () => {
+      const mode = reproducibilityManager.getMode();
+      return JSON.stringify({
+        mode,
+        variationFactor: reproducibilityManager.getVariationFactor(),
+        explorationBonus: reproducibilityManager.getExplorationBonus(),
+        isReproducible: mode === 'production'
+      });
+    }
+  },
+  {
+    name: 'apply_creative_variation',
+    description: 'Apply creative variation to a parameter value (only works in creative mode)',
+    parameters: {
+      value: { type: 'number', description: 'Original value', required: true },
+      domain: { type: 'string', description: 'Domain: melody, rhythm, harmony, timbre, dynamics, effects', required: false }
+    },
+    execute: async (input) => {
+      const originalValue = Number(input.value);
+      const domain = input.domain ? String(input.domain) : undefined;
+      const variedValue = reproducibilityManager.applyCreativeVariation(originalValue, domain);
+      
+      return JSON.stringify({
+        original: originalValue,
+        varied: variedValue,
+        difference: variedValue - originalValue,
+        percentChange: ((variedValue - originalValue) / originalValue) * 100,
+        mode: reproducibilityManager.getMode()
+      });
+    }
+  },
+  {
     name: 'set_reproducibility_seed',
     description: 'Set master seed for deterministic reproduction of all operations',
     parameters: {
       seed: { type: 'string', description: 'Master seed string', required: true },
-      mode: { type: 'string', description: 'Seed mode: fixed, timestamp, or custom', required: false }
+      seed_mode: { type: 'string', description: 'Seed mode: fixed, timestamp, or custom', required: false }
     },
     execute: async (input) => {
       const manager = new ReproducibilityManager({
-        seedMode: (input.mode as 'fixed' | 'timestamp' | 'custom') || 'custom',
+        seedMode: (input.seed_mode as 'fixed' | 'timestamp' | 'custom') || 'custom',
         customSeed: String(input.seed)
       });
       return JSON.stringify({ 
@@ -477,26 +753,38 @@ export const reproducibilityTools: Tool[] = [
       output: { type: 'object', description: 'Output data', required: false }
     },
     execute: async (input) => {
-      const manager = new ReproducibilityManager();
-      const state = await manager.recordState(
+      const state = await reproducibilityManager.recordState(
         String(input.operation),
         input.input as Record<string, unknown>,
         input.parameters as Record<string, unknown>,
         input.output as Record<string, unknown>
       );
-      return JSON.stringify({ success: true, stateId: state.id, state });
+      return JSON.stringify({ 
+        success: true, 
+        stateId: state.id, 
+        state,
+        mode: reproducibilityManager.getMode()
+      });
     }
   },
   {
     name: 'reproduce_generation',
-    description: 'Reproduce a previous generation with exact same parameters and seeds',
+    description: 'Reproduce a previous generation with exact same parameters and seeds (best results in production mode)',
     parameters: {
-      state_id: { type: 'string', description: 'State ID to reproduce', required: true }
+      state_id: { type: 'string', description: 'State ID to reproduce', required: true },
+      force_production: { type: 'boolean', description: 'Force production mode for reproduction', required: false }
     },
     execute: async (input) => {
-      const manager = new ReproducibilityManager();
-      const result = await manager.reproduce(String(input.state_id));
-      return JSON.stringify(result);
+      // Optionally force production mode for reproduction
+      if (input.force_production) {
+        reproducibilityManager.setMode('production');
+      }
+      
+      const result = await reproducibilityManager.reproduce(String(input.state_id));
+      return JSON.stringify({
+        ...result,
+        mode: reproducibilityManager.getMode()
+      });
     }
   },
   {
@@ -504,8 +792,7 @@ export const reproducibilityTools: Tool[] = [
     description: 'Export current session state for later exact reproduction',
     parameters: {},
     execute: async () => {
-      const manager = new ReproducibilityManager();
-      const sessionData = await manager.exportSession();
+      const sessionData = await reproducibilityManager.exportSession();
       return sessionData;
     }
   },
@@ -516,22 +803,25 @@ export const reproducibilityTools: Tool[] = [
       session_data: { type: 'string', description: 'Exported session JSON', required: true }
     },
     execute: async (input) => {
-      const manager = new ReproducibilityManager();
-      await manager.importSession(String(input.session_data));
+      await reproducibilityManager.importSession(String(input.session_data));
       return JSON.stringify({ 
         success: true, 
         message: 'Session imported successfully',
-        report: manager.getReport()
+        report: reproducibilityManager.getReport()
       });
     }
   },
   {
     name: 'get_reproducibility_report',
-    description: 'Get report on reproducibility status of current session',
+    description: 'Get report on reproducibility status of current session including mode info',
     parameters: {},
     execute: async () => {
-      const manager = new ReproducibilityManager();
-      return JSON.stringify(manager.getReport());
+      const report = reproducibilityManager.getReport();
+      return JSON.stringify({
+        ...report,
+        currentMode: reproducibilityManager.getMode(),
+        variationFactor: reproducibilityManager.getVariationFactor()
+      });
     }
   },
   {
@@ -548,7 +838,11 @@ export const reproducibilityTools: Tool[] = [
         match: originalHash === newHash,
         originalHash,
         newHash,
-        differences: originalHash !== newHash ? ['Hashes do not match'] : []
+        differences: originalHash !== newHash ? ['Hashes do not match'] : [],
+        mode: reproducibilityManager.getMode(),
+        note: reproducibilityManager.getMode() === 'creative' 
+          ? 'Creative mode may intentionally produce variations' 
+          : 'Production mode should produce identical outputs'
       });
     }
   }

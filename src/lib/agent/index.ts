@@ -41,7 +41,15 @@ export type { TrainingDataSource, TrainingMetadata, AudioFeatures, TrainingDatas
 
 // Reproducibility System
 export { ReproducibilityManager, reproducibilityManager, reproducibilityTools } from './ReproducibilitySystem';
-export type { ReproducibleSeed, GenerationState, ReproducibilityConfig, ReproductionResult } from './ReproducibilitySystem';
+export type { 
+  ReproducibleSeed, 
+  GenerationState, 
+  ReproducibilityConfig, 
+  ReproductionResult,
+  ReproducibilityMode,
+  CreativeModeConfig,
+  ProductionModeConfig
+} from './ReproducibilitySystem';
 
 // Ambient Agent Components
 export { AgentSignalBus } from './ambient/AgentSignalBus';

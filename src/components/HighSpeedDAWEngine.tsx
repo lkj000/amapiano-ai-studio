@@ -28,34 +28,32 @@ export const HighSpeedDAWEngine: React.FC<{
   const audioEngine = useHighSpeedAudioEngine();
   const featureExtractor = useRealtimeFeatureExtraction();
 
-  // Auto-initialize only after explicit user gesture (autoplay policy)
+  // Only initialize after explicit user gesture (autoplay policy)
+  // Do NOT auto-init on mount - wait for user interaction
   useEffect(() => {
     const initializeEngines = async () => {
-      await Promise.all([
-        audioEngine.initialize(),
-        featureExtractor.initialize(),
-      ]);
-      if (onInitialized) onInitialized();
+      try {
+        await audioEngine.initialize();
+        await featureExtractor.initialize();
+        if (onInitialized) onInitialized();
+      } catch (error) {
+        console.warn('[HighSpeedDAWEngine] Init deferred - awaiting user gesture');
+      }
     };
 
-    // If audio was already started in this session, initialize immediately
-    const started = sessionStorage.getItem('audioContextStarted') === 'true';
-    if (started && (!audioEngine.isInitialized || !featureExtractor.isInitialized)) {
-      initializeEngines();
-    }
-
-    // Listen for audio-started event dispatched by AudioStartGate
+    // Listen for audio-started event dispatched by AudioStartGate or user interaction
     const onAudioStarted = () => {
       if (!audioEngine.isInitialized || !featureExtractor.isInitialized) {
         initializeEngines();
       }
     };
+    
     window.addEventListener('audio-started', onAudioStarted);
 
     return () => {
       window.removeEventListener('audio-started', onAudioStarted);
     };
-  }, []);
+  }, [audioEngine.isInitialized, featureExtractor.isInitialized, onInitialized]);
 
   const latencyColor = audioEngine.stats.latency < 5 ? 'text-green-500' : 
                        audioEngine.stats.latency < 10 ? 'text-yellow-500' : 

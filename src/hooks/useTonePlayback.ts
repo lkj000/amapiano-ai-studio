@@ -14,6 +14,7 @@ import {
   disposeSynthWithEffects,
   type AmapianoInstrumentType
 } from '@/lib/audio/amapianoSynths';
+import { safeToneStart, isToneReady, markToneStarted } from '@/lib/audio/toneUtils';
 
 interface TrackInstrument {
   synth: Tone.ToneAudioNode;
@@ -38,7 +39,12 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     if (isReady) return;
     
     try {
-      await Tone.start();
+      const started = await safeToneStart();
+      if (!started) {
+        console.warn('[TonePlayback] Audio context not started - requires user gesture');
+        return;
+      }
+      markToneStarted();
       Tone.Transport.bpm.value = projectData?.bpm || 118;
       setIsReady(true);
       console.log('[TonePlayback] ✅ REAL Tone.js audio engine initialized and ready');
@@ -51,14 +57,14 @@ export function useTonePlayback(projectData: DawProjectData | null) {
 
 // Keep BPM in sync with project settings (only after audio context is running)
   useEffect(() => {
-    if (!isReady || Tone.context.state !== 'running') return;
+    if (!isReady || !isToneReady()) return;
     Tone.Transport.bpm.value = projectData?.bpm || 118;
   }, [isReady, projectData?.bpm]);
 
 // Setup tracks when project changes - preload audio files
   useEffect(() => {
     // Only proceed if audio context is actually running
-    if (!isReady || !projectData || Tone.context.state !== 'running') return;
+    if (!isReady || !projectData || !isToneReady()) return;
 
     console.log('[TonePlayback] Setting up tracks...');
 
@@ -403,8 +409,8 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       if (transportUpdateInterval.current) {
         clearInterval(transportUpdateInterval.current);
       }
-      // Only access Transport if context is running (avoid triggering autoplay warning)
-      if (Tone.context.state === 'running') {
+      // Only access Transport if Tone is ready (avoid triggering autoplay warning)
+      if (isToneReady()) {
         Tone.Transport.stop();
         Tone.Transport.cancel();
       }

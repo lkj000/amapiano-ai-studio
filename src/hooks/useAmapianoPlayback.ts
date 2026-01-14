@@ -367,13 +367,16 @@ export function useAmapianoPlayback() {
     }
   }, []);
 
-  /**
-   * Cleanup
+/**
+   * Cleanup (only if audio was actually initialized)
    */
   useEffect(() => {
     return () => {
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      // Only access Transport if context is running (avoid triggering autoplay warning)
+      if (Tone.context.state === 'running') {
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+      }
       instrumentsRef.current.forEach(inst => {
         disposeSynthWithEffects(inst.synth, inst.effects);
       });

@@ -206,11 +206,11 @@ export class ToneAudioEngine {
     return Array.isArray(value) ? value[0] : value;
   }
 
-  /**
+/**
    * Get current processing statistics
    */
   getStats(): AudioProcessingStats {
-    if (this.isInitialized) {
+    if (this.isInitialized && Tone.context.state === 'running') {
       // Update CPU load estimation
       const now = Tone.now();
       const lookAhead = Tone.context.lookAhead;

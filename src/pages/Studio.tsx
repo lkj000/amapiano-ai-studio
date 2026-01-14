@@ -20,7 +20,8 @@ import {
   Layers,
   Search,
   Disc3,
-  Piano
+  Piano,
+  Bot
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -32,6 +33,7 @@ import { MusicDistribution, RoyaltySplitCalculator } from '@/components/distribu
 import { CollaborationRoom } from '@/components/collaboration';
 import { SamplePackPublisher } from '@/components/marketplace/SamplePackPublisher';
 import { AIMastering, SampleSimilaritySearch, ChordDetector } from '@/components/audio';
+import { AgentModeToggle } from '@/components/agent/AgentModeToggle';
 
 interface StudioProps {
   user: User | null;
@@ -84,6 +86,7 @@ export default function Studio({ user }: StudioProps) {
           </div>
           
           <div className="flex items-center gap-3">
+            <AgentModeToggle />
             <Button asChild variant="outline">
               <Link to="/daw">
                 <Music className="w-4 h-4 mr-2" />

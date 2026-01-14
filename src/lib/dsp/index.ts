@@ -27,6 +27,10 @@ export * from './VersionControl';
 export * from './VST3Exporter';
 export { performanceProfiler, PerformanceProfiler } from '../PerformanceProfiler';
 
+// Phase 3 Advanced Mastering
+export * from './stereoImager';
+export * from './masteringPresets';
+
 import { EQModule } from './eq';
 import { CompressorModule } from './compressor';
 import { GateModule } from './gate';

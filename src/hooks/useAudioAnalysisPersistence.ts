@@ -26,13 +26,30 @@ export const useAudioAnalysisPersistence = () => {
         throw new Error('User not authenticated');
       }
 
+      // Optimize analysis data to prevent timeout - only store essential fields
+      const optimizedData = {
+        bpm: analysisData?.bpm ?? analysisData?.rhythm?.bpm,
+        key: analysisData?.key ?? analysisData?.tonal?.key,
+        scale: analysisData?.scale ?? analysisData?.tonal?.scale,
+        energy: analysisData?.energy ?? analysisData?.spectral?.energy,
+        danceability: analysisData?.danceability ?? analysisData?.highLevel?.danceability,
+        genre: analysisData?.genre ?? analysisData?.highLevel?.genre,
+        mood: analysisData?.mood ?? analysisData?.highLevel?.mood,
+        spectral: {
+          centroid: analysisData?.spectral?.centroid,
+          rolloff: analysisData?.spectral?.rolloff,
+          flatness: analysisData?.spectral?.flatness,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
       const { data, error } = await supabase
         .from('audio_analysis_results')
         .insert({
           user_id: user.id,
           audio_url: audioUrl,
           analysis_type: analysisType,
-          analysis_data: analysisData,
+          analysis_data: optimizedData,
         })
         .select()
         .single();

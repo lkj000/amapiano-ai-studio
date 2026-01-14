@@ -35,6 +35,14 @@ export type {
 // Music Production Tools (Suno + Moises + LANDR capabilities)
 export { musicProductionTools } from './MusicProductionTools';
 
+// Training Data Pipeline
+export { TrainingDataPipeline, trainingPipeline, trainingTools } from './TrainingDataPipeline';
+export type { TrainingDataSource, TrainingMetadata, AudioFeatures, TrainingDataset, TrainingConfig } from './TrainingDataPipeline';
+
+// Reproducibility System
+export { ReproducibilityManager, reproducibilityManager, reproducibilityTools } from './ReproducibilitySystem';
+export type { ReproducibleSeed, GenerationState, ReproducibilityConfig, ReproductionResult } from './ReproducibilitySystem';
+
 // Ambient Agent Components
 export { AgentSignalBus } from './ambient/AgentSignalBus';
 export { ScheduledAgentHeartbeat } from './ambient/ScheduledAgentHeartbeat';

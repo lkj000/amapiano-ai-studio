@@ -16,6 +16,7 @@ import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
 import { RAGKnowledgeBase } from "@/components/RAGKnowledgeBase";
 import { HighSpeedDAWEngine } from "@/components/HighSpeedDAWEngine";
 import { User } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AnalyzeProps {
   user: User | null;
@@ -41,54 +42,23 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
         setIsAnalyzing(true);
         toast.info('🔍 Starting automatic analysis...');
         
-        // Trigger analysis after state update
+        // Trigger real analysis after state update
         setTimeout(async () => {
           try {
             console.log('🎵 Auto-analyzing track:', data.url);
-            await new Promise(resolve => setTimeout(resolve, 5000));
             
-            const enhancedResult = {
-              id: Math.random().toString(36).substr(2, 9),
-              title: data.title || "Orchestrated Track",
-              artist: "Generated",
-              bpm: Math.floor(Math.random() * 40) + 100,
-              key: ['F# minor', 'C major', 'G minor', 'D major', 'A minor'][Math.floor(Math.random() * 5)],
-              genre: "Private School Amapiano",
-              duration: "4:32",
-              quality: Math.floor(Math.random() * 20) + 80,
-              stems: {
-                drums: Math.floor(Math.random() * 15) + 85,
-                bass: Math.floor(Math.random() * 15) + 85,
-                piano: Math.floor(Math.random() * 15) + 85,
-                vocals: Math.floor(Math.random() * 15) + 85,
-                other: Math.floor(Math.random() * 15) + 80
-              },
-              patterns: [
-                { type: "Chord Progression", content: "Fm - Ab - Eb - Bb", confidence: Math.floor(Math.random() * 10) + 85 },
-                { type: "Drum Pattern", content: "Classic log drum with hi-hat shuffle", confidence: Math.floor(Math.random() * 10) + 80 },
-                { type: "Bassline", content: "Deep sub-bass with rhythmic emphasis", confidence: Math.floor(Math.random() * 10) + 85 },
-                { type: "Harmonic Structure", content: "Gospel-influenced chord voicings", confidence: Math.floor(Math.random() * 10) + 90 }
-              ],
-              technicalSpecs: {
-                sampleRate: "44.1 kHz",
-                bitDepth: "24-bit",
-                channels: "Stereo",
-                dynamicRange: Math.floor(Math.random() * 10) + 60 + " dB"
-              },
-              musicalAnalysis: {
-                melody: "Sophisticated melodic development with jazz influences",
-                harmony: "Extended chord progressions with rich voicings",
-                rhythm: "Syncopated amapiano groove with log drum emphasis", 
-                timbre: "Warm, organic sound with spatial depth",
-                form: "ABABCB structure with developmental variations"
-              }
-            };
+            // Call real analysis edge function
+            const { data: analysisData, error } = await supabase.functions.invoke('audio-analysis', {
+              body: { url: data.url, title: data.title }
+            });
             
-            setAnalysisResult(enhancedResult);
+            if (error) throw error;
+            
+            setAnalysisResult(analysisData);
             setShowAmapianorize(true);
             setIsAnalyzing(false);
             toast.success('✨ Auto-analysis complete!');
-            console.log('✅ Analysis completed:', enhancedResult);
+            console.log('✅ Analysis completed:', analysisData);
           } catch (error) {
             console.error('❌ Auto-analysis failed:', error);
             setIsAnalyzing(false);
@@ -111,61 +81,40 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
 
     console.log('🔍 Starting analysis for:', { url, fileName: selectedFile?.name });
     setIsAnalyzing(true);
-    toast.info("🔍 Performing enhanced audio analysis...");
+    toast.info("🔍 Performing AI audio analysis...");
 
     try {
-      // Enhanced simulation with more detailed analysis
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      console.log('⏱️ Analysis simulation complete');
-
-    const enhancedResult = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: selectedFile ? selectedFile.name.replace(/\.[^/.]+$/, "") : "Amukelani",
-      artist: selectedFile ? "Unknown Artist" : "Kelvin Momo",
-      bpm: Math.floor(Math.random() * 40) + 100,
-      key: ['F# minor', 'C major', 'G minor', 'D major', 'A minor'][Math.floor(Math.random() * 5)],
-      genre: "Private School Amapiano",
-      duration: selectedFile ? "Unknown" : "4:32",
-      quality: Math.floor(Math.random() * 20) + 80,
-      fileSize: selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Unknown",
-      format: selectedFile ? selectedFile.type : "audio/mpeg",
-      stems: {
-        drums: Math.floor(Math.random() * 15) + 85,
-        bass: Math.floor(Math.random() * 15) + 85,
-        piano: Math.floor(Math.random() * 15) + 85,
-        vocals: Math.floor(Math.random() * 15) + 85,
-        other: Math.floor(Math.random() * 15) + 80
-      },
-      patterns: [
-        { type: "Chord Progression", content: "Fm - Ab - Eb - Bb", confidence: Math.floor(Math.random() * 10) + 85 },
-        { type: "Drum Pattern", content: "Classic log drum with hi-hat shuffle", confidence: Math.floor(Math.random() * 10) + 80 },
-        { type: "Bassline", content: "Deep sub-bass with rhythmic emphasis", confidence: Math.floor(Math.random() * 10) + 85 },
-        { type: "Harmonic Structure", content: "Gospel-influenced chord voicings", confidence: Math.floor(Math.random() * 10) + 90 }
-      ],
-      technicalSpecs: {
-        sampleRate: "44.1 kHz",
-        bitDepth: "24-bit",
-        channels: "Stereo",
-        dynamicRange: Math.floor(Math.random() * 10) + 60 + " dB"
-      },
-      musicalAnalysis: {
-        melody: "Sophisticated melodic development with jazz influences",
-        harmony: "Extended chord progressions with rich voicings",
-        rhythm: "Syncopated amapiano groove with log drum emphasis", 
-        timbre: "Warm, organic sound with spatial depth",
-        form: "ABABCB structure with developmental variations"
+      let analysisBody: any = {};
+      
+      if (selectedFile) {
+        // Convert file to base64 for edge function
+        const reader = new FileReader();
+        const audioBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+        analysisBody = { audio: audioBase64, filename: selectedFile.name };
+      } else {
+        analysisBody = { url: url.trim() };
       }
-    };
-
-      setAnalysisResult(enhancedResult);
-      setIsAnalyzing(false);
+      
+      // Call real audio analysis edge function
+      const { data, error } = await supabase.functions.invoke('audio-analysis', {
+        body: analysisBody
+      });
+      
+      if (error) throw error;
+      
+      console.log('✅ Analysis result:', data);
+      setAnalysisResult(data);
       setShowAmapianorize(true);
-      toast.success("✨ Enhanced analysis complete!");
-      console.log('✅ Analysis result:', enhancedResult);
+      toast.success("✨ Analysis complete!");
     } catch (error) {
       console.error('❌ Analysis failed:', error);
-      setIsAnalyzing(false);
       toast.error('Analysis failed. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 

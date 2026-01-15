@@ -44,64 +44,8 @@ serve(async (req) => {
       posts = data || [];
 
     } catch (dbError) {
-      console.log('Database query failed, using mock data:', dbError);
-      
-      // Generate enhanced mock posts with AI personalization
-      const mockGenres = ['Classic Amapiano', 'Private School', 'Deep Amapiano', 'Vocal', 'Jazz Amapiano'];
-      const mockArtists = [
-        'DJ Maphorisa', 'Kabza De Small', 'Kelvin Momo', 'Focalistic', 'Babalwa M',
-        'MFR Souls', 'Mas MusiQ', 'De Mthuda', 'Lemon & Herb', 'Major League DJz'
-      ];
-      const mockTitles = [
-        'Midnight Vibes', 'Johannesburg Dreams', 'Township Sunrise', 'Piano Stories',
-        'Deep Thoughts', 'Sunday Sessions', 'Street Sounds', 'Cultural Fusion',
-        'Soul Connection', 'African Roots', 'City Lights', 'Weekend Therapy'
-      ];
-
-      // AI-driven personalization based on feed type
-      const getPersonalizedScore = (index: number) => {
-        switch (feedType) {
-          case 'trending':
-            return Math.random() * 5000 + 2000; // Higher engagement for trending
-          case 'following':
-            return Math.random() * 1000 + 500; // Moderate engagement for following
-          default:
-            return Math.random() * 2000 + 100; // Varied engagement for discover
-        }
-      };
-
-      posts = Array.from({ length: limit }, (_, i) => {
-        const globalIndex = offset + i;
-        const artistIndex = globalIndex % mockArtists.length;
-        const titleIndex = globalIndex % mockTitles.length;
-        const genreIndex = globalIndex % mockGenres.length;
-        const personalizedScore = getPersonalizedScore(globalIndex);
-
-        return {
-          id: `post-${globalIndex}`,
-          creator_id: `creator-${artistIndex}`,
-          title: `${mockTitles[titleIndex]} ${Math.floor(globalIndex / mockTitles.length) + 1}`,
-          description: generateDescription(mockGenres[genreIndex], feedType),
-          audio_url: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/track-${globalIndex % 5}`,
-          preview_url: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/preview-${globalIndex % 5}`,
-          cover_image_url: `https://picsum.photos/400/400?random=${globalIndex}&blur=1`,
-          duration_seconds: 180 + Math.floor(Math.random() * 120),
-          genre_tags: [mockGenres[genreIndex]],
-          ai_model_used: 'Amapiano AI v2.1',
-          play_count: Math.floor(personalizedScore),
-          like_count: Math.floor(personalizedScore * 0.1),
-          comment_count: Math.floor(personalizedScore * 0.02),
-          remix_count: Math.floor(personalizedScore * 0.01),
-          share_count: Math.floor(personalizedScore * 0.05),
-          is_featured: feedType === 'trending' && Math.random() > 0.7,
-          visibility: 'public',
-          created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-          relevance_score: personalizedScore / 1000,
-          creator_display_name: mockArtists[artistIndex],
-          creator_avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockArtists[artistIndex]}`
-        };
-      });
+      console.error('Database query failed:', dbError);
+      throw new Error('Failed to fetch posts from database');
     }
 
     // Apply AI-powered feed ordering based on user preferences
@@ -223,16 +167,39 @@ async function personalizePostOrder(posts: any[], userId: string, feedType: stri
 }
 
 async function getUserPreferences(userId: string) {
-  // Mock user preferences - in real implementation, fetch from database
-  return {
-    favoriteGenres: ['Classic Amapiano', 'Private School'],
-    followedArtists: ['creator-0', 'creator-2', 'creator-5'],
-    engagementHistory: {
-      totalLikes: 150,
-      totalPlays: 2500,
-      averageListenTime: 0.7
+  // Fetch real user preferences from database
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+  
+  try {
+    const { data: preferences, error } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error || !preferences) {
+      return {
+        favoriteGenres: [],
+        followedArtists: [],
+        engagementHistory: { totalLikes: 0, totalPlays: 0, averageListenTime: 0 }
+      };
     }
-  };
+    
+    return {
+      favoriteGenres: preferences.favorite_genres || [],
+      followedArtists: preferences.followed_artists || [],
+      engagementHistory: preferences.engagement_history || { totalLikes: 0, totalPlays: 0, averageListenTime: 0 }
+    };
+  } catch {
+    return {
+      favoriteGenres: [],
+      followedArtists: [],
+      engagementHistory: { totalLikes: 0, totalPlays: 0, averageListenTime: 0 }
+    };
+  }
 }
 
 function calculateEngagementPrediction(post: any, feedType: string): number {

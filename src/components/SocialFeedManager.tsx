@@ -104,57 +104,14 @@ export const SocialFeedManager: React.FC<SocialFeedManagerProps> = ({
       
     } catch (error) {
       console.error('Failed to load posts:', error);
-      
-      // Fallback to mock data for demo
-      const mockPosts = generateMockPosts(pageNum, maxPosts);
-      if (append) {
-        setPosts(prev => [...prev, ...mockPosts]);
-      } else {
-        setPosts(mockPosts);
-      }
+      toast.error('Failed to load posts. Please try again.');
+      setPosts([]);
     } finally {
       setLoading(false);
     }
   }, [user, feedType, maxPosts]);
 
-  // Generate mock posts for demo
-  const generateMockPosts = (pageNum: number, limit: number): SocialPost[] => {
-    const mockGenres = ['Classic Amapiano', 'Private School', 'Deep Amapiano', 'Vocal'];
-    const mockArtists = ['DJ Maphorisa', 'Kabza De Small', 'Kelvin Momo', 'Focalistic', 'Babalwa M'];
-    const mockTitles = [
-      'Midnight Vibes', 'Johannesburg Dreams', 'Township Sunrise', 'Piano Stories',
-      'Deep Thoughts', 'Sunday Sessions', 'Street Sounds', 'Cultural Fusion'
-    ];
-
-    return Array.from({ length: limit }, (_, i) => {
-      const id = `mock-${pageNum}-${i}`;
-      const artistIndex = (pageNum * limit + i) % mockArtists.length;
-      const titleIndex = (pageNum * limit + i) % mockTitles.length;
-      
-      return {
-        id,
-        creator_id: `creator-${artistIndex}`,
-        title: `${mockTitles[titleIndex]} ${pageNum + 1}.${i + 1}`,
-        description: `A soulful ${mockGenres[i % mockGenres.length].toLowerCase()} track with authentic South African flavors`,
-        audio_url: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/track-${i % 5}`,
-        preview_url: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/preview-${i % 5}`,
-        cover_image_url: `https://picsum.photos/300/300?random=${pageNum * limit + i}`,
-        duration_seconds: 180 + Math.floor(Math.random() * 120),
-        genre_tags: [mockGenres[i % mockGenres.length]],
-        ai_model_used: 'Amapiano AI v2.1',
-        play_count: Math.floor(Math.random() * 10000),
-        like_count: Math.floor(Math.random() * 1000),
-        comment_count: Math.floor(Math.random() * 100),
-        remix_count: Math.floor(Math.random() * 50),
-        share_count: Math.floor(Math.random() * 200),
-        is_featured: Math.random() > 0.8,
-        visibility: 'public',
-        created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        creator_display_name: mockArtists[artistIndex],
-        creator_avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockArtists[artistIndex]}`
-      };
-    });
-  };
+  // Removed mock posts generator - using real data only
 
   // Handle post interactions
   const handleLike = async (postId: string) => {

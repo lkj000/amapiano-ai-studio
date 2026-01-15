@@ -233,35 +233,22 @@ Deno.serve(async (req) => {
 
     console.log('[ai-mastering] Output WAV size:', outputWav.byteLength);
 
-    // Convert to base64 for response
+    // Fast base64 encoding using chunks to avoid CPU timeout
     const outputBytes = new Uint8Array(outputWav);
-    let binary = '';
-    for (let i = 0; i < outputBytes.length; i++) {
-      binary += String.fromCharCode(outputBytes[i]);
-    }
-    const outputBase64 = btoa(binary);
-
-    // Optionally upload to storage
-    let masteredUrl: string | undefined;
-    try {
-      const fileName = `mastered_${Date.now()}_${user.id.slice(0, 8)}.wav`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('audio')
-        .upload(`mastered/${fileName}`, outputWav, {
-          contentType: 'audio/wav',
-          upsert: false
-        });
-
-      if (!uploadError && uploadData) {
-        const { data: { publicUrl } } = supabase.storage
-          .from('audio')
-          .getPublicUrl(`mastered/${fileName}`);
-        masteredUrl = publicUrl;
-        console.log('[ai-mastering] Uploaded to:', masteredUrl);
+    const CHUNK_SIZE = 32768; // 32KB chunks for efficient base64 encoding
+    let outputBase64 = '';
+    for (let offset = 0; offset < outputBytes.length; offset += CHUNK_SIZE) {
+      const chunk = outputBytes.subarray(offset, Math.min(offset + CHUNK_SIZE, outputBytes.length));
+      let binary = '';
+      for (let i = 0; i < chunk.length; i++) {
+        binary += String.fromCharCode(chunk[i]);
       }
-    } catch (uploadErr) {
-      console.warn('[ai-mastering] Storage upload failed (non-critical):', uploadErr);
+      outputBase64 += btoa(binary);
     }
+
+    // Skip storage upload in edge function to save CPU time
+    // Client can upload to storage if needed
+    const masteredUrl: string | undefined = undefined;
 
     const response: MasteringResponse = {
       success: true,

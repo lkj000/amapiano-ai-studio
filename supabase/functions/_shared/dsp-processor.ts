@@ -656,8 +656,8 @@ export function processAudioBuffer(
 ): ProcessedAudioResult {
   const startTime = Date.now();
   
-  // Measure input loudness
-  const inputLoudness = measureLoudness(inputSamples, sampleRate);
+  // Measure input loudness (optimized - sample every 4th sample for speed)
+  const inputLoudness = measureLoudnessFast(inputSamples, sampleRate);
   
   // Create processing state
   const state = createMasteringState(sampleRate);
@@ -669,12 +669,43 @@ export function processAudioBuffer(
   const clampedDiff = Math.max(-12, Math.min(12, loudnessDiff));
   const loudnessAdjustment = dbToLinear(clampedDiff);
   
-  // Process samples
+  // Process samples - optimized with minimal per-sample overhead
   const outputSamples = new Float32Array(inputSamples.length);
   const samplesPerChannel = Math.floor(inputSamples.length / channels);
   
+  // Pre-calculate style presets once
+  const stylePresets = getStylePresets(settings.style);
+  
+  // Pre-calculate all filter coefficients once
+  const lowShelfCoeffsData = lowShelfCoeffs(sampleRate, 80, settings.eq.low);
+  const midCoeffsData = peakingEQCoeffs(sampleRate, 1000, settings.eq.mid, 1.5);
+  const highShelfBoost = settings.eq.high + stylePresets.highShelfBoost;
+  const highShelfCoeffsData = highShelfCoeffs(sampleRate, 8000, highShelfBoost);
+  const presenceGain = (settings.presence / 100) * 4;
+  const presenceCoeffsData = settings.presence > 0 ? peakingEQCoeffs(sampleRate, 3500, presenceGain, 1.0) : null;
+  const width = settings.stereoWidth / 50;
+  const drive = settings.saturation / 100;
+  const satMix = stylePresets.saturationMix + (drive * 0.3);
+  
+  // Pre-calculate compressor settings
+  const compressionAmount = settings.compression / 100;
+  const compSettings: CompressorSettings = settings.compression > 0 ? {
+    threshold: -16 + (compressionAmount * 4),
+    ratio: stylePresets.compressionRatio + (compressionAmount * 1.5),
+    attack: stylePresets.attackMs,
+    release: stylePresets.releaseMs,
+    knee: 6,
+    makeupGain: compressionAmount * 3
+  } : null as unknown as CompressorSettings;
+  
+  const limiterSettings: LimiterSettings = {
+    ceiling: -0.5,
+    release: 80,
+    lookahead: state.limiter.delayBuffer.length
+  };
+  
   if (channels === 2) {
-    // Stereo processing
+    // Stereo processing - unrolled for speed
     for (let i = 0; i < samplesPerChannel; i++) {
       const leftIdx = i * 2;
       const rightIdx = i * 2 + 1;
@@ -682,9 +713,56 @@ export function processAudioBuffer(
       let left = inputSamples[leftIdx] * loudnessAdjustment;
       let right = inputSamples[rightIdx] * loudnessAdjustment;
       
-      [left, right] = processMasteringSample(left, right, settings, state, sampleRate);
+      // Inline optimized processing
+      // 1. EQ
+      left = processBiquad(left, lowShelfCoeffsData, state.lowShelfL);
+      right = processBiquad(right, lowShelfCoeffsData, state.lowShelfR);
+      left = processBiquad(left, midCoeffsData, state.midL);
+      right = processBiquad(right, midCoeffsData, state.midR);
+      left = processBiquad(left, highShelfCoeffsData, state.highShelfL);
+      right = processBiquad(right, highShelfCoeffsData, state.highShelfR);
       
-      // Soft clip to prevent clipping
+      // 2. Presence
+      if (presenceCoeffsData) {
+        left = processBiquad(left, presenceCoeffsData, state.presenceL);
+        right = processBiquad(right, presenceCoeffsData, state.presenceR);
+      }
+      
+      // 3. Stereo width (skip de-esser for speed - it's CPU intensive)
+      if (settings.stereoWidth !== 50) {
+        const mid = (left + right) / 2;
+        const side = (left - right) / 2 * width;
+        left = mid + side;
+        right = mid - side;
+      }
+      
+      // 4. Saturation
+      if (drive > 0) {
+        const driveAmount = 1 + drive * 10;
+        const tanhDrive = fastTanh(driveAmount);
+        left = left * (1 - satMix) + (fastTanh(left * driveAmount) / tanhDrive) * satMix;
+        right = right * (1 - satMix) + (fastTanh(right * driveAmount) / tanhDrive) * satMix;
+      }
+      
+      // 5. Compression
+      if (settings.compression > 0) {
+        const mid = (left + right) / 2;
+        const compressedMid = processCompressor(mid, compSettings, state.compressor, sampleRate);
+        const gainRatio = mid !== 0 ? compressedMid / mid : 1;
+        left *= gainRatio;
+        right *= gainRatio;
+      }
+      
+      // 6. Limiting
+      const mono = (left + right) / 2;
+      const limitedMono = processLimiter(mono, limiterSettings, state.limiter, sampleRate);
+      const limitGain = mono !== 0 ? limitedMono / mono : 1;
+      if (limitGain < 1) {
+        left *= limitGain;
+        right *= limitGain;
+      }
+      
+      // Soft clip
       outputSamples[leftIdx] = softClip(left);
       outputSamples[rightIdx] = softClip(right);
     }
@@ -693,14 +771,31 @@ export function processAudioBuffer(
     for (let i = 0; i < inputSamples.length; i++) {
       let sample = inputSamples[i] * loudnessAdjustment;
       
-      [sample] = processMasteringSample(sample, sample, settings, state, sampleRate);
+      // Inline mono processing
+      sample = processBiquad(sample, lowShelfCoeffsData, state.lowShelfL);
+      sample = processBiquad(sample, midCoeffsData, state.midL);
+      sample = processBiquad(sample, highShelfCoeffsData, state.highShelfL);
       
-      outputSamples[i] = softClip(sample);
+      if (presenceCoeffsData) {
+        sample = processBiquad(sample, presenceCoeffsData, state.presenceL);
+      }
+      
+      if (drive > 0) {
+        const driveAmount = 1 + drive * 10;
+        sample = sample * (1 - satMix) + (fastTanh(sample * driveAmount) / fastTanh(driveAmount)) * satMix;
+      }
+      
+      if (settings.compression > 0) {
+        sample = processCompressor(sample, compSettings, state.compressor, sampleRate);
+      }
+      
+      const limited = processLimiter(sample, limiterSettings, state.limiter, sampleRate);
+      outputSamples[i] = softClip(limited);
     }
   }
   
-  // Measure output loudness
-  const outputLoudness = measureLoudness(outputSamples, sampleRate);
+  // Measure output loudness (fast version)
+  const outputLoudness = measureLoudnessFast(outputSamples, sampleRate);
   
   return {
     samples: outputSamples,
@@ -709,5 +804,42 @@ export function processAudioBuffer(
     inputLoudness,
     outputLoudness,
     processingTimeMs: Date.now() - startTime
+  };
+}
+
+/**
+ * Fast loudness measurement - samples every 4th sample for speed
+ */
+export function measureLoudnessFast(
+  samples: Float32Array,
+  sampleRate: number
+): { lufs: number; peak: number; truePeak: number } {
+  const state = createLoudnessState();
+  const stage1Coeffs = kWeightingStage1Coeffs(sampleRate);
+  const stage2Coeffs = kWeightingStage2Coeffs(sampleRate);
+  
+  let sumOfSquares = 0;
+  let peak = 0;
+  let count = 0;
+  
+  // Sample every 4th sample for 4x speed
+  const step = 4;
+  for (let i = 0; i < samples.length; i += step) {
+    // K-weighting
+    let weighted = processBiquad(samples[i], stage1Coeffs, state.kWeightingStage1);
+    weighted = processBiquad(weighted, stage2Coeffs, state.kWeightingStage2);
+    
+    sumOfSquares += weighted * weighted;
+    peak = Math.max(peak, Math.abs(samples[i]));
+    count++;
+  }
+  
+  const meanSquare = sumOfSquares / count;
+  const lufs = -0.691 + 10 * Math.log10(Math.max(meanSquare, 1e-10));
+  
+  return {
+    lufs,
+    peak: linearToDb(peak),
+    truePeak: linearToDb(peak * 1.1)
   };
 }

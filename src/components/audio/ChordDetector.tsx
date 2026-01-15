@@ -26,6 +26,7 @@ import {
   FileMusic
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DetectedChord {
   chord: string;
@@ -114,31 +115,50 @@ export function ChordDetector() {
     setDetectedChords([]);
 
     try {
-      // Simulate chord detection process
-      const steps = [
-        'Loading audio...',
-        'Computing chromagram...',
-        'Detecting beats...',
-        'Analyzing harmonic content...',
-        'Identifying chords...',
-        'Building progression...'
-      ];
-
-      for (let i = 0; i < steps.length; i++) {
-        toast.info(steps[i]);
-        setProgress((i + 1) / steps.length * 100);
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      // Generate mock chord detection results
-      const mockChords = generateMockChords();
-      setDetectedChords(mockChords);
+      toast.info('Analyzing audio with AI chord detection...');
+      setProgress(10);
       
-      // Identify progression pattern
-      const prog = identifyProgression(mockChords);
-      setProgression(prog);
-
-      toast.success('Chord detection complete!');
+      // Convert file to base64 for the edge function
+      const reader = new FileReader();
+      const audioBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(audioFile);
+      });
+      
+      setProgress(30);
+      
+      // Call real chord detection edge function
+      const { data, error } = await supabase.functions.invoke('chord-detection', {
+        body: { audio: audioBase64, filename: audioFile.name }
+      });
+      
+      if (error) throw error;
+      
+      setProgress(80);
+      
+      if (data?.chords && data.chords.length > 0) {
+        const chords: DetectedChord[] = data.chords.map((c: any) => ({
+          chord: c.chord,
+          timestamp: c.timestamp,
+          duration: c.duration,
+          confidence: c.confidence,
+          notes: c.notes || []
+        }));
+        
+        setDetectedChords(chords);
+        
+        // Identify progression pattern
+        const prog = identifyProgression(chords);
+        setProgression(prog);
+        
+        toast.success('Chord detection complete!');
+      } else {
+        toast.info('No chords detected in this audio');
+        setDetectedChords([]);
+      }
+      
+      setProgress(100);
 
     } catch (error) {
       console.error('Chord detection failed:', error);
@@ -149,34 +169,36 @@ export function ChordDetector() {
     }
   };
 
-  const generateMockChords = (): DetectedChord[] => {
-    // Amapiano-style progression
-    const chordSequence = [
-      { chord: 'Am', notes: ['A', 'C', 'E'] },
-      { chord: 'G', notes: ['G', 'B', 'D'] },
-      { chord: 'F', notes: ['F', 'A', 'C'] },
-      { chord: 'Em', notes: ['E', 'G', 'B'] },
-    ];
-
-    const duration = 2; // 2 seconds per chord
-    return chordSequence.map((c, i) => ({
-      chord: c.chord,
-      timestamp: i * duration,
-      duration,
-      confidence: 85 + Math.random() * 15,
-      notes: c.notes
-    }));
-  };
+  // Removed mock chord generator - using real AI detection
 
   const identifyProgression = (chords: DetectedChord[]): ChordProgression => {
     const uniqueChords = [...new Set(chords.map(c => c.chord))];
     
+    // Detect key from chord frequencies
+    const chordCounts: Record<string, number> = {};
+    chords.forEach(c => {
+      chordCounts[c.chord] = (chordCounts[c.chord] || 0) + 1;
+    });
+    
+    const rootChord = Object.entries(chordCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'C';
+    const isMinor = rootChord.includes('m') && !rootChord.includes('maj');
+    
     return {
       chords: uniqueChords,
-      key: 'A',
-      mode: 'minor',
-      commonName: 'Amapiano Pattern'
+      key: rootChord.replace('m', '').replace('7', '').replace('maj', ''),
+      mode: isMinor ? 'minor' : 'major',
+      commonName: matchKnownProgression(uniqueChords)
     };
+  };
+  
+  const matchKnownProgression = (chords: string[]): string | undefined => {
+    // Try to match against known progressions
+    for (const prog of COMMON_PROGRESSIONS) {
+      if (chords.length >= prog.pattern.length) {
+        return prog.name;
+      }
+    }
+    return undefined;
   };
 
   const startLiveRecording = async () => {

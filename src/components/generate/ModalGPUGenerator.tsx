@@ -23,7 +23,6 @@ interface GeneratedTrack {
   genre: string;
   key: string;
   mood: string;
-  isMock?: boolean;
   processingTime?: number;
 }
 
@@ -75,18 +74,13 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
         genre: data.genre || genre,
         key: data.key || key,
         mood: data.mood || mood,
-        isMock: data.is_mock || false,
         processingTime: data.processing_time_ms,
       };
 
       setGeneratedTrack(track);
       onTrackGenerated?.(track);
       
-      if (track.isMock) {
-        toast.success("✅ Track generated (development mode - deploy Modal for real AI generation)");
-      } else {
-        toast.success(`✅ GPU-accelerated track generated in ${track.processingTime}ms!`);
-      }
+      toast.success(`✅ GPU-accelerated track generated in ${track.processingTime}ms!`);
     } catch (err) {
       console.error("Modal generate error:", err);
       const message = err instanceof Error ? err.message : "Failed to generate track";
@@ -240,9 +234,6 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{generatedTrack.title}</p>
-                  {generatedTrack.isMock && (
-                    <Badge variant="secondary" className="text-xs">Dev Mode</Badge>
-                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {generatedTrack.genre} • {generatedTrack.bpm} BPM • {generatedTrack.key} • {generatedTrack.duration}s

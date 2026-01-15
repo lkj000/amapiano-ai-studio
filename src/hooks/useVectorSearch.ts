@@ -19,16 +19,24 @@ export const useVectorSearch = () => {
   const [results, setResults] = useState<VectorSearchResult[]>([]);
 
   /**
-   * Generate embedding from text using AI
-   * In production, this would call an edge function that uses OpenAI embeddings
+   * Generate embedding from text using AI edge function
    */
   const generateEmbedding = async (text: string): Promise<number[]> => {
-    // Mock embedding generation - in production, call edge function
-    // that uses OpenAI's text-embedding-3-small or similar
-    console.log('[VectorSearch] Generating embedding for:', text);
+    console.log('[VectorSearch] Generating real embedding for:', text);
     
-    // Return mock 1536-dimensional vector
-    return Array(1536).fill(0).map(() => Math.random());
+    const { data, error } = await supabase.functions.invoke('generate-embedding', {
+      body: { text }
+    });
+    
+    if (error) {
+      throw new Error(`Embedding generation failed: ${error.message}`);
+    }
+    
+    if (!data?.embedding || !Array.isArray(data.embedding)) {
+      throw new Error('Invalid embedding response from server');
+    }
+    
+    return data.embedding;
   };
 
   /**

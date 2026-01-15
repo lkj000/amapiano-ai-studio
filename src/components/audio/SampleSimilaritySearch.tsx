@@ -100,9 +100,8 @@ export function SampleSimilaritySearch() {
         });
 
       if (matchedResults.length === 0) {
-        // Generate mock results for demo
-        setResults(generateMockResults(searchQuery));
-        toast.info('Showing example results (index your samples for real search)');
+        setResults([]);
+        toast.info('No matching samples found. Index your samples for search.');
       } else {
         setResults(matchedResults);
         toast.success(`Found ${matchedResults.length} similar samples`);
@@ -110,9 +109,8 @@ export function SampleSimilaritySearch() {
 
     } catch (error) {
       console.error('Search failed:', error);
-      // Show mock results on error
-      setResults(generateMockResults(searchQuery));
-      toast.info('Showing example results');
+      toast.error('Search failed. Please try again.');
+      setResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -128,42 +126,34 @@ export function SampleSimilaritySearch() {
     toast.info('Analyzing audio characteristics...');
 
     try {
-      // Simulate audio analysis
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call real audio analysis edge function
+      const formData = new FormData();
+      formData.append('audio', audioFile);
       
-      // In production, this would:
-      // 1. Extract audio features (spectral, rhythm, etc.)
-      // 2. Generate embedding vector
-      // 3. Search for similar vectors in database
+      const { data, error } = await supabase.functions.invoke('audio-similarity-search', {
+        body: formData
+      });
       
-      const mockResults = generateMockResults('audio-based');
-      setResults(mockResults);
-      toast.success(`Found ${mockResults.length} similar samples`);
+      if (error) throw error;
+      
+      if (data?.results && data.results.length > 0) {
+        setResults(data.results);
+        toast.success(`Found ${data.results.length} similar samples`);
+      } else {
+        setResults([]);
+        toast.info('No similar samples found. Index more samples for better results.');
+      }
 
     } catch (error) {
       console.error('Audio search failed:', error);
       toast.error('Audio search failed. Please try again.');
+      setResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const generateMockResults = (query: string): SampleResult[] => {
-    const categories = ['Drums', 'Bass', 'Synth', 'Vocal', 'FX', 'Percussion'];
-    const keys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].flatMap(k => [`${k} Major`, `${k} Minor`]);
-    const tags = ['amapiano', 'log drum', 'punchy', 'warm', 'dark', 'bright', 'deep', 'airy'];
-    
-    return Array.from({ length: 8 }, (_, i) => ({
-      id: `sample-${i}`,
-      name: `${query.charAt(0).toUpperCase() + query.slice(1)} Sample ${i + 1}`,
-      category: categories[i % categories.length],
-      bpm: 110 + Math.floor(Math.random() * 20),
-      key: keys[Math.floor(Math.random() * keys.length)],
-      duration: 2 + Math.random() * 8,
-      similarity: 98 - (i * 8) + Math.floor(Math.random() * 5),
-      tags: [tags[i % tags.length], tags[(i + 3) % tags.length]]
-    }));
-  };
+  // Removed mock results generator - using real search only
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

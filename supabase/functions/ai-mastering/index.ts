@@ -233,18 +233,9 @@ Deno.serve(async (req) => {
 
     console.log('[ai-mastering] Output WAV size:', outputWav.byteLength);
 
-    // Fast base64 encoding using chunks to avoid CPU timeout
-    const outputBytes = new Uint8Array(outputWav);
-    const CHUNK_SIZE = 32768; // 32KB chunks for efficient base64 encoding
-    let outputBase64 = '';
-    for (let offset = 0; offset < outputBytes.length; offset += CHUNK_SIZE) {
-      const chunk = outputBytes.subarray(offset, Math.min(offset + CHUNK_SIZE, outputBytes.length));
-      let binary = '';
-      for (let i = 0; i < chunk.length; i++) {
-        binary += String.fromCharCode(chunk[i]);
-      }
-      outputBase64 += btoa(binary);
-    }
+    // Correct base64 encoding - use arrayBufferToBase64 from shared module
+    // which handles the entire buffer properly
+    const outputBase64 = arrayBufferToBase64(outputWav);
 
     // Skip storage upload in edge function to save CPU time
     // Client can upload to storage if needed

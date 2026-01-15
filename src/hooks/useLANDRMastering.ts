@@ -150,14 +150,26 @@ function writeWavString(view: DataView, offset: number, str: string): void {
  * Convert base64 data URL to Blob
  */
 function base64ToBlob(base64: string, mimeType: string = 'audio/wav'): Blob {
-  const base64Data = base64.replace(/^data:[^;]+;base64,/, '');
+  // Remove data URL prefix if present
+  const cleaned = base64
+    .replace(/^data:[^;]+;base64,/, '')
+    .trim()
+    .replace(/\s+/g, '')
+    // tolerate base64url
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  // Ensure correct padding
+  const pad = cleaned.length % 4;
+  const base64Data = pad ? cleaned + '='.repeat(4 - pad) : cleaned;
+
   const binaryString = atob(base64Data);
   const bytes = new Uint8Array(binaryString.length);
-  
+
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  
+
   return new Blob([bytes], { type: mimeType });
 }
 
@@ -299,17 +311,17 @@ export function useLANDRMastering() {
       track.lufs = data.outputAnalysis?.lufs?.toString() || settings.loudness.toString();
 
       // Handle the mastered audio
-      if (data.masteredAudioBase64) {
-        // Create blob URL from base64 for playback
-        const masteredBlob = base64ToBlob(data.masteredAudioBase64, 'audio/wav');
-        const masteredBlobUrl = URL.createObjectURL(masteredBlob);
-        track.masteredUrl = masteredBlobUrl;
+      if (data.masteredUrl) {
+        // Best path: server uploaded the mastered WAV to Storage
+        track.masteredUrl = data.masteredUrl;
+      } else if (data.masteredAudioBase64) {
+        // Fallback path: decode base64 response
+        try {
+          const masteredBlob = base64ToBlob(data.masteredAudioBase64, 'audio/wav');
+          const masteredBlobUrl = URL.createObjectURL(masteredBlob);
+          track.masteredUrl = masteredBlobUrl;
 
-        // Also upload to storage if we have a URL from the server
-        if (data.masteredUrl) {
-          track.masteredUrl = data.masteredUrl;
-        } else {
-          // Upload the mastered file to storage
+          // Upload the mastered file to storage to get a persistent URL
           try {
             const masteredFileName = `${user.id}/mastering/${trackId}/${trackName}_mastered.wav`;
             const { error: masteredUploadError } = await supabase.storage
@@ -330,7 +342,12 @@ export function useLANDRMastering() {
             console.warn('[useLANDRMastering] Mastered storage upload failed:', masteredStorageError);
             // Keep using blob URL
           }
+        } catch (decodeError) {
+          console.error('[useLANDRMastering] Base64 decode failed:', decodeError);
+          throw new Error('Mastered audio could not be decoded. Please try again.');
         }
+      } else {
+        throw new Error('Mastering completed, but no mastered audio was returned.');
       }
 
       track.status = 'complete';

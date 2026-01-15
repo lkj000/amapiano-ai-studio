@@ -8,9 +8,9 @@ import {
 import {
   parseWavHeader,
   decodeWavToFloat32,
-  encodeFloat32ToWav,
-  arrayBufferToBase64
+  encodeFloat32ToWav
 } from "../_shared/audio-codec.ts";
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -233,13 +233,48 @@ Deno.serve(async (req) => {
 
     console.log('[ai-mastering] Output WAV size:', outputWav.byteLength);
 
-    // Correct base64 encoding - use arrayBufferToBase64 from shared module
-    // which handles the entire buffer properly
-    const outputBase64 = arrayBufferToBase64(outputWav);
+    // Prefer Storage upload over returning huge base64 payloads (avoids truncation + atob errors)
+    const masteredFileName = `${user.id}/mastering/${job?.id ?? crypto.randomUUID()}/mastered.wav`;
 
-    // Skip storage upload in edge function to save CPU time
-    // Client can upload to storage if needed
-    const masteredUrl: string | undefined = undefined;
+    let masteredUrl: string | undefined;
+    let masteredAudioBase64: string | undefined;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('audio-samples')
+        .upload(masteredFileName, new Uint8Array(outputWav), {
+          contentType: 'audio/wav',
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('[ai-mastering] Storage upload failed:', uploadError);
+      } else {
+        const { data: publicData } = supabase.storage
+          .from('audio-samples')
+          .getPublicUrl(masteredFileName);
+        masteredUrl = publicData.publicUrl;
+      }
+    } catch (storageError) {
+      console.error('[ai-mastering] Storage upload exception:', storageError);
+    }
+
+    // Fallback: only if Storage upload failed
+    if (!masteredUrl) {
+      const bytes = new Uint8Array(outputWav);
+      const CHUNK_SIZE = 49152; // 48KB, divisible by 3 => safe to concat base64 chunks
+      let outputBase64 = '';
+
+      for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+        const chunk = bytes.subarray(offset, Math.min(offset + CHUNK_SIZE, bytes.length));
+        let binary = '';
+        for (let i = 0; i < chunk.length; i++) binary += String.fromCharCode(chunk[i]);
+        outputBase64 += btoa(binary);
+      }
+
+      masteredAudioBase64 = `data:audio/wav;base64,${outputBase64}`;
+    }
 
     const response: MasteringResponse = {
       success: true,

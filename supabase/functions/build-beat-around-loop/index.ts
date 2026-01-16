@@ -1,9 +1,12 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const APIBOX_BASE_URL = 'https://apibox.erweima.ai/api/v1/generate';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,71 +32,75 @@ serve(async (req) => {
       taskId 
     } = await req.json();
 
-    console.log('Build beat request:', { loopName, loopType, style, bpm, key, duration, taskId });
+    console.log('[BUILD-BEAT] Request:', { loopName, loopType, style, bpm, key, duration, taskId });
 
     const SUNO_API_KEY = Deno.env.get('SUNO_API_KEY');
     if (!SUNO_API_KEY) {
-      throw new Error('SUNO_API_KEY not configured. Please add the Suno API key in Edge Function secrets.');
+      return new Response(
+        JSON.stringify({ 
+          error: 'SUNO_API_KEY not configured',
+          message: 'Please add your API.box Suno API key to use this feature. Get one at https://apibox.erweima.ai',
+          requiresSetup: true
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     // If polling for existing task
     if (taskId) {
-      console.log('Polling task status:', taskId);
-      const statusResponse = await fetch(`https://api.sunoapi.org/api/v1/query?taskId=${taskId}`, {
-        headers: { 
+      console.log('[BUILD-BEAT] Polling task status:', taskId);
+      
+      const statusResponse = await fetch(`https://apibox.erweima.ai/api/v1/generate/record-info?taskId=${taskId}`, {
+        method: 'GET',
+        headers: {
           'Authorization': `Bearer ${SUNO_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+        },
       });
       
       if (!statusResponse.ok) {
         const errorText = await statusResponse.text();
-        console.error('Task status error:', statusResponse.status, errorText);
+        console.error('[BUILD-BEAT] Task status error:', statusResponse.status, errorText);
         throw new Error(`Failed to get task status: ${statusResponse.status}`);
       }
       
-      const statusData = await statusResponse.json();
-      console.log('Task status response:', statusData);
+      const statusResult = await statusResponse.json();
+      console.log('[BUILD-BEAT] Task status:', statusResult.data?.status);
       
       // Check if generation completed
-      if (statusData.code === 200 && statusData.data) {
-        const clips = statusData.data.clips || [];
-        const completedClip = clips.find((c: any) => c.status === 'complete');
+      if (statusResult.data?.status === 'SUCCESS' || statusResult.data?.status === 'completed') {
+        const tracks = statusResult.data?.response?.sunoData || statusResult.data?.data || [];
         
-        if (completedClip && completedClip.audio_url) {
+        if (tracks.length > 0) {
+          const track = tracks[0];
           return new Response(JSON.stringify({
-            audioUrl: completedClip.audio_url,
-            imageUrl: completedClip.image_url,
+            audioUrl: track.audioUrl || track.audio_url,
+            imageUrl: track.imageUrl || track.image_url,
             metadata: {
-              title: completedClip.title || `${loopName} - AI Beat`,
-              duration: completedClip.duration || duration,
+              title: track.title || `${loopName} - AI Beat`,
+              duration: track.duration || duration,
               bpm: bpm,
               key: key,
               genre: style,
-            }
+              source: 'apibox-suno-v4'
+            },
+            allTracks: tracks
           }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        
-        // Still processing
-        const processingClip = clips.find((c: any) => c.status === 'submitted' || c.status === 'processing');
-        if (processingClip) {
-          return new Response(JSON.stringify({ 
-            pending: true, 
-            status: processingClip.status,
-            taskId: taskId
-          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        
-        // Check for failure
-        const failedClip = clips.find((c: any) => c.status === 'error');
-        if (failedClip) {
-          throw new Error(failedClip.error_message || 'Generation failed');
         }
       }
       
+      // Check for failure
+      if (statusResult.data?.status === 'FAILED' || statusResult.data?.status === 'failed') {
+        throw new Error('Generation failed: ' + (statusResult.data?.errorMessage || 'Unknown error'));
+      }
+      
+      // Still processing
       return new Response(JSON.stringify({ 
         pending: true, 
-        status: 'processing' 
+        status: statusResult.data?.status || 'processing',
+        taskId: taskId
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -105,77 +112,77 @@ serve(async (req) => {
     if (addVocals) elements.push('vocal hooks');
 
     const fullPrompt = `Build a complete ${style} beat around this ${loopType}. ${prompt || ''}. Add ${elements.join(', ')}. BPM: ${bpm}. Key: ${key}. ${preserveLoop ? 'Preserve and highlight the original loop.' : 'Transform the loop creatively.'} Blend amount: ${blendAmount}%`;
+    const stylePrompt = `${style}, ${bpm} BPM, ${elements.join(', ')}`;
 
-    console.log('Generation prompt:', fullPrompt);
+    console.log('[BUILD-BEAT] Generation prompt:', fullPrompt);
+    console.log('[BUILD-BEAT] Style:', stylePrompt);
 
-    // Call Suno API with audio input via add-instrumental endpoint
-    const response = await fetch('https://api.sunoapi.org/api/v1/generate/add-instrumental', {
+    // Request body for API.box
+    const requestBody = {
+      prompt: fullPrompt.substring(0, 3000),
+      style: stylePrompt,
+      title: loopName || 'AI Generated Beat',
+      customMode: true,
+      instrumental: !addVocals,
+      model: 'V4',
+      callbackUrl: '',
+    };
+
+    console.log('[BUILD-BEAT] API request body:', JSON.stringify(requestBody));
+
+    // Submit generation task to API.box
+    const response = await fetch(APIBOX_BASE_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${SUNO_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        uploadUrl: audioData, // Base64 audio data or URL
-        title: loopName || 'AI Generated Beat',
-        tags: `${style}, ${elements.join(', ')}`,
-        negativeTags: '',
-        model: 'V4_5PLUS',
-        customMode: true,
-        instrumental: !addVocals,
-        prompt: fullPrompt,
-        style: style,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Suno API error:', response.status, errorText);
-      throw new Error(`Suno API error: ${response.status} - ${errorText}`);
+      console.error('[BUILD-BEAT] API error:', response.status, errorText);
+      throw new Error(`API.box error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log('Suno API response:', data);
+    const result = await response.json();
+    console.log('[BUILD-BEAT] API response:', JSON.stringify(result));
 
-    // Handle sunoapi.org response format
-    if (data.code === 200 && data.data?.taskId) {
+    // Check response code
+    if (result.code && result.code !== 200) {
+      throw new Error(result.msg || result.message || `API Error: ${result.code}`);
+    }
+
+    // Check if we got a task ID for async processing
+    if (result.data?.taskId) {
+      console.log('[BUILD-BEAT] Task submitted, taskId:', result.data.taskId);
       return new Response(JSON.stringify({
         pending: true,
-        taskId: data.data.taskId,
+        taskId: result.data.taskId,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Legacy task_id format
-    if (data.task_id || data.taskId) {
+    // Direct response (if API returns immediately)
+    const audioUrl = result.data?.audioUrl || result.audio_url;
+    if (audioUrl) {
       return new Response(JSON.stringify({
-        pending: true,
-        taskId: data.task_id || data.taskId,
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // Direct response with audio (rare case)
-    if (data.audio_url || data.audioUrl) {
-      return new Response(JSON.stringify({
-        audioUrl: data.audio_url || data.audioUrl,
-        imageUrl: data.image_url || data.imageUrl,
+        audioUrl: audioUrl,
+        imageUrl: result.data?.imageUrl || result.image_url,
         metadata: {
-          title: data.title || `${loopName} - AI Beat`,
-          duration: data.duration || duration,
-          bpm: data.bpm || bpm,
-          key: data.key || key,
+          title: result.data?.title || `${loopName} - AI Beat`,
+          duration: result.data?.duration || duration,
+          bpm: bpm,
+          key: key,
           genre: style,
+          source: 'apibox-suno-v4'
         }
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // If API returned an error
-    if (data.code && data.code !== 200) {
-      throw new Error(data.msg || data.message || `API Error: ${data.code}`);
-    }
-
-    throw new Error('Unexpected API response format: ' + JSON.stringify(data));
+    throw new Error('Unexpected response format from API.box: ' + JSON.stringify(result));
   } catch (error) {
-    console.error('Build beat error:', error);
+    console.error('[BUILD-BEAT] Error:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Failed to build beat' 
     }), { 

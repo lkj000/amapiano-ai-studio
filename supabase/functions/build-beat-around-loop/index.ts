@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const AIML_API_URL = "https://api.aimlapi.com/v2/generate/audio";
+const AIML_API_URL = "https://api.aimlapi.com/v2/generate/audio/minimax/generate";
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -75,7 +75,7 @@ serve(async (req) => {
       console.log("[BUILD-BEAT] Polling task status:", taskId);
 
       const statusResponse = await fetch(
-        `https://api.aimlapi.com/v2/generate/audio/${taskId}`,
+        `https://api.aimlapi.com/v2/generate/audio/minimax/query?generation_id=${taskId}`,
         {
           method: "GET",
           headers: {
@@ -157,10 +157,13 @@ serve(async (req) => {
 
     console.log("[BUILD-BEAT] Generation prompt:", fullPrompt);
 
-    // Use minimax-music model for instrumental generation
+    // Use minimax music-01 model for instrumental generation
+    // The lyrics field uses ## markers to denote vocal sections
+    const lyricsPrompt = `##${fullPrompt.substring(0, 1000)}##`;
+    
     const requestBody: Record<string, unknown> = {
-      model: "minimax-music",
-      prompt: fullPrompt.substring(0, 2000),
+      model: "music-01",
+      lyrics: lyricsPrompt,
     };
 
     console.log("[BUILD-BEAT] AIML API request body:", JSON.stringify(requestBody));

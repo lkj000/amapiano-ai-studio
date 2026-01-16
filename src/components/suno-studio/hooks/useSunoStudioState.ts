@@ -512,6 +512,15 @@ export function useSunoStudioState() {
 
       if (error) throw error;
 
+      // Edge function can return setup/auth errors as 200 JSON to avoid FunctionsHttpError
+      if (data?.requiresSetup) {
+        throw new Error(data.message || data.error || 'Setup required');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       if (data.pending && data.taskId) {
         // Poll for completion
         await pollForBeatCompletion(data.taskId, activeLoop.name, options);
@@ -544,9 +553,24 @@ export function useSunoStudioState() {
       });
 
       try {
-        const { data } = await supabase.functions.invoke('build-beat-around-loop', {
+        const { data, error } = await supabase.functions.invoke('build-beat-around-loop', {
           body: { taskId }
         });
+
+        if (error) throw error;
+
+        if (data?.requiresSetup) {
+          setGenerationProgress({
+            status: 'failed',
+            progress: 0,
+            message: data.message || data.error || 'Setup required'
+          });
+          return;
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
 
         if (data.audioUrl) {
           handleBeatComplete(data, loopName, options);

@@ -29,69 +29,64 @@ serve(async (req) => {
       taskId 
     } = await req.json();
 
-    console.log('Build beat request:', { loopName, loopType, style, bpm, key, duration });
+    console.log('Build beat request:', { loopName, loopType, style, bpm, key, duration, taskId });
 
     const SUNO_API_KEY = Deno.env.get('SUNO_API_KEY');
-    
-    // If polling for existing task (mock completion)
-    if (taskId) {
-      // Simulate task completion after polling
-      return new Response(JSON.stringify({
-        audioUrl: `https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3`,
-        imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
-        metadata: {
-          title: `${loopName || 'Loop'} - AI Beat (${style})`,
-          duration: duration || 180,
-          bpm: bpm || 112,
-          key: key || 'C Major',
-        }
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // If no API key, use mock mode for demo
     if (!SUNO_API_KEY) {
-      console.log('No SUNO_API_KEY found, using demo mode');
-      
-      // Build the generation prompt for logging
-      const elements = [];
-      if (addDrums) elements.push('drums');
-      if (addBass) elements.push('bass');
-      if (addMelody) elements.push('melody');
-      if (addVocals) elements.push('vocals');
+      throw new Error('SUNO_API_KEY not configured. Please add the Suno API key in Edge Function secrets.');
+    }
 
-      console.log(`Generating ${style} beat with elements: ${elements.join(', ')}`);
+    // If polling for existing task
+    if (taskId) {
+      console.log('Polling task status:', taskId);
+      const statusResponse = await fetch(`https://api.apibox.dev/suno/v2/task/${taskId}`, {
+        headers: { 'Authorization': `Bearer ${SUNO_API_KEY}` }
+      });
       
-      // Return a demo audio file immediately (no polling needed)
-      const demoTracks = [
-        'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-        'https://cdn.pixabay.com/download/audio/2023/07/27/audio_4e39b21f06.mp3?filename=summer-vibes-161034.mp3',
-        'https://cdn.pixabay.com/download/audio/2022/03/24/audio_d1718ab41b.mp3?filename=please-calm-my-mind-125566.mp3',
-      ];
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error('Task status error:', statusResponse.status, errorText);
+        throw new Error(`Failed to get task status: ${statusResponse.status}`);
+      }
       
-      const randomTrack = demoTracks[Math.floor(Math.random() * demoTracks.length)];
+      const statusData = await statusResponse.json();
+      console.log('Task status response:', statusData);
       
-      return new Response(JSON.stringify({
-        audioUrl: randomTrack,
-        imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
-        metadata: {
-          title: `${loopName || 'Loop'} - AI Beat (${style})`,
-          duration: duration || 180,
-          bpm: bpm || 112,
-          key: key || 'C Major',
-          genre: style,
-        }
+      if (statusData.status === 'completed' && statusData.data?.audio_url) {
+        return new Response(JSON.stringify({
+          audioUrl: statusData.data.audio_url,
+          imageUrl: statusData.data.image_url,
+          metadata: {
+            title: statusData.data.title || `${loopName} - AI Beat`,
+            duration: statusData.data.duration || duration,
+            bpm: statusData.data.bpm || bpm,
+            key: statusData.data.key || key,
+          }
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      if (statusData.status === 'failed') {
+        throw new Error(statusData.error || 'Generation failed');
+      }
+      
+      return new Response(JSON.stringify({ 
+        pending: true, 
+        status: statusData.status 
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Real API call when SUNO_API_KEY is available
+    // Build the generation prompt
     const elements = [];
     if (addDrums) elements.push('powerful drums');
     if (addBass) elements.push('deep bassline');
     if (addMelody) elements.push('melodic elements');
     if (addVocals) elements.push('vocal hooks');
 
-    const fullPrompt = `Build a complete ${style} beat around this ${loopType}. ${prompt}. Add ${elements.join(', ')}. BPM: ${bpm}. Key: ${key}. ${preserveLoop ? 'Preserve and highlight the original loop.' : 'Transform the loop creatively.'} Blend amount: ${blendAmount}%`;
+    const fullPrompt = `Build a complete ${style} beat around this ${loopType}. ${prompt || ''}. Add ${elements.join(', ')}. BPM: ${bpm}. Key: ${key}. ${preserveLoop ? 'Preserve and highlight the original loop.' : 'Transform the loop creatively.'} Blend amount: ${blendAmount}%`;
 
+    console.log('Generation prompt:', fullPrompt);
+
+    // Call Suno API with audio input
     const response = await fetch('https://api.apibox.dev/suno/v2/generate', {
       method: 'POST',
       headers: {
@@ -108,7 +103,14 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Suno API error:', response.status, errorText);
+      throw new Error(`Suno API error: ${response.status} - ${errorText}`);
+    }
+
     const data = await response.json();
+    console.log('Suno API response:', data);
 
     if (data.task_id) {
       return new Response(JSON.stringify({
@@ -130,7 +132,7 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    throw new Error('Unexpected API response');
+    throw new Error('Unexpected API response format');
   } catch (error) {
     console.error('Build beat error:', error);
     return new Response(JSON.stringify({ 

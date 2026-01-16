@@ -441,6 +441,169 @@ export function useSunoStudioState() {
     }
   }, [project.clips]);
 
+  // Build beat around uploaded loop - Suno v5 feature
+  const buildBeatAroundLoop = useCallback(async (
+    loops: Array<{
+      id: string;
+      file: File;
+      audioUrl: string;
+      name: string;
+      duration: number;
+      type: 'loop' | 'sample' | 'vocal';
+      isActive: boolean;
+    }>,
+    options: {
+      style: string;
+      prompt: string;
+      bpm: number;
+      key: string;
+      duration: number;
+      preserveLoop: boolean;
+      blendAmount: number;
+      addDrums: boolean;
+      addBass: boolean;
+      addMelody: boolean;
+      addVocals: boolean;
+    }
+  ) => {
+    setGenerationProgress({
+      status: 'starting',
+      progress: 0,
+      message: 'Uploading your loops...'
+    });
+
+    try {
+      // Convert first loop to base64 for upload
+      const activeLoop = loops.find(l => l.isActive);
+      if (!activeLoop) throw new Error('No active loop selected');
+
+      const reader = new FileReader();
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(activeLoop.file);
+      });
+
+      setGenerationProgress({
+        status: 'processing',
+        progress: 20,
+        message: 'Analyzing tempo and key...'
+      });
+
+      // Call the beat-building API
+      const { data, error } = await supabase.functions.invoke('build-beat-around-loop', {
+        body: {
+          audioData: base64Audio,
+          loopName: activeLoop.name,
+          loopType: activeLoop.type,
+          style: options.style,
+          prompt: options.prompt,
+          bpm: options.bpm,
+          key: options.key,
+          duration: options.duration,
+          preserveLoop: options.preserveLoop,
+          blendAmount: options.blendAmount,
+          addDrums: options.addDrums,
+          addBass: options.addBass,
+          addMelody: options.addMelody,
+          addVocals: options.addVocals,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.pending && data.taskId) {
+        // Poll for completion
+        await pollForBeatCompletion(data.taskId, activeLoop.name, options);
+      } else if (data.audioUrl) {
+        handleBeatComplete(data, activeLoop.name, options);
+      }
+    } catch (error) {
+      console.error('Beat building error:', error);
+      setGenerationProgress({
+        status: 'failed',
+        progress: 0,
+        message: error instanceof Error ? error.message : 'Failed to build beat'
+      });
+      toast.error('Failed to build beat around your loop');
+    }
+  }, []);
+
+  const pollForBeatCompletion = async (taskId: string, loopName: string, options: any) => {
+    let attempts = 0;
+    const maxAttempts = 120;
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      attempts++;
+
+      setGenerationProgress({
+        status: 'generating',
+        progress: Math.min(90, 20 + (attempts / maxAttempts) * 70),
+        message: `Building beat around ${loopName}... (${attempts * 3}s)`
+      });
+
+      try {
+        const { data } = await supabase.functions.invoke('build-beat-around-loop', {
+          body: { taskId }
+        });
+
+        if (data.audioUrl) {
+          handleBeatComplete(data, loopName, options);
+          return;
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    }
+
+    setGenerationProgress({
+      status: 'failed',
+      progress: 0,
+      message: 'Beat building timed out'
+    });
+  };
+
+  const handleBeatComplete = (data: any, loopName: string, options: any) => {
+    const newClip: GeneratedClip = {
+      id: crypto.randomUUID(),
+      title: data.metadata?.title || `${loopName} - AI Beat`,
+      audioUrl: data.audioUrl,
+      imageUrl: data.imageUrl,
+      duration: data.metadata?.duration || options.duration,
+      createdAt: new Date(),
+      prompt: options.prompt,
+      style: options.style,
+      metadata: {
+        bpm: data.metadata?.bpm || options.bpm,
+        key: data.metadata?.key || options.key,
+        genre: options.style,
+        modelVersion: 'suno-v5',
+        hasVocals: options.addVocals,
+        isInstrumental: !options.addVocals,
+      }
+    };
+
+    setProject(prev => ({
+      ...prev,
+      clips: [...prev.clips, newClip],
+      duration: Math.max(prev.duration, newClip.duration),
+      bpm: data.metadata?.bpm || options.bpm,
+    }));
+
+    setHistory(prev => [newClip, ...prev]);
+    setSelectedClipId(newClip.id);
+
+    setGenerationProgress({
+      status: 'succeeded',
+      progress: 100,
+      message: 'Beat complete!'
+    });
+
+    toast.success('Beat built successfully around your loop!');
+    setTimeout(() => setGenerationProgress(null), 3000);
+  };
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -470,5 +633,6 @@ export function useSunoStudioState() {
     separateStems,
     generateCover,
     extendSong,
+    buildBeatAroundLoop,
   };
 }

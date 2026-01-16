@@ -6,9 +6,12 @@ import { GenerationPanel } from './components/GenerationPanel';
 import { ClipInspector } from './components/ClipInspector';
 import { HistoryPanel } from './components/HistoryPanel';
 import { TransportControls } from './components/TransportControls';
+import { LoopUploadPanel, BeatBuildOptions } from './components/LoopUploadPanel';
+import { PersonaVoiceSelector } from './components/PersonaVoiceSelector';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Wand2, History, FileAudio } from 'lucide-react';
+import { Music, Wand2, History, FileAudio, Upload, Mic2, Settings, Layers } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
 
@@ -16,18 +19,35 @@ interface SunoStudioProps {
   user: User | null;
 }
 
+interface UploadedLoop {
+  id: string;
+  file: File;
+  audioUrl: string;
+  name: string;
+  duration: number;
+  type: 'loop' | 'sample' | 'vocal';
+  isActive: boolean;
+}
+
 export function SunoStudio({ user }: SunoStudioProps) {
   const {
     project, setProject, isPlaying, play, pause, seekTo, setZoom,
     generationProgress, generationMode, setGenerationMode,
     selectedClipId, setSelectedClipId, history,
-    generateSong, separateStems, extendSong
+    generateSong, separateStems, extendSong, buildBeatAroundLoop
   } = useSunoStudioState();
 
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
-  const [rightPanelTab, setRightPanelTab] = useState<'generate' | 'inspector' | 'history'>('generate');
+  const [leftPanelTab, setLeftPanelTab] = useState<'generate' | 'upload' | 'voices'>('generate');
+  const [rightPanelTab, setRightPanelTab] = useState<'inspector' | 'history'>('inspector');
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>('nkosazana-daughter');
+  const [voicePitch, setVoicePitch] = useState(0);
+  const [voiceSpeed, setVoiceSpeed] = useState(1);
+  const [beatBuildProgress, setBeatBuildProgress] = useState(0);
+  const [beatBuildMessage, setBeatBuildMessage] = useState('');
+  const [isBuildingBeat, setIsBuildingBeat] = useState(false);
 
   const selectedClip = project.clips.find(c => c.id === selectedClipId) || null;
 
@@ -74,39 +94,109 @@ export function SunoStudio({ user }: SunoStudioProps) {
     toast.success('Clip deleted');
   };
 
+  const handleDuplicateClip = (clipId: string) => {
+    const clip = project.clips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    const newClip = {
+      ...clip,
+      id: crypto.randomUUID(),
+      title: `${clip.title} (Copy)`,
+      createdAt: new Date()
+    };
+
+    setProject(prev => ({
+      ...prev,
+      clips: [...prev.clips, newClip]
+    }));
+    setSelectedClipId(newClip.id);
+    toast.success('Clip duplicated');
+  };
+
+  const handleBuildBeat = async (loops: UploadedLoop[], options: BeatBuildOptions) => {
+    setIsBuildingBeat(true);
+    setBeatBuildProgress(0);
+    setBeatBuildMessage('Analyzing your loops...');
+
+    try {
+      // Simulate progress updates (real API would send these)
+      const progressSteps = [
+        { progress: 10, message: 'Analyzing tempo and key...' },
+        { progress: 25, message: 'Detecting musical elements...' },
+        { progress: 40, message: 'Generating complementary drums...' },
+        { progress: 55, message: 'Adding bass line...' },
+        { progress: 70, message: 'Creating melodic elements...' },
+        { progress: 85, message: 'Mixing and mastering...' },
+        { progress: 95, message: 'Finalizing your beat...' },
+      ];
+
+      for (const step of progressSteps) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setBeatBuildProgress(step.progress);
+        setBeatBuildMessage(step.message);
+      }
+
+      // Call the actual API
+      await buildBeatAroundLoop(loops, options);
+
+      setBeatBuildProgress(100);
+      setBeatBuildMessage('Beat complete!');
+      toast.success('Beat built successfully around your loop!');
+    } catch (error) {
+      console.error('Beat build error:', error);
+      toast.error('Failed to build beat. Please try again.');
+    } finally {
+      setTimeout(() => {
+        setIsBuildingBeat(false);
+        setBeatBuildProgress(0);
+        setBeatBuildMessage('');
+      }, 2000);
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 border-b bg-card">
+      <header className="flex items-center justify-between px-4 py-2 border-b bg-card/50 backdrop-blur">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
             <Music className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="font-bold text-lg">Suno Studio</h1>
+            <h1 className="font-bold text-lg flex items-center gap-2">
+              Suno Studio
+              <span className="text-xs font-normal px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">v5</span>
+            </h1>
             <p className="text-xs text-muted-foreground">{project.name}</p>
           </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <Settings className="h-3.5 w-3.5" />
+            Settings
+          </Button>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
-          {/* Left Panel - Generation */}
-          <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
-            <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)} className="h-full flex flex-col">
-              <TabsList className="mx-4 mt-4 grid grid-cols-3">
-                <TabsTrigger value="generate" className="text-xs gap-1">
-                  <Wand2 className="h-3 w-3" /> Create
+          {/* Left Panel - Generation / Upload / Voices */}
+          <ResizablePanel defaultSize={28} minSize={22} maxSize={40}>
+            <Tabs value={leftPanelTab} onValueChange={(v) => setLeftPanelTab(v as any)} className="h-full flex flex-col">
+              <TabsList className="mx-3 mt-3 grid grid-cols-3 h-9">
+                <TabsTrigger value="generate" className="text-xs gap-1.5">
+                  <Wand2 className="h-3.5 w-3.5" /> Create
                 </TabsTrigger>
-                <TabsTrigger value="inspector" className="text-xs gap-1">
-                  <FileAudio className="h-3 w-3" /> Clip
+                <TabsTrigger value="upload" className="text-xs gap-1.5">
+                  <Upload className="h-3.5 w-3.5" /> Loop
                 </TabsTrigger>
-                <TabsTrigger value="history" className="text-xs gap-1">
-                  <History className="h-3 w-3" /> History
+                <TabsTrigger value="voices" className="text-xs gap-1.5">
+                  <Mic2 className="h-3.5 w-3.5" /> Voice
                 </TabsTrigger>
               </TabsList>
-              <div className="flex-1 overflow-hidden p-4">
+              <div className="flex-1 overflow-hidden p-3">
                 <TabsContent value="generate" className="h-full m-0">
                   <GenerationPanel
                     mode={generationMode}
@@ -116,6 +206,61 @@ export function SunoStudio({ user }: SunoStudioProps) {
                     selectedClipId={selectedClipId}
                   />
                 </TabsContent>
+                <TabsContent value="upload" className="h-full m-0">
+                  <LoopUploadPanel
+                    onBuildBeat={handleBuildBeat}
+                    isProcessing={isBuildingBeat}
+                    progress={beatBuildProgress}
+                    progressMessage={beatBuildMessage}
+                  />
+                </TabsContent>
+                <TabsContent value="voices" className="h-full m-0">
+                  <PersonaVoiceSelector
+                    selectedVoiceId={selectedVoiceId}
+                    onSelectVoice={setSelectedVoiceId}
+                    pitch={voicePitch}
+                    onPitchChange={setVoicePitch}
+                    speed={voiceSpeed}
+                    onSpeedChange={setVoiceSpeed}
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Center Panel - Timeline */}
+          <ResizablePanel defaultSize={50} minSize={35}>
+            <div className="h-full p-3">
+              <StudioTimeline
+                project={project}
+                onSeek={seekTo}
+                onZoomChange={setZoom}
+                onTrackUpdate={handleTrackUpdate}
+                onClipSelect={setSelectedClipId}
+                selectedClipId={selectedClipId}
+                isPlaying={isPlaying}
+                onDeleteClip={handleDeleteClip}
+                onDuplicateClip={handleDuplicateClip}
+              />
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right Panel - Inspector / History */}
+          <ResizablePanel defaultSize={22} minSize={18} maxSize={35}>
+            <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)} className="h-full flex flex-col">
+              <TabsList className="mx-3 mt-3 grid grid-cols-2 h-9">
+                <TabsTrigger value="inspector" className="text-xs gap-1.5">
+                  <FileAudio className="h-3.5 w-3.5" /> Clip
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs gap-1.5">
+                  <History className="h-3.5 w-3.5" /> History
+                </TabsTrigger>
+              </TabsList>
+              <div className="flex-1 overflow-hidden p-3">
                 <TabsContent value="inspector" className="h-full m-0">
                   <ClipInspector
                     clip={selectedClip}
@@ -137,23 +282,6 @@ export function SunoStudio({ user }: SunoStudioProps) {
                 </TabsContent>
               </div>
             </Tabs>
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Right Panel - Timeline */}
-          <ResizablePanel defaultSize={70}>
-            <div className="h-full p-4">
-              <StudioTimeline
-                project={project}
-                onSeek={seekTo}
-                onZoomChange={setZoom}
-                onTrackUpdate={handleTrackUpdate}
-                onClipSelect={setSelectedClipId}
-                selectedClipId={selectedClipId}
-                isPlaying={isPlaying}
-              />
-            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

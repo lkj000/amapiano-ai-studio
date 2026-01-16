@@ -158,10 +158,9 @@ serve(async (req) => {
     console.log("[BUILD-BEAT] Generation prompt:", fullPrompt);
 
     // Use minimax-music model for instrumental generation
-    const requestBody = {
-      model: addVocals ? "minimax-music" : "minimax-music",
+    const requestBody: Record<string, unknown> = {
+      model: "minimax-music",
       prompt: fullPrompt.substring(0, 2000),
-      reference_audio_url: null,
     };
 
     console.log("[BUILD-BEAT] AIML API request body:", JSON.stringify(requestBody));

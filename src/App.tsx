@@ -48,6 +48,7 @@ import AILyricsGeneratorPage from "./pages/AILyricsGeneratorPage";
 import StemSplitterPage from "./pages/StemSplitterPage";
 import VocalRemoverPage from "./pages/VocalRemoverPage";
 import SoundEffectPage from "./pages/SoundEffectPage";
+import SunoStudioPage from "./pages/SunoStudioPage";
 import TrainingDataCollection from "./pages/TrainingDataCollection";
 import AuraXHub from "./pages/AuraXHub";
 import AuraXArchitecture from "./pages/AuraXArchitecture";

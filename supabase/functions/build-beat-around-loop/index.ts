@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const APIBOX_BASE_URL = "https://apibox.erweima.ai/api/v1/generate";
+const AIML_API_URL = "https://api.aimlapi.com/v2/generate/audio";
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -20,7 +20,7 @@ function setupError(message: string, providerCode?: number) {
     {
       success: false,
       requiresSetup: true,
-      provider: "apibox",
+      provider: "aimlapi",
       providerCode,
       error: message,
       message,
@@ -36,7 +36,6 @@ serve(async (req) => {
 
   try {
     const {
-      audioData,
       loopName,
       loopType,
       style,
@@ -63,10 +62,10 @@ serve(async (req) => {
       taskId,
     });
 
-    const SUNO_API_KEY = Deno.env.get("SUNO_API_KEY");
-    if (!SUNO_API_KEY) {
+    const AIML_API_KEY = Deno.env.get("AIML_API_KEY");
+    if (!AIML_API_KEY) {
       return setupError(
-        "SUNO_API_KEY not configured. Add your API.box Suno key from https://apibox.erweima.ai",
+        "AIML_API_KEY not configured. Add your AIML API key from https://aimlapi.com",
         0
       );
     }
@@ -76,11 +75,11 @@ serve(async (req) => {
       console.log("[BUILD-BEAT] Polling task status:", taskId);
 
       const statusResponse = await fetch(
-        `https://apibox.erweima.ai/api/v1/generate/record-info?taskId=${taskId}`,
+        `https://api.aimlapi.com/v2/generate/audio/${taskId}`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${SUNO_API_KEY}`,
+            Authorization: `Bearer ${AIML_API_KEY}`,
           },
         }
       );
@@ -95,7 +94,7 @@ serve(async (req) => {
 
         if (statusResponse.status === 401 || statusResponse.status === 403) {
           return setupError(
-            "API.box rejected your SUNO_API_KEY (no access permissions). Please replace it with a valid API.box key and ensure your plan has Suno access.",
+            "AIML API rejected your API key. Please check your AIML_API_KEY.",
             statusResponse.status
           );
         }
@@ -104,55 +103,39 @@ serve(async (req) => {
       }
 
       const statusResult = await statusResponse.json();
-
-      // API.box-style auth error
-      if (statusResult?.code === 401 || statusResult?.code === 403) {
-        return setupError(
-          statusResult?.msg ||
-            "API.box rejected your SUNO_API_KEY (no access permissions).",
-          statusResult?.code
-        );
-      }
-
-      console.log("[BUILD-BEAT] Task status:", statusResult.data?.status);
+      console.log("[BUILD-BEAT] Task status response:", JSON.stringify(statusResult));
 
       // Check if generation completed
-      if (
-        statusResult.data?.status === "SUCCESS" ||
-        statusResult.data?.status === "completed"
-      ) {
-        const tracks =
-          statusResult.data?.response?.sunoData || statusResult.data?.data || [];
-
-        if (tracks.length > 0) {
-          const track = tracks[0];
+      if (statusResult.status === "completed" || statusResult.status === "success") {
+        const audioUrl = statusResult.audio_url || statusResult.url || statusResult.audio?.[0]?.url;
+        
+        if (audioUrl) {
           return json({
-            audioUrl: track.audioUrl || track.audio_url,
-            imageUrl: track.imageUrl || track.image_url,
+            audioUrl,
+            imageUrl: statusResult.image_url || null,
             metadata: {
-              title: track.title || `${loopName} - AI Beat`,
-              duration: track.duration || duration,
+              title: statusResult.title || `${loopName} - AI Beat`,
+              duration: statusResult.duration || duration,
               bpm,
               key,
               genre: style,
-              source: "apibox-suno-v4",
+              source: "aimlapi",
             },
-            allTracks: tracks,
           });
         }
       }
 
       // Check for failure
-      if (statusResult.data?.status === "FAILED" || statusResult.data?.status === "failed") {
+      if (statusResult.status === "failed" || statusResult.status === "error") {
         throw new Error(
-          "Generation failed: " + (statusResult.data?.errorMessage || "Unknown error")
+          "Generation failed: " + (statusResult.error || statusResult.message || "Unknown error")
         );
       }
 
       // Still processing
       return json({
         pending: true,
-        status: statusResult.data?.status || "processing",
+        status: statusResult.status || "processing",
         taskId,
       });
     }
@@ -172,31 +155,21 @@ serve(async (req) => {
         : "Transform the loop creatively."
     } Blend amount: ${blendAmount}%`;
 
-    const stylePrompt = `${style}, ${bpm} BPM, ${elements.join(", ")}`;
-
     console.log("[BUILD-BEAT] Generation prompt:", fullPrompt);
-    console.log("[BUILD-BEAT] Style:", stylePrompt);
 
-    // NOTE: audioData is currently not sent to API.box, because API.box's V4 endpoint
-    // expects text-based generation. We still accept audioData for future provider support.
-    void audioData;
-
+    // Use minimax-music model for instrumental generation
     const requestBody = {
-      prompt: fullPrompt.substring(0, 3000),
-      style: stylePrompt,
-      title: loopName || "AI Generated Beat",
-      customMode: true,
-      instrumental: !addVocals,
-      model: "V4",
-      callbackUrl: "",
+      model: addVocals ? "minimax-music" : "minimax-music",
+      prompt: fullPrompt.substring(0, 2000),
+      reference_audio_url: null,
     };
 
-    console.log("[BUILD-BEAT] API request body:", JSON.stringify(requestBody));
+    console.log("[BUILD-BEAT] AIML API request body:", JSON.stringify(requestBody));
 
-    const response = await fetch(APIBOX_BASE_URL, {
+    const response = await fetch(AIML_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${SUNO_API_KEY}`,
+        Authorization: `Bearer ${AIML_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
@@ -208,54 +181,49 @@ serve(async (req) => {
 
       if (response.status === 401 || response.status === 403) {
         return setupError(
-          "API.box rejected your SUNO_API_KEY (no access permissions). Please replace it with a valid API.box key and ensure your plan has Suno access.",
+          "AIML API rejected your API key. Please check your AIML_API_KEY.",
           response.status
         );
       }
 
-      throw new Error(`API.box error: ${response.status} - ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log("[BUILD-BEAT] API response:", JSON.stringify(result));
-
-    // API.box-style error response
-    if (result?.code && result.code !== 200) {
-      if (result.code === 401 || result.code === 403) {
+      if (response.status === 402) {
         return setupError(
-          result.msg ||
-            "API.box rejected your SUNO_API_KEY (no access permissions).",
-          result.code
+          "AIML API requires credits. Please add credits at https://aimlapi.com",
+          response.status
         );
       }
 
-      throw new Error(result.msg || result.message || `API Error: ${result.code}`);
+      throw new Error(`AIML API error: ${response.status} - ${errorText}`);
     }
 
-    // Async task response
-    if (result.data?.taskId) {
-      console.log("[BUILD-BEAT] Task submitted, taskId:", result.data.taskId);
-      return json({ pending: true, taskId: result.data.taskId });
+    const result = await response.json();
+    console.log("[BUILD-BEAT] AIML API response:", JSON.stringify(result));
+
+    // Async task response (AIML returns generation_id for polling)
+    if (result.id || result.generation_id) {
+      const generationId = result.id || result.generation_id;
+      console.log("[BUILD-BEAT] Task submitted, generationId:", generationId);
+      return json({ pending: true, taskId: generationId });
     }
 
-    // Direct response (rare)
-    const audioUrl = result.data?.audioUrl || result.audio_url;
+    // Direct response with audio URL
+    const audioUrl = result.audio_url || result.url || result.audio?.[0]?.url;
     if (audioUrl) {
       return json({
         audioUrl,
-        imageUrl: result.data?.imageUrl || result.image_url,
+        imageUrl: result.image_url || null,
         metadata: {
-          title: result.data?.title || `${loopName} - AI Beat`,
-          duration: result.data?.duration || duration,
+          title: result.title || `${loopName} - AI Beat`,
+          duration: result.duration || duration,
           bpm,
           key,
           genre: style,
-          source: "apibox-suno-v4",
+          source: "aimlapi",
         },
       });
     }
 
-    throw new Error("Unexpected response format from API.box: " + JSON.stringify(result));
+    throw new Error("Unexpected response format from AIML API: " + JSON.stringify(result));
   } catch (error) {
     console.error("[BUILD-BEAT] Error:", error);
     return json(

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { useSunoStudioState } from './hooks/useSunoStudioState';
 import { StudioTimeline } from './components/StudioTimeline';
@@ -14,6 +14,7 @@ import { Music, Wand2, History, FileAudio, Upload, Mic2, Settings, Layers } from
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import JSZip from 'jszip';
+import { StemTrack } from './SunoStudioTypes';
 
 interface SunoStudioProps {
   user: User | null;
@@ -34,7 +35,7 @@ export function SunoStudio({ user }: SunoStudioProps) {
     project, setProject, isPlaying, play, pause, seekTo, setZoom,
     generationProgress, generationMode, setGenerationMode,
     selectedClipId, setSelectedClipId, history,
-    generateSong, separateStems, extendSong, buildBeatAroundLoop
+    generateSong, separateStems, extendSong, buildBeatAroundLoop, audioRef
   } = useSunoStudioState();
 
   const [volume, setVolume] = useState(1);
@@ -45,11 +46,33 @@ export function SunoStudio({ user }: SunoStudioProps) {
   const [selectedVoiceId, setSelectedVoiceId] = useState<string | null>('nkosazana-daughter');
   const [voicePitch, setVoicePitch] = useState(0);
   const [voiceSpeed, setVoiceSpeed] = useState(1);
-  const [beatBuildProgress, setBeatBuildProgress] = useState(0);
-  const [beatBuildMessage, setBeatBuildMessage] = useState('');
   const [isBuildingBeat, setIsBuildingBeat] = useState(false);
 
   const selectedClip = project.clips.find(c => c.id === selectedClipId) || null;
+
+  // Create and update audio element for playback
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
+    const audio = audioRef.current;
+    
+    // Update audio source when selected clip changes
+    if (selectedClip?.audioUrl) {
+      audio.src = selectedClip.audioUrl;
+      audio.load();
+    }
+    
+    // Apply volume and mute
+    audio.volume = isMuted ? 0 : volume;
+    audio.loop = isLooping;
+    
+    return () => {
+      if (audio) {
+        audio.pause();
+      }
+    };
+  }, [selectedClip?.audioUrl, volume, isMuted, isLooping, audioRef]);
 
   const handleTrackUpdate = (trackId: string, updates: any) => {
     setProject(prev => ({
@@ -115,43 +138,49 @@ export function SunoStudio({ user }: SunoStudioProps) {
 
   const handleBuildBeat = async (loops: UploadedLoop[], options: BeatBuildOptions) => {
     setIsBuildingBeat(true);
-    setBeatBuildProgress(0);
-    setBeatBuildMessage('Analyzing your loops...');
-
+    
     try {
-      // Simulate progress updates (real API would send these)
-      const progressSteps = [
-        { progress: 10, message: 'Analyzing tempo and key...' },
-        { progress: 25, message: 'Detecting musical elements...' },
-        { progress: 40, message: 'Generating complementary drums...' },
-        { progress: 55, message: 'Adding bass line...' },
-        { progress: 70, message: 'Creating melodic elements...' },
-        { progress: 85, message: 'Mixing and mastering...' },
-        { progress: 95, message: 'Finalizing your beat...' },
-      ];
-
-      for (const step of progressSteps) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setBeatBuildProgress(step.progress);
-        setBeatBuildMessage(step.message);
-      }
-
-      // Call the actual API
+      // Call the actual API - it handles progress via generationProgress
       await buildBeatAroundLoop(loops, options);
-
-      setBeatBuildProgress(100);
-      setBeatBuildMessage('Beat complete!');
-      toast.success('Beat built successfully around your loop!');
     } catch (error) {
       console.error('Beat build error:', error);
-      toast.error('Failed to build beat. Please try again.');
     } finally {
       setTimeout(() => {
         setIsBuildingBeat(false);
-        setBeatBuildProgress(0);
-        setBeatBuildMessage('');
       }, 2000);
     }
+  };
+
+  // Handle playing a clip from history
+  const handlePlayClip = (clipId: string) => {
+    const clip = project.clips.find(c => c.id === clipId) || history.find(c => c.id === clipId);
+    if (clip && audioRef.current) {
+      audioRef.current.src = clip.audioUrl;
+      audioRef.current.load();
+      audioRef.current.play();
+      setSelectedClipId(clipId);
+    }
+  };
+
+  // Add a new track to the timeline
+  const handleAddTrack = () => {
+    const newTrack = {
+      id: crypto.randomUUID(),
+      type: 'other' as const,
+      name: `Track ${project.tracks.length + 1}`,
+      volume: 1,
+      pan: 0,
+      muted: false,
+      solo: false,
+      color: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'][project.tracks.length % 7],
+      regions: [],
+    };
+    
+    setProject(prev => ({
+      ...prev,
+      tracks: [...prev.tracks, newTrack]
+    }));
+    toast.success('Track added');
   };
 
   return (
@@ -209,9 +238,9 @@ export function SunoStudio({ user }: SunoStudioProps) {
                 <TabsContent value="upload" className="h-full m-0">
                   <LoopUploadPanel
                     onBuildBeat={handleBuildBeat}
-                    isProcessing={isBuildingBeat}
-                    progress={beatBuildProgress}
-                    progressMessage={beatBuildMessage}
+                    isProcessing={isBuildingBeat || (generationProgress?.status === 'generating' || generationProgress?.status === 'processing' || generationProgress?.status === 'starting')}
+                    progress={generationProgress?.progress || 0}
+                    progressMessage={generationProgress?.message}
                   />
                 </TabsContent>
                 <TabsContent value="voices" className="h-full m-0">
@@ -243,6 +272,7 @@ export function SunoStudio({ user }: SunoStudioProps) {
                 isPlaying={isPlaying}
                 onDeleteClip={handleDeleteClip}
                 onDuplicateClip={handleDuplicateClip}
+                onAddTrack={handleAddTrack}
               />
             </div>
           </ResizablePanel>
@@ -277,7 +307,7 @@ export function SunoStudio({ user }: SunoStudioProps) {
                     selectedClipId={selectedClipId}
                     onSelectClip={setSelectedClipId}
                     onDeleteClip={handleDeleteClip}
-                    onPlayClip={(id) => { setSelectedClipId(id); play(); }}
+                    onPlayClip={handlePlayClip}
                   />
                 </TabsContent>
               </div>

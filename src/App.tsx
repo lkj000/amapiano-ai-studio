@@ -64,6 +64,7 @@ import PitchDeckComparison from "./pages/PitchDeckComparison";
 import MasteringStudio from "./pages/MasteringStudio";
 import ReleaseManager from "./pages/ReleaseManager";
 import PromotionHub from "./pages/PromotionHub";
+import RhythmDemo from "./pages/RhythmDemo";
 
 const queryClient = new QueryClient();
 
@@ -201,6 +202,7 @@ const App = () => {
               <Route path="/release" element={<ReleaseManager />} />
               <Route path="/promote" element={<PromotionHub />} />
               <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
+              <Route path="/rhythm-demo" element={<RhythmDemo />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -303,13 +303,7 @@ export class AmapianorizationEngine {
         filterSweeps: options.elements.filterSweeps,
         sweepFrequency: options.intensity,
         culturalAuthenticity: 'modern',
-        regionalStyle: options.region,
-        // Extended settings
-        swingProfile: swingProfileKey,
-        swingPercentage: options.customSwingPercentage || this.currentSwingProfile?.swingPercentage,
-        beat1SilenceEnabled: beat1SilenceApplied,
-        euclideanPatterns: euclideanPatternsApplied,
-        vocalLanguage: options.vocalSettings?.language
+        regionalStyle: options.region as 'johannesburg' | 'pretoria' | 'durban' | 'cape-town'
       };
 
       // Track applied elements
@@ -325,7 +319,7 @@ export class AmapianorizationEngine {
       // 5. Process audio
       const result = await amapianorizeAudio(
         { vocals: sourceAudioUrl },
-        { ...settings, regionalStyle: options.region as 'johannesburg' | 'pretoria' | 'durban' | 'cape-town' }
+        settings
       );
 
       if (!result.success) {
@@ -418,7 +412,7 @@ export class AmapianorizationEngine {
    */
   previewSwingOffset(step: number, bpm: number): number {
     if (!this.currentSwingProfile) return 0;
-    return calculateSwingOffsetMs(step, this.currentSwingProfile, bpm);
+    return calculateSwingOffsetMs(bpm, this.currentSwingProfile.swingPercentage);
   }
 
   /**

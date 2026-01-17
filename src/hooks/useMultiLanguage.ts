@@ -2,56 +2,34 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export type SupportedLanguage = 'en' | 'zu' | 'xh' | 'st';
+export type SupportedLanguage = 'en' | 'zu' | 'xh' | 'st' | 'tn' | 'nso' | 'ts' | 've' | 'ss' | 'nr' | 'af';
 
 export interface LanguageConfig {
   code: SupportedLanguage;
   name: string;
   nativeName: string;
   flag: string;
-  voiceId?: string; // ElevenLabs voice ID for this language
+  voiceId?: string;
   culturalContext: string;
+  province?: string;
 }
 
 export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
-  {
-    code: 'en',
-    name: 'English',
-    nativeName: 'English',
-    flag: '🇿🇦',
-    voiceId: 'TX3LPaxmHKxFdv7VOQHJ', // Liam - clear English voice
-    culturalContext: 'South African English with local expressions'
-  },
-  {
-    code: 'zu',
-    name: 'Zulu',
-    nativeName: 'isiZulu',
-    flag: '🇿🇦',
-    voiceId: 'SAz9YHcvj6GT2YYXdXww', // River - suitable for Zulu
-    culturalContext: 'Traditional Zulu musical expressions and cultural references'
-  },
-  {
-    code: 'xh',
-    name: 'Xhosa',
-    nativeName: 'isiXhosa',
-    flag: '🇿🇦',
-    voiceId: 'EXAVITQu4vr4xnSDxMaL', // Sarah - works well for Xhosa
-    culturalContext: 'Xhosa cultural music traditions and storytelling'
-  },
-  {
-    code: 'st',
-    name: 'Sotho',
-    nativeName: 'Sesotho',
-    flag: '🇿🇦',
-    voiceId: 'XB0fDUnXU5powFXDhCwa', // Charlotte - suitable for Sotho
-    culturalContext: 'Sotho musical heritage and traditional expressions'
-  }
+  { code: 'en', name: 'English', nativeName: 'English', flag: '🇿🇦', voiceId: 'TX3LPaxmHKxFdv7VOQHJ', culturalContext: 'South African English with local expressions', province: 'Nationwide' },
+  { code: 'zu', name: 'Zulu', nativeName: 'isiZulu', flag: '🇿🇦', voiceId: 'SAz9YHcvj6GT2YYXdXww', culturalContext: 'Traditional Zulu musical expressions and ubuntu philosophy', province: 'KwaZulu-Natal' },
+  { code: 'xh', name: 'Xhosa', nativeName: 'isiXhosa', flag: '🇿🇦', voiceId: 'EXAVITQu4vr4xnSDxMaL', culturalContext: 'Xhosa click consonants and storytelling traditions', province: 'Eastern Cape' },
+  { code: 'st', name: 'Sotho', nativeName: 'Sesotho', flag: '🇿🇦', voiceId: 'XB0fDUnXU5powFXDhCwa', culturalContext: 'Sotho musical heritage and famo influences', province: 'Free State' },
+  { code: 'tn', name: 'Tswana', nativeName: 'Setswana', flag: '🇿🇦', culturalContext: 'Tswana rhythmic traditions and community gatherings', province: 'North West' },
+  { code: 'nso', name: 'Pedi', nativeName: 'Sepedi', flag: '🇿🇦', culturalContext: 'Northern Sotho musical heritage, bolobedu influence', province: 'Limpopo' },
+  { code: 'ts', name: 'Tsonga', nativeName: 'Xitsonga', flag: '🇿🇦', culturalContext: 'Tsonga rhythmic patterns and traditional dance', province: 'Limpopo/Mpumalanga' },
+  { code: 've', name: 'Venda', nativeName: 'Tshivenda', flag: '🇿🇦', culturalContext: 'Venda drum traditions and ancestral connections', province: 'Limpopo' },
+  { code: 'ss', name: 'Swati', nativeName: 'siSwati', flag: '🇿🇦', culturalContext: 'Swati royal ceremonies and umhlanga traditions', province: 'Mpumalanga' },
+  { code: 'nr', name: 'Ndebele', nativeName: 'isiNdebele', flag: '🇿🇦', culturalContext: 'Ndebele artistic expression and cultural pride', province: 'Mpumalanga' },
+  { code: 'af', name: 'Afrikaans', nativeName: 'Afrikaans', flag: '🇿🇦', culturalContext: 'Cape jazz fusion and goema rhythms', province: 'Western Cape' }
 ];
 
 interface TranslationKey {
-  [key: string]: {
-    [K in SupportedLanguage]: string;
-  };
+  [key: string]: Partial<Record<SupportedLanguage, string>>;
 }
 
 export const TRANSLATIONS: TranslationKey = {
@@ -202,8 +180,9 @@ export const useMultiLanguage = () => {
 
   const translate = useCallback((key: string, fallback?: string): string => {
     const translation = TRANSLATIONS[key];
-    if (translation && translation[currentLanguage]) {
-      return translation[currentLanguage];
+    if (translation) {
+      // Try current language, then fall back to English, then Zulu
+      return translation[currentLanguage] || translation['en'] || translation['zu'] || fallback || key;
     }
     return fallback || key;
   }, [currentLanguage]);

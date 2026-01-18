@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
 
     const response: MasteringResponse = {
       success: true,
-      masteredAudioBase64: `data:audio/wav;base64,${outputBase64}`,
+      masteredAudioBase64,
       masteredUrl,
       jobId: job?.id,
       status: 'complete',

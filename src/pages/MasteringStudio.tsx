@@ -27,6 +27,7 @@ import {
   Sparkles
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MasteringPreset {
   id: string;
@@ -293,38 +294,107 @@ export default function MasteringStudio() {
     }
 
     setIsProcessing(true);
-    setProcessingProgress(0);
+    setProcessingProgress(10);
 
-    // Simulate AI mastering process
-    const steps = [
-      "Analyzing frequency spectrum...",
-      "Detecting dynamic range...",
-      "Applying EQ corrections...",
-      "Optimizing stereo image...",
-      "Adding warmth & saturation...",
-      "Limiting to target loudness...",
-      "Final quality check...",
-    ];
+    try {
+      // Convert file to base64 for upload
+      const arrayBuffer = await uploadedFile.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Chunk the base64 encoding to avoid stack overflow
+      const CHUNK_SIZE = 49152;
+      let base64 = '';
+      for (let offset = 0; offset < uint8Array.length; offset += CHUNK_SIZE) {
+        const chunk = uint8Array.subarray(offset, Math.min(offset + CHUNK_SIZE, uint8Array.length));
+        let binary = '';
+        for (let i = 0; i < chunk.length; i++) {
+          binary += String.fromCharCode(chunk[i]);
+        }
+        base64 += btoa(binary);
+      }
+      const audioDataBase64 = `data:audio/wav;base64,${base64}`;
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setProcessingProgress(((i + 1) / steps.length) * 100);
-      toast({
-        title: `Step ${i + 1}/${steps.length}`,
-        description: steps[i],
+      setProcessingProgress(30);
+
+      // Build mastering settings from UI state
+      const masteringSettings = {
+        style: warmth[0] > 60 ? 'Warm' : warmth[0] < 40 ? 'Open' : 'Balanced' as 'Warm' | 'Balanced' | 'Open',
+        loudness: loudness[0],
+        eq: {
+          low: (lowEnd[0] - 50) / 10, // Convert 0-100 to -5 to +5 dB
+          mid: 0,
+          high: (highEnd[0] - 50) / 10,
+        },
+        presence: clarity[0],
+        compression: 50, // Default moderate compression
+        stereoWidth: stereoWidth[0],
+        saturation: warmth[0] > 50 ? (warmth[0] - 50) : 0,
+        deEsser: 30, // Light de-essing
+      };
+
+      setProcessingProgress(40);
+
+      // Call real AI mastering edge function
+      const { data, error } = await supabase.functions.invoke('ai-mastering', {
+        body: {
+          audioData: audioDataBase64,
+          settings: masteringSettings,
+          quality: 'master',
+        },
       });
+
+      if (error) {
+        throw new Error(error.message || 'Mastering failed');
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.error || 'Mastering returned unsuccessful');
+      }
+
+      setProcessingProgress(90);
+
+      // Get the mastered audio URL
+      let masteredUrl: string;
+      if (data.masteredUrl) {
+        masteredUrl = data.masteredUrl;
+      } else if (data.masteredAudioBase64) {
+        // Convert base64 to blob URL
+        const base64Clean = data.masteredAudioBase64.replace(/^data:[^;]+;base64,/, '');
+        const binaryString = atob(base64Clean);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: 'audio/wav' });
+        masteredUrl = URL.createObjectURL(blob);
+      } else {
+        throw new Error('No mastered audio returned');
+      }
+
+      // Cleanup old mastered URL if it was a blob
+      if (masteredAudioUrl && masteredAudioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(masteredAudioUrl);
+      }
+
+      setMasteredAudioUrl(masteredUrl);
+      setProcessingProgress(100);
+      setIsMastered(true);
+
+      toast({
+        title: "Mastering complete! ✨",
+        description: `LUFS: ${data.outputAnalysis?.lufs ?? 'N/A'} | Peak: ${data.outputAnalysis?.peakDb ?? 'N/A'}dB`,
+      });
+
+    } catch (error) {
+      console.error('[MasteringStudio] Mastering error:', error);
+      toast({
+        title: "Mastering failed",
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
-
-    // For now, the "mastered" audio is the uploaded track (placeholder).
-    // When we wire real DSP/AI mastering, this becomes a new URL.
-    setMasteredAudioUrl(originalAudioUrl);
-
-    setIsProcessing(false);
-    setIsMastered(true);
-    toast({
-      title: "Mastering complete! ✨",
-      description: `Your track is ready for ${targetPlatform.name}`,
-    });
   };
 
   const applyPreset = (preset: MasteringPreset) => {

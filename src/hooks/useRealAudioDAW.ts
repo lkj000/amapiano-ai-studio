@@ -10,12 +10,14 @@ import { PRODUCER_DNA_PRESETS, ProducerDNAProfile } from '@/lib/audio/ProducerDN
 
 export interface DAWState {
   isPlaying: boolean;
+  isRecording: boolean;
   currentStep: number;
   currentBar: number;
   bpm: number;
   isInitialized: boolean;
   producerProfile: ProducerDNAProfile;
   meterLevel: number;
+  lastRecording: Blob | null;
 }
 
 export function useRealAudioDAW() {
@@ -24,12 +26,14 @@ export function useRealAudioDAW() {
   
   const [state, setState] = useState<DAWState>({
     isPlaying: false,
+    isRecording: false,
     currentStep: 0,
     currentBar: 0,
     bpm: 113,
     isInitialized: false,
     producerProfile: PRODUCER_DNA_PRESETS[0],
     meterLevel: -60,
+    lastRecording: null,
   });
   
   // Initialize engine
@@ -49,6 +53,10 @@ export function useRealAudioDAW() {
       
       engine.onPlayback((isPlaying) => {
         setState(prev => ({ ...prev, isPlaying }));
+      });
+      
+      engine.onRecording((isRecording) => {
+        setState(prev => ({ ...prev, isRecording }));
       });
       
       setState(prev => ({ 
@@ -92,6 +100,23 @@ export function useRealAudioDAW() {
   
   const stop = useCallback(() => {
     engineRef.current?.stop();
+  }, []);
+  
+  const toggleRecording = useCallback(async () => {
+    if (!engineRef.current) return;
+    
+    const recording = await engineRef.current.toggleRecording();
+    if (recording) {
+      setState(prev => ({ ...prev, lastRecording: recording }));
+      
+      // Auto-download the recording
+      const url = URL.createObjectURL(recording);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `amapiano-recording-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }, []);
   
   const seek = useCallback((bar: number, step: number = 0) => {
@@ -155,6 +180,7 @@ export function useRealAudioDAW() {
     pause,
     stop,
     seek,
+    toggleRecording,
     setBPM,
     setProducerProfile,
     toggleStep,

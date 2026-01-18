@@ -440,11 +440,35 @@ export const FMLogDrumPanel: React.FC<FMLogDrumPanelProps> = ({
             
             {/* Actions */}
             <div className="flex gap-2 pt-2">
-              <Button variant="outline" size="sm" className="flex-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => handlePatchChange(selectedPatch)}
+              >
                 <RotateCcw className="h-3 w-3 mr-1" />
                 Reset
               </Button>
-              <Button variant="outline" size="sm" className="flex-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1"
+                onClick={() => {
+                  // Export current patch settings
+                  const patchData = {
+                    name: `Custom_${selectedPatch}`,
+                    ...params,
+                    timestamp: Date.now()
+                  };
+                  const blob = new Blob([JSON.stringify(patchData, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `fm-logdrum-patch-${Date.now()}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
                 <Save className="h-3 w-3 mr-1" />
                 Save Patch
               </Button>

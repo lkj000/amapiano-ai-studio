@@ -19,6 +19,7 @@ import type { ProducerDNAProfile } from '@/lib/audio/ProducerDNA';
 
 interface TransportBarProps {
   isPlaying: boolean;
+  isRecording: boolean;
   currentStep: number;
   currentBar: number;
   bpm: number;
@@ -32,6 +33,7 @@ interface TransportBarProps {
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
+  onRecord: () => void;
   onBpmChange: (bpm: number) => void;
   onLoopToggle: () => void;
   onSeek: (bar: number, step: number) => void;
@@ -41,6 +43,7 @@ interface TransportBarProps {
 
 export const TransportBar: React.FC<TransportBarProps> = ({
   isPlaying,
+  isRecording,
   currentStep,
   currentBar,
   bpm,
@@ -54,6 +57,7 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   onPlay,
   onPause,
   onStop,
+  onRecord,
   onBpmChange,
   onLoopToggle,
   onSeek,
@@ -146,14 +150,22 @@ export const TransportBar: React.FC<TransportBarProps> = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="ghost"
+              variant={isRecording ? 'default' : 'ghost'}
               size="icon"
-              className="h-8 w-8 md:h-9 md:w-9 hidden sm:flex"
+              className={cn(
+                "h-8 w-8 md:h-9 md:w-9 hidden sm:flex",
+                isRecording && "bg-destructive text-destructive-foreground animate-pulse"
+              )}
+              onClick={onRecord}
+              disabled={!isInitialized}
             >
-              <Circle className="h-3 w-3 md:h-4 md:w-4 text-destructive" />
+              <Circle className={cn(
+                "h-3 w-3 md:h-4 md:w-4",
+                isRecording ? "fill-current" : "text-destructive"
+              )} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Record</TooltipContent>
+          <TooltipContent>{isRecording ? 'Stop Recording' : 'Record'} (R)</TooltipContent>
         </Tooltip>
 
         <Tooltip>

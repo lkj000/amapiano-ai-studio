@@ -40,6 +40,7 @@ export interface Pattern {
 export class RealAudioEngine {
   private isInitialized = false;
   private isPlaying = false;
+  private isRecording = false;
   private currentStep = 0;
   private currentBar = 0;
   private bpm = 113;
@@ -52,6 +53,7 @@ export class RealAudioEngine {
   private limiter: Tone.Limiter;
   private analyser: Tone.Analyser;
   private meter: Tone.Meter;
+  private recorder: Tone.Recorder | null = null;
   
   private logDrumSynth: FMLogDrumSynth | null = null;
   private grooveEngine: NeuralGrooveEngine;
@@ -60,6 +62,7 @@ export class RealAudioEngine {
   private sequenceId: Tone.ToneEvent | null = null;
   private onStepCallback: ((step: number, bar: number) => void) | null = null;
   private onPlaybackChange: ((isPlaying: boolean) => void) | null = null;
+  private onRecordingChange: ((isRecording: boolean) => void) | null = null;
   
   constructor() {
     // Master chain
@@ -82,6 +85,10 @@ export class RealAudioEngine {
     console.log('[RealAudioEngine] Audio context started');
     
     Tone.getTransport().bpm.value = this.bpm;
+    
+    // Initialize recorder
+    this.recorder = new Tone.Recorder();
+    this.masterChannel.connect(this.recorder);
     
     this.isInitialized = true;
   }
@@ -408,6 +415,48 @@ export class RealAudioEngine {
     if (this.onStepCallback) {
       this.onStepCallback(0, 0);
     }
+  }
+  
+  /**
+   * Start/stop recording
+   */
+  async toggleRecording(): Promise<Blob | null> {
+    if (!this.isInitialized || !this.recorder) return null;
+    
+    if (this.isRecording) {
+      // Stop recording and return the blob
+      const recording = await this.recorder.stop();
+      this.isRecording = false;
+      
+      if (this.onRecordingChange) {
+        this.onRecordingChange(false);
+      }
+      
+      console.log('[RealAudioEngine] Recording stopped, blob size:', recording.size);
+      return recording;
+    } else {
+      // Start recording
+      this.recorder.start();
+      this.isRecording = true;
+      
+      if (this.onRecordingChange) {
+        this.onRecordingChange(true);
+      }
+      
+      // Auto-start playback if not playing
+      if (!this.isPlaying) {
+        this.play();
+      }
+      
+      console.log('[RealAudioEngine] Recording started');
+      return null;
+    }
+  }
+  
+  get recording(): boolean { return this.isRecording; }
+  
+  onRecording(callback: (isRecording: boolean) => void): void {
+    this.onRecordingChange = callback;
   }
   
   /**

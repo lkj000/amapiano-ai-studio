@@ -283,6 +283,74 @@ export default function MasteringStudio() {
     }
   };
 
+  // Helper: Convert any audio file to WAV using Web Audio API
+  const convertToWav = useCallback(async (file: File): Promise<ArrayBuffer> => {
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Check if already WAV
+    const view = new DataView(arrayBuffer);
+    const isWav = view.getUint32(0, false) === 0x52494646; // "RIFF"
+    if (isWav) {
+      return arrayBuffer;
+    }
+
+    // Decode audio using Web Audio API (supports MP3, AAC, OGG, etc.)
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    // Convert AudioBuffer to WAV
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+    const blockAlign = numChannels * bytesPerSample;
+    const numSamples = audioBuffer.length;
+    const dataSize = numSamples * blockAlign;
+    const bufferSize = 44 + dataSize;
+
+    const wavBuffer = new ArrayBuffer(bufferSize);
+    const wavView = new DataView(wavBuffer);
+
+    // Write WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        wavView.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    wavView.setUint32(4, bufferSize - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    wavView.setUint32(16, 16, true); // fmt chunk size
+    wavView.setUint16(20, 1, true); // PCM format
+    wavView.setUint16(22, numChannels, true);
+    wavView.setUint32(24, sampleRate, true);
+    wavView.setUint32(28, sampleRate * blockAlign, true); // byte rate
+    wavView.setUint16(32, blockAlign, true);
+    wavView.setUint16(34, bitsPerSample, true);
+    writeString(36, 'data');
+    wavView.setUint32(40, dataSize, true);
+
+    // Interleave channels and write samples
+    const channels: Float32Array[] = [];
+    for (let ch = 0; ch < numChannels; ch++) {
+      channels.push(audioBuffer.getChannelData(ch));
+    }
+
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        wavView.setInt16(offset, Math.round(sample * 32767), true);
+        offset += 2;
+      }
+    }
+
+    await audioContext.close();
+    return wavBuffer;
+  }, []);
+
   const handleMaster = async () => {
     if (!uploadedFile) {
       toast({
@@ -294,12 +362,15 @@ export default function MasteringStudio() {
     }
 
     setIsProcessing(true);
-    setProcessingProgress(10);
+    setProcessingProgress(5);
 
     try {
-      // Convert file to base64 for upload
-      const arrayBuffer = await uploadedFile.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
+      // Convert to WAV if needed (handles MP3, AAC, OGG, etc.)
+      toast({ title: "Preparing audio...", description: "Converting to WAV format" });
+      const wavBuffer = await convertToWav(uploadedFile);
+      const uint8Array = new Uint8Array(wavBuffer);
+
+      setProcessingProgress(20);
       
       // Chunk the base64 encoding to avoid stack overflow
       const CHUNK_SIZE = 49152;
@@ -314,7 +385,7 @@ export default function MasteringStudio() {
       }
       const audioDataBase64 = `data:audio/wav;base64,${base64}`;
 
-      setProcessingProgress(30);
+      setProcessingProgress(35);
 
       // Build mastering settings from UI state
       const masteringSettings = {
@@ -333,6 +404,7 @@ export default function MasteringStudio() {
       };
 
       setProcessingProgress(40);
+      toast({ title: "Processing...", description: "Sending to AI mastering engine" });
 
       // Call real AI mastering edge function
       const { data, error } = await supabase.functions.invoke('ai-mastering', {

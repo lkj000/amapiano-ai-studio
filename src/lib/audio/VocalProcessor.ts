@@ -105,6 +105,7 @@ export class VocalProcessor {
   private reverb: Tone.Reverb;
   private delay: Tone.FeedbackDelay;
   private distortion: Tone.Distortion;
+  private bitCrusher: Tone.BitCrusher;  // Added for authentic Sgija grit
   private compressor: Tone.Compressor;
   private limiter: Tone.Limiter;
   private eq: Tone.EQ3;
@@ -156,6 +157,11 @@ export class VocalProcessor {
       wet: this.settings.distortion > 0 ? 1 : 0
     });
 
+    // BitCrusher for authentic Sgija/Bacardi grit texture
+    this.bitCrusher = new Tone.BitCrusher({
+      bits: 8  // 8-bit for that lo-fi digital crunch
+    });
+
     this.compressor = new Tone.Compressor({
       threshold: -24,
       ratio: 4,
@@ -176,15 +182,16 @@ export class VocalProcessor {
     // Build signal chain
     this.buildChain();
 
-    console.log('[VocalProcessor] Real processor initialized with Tone.js');
+    console.log('[VocalProcessor] Real processor initialized with Tone.js + BitCrusher');
   }
 
   private buildChain(): void {
-    // Signal flow: Input -> PitchShift -> FormantShift -> Distortion -> 
+    // Signal flow: Input -> PitchShift -> FormantShift -> BitCrusher -> Distortion -> 
     //              Compressor -> EQ -> Reverb -> Delay -> Limiter -> Output
     
     this.pitchShift.chain(
       this.formantShift,
+      this.bitCrusher,
       this.distortion,
       this.compressor,
       this.eq,
@@ -215,14 +222,18 @@ export class VocalProcessor {
   updateSettings(newSettings: Partial<VocalProcessorSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
 
-    // Apply demon mode if enabled
+    // Apply demon mode if enabled - includes BitCrusher for authentic grit
     if (this.settings.demonMode) {
       this.pitchShift.pitch = -12;
       this.formantShift.frequency.value = -150; // Deep formant drop
       this.distortion.distortion = Math.max(0.1, this.settings.distortion);
+      this.bitCrusher.bits.value = 6;  // More aggressive bit reduction in demon mode
+      this.bitCrusher.wet.value = 0.7; // 70% wet for gritty texture
     } else {
       this.pitchShift.pitch = this.settings.pitchShift;
       this.formantShift.frequency.value = this.settings.formantShift * 10;
+      this.bitCrusher.bits.value = 8;  // Subtle bit reduction
+      this.bitCrusher.wet.value = this.settings.distortion > 0 ? 0.3 : 0;
     }
 
     // Update effects
@@ -285,11 +296,18 @@ export class VocalProcessor {
       // Create a new player for offline rendering
       const offlinePlayer = new Tone.Player(inputBuffer);
       
-      // Create offline effects chain
+      // Create offline effects chain with BitCrusher for authentic grit
       const offlinePitch = new Tone.PitchShift({
         pitch: this.settings.demonMode ? -12 : this.settings.pitchShift,
         windowSize: 0.1
       });
+      
+      // BitCrusher for Sgija/Bacardi texture
+      const offlineBitCrusher = new Tone.BitCrusher({
+        bits: this.settings.demonMode ? 6 : 8
+      });
+      offlineBitCrusher.wet.value = this.settings.demonMode ? 0.7 : 
+        (this.settings.distortion > 0 ? 0.3 : 0);
       
       const offlineReverb = new Tone.Reverb({
         decay: this.settings.reverbDecay,
@@ -304,9 +322,10 @@ export class VocalProcessor {
       
       const offlineLimiter = new Tone.Limiter(-0.5);
       
-      // Chain effects
+      // Chain effects with BitCrusher
       offlinePlayer.chain(
         offlinePitch,
+        offlineBitCrusher,
         offlineDistortion,
         offlineReverb,
         offlineLimiter,
@@ -423,6 +442,7 @@ export class VocalProcessor {
     this.reverb.dispose();
     this.delay.dispose();
     this.distortion.dispose();
+    this.bitCrusher.dispose();
     this.compressor.dispose();
     this.limiter.dispose();
     this.eq.dispose();

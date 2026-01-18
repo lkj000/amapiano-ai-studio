@@ -530,6 +530,140 @@ export class AQSAnalyzer {
     return result.correlation;
   }
 
+  /**
+   * Auto-correct phase issues when correlation < threshold
+   * Applies a 15° phase rotation to improve mono compatibility
+   */
+  async autoCorrectPhase(buffer: AudioBuffer, threshold: number = 0.2): Promise<{
+    corrected: boolean;
+    originalCorrelation: number;
+    newCorrelation: number;
+    correctedBuffer: AudioBuffer;
+  }> {
+    await this.initialize();
+    
+    const phaseResult = this.calculatePhaseCorrelation(buffer);
+    
+    if (phaseResult.correlation >= threshold || buffer.numberOfChannels < 2) {
+      return {
+        corrected: false,
+        originalCorrelation: phaseResult.correlation,
+        newCorrelation: phaseResult.correlation,
+        correctedBuffer: buffer
+      };
+    }
+    
+    console.log(`[AQS] Phase correlation ${phaseResult.correlation.toFixed(3)} < ${threshold}, applying 15° phase rotation`);
+    
+    // Create corrected buffer
+    const correctedBuffer = this.audioContext!.createBuffer(
+      buffer.numberOfChannels,
+      buffer.length,
+      buffer.sampleRate
+    );
+    
+    const leftChannel = buffer.getChannelData(0);
+    const rightChannel = buffer.getChannelData(1);
+    
+    const correctedLeft = correctedBuffer.getChannelData(0);
+    const correctedRight = correctedBuffer.getChannelData(1);
+    
+    // Apply phase rotation (15 degrees = 0.2618 radians)
+    const phaseAngle = 0.2618; // 15 degrees in radians
+    const cos = Math.cos(phaseAngle);
+    const sin = Math.sin(phaseAngle);
+    
+    // Hilbert transform approximation for phase shifting
+    // Using a simple allpass-based phase rotation
+    const delayLength = 64;
+    const delayBufferL = new Float32Array(delayLength).fill(0);
+    const delayBufferR = new Float32Array(delayLength).fill(0);
+    let delayIndex = 0;
+    
+    for (let i = 0; i < buffer.length; i++) {
+      // Get delayed samples for phase shift approximation
+      const delayedL = delayBufferL[delayIndex];
+      const delayedR = delayBufferR[delayIndex];
+      
+      // Store current samples in delay buffer
+      delayBufferL[delayIndex] = leftChannel[i];
+      delayBufferR[delayIndex] = rightChannel[i];
+      delayIndex = (delayIndex + 1) % delayLength;
+      
+      // Apply rotation matrix to create phase-corrected stereo
+      // This rotates the stereo field slightly to improve correlation
+      const currentL = leftChannel[i];
+      const currentR = rightChannel[i];
+      
+      // Mid-side encoding
+      const mid = (currentL + currentR) * 0.5;
+      const side = (currentL - currentR) * 0.5;
+      
+      // Apply phase rotation to side channel (reduces phase issues)
+      const rotatedSide = side * cos - (delayedL - delayedR) * 0.5 * sin * 0.3;
+      
+      // Decode back to L/R
+      correctedLeft[i] = mid + rotatedSide;
+      correctedRight[i] = mid - rotatedSide;
+    }
+    
+    // Measure new correlation
+    const newPhaseResult = this.calculatePhaseCorrelation(correctedBuffer);
+    
+    console.log(`[AQS] Phase correction complete: ${phaseResult.correlation.toFixed(3)} -> ${newPhaseResult.correlation.toFixed(3)}`);
+    
+    return {
+      corrected: true,
+      originalCorrelation: phaseResult.correlation,
+      newCorrelation: newPhaseResult.correlation,
+      correctedBuffer
+    };
+  }
+
+  /**
+   * Auto-inject ghost-note rimshots when transient density is too low
+   * Returns timing positions for rimshot placement
+   */
+  generateGhostNotePositions(
+    buffer: AudioBuffer, 
+    targetDensity: number = 8, 
+    displacementMs: number = 12.5
+  ): { position: number; velocity: number }[] {
+    const transients = this.calculateTransientAnalysis(buffer);
+    const positions: { position: number; velocity: number }[] = [];
+    
+    if (transients.transientDensity >= targetDensity) {
+      console.log(`[AQS] Transient density ${transients.transientDensity.toFixed(1)} meets target ${targetDensity}`);
+      return positions;
+    }
+    
+    console.log(`[AQS] Transient density ${transients.transientDensity.toFixed(1)} < ${targetDensity}, generating ghost notes`);
+    
+    // Calculate how many ghost notes to add
+    const neededTransients = Math.floor((targetDensity - transients.transientDensity) * buffer.duration);
+    
+    // Distribute ghost notes evenly with slight randomization
+    const spacing = buffer.duration / (neededTransients + 1);
+    
+    for (let i = 0; i < neededTransients; i++) {
+      const basePosition = spacing * (i + 1);
+      // Add displacement for "pocket" feel
+      const displacement = (displacementMs / 1000) * (0.8 + Math.random() * 0.4);
+      const position = basePosition + displacement;
+      
+      // Velocity ramp for natural feel (quieter in middle, louder at ends of bars)
+      const barPosition = (position % 2) / 2; // Assuming 2-second bars at 120 BPM
+      const velocity = 0.4 + Math.abs(barPosition - 0.5) * 0.4;
+      
+      if (position < buffer.duration) {
+        positions.push({ position, velocity });
+      }
+    }
+    
+    console.log(`[AQS] Generated ${positions.length} ghost note positions`);
+    return positions;
+  }
+
   dispose(): void {
     if (this.audioContext) {
       this.audioContext.close();

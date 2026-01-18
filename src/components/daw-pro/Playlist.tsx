@@ -1,0 +1,295 @@
+/**
+ * Playlist Component
+ * Arrangement view for placing pattern clips on tracks
+ */
+
+import React, { useState, useRef, useCallback } from 'react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Plus, GripVertical, Lock, Unlock } from 'lucide-react';
+import type { DAWProject, DAWPattern, PlaylistClip } from '@/pages/AmapianoPro';
+
+interface PlaylistProps {
+  project: DAWProject;
+  clips: PlaylistClip[];
+  patterns: DAWPattern[];
+  currentBar: number;
+  isPlaying: boolean;
+  loopStart: number;
+  loopEnd: number;
+  zoom: number;
+  onAddClip: (patternId: string, trackIndex: number, startBar: number) => void;
+  onUpdateClip: (clipId: string, updates: Partial<PlaylistClip>) => void;
+  onDeleteClip: (clipId: string) => void;
+  onLoopChange: (start: number, end: number) => void;
+}
+
+const TRACK_HEIGHT = 48;
+const BAR_WIDTH_BASE = 80;
+const TOTAL_TRACKS = 16;
+const TOTAL_BARS = 64;
+
+export const Playlist: React.FC<PlaylistProps> = ({
+  project,
+  clips,
+  patterns,
+  currentBar,
+  isPlaying,
+  loopStart,
+  loopEnd,
+  zoom,
+  onAddClip,
+  onUpdateClip,
+  onDeleteClip,
+  onLoopChange,
+}) => {
+  const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
+  const [draggingPattern, setDraggingPattern] = useState<string | null>(null);
+  const [lockedTracks, setLockedTracks] = useState<Set<number>>(new Set());
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const barWidth = BAR_WIDTH_BASE * zoom;
+
+  const handleDragStart = useCallback((e: React.DragEvent, patternId: string) => {
+    e.dataTransfer.setData('patternId', patternId);
+    setDraggingPattern(patternId);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const patternId = e.dataTransfer.getData('patternId');
+    if (!patternId || !gridRef.current) return;
+
+    const rect = gridRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const startBar = Math.floor(x / barWidth);
+    const trackIndex = Math.floor(y / TRACK_HEIGHT);
+
+    if (trackIndex >= 0 && trackIndex < TOTAL_TRACKS && !lockedTracks.has(trackIndex)) {
+      onAddClip(patternId, trackIndex, startBar);
+    }
+
+    setDraggingPattern(null);
+  }, [barWidth, lockedTracks, onAddClip]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const toggleTrackLock = useCallback((trackIndex: number) => {
+    setLockedTracks(prev => {
+      const next = new Set(prev);
+      if (next.has(trackIndex)) {
+        next.delete(trackIndex);
+      } else {
+        next.add(trackIndex);
+      }
+      return next;
+    });
+  }, []);
+
+  return (
+    <div className="h-full flex flex-col bg-card">
+      {/* Pattern Picker */}
+      <div className="h-12 flex items-center gap-2 px-2 border-b border-border bg-muted/30 overflow-x-auto">
+        <span className="text-xs text-muted-foreground mr-2">Patterns:</span>
+        {patterns.map((pattern) => (
+          <div
+            key={pattern.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, pattern.id)}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded cursor-grab active:cursor-grabbing",
+              "border border-border hover:border-primary/50 transition-colors"
+            )}
+            style={{ backgroundColor: `${pattern.color}30` }}
+          >
+            <div 
+              className="w-3 h-3 rounded-sm" 
+              style={{ backgroundColor: pattern.color }} 
+            />
+            <span className="text-xs font-medium">{pattern.name}</span>
+          </div>
+        ))}
+        <Button variant="ghost" size="sm" className="h-7">
+          <Plus className="h-3 w-3 mr-1" /> New Pattern
+        </Button>
+      </div>
+
+      {/* Arrangement Grid */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Track Headers */}
+        <div className="w-32 flex-shrink-0 border-r border-border">
+          <ScrollArea className="h-full">
+            {/* Timeline Header */}
+            <div 
+              className="h-6 border-b border-border bg-muted/50 flex items-center px-2"
+            >
+              <span className="text-[10px] text-muted-foreground">Tracks</span>
+            </div>
+            
+            {Array.from({ length: TOTAL_TRACKS }, (_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-1 px-2 border-b border-border",
+                  lockedTracks.has(i) && "opacity-50"
+                )}
+                style={{ height: TRACK_HEIGHT }}
+              >
+                <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
+                <span className="text-xs flex-1">Track {i + 1}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5"
+                  onClick={() => toggleTrackLock(i)}
+                >
+                  {lockedTracks.has(i) ? (
+                    <Lock className="h-3 w-3" />
+                  ) : (
+                    <Unlock className="h-3 w-3 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            ))}
+          </ScrollArea>
+        </div>
+
+        {/* Grid */}
+        <ScrollArea className="flex-1">
+          <div>
+            {/* Bar Numbers / Loop Region */}
+            <div className="h-6 border-b border-border bg-muted/50 sticky top-0 z-10 flex">
+              {Array.from({ length: TOTAL_BARS }, (_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-center justify-center text-[10px] border-r border-border",
+                    i >= loopStart && i < loopEnd && "bg-accent/20",
+                    i % 4 === 0 && "font-medium"
+                  )}
+                  style={{ width: barWidth, minWidth: barWidth }}
+                >
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+
+            {/* Track Rows */}
+            <div
+              ref={gridRef}
+              className="relative"
+              style={{ 
+                width: TOTAL_BARS * barWidth,
+                height: TOTAL_TRACKS * TRACK_HEIGHT
+              }}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+            >
+              {/* Track Lines */}
+              {Array.from({ length: TOTAL_TRACKS }, (_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "absolute left-0 right-0 border-b border-border",
+                    i % 2 === 0 ? "bg-muted/10" : "bg-transparent",
+                    lockedTracks.has(i) && "bg-muted/30"
+                  )}
+                  style={{ 
+                    top: i * TRACK_HEIGHT, 
+                    height: TRACK_HEIGHT 
+                  }}
+                />
+              ))}
+
+              {/* Bar Lines */}
+              {Array.from({ length: TOTAL_BARS + 1 }, (_, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "absolute top-0 bottom-0 border-l",
+                    i % 4 === 0 ? "border-zinc-600" : "border-zinc-700/30"
+                  )}
+                  style={{ left: i * barWidth }}
+                />
+              ))}
+
+              {/* Loop Region Highlight */}
+              <div
+                className="absolute top-0 bottom-0 bg-accent/10 pointer-events-none"
+                style={{
+                  left: loopStart * barWidth,
+                  width: (loopEnd - loopStart) * barWidth,
+                }}
+              />
+
+              {/* Playhead */}
+              {isPlaying && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-accent z-20 pointer-events-none"
+                  style={{ left: currentBar * barWidth }}
+                />
+              )}
+
+              {/* Clips */}
+              {clips.map((clip) => (
+                <div
+                  key={clip.id}
+                  className={cn(
+                    "absolute rounded cursor-pointer transition-all",
+                    "border-2 hover:brightness-110",
+                    selectedClipId === clip.id 
+                      ? "ring-2 ring-accent border-accent" 
+                      : "border-transparent"
+                  )}
+                  style={{
+                    left: clip.startBar * barWidth + 2,
+                    top: clip.trackIndex * TRACK_HEIGHT + 2,
+                    width: clip.length * barWidth - 4,
+                    height: TRACK_HEIGHT - 4,
+                    backgroundColor: clip.color,
+                  }}
+                  onClick={() => setSelectedClipId(clip.id === selectedClipId ? null : clip.id)}
+                  onDoubleClick={() => {
+                    // Open pattern in channel rack
+                    console.log('Open pattern:', clip.patternId);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onDeleteClip(clip.id);
+                  }}
+                >
+                  <div className="w-full h-full flex items-center px-2 overflow-hidden">
+                    <span className="text-xs font-medium text-background truncate">
+                      {clip.name}
+                    </span>
+                  </div>
+
+                  {/* Waveform/Pattern Preview */}
+                  <div className="absolute inset-0 opacity-30 pointer-events-none">
+                    {/* Simplified pattern visualization */}
+                    <div className="w-full h-full flex items-end gap-px px-1 py-1">
+                      {Array.from({ length: 16 }, (_, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 bg-background/50 rounded-t"
+                          style={{ height: `${20 + Math.random() * 60}%` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <ScrollBar orientation="horizontal" />
+          <ScrollBar orientation="vertical" />
+        </ScrollArea>
+      </div>
+    </div>
+  );
+};

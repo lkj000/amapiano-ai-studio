@@ -65,6 +65,7 @@ import MasteringStudio from "./pages/MasteringStudio";
 import ReleaseManager from "./pages/ReleaseManager";
 import PromotionHub from "./pages/PromotionHub";
 import RhythmDemo from "./pages/RhythmDemo";
+import AmapianoPro from "./pages/AmapianoPro";
 
 const queryClient = new QueryClient();
 
@@ -203,6 +204,7 @@ const App = () => {
               <Route path="/promote" element={<PromotionHub />} />
               <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
               <Route path="/rhythm-demo" element={<RhythmDemo />} />
+              <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
               <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

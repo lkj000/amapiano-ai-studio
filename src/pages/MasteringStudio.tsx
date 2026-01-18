@@ -283,29 +283,19 @@ export default function MasteringStudio() {
     }
   };
 
-  // Helper: Convert any audio file to WAV using Web Audio API
-  const convertToWav = useCallback(async (file: File): Promise<ArrayBuffer> => {
-    const arrayBuffer = await file.arrayBuffer();
-    
-    // Check if already WAV
-    const view = new DataView(arrayBuffer);
-    const isWav = view.getUint32(0, false) === 0x52494646; // "RIFF"
-    if (isWav) {
-      return arrayBuffer;
-    }
-
-    // Decode audio using Web Audio API (supports MP3, AAC, OGG, etc.)
-    const audioContext = new AudioContext();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    
-    // Convert AudioBuffer to WAV
-    const numChannels = audioBuffer.numberOfChannels;
-    const sampleRate = audioBuffer.sampleRate;
+  // Helper: Encode AudioBuffer to WAV ArrayBuffer
+  const encodeWav = useCallback((audioBuffer: AudioBuffer, targetSampleRate?: number): ArrayBuffer => {
+    const sourceSampleRate = audioBuffer.sampleRate;
+    const outputSampleRate = targetSampleRate || sourceSampleRate;
+    const numChannels = Math.min(audioBuffer.numberOfChannels, 2); // Max stereo
     const bitsPerSample = 16;
     const bytesPerSample = bitsPerSample / 8;
     const blockAlign = numChannels * bytesPerSample;
-    const numSamples = audioBuffer.length;
-    const dataSize = numSamples * blockAlign;
+    
+    // Resample if needed
+    const resampleRatio = outputSampleRate / sourceSampleRate;
+    const outputLength = Math.floor(audioBuffer.length * resampleRatio);
+    const dataSize = outputLength * blockAlign;
     const bufferSize = 44 + dataSize;
 
     const wavBuffer = new ArrayBuffer(bufferSize);
@@ -322,34 +312,86 @@ export default function MasteringStudio() {
     wavView.setUint32(4, bufferSize - 8, true);
     writeString(8, 'WAVE');
     writeString(12, 'fmt ');
-    wavView.setUint32(16, 16, true); // fmt chunk size
-    wavView.setUint16(20, 1, true); // PCM format
+    wavView.setUint32(16, 16, true);
+    wavView.setUint16(20, 1, true);
     wavView.setUint16(22, numChannels, true);
-    wavView.setUint32(24, sampleRate, true);
-    wavView.setUint32(28, sampleRate * blockAlign, true); // byte rate
+    wavView.setUint32(24, outputSampleRate, true);
+    wavView.setUint32(28, outputSampleRate * blockAlign, true);
     wavView.setUint16(32, blockAlign, true);
     wavView.setUint16(34, bitsPerSample, true);
     writeString(36, 'data');
     wavView.setUint32(40, dataSize, true);
 
-    // Interleave channels and write samples
+    // Get channel data
     const channels: Float32Array[] = [];
     for (let ch = 0; ch < numChannels; ch++) {
       channels.push(audioBuffer.getChannelData(ch));
     }
 
+    // Write samples with linear interpolation for resampling
     let offset = 44;
-    for (let i = 0; i < numSamples; i++) {
+    for (let i = 0; i < outputLength; i++) {
+      const srcIndex = i / resampleRatio;
+      const srcIndexFloor = Math.floor(srcIndex);
+      const srcIndexCeil = Math.min(srcIndexFloor + 1, audioBuffer.length - 1);
+      const t = srcIndex - srcIndexFloor;
+      
       for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
-        wavView.setInt16(offset, Math.round(sample * 32767), true);
+        const sample0 = channels[ch][srcIndexFloor];
+        const sample1 = channels[ch][srcIndexCeil];
+        const sample = sample0 + t * (sample1 - sample0);
+        const clampedSample = Math.max(-1, Math.min(1, sample));
+        wavView.setInt16(offset, Math.round(clampedSample * 32767), true);
         offset += 2;
       }
     }
 
-    await audioContext.close();
     return wavBuffer;
   }, []);
+
+  // Helper: Convert any audio file to WAV, auto-downsample if too large
+  const MAX_WAV_SIZE_MB = 14; // Leave headroom below 15MB limit
+  
+  const convertToWav = useCallback(async (file: File): Promise<ArrayBuffer> => {
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Decode audio using Web Audio API (works for WAV, MP3, AAC, OGG, etc.)
+    const audioContext = new AudioContext();
+    let audioBuffer: AudioBuffer;
+    
+    try {
+      audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    } catch (e) {
+      await audioContext.close();
+      throw new Error('Could not decode audio file. Please try a different format.');
+    }
+    
+    // Try encoding at original sample rate first
+    let wavBuffer = encodeWav(audioBuffer, audioBuffer.sampleRate);
+    const maxBytes = MAX_WAV_SIZE_MB * 1024 * 1024;
+    
+    // If too large, progressively downsample
+    const sampleRates = [44100, 32000, 22050, 16000];
+    for (const targetRate of sampleRates) {
+      if (wavBuffer.byteLength <= maxBytes) break;
+      if (targetRate >= audioBuffer.sampleRate) continue;
+      
+      console.log(`WAV too large (${(wavBuffer.byteLength / 1024 / 1024).toFixed(1)}MB), downsampling to ${targetRate}Hz`);
+      wavBuffer = encodeWav(audioBuffer, targetRate);
+    }
+    
+    await audioContext.close();
+    
+    // Final size check
+    if (wavBuffer.byteLength > maxBytes) {
+      const sizeMB = (wavBuffer.byteLength / 1024 / 1024).toFixed(1);
+      const durationSec = audioBuffer.duration;
+      const maxDuration = Math.floor((maxBytes / wavBuffer.byteLength) * durationSec);
+      throw new Error(`Audio too long (${sizeMB}MB after compression). Please use a clip under ~${maxDuration} seconds.`);
+    }
+    
+    return wavBuffer;
+  }, [encodeWav]);
 
   const handleMaster = async () => {
     if (!uploadedFile) {
@@ -366,8 +408,10 @@ export default function MasteringStudio() {
 
     try {
       // Convert to WAV if needed (handles MP3, AAC, OGG, etc.)
-      toast({ title: "Preparing audio...", description: "Converting to WAV format" });
+      toast({ title: "Preparing audio...", description: "Converting to WAV format (may downsample if large)" });
       const wavBuffer = await convertToWav(uploadedFile);
+      const wavSizeMB = (wavBuffer.byteLength / 1024 / 1024).toFixed(1);
+      console.log(`WAV prepared: ${wavSizeMB}MB`);
       const uint8Array = new Uint8Array(wavBuffer);
 
       setProcessingProgress(20);

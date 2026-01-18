@@ -1,6 +1,6 @@
 /**
  * Transport Bar Component
- * Playback controls, tempo, time display
+ * Real audio playback controls with level meter
  */
 
 import React from 'react';
@@ -9,11 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { 
   Play, Pause, Square, SkipBack, SkipForward, 
-  Repeat, Circle, Clock, Music
+  Repeat, Circle, Clock, Music, Zap, Activity, Settings2
 } from 'lucide-react';
+import type { ProducerDNAProfile } from '@/lib/audio/ProducerDNA';
 
 interface TransportBarProps {
   isPlaying: boolean;
@@ -24,12 +26,17 @@ interface TransportBarProps {
   loopEnabled: boolean;
   loopStart: number;
   loopEnd: number;
+  meterLevel: number;
+  isInitialized: boolean;
+  producerProfile: ProducerDNAProfile;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
   onBpmChange: (bpm: number) => void;
   onLoopToggle: () => void;
   onSeek: (bar: number, step: number) => void;
+  onToggleAdvanced: () => void;
+  showAdvanced: boolean;
 }
 
 export const TransportBar: React.FC<TransportBarProps> = ({
@@ -41,12 +48,17 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   loopEnabled,
   loopStart,
   loopEnd,
+  meterLevel,
+  isInitialized,
+  producerProfile,
   onPlay,
   onPause,
   onStop,
   onBpmChange,
   onLoopToggle,
   onSeek,
+  onToggleAdvanced,
+  showAdvanced,
 }) => {
   // Format time display
   const formatTime = () => {
@@ -66,8 +78,22 @@ export const TransportBar: React.FC<TransportBarProps> = ({
     return `${bar}.${beat}.${step}`;
   };
 
+  // Convert dB to visual meter height (0-100%)
+  const getMeterHeight = () => {
+    // meterLevel is in dB, typically -60 to 0
+    const normalized = Math.max(0, Math.min(100, (meterLevel + 60) / 60 * 100));
+    return normalized;
+  };
+
+  // Get meter color based on level
+  const getMeterColor = () => {
+    if (meterLevel > -3) return 'bg-destructive';
+    if (meterLevel > -12) return 'bg-warning';
+    return 'bg-success';
+  };
+
   return (
-    <div className="h-14 bg-card border-t border-border flex items-center px-4 gap-4">
+    <div className="h-16 bg-card border-t border-border flex items-center px-4 gap-4">
       {/* Transport Controls */}
       <div className="flex items-center gap-1">
         <Tooltip>
@@ -103,8 +129,9 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             <Button
               variant={isPlaying ? 'default' : 'ghost'}
               size="icon"
-              className={cn("h-10 w-10", isPlaying && "bg-primary text-primary-foreground")}
+              className={cn("h-10 w-10", isPlaying && "bg-primary text-primary-foreground animate-pulse")}
               onClick={isPlaying ? onPause : onPlay}
+              disabled={!isInitialized}
             >
               {isPlaying ? (
                 <Pause className="h-5 w-5" />
@@ -146,11 +173,38 @@ export const TransportBar: React.FC<TransportBarProps> = ({
 
       <Separator orientation="vertical" className="h-8" />
 
+      {/* Level Meter */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="flex gap-0.5 h-8">
+            {/* Left Channel */}
+            <div className="w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
+              <div 
+                className={cn("w-full transition-all duration-75", getMeterColor())}
+                style={{ height: `${getMeterHeight()}%` }}
+              />
+            </div>
+            {/* Right Channel */}
+            <div className="w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
+              <div 
+                className={cn("w-full transition-all duration-75", getMeterColor())}
+                style={{ height: `${getMeterHeight() * 0.95}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-[8px] text-muted-foreground font-mono">
+            {meterLevel > -60 ? meterLevel.toFixed(1) : '-∞'} dB
+          </span>
+        </div>
+      </div>
+
+      <Separator orientation="vertical" className="h-8" />
+
       {/* Position Display */}
       <div className="flex items-center gap-4">
         <div className="text-center">
           <div className="text-[10px] text-muted-foreground">POSITION</div>
-          <div className="font-mono text-lg font-bold tracking-wider">
+          <div className="font-mono text-lg font-bold tracking-wider text-primary">
             {formatPosition()}
           </div>
         </div>
@@ -183,7 +237,7 @@ export const TransportBar: React.FC<TransportBarProps> = ({
       </div>
 
       {/* Tempo Slider */}
-      <div className="w-32">
+      <div className="w-24">
         <Slider
           value={[bpm]}
           min={60}
@@ -191,6 +245,19 @@ export const TransportBar: React.FC<TransportBarProps> = ({
           step={1}
           onValueChange={([v]) => onBpmChange(v)}
         />
+      </div>
+
+      <Separator orientation="vertical" className="h-8" />
+
+      {/* Producer DNA Badge */}
+      <div className="flex items-center gap-2">
+        <Zap className="h-4 w-4 text-primary" />
+        <div className="flex flex-col">
+          <div className="text-[10px] text-muted-foreground">PRODUCER DNA</div>
+          <Badge variant="outline" className="text-xs">
+            {producerProfile.name}
+          </Badge>
+        </div>
       </div>
 
       <Separator orientation="vertical" className="h-8" />
@@ -208,33 +275,34 @@ export const TransportBar: React.FC<TransportBarProps> = ({
 
       <div className="flex-1" />
 
-      {/* Metronome */}
+      {/* Toggle Advanced Panels */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <svg 
-              className="h-4 w-4" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2"
-            >
-              <path d="M12 2L6 22h12L12 2z" />
-              <path d="M12 6v8" />
-              <circle cx="12" cy="8" r="2" />
-            </svg>
+          <Button 
+            variant={showAdvanced ? 'default' : 'ghost'} 
+            size="icon" 
+            className="h-9 w-9"
+            onClick={onToggleAdvanced}
+          >
+            <Settings2 className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Metronome</TooltipContent>
+        <TooltipContent>Toggle Advanced Panels</TooltipContent>
       </Tooltip>
 
-      {/* CPU/Audio Status */}
+      {/* Audio Status */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          <span>Audio OK</span>
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            isInitialized 
+              ? isPlaying ? "bg-success animate-pulse" : "bg-success" 
+              : "bg-warning"
+          )} />
+          <span>{isInitialized ? (isPlaying ? 'Playing' : 'Ready') : 'Initializing...'}</span>
         </div>
-        <div>CPU: 12%</div>
+        <Activity className="h-3 w-3" />
+        <span>Tone.js</span>
       </div>
     </div>
   );

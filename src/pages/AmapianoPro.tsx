@@ -1,9 +1,9 @@
 /**
  * AmapianoPro - Full-featured DAW for Amapiano Production
- * Inspired by FL Studio workflow shown in beat-making tutorials
+ * With real audio synthesis via Tone.js
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { DAWToolbar } from '@/components/daw-pro/DAWToolbar';
 import { ChannelRack } from '@/components/daw-pro/ChannelRack';
@@ -13,14 +13,19 @@ import { Mixer } from '@/components/daw-pro/Mixer';
 import { Browser } from '@/components/daw-pro/Browser';
 import { VSTRack } from '@/components/daw-pro/VSTRack';
 import { TransportBar } from '@/components/daw-pro/TransportBar';
+import { ProducerDNAPanel } from '@/components/daw-pro/ProducerDNAPanel';
+import { FMLogDrumPanel } from '@/components/daw-pro/FMLogDrumPanel';
+import { GrooveEnginePanel } from '@/components/daw-pro/GrooveEnginePanel';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRealAudioDAW } from '@/hooks/useRealAudioDAW';
 
 export interface DAWPattern {
   id: string;
   name: string;
   color: string;
   channels: DAWChannel[];
-  length: number; // in steps
+  length: number;
 }
 
 export interface DAWChannel {
@@ -115,8 +120,8 @@ const createDefaultPattern = (id: string, name: string): DAWPattern => ({
       notes: [], volume: 0.65, pan: -0.15, muted: false, solo: false, color: '#3B82F6' 
     },
     { 
-      id: 'bass', name: 'Log Bass', type: 'synth', instrument: 'toxic',
-      steps: Array(16).fill(false), 
+      id: 'logdrum', name: 'Log Drum', type: 'synth', instrument: 'logdrum',
+      steps: Array(16).fill(false).map((_, i) => [0, 3, 6, 10, 12].includes(i)), 
       notes: [], volume: 0.85, pan: 0, muted: false, solo: false, color: '#8B5CF6' 
     },
     { 
@@ -131,7 +136,7 @@ const createDefaultPattern = (id: string, name: string): DAWPattern => ({
     },
     { 
       id: 'shaker', name: 'Shaker', type: 'sampler',
-      steps: Array(16).fill(false), 
+      steps: Array(16).fill(false).map((_, i) => i % 2 === 1), 
       notes: [], volume: 0.4, pan: 0.3, muted: false, solo: false, color: '#84CC16' 
     },
   ],
@@ -154,6 +159,9 @@ const createDefaultMixerChannels = (): MixerChannel[] => [
 ];
 
 const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
+  // Real Audio Engine Hook
+  const audioDAW = useRealAudioDAW();
+  
   // Project State
   const [project, setProject] = useState<DAWProject>({
     id: 'default',
@@ -172,41 +180,37 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
   const [activeView, setActiveView] = useState<'playlist' | 'pianoroll' | 'mixer'>('playlist');
   const [selectedPatternId, setSelectedPatternId] = useState<string>('pattern-1');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [currentBar, setCurrentBar] = useState(0);
   const [loopEnabled, setLoopEnabled] = useState(true);
   const [loopStart, setLoopStart] = useState(0);
   const [loopEnd, setLoopEnd] = useState(4);
   const [showBrowser, setShowBrowser] = useState(true);
   const [showVSTRack, setShowVSTRack] = useState(false);
+  const [showAdvancedPanels, setShowAdvancedPanels] = useState(true);
   const [snap, setSnap] = useState<'none' | 'step' | 'beat' | 'bar'>('step');
   const [zoom, setZoom] = useState(1);
-  
-  // Audio refs
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const schedulerRef = useRef<number | null>(null);
 
   const selectedPattern = project.patterns.find(p => p.id === selectedPatternId);
   const selectedChannel = selectedPattern?.channels.find(c => c.id === selectedChannelId);
 
-  // Transport Controls
-  const handlePlay = useCallback(() => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext();
+  // Sync BPM with audio engine
+  useEffect(() => {
+    if (audioDAW.bpm !== project.bpm) {
+      audioDAW.setBPM(project.bpm);
     }
-    setIsPlaying(true);
-  }, []);
+  }, [project.bpm, audioDAW]);
+
+  // Transport Controls - Now using real audio
+  const handlePlay = useCallback(() => {
+    audioDAW.play();
+  }, [audioDAW]);
 
   const handlePause = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
+    audioDAW.pause();
+  }, [audioDAW]);
 
   const handleStop = useCallback(() => {
-    setIsPlaying(false);
-    setCurrentStep(0);
-    setCurrentBar(0);
-  }, []);
+    audioDAW.stop();
+  }, [audioDAW]);
 
   // Pattern Management
   const handleAddPattern = useCallback(() => {
@@ -272,6 +276,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
   }, [selectedPatternId]);
 
   const handleToggleStep = useCallback((channelId: string, stepIndex: number) => {
+    // Update visual state
     setProject(prev => ({
       ...prev,
       patterns: prev.patterns.map(p => 
@@ -287,7 +292,10 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
           : p
       ),
     }));
-  }, [selectedPatternId]);
+    
+    // Toggle step in audio engine
+    audioDAW.toggleStep(channelId, stepIndex);
+  }, [selectedPatternId, audioDAW]);
 
   // Piano Roll Note Management
   const handleAddNote = useCallback((pitch: number, startStep: number, duration: number = 1) => {
@@ -369,7 +377,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
       patternId,
       trackIndex,
       startBar,
-      length: pattern.length / 16, // Convert steps to bars
+      length: pattern.length / 16,
       color: pattern.color,
       name: pattern.name,
     };
@@ -427,42 +435,6 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
     }));
   }, []);
 
-  // Playback Loop
-  useEffect(() => {
-    if (!isPlaying) {
-      if (schedulerRef.current) {
-        clearInterval(schedulerRef.current);
-        schedulerRef.current = null;
-      }
-      return;
-    }
-
-    const stepDuration = (60 / project.bpm / 4) * 1000; // Duration of one step in ms
-
-    schedulerRef.current = window.setInterval(() => {
-      setCurrentStep(prev => {
-        const next = prev + 1;
-        if (next >= 16) {
-          setCurrentBar(bar => {
-            const nextBar = bar + 1;
-            if (loopEnabled && nextBar >= loopEnd) {
-              return loopStart;
-            }
-            return nextBar;
-          });
-          return 0;
-        }
-        return next;
-      });
-    }, stepDuration);
-
-    return () => {
-      if (schedulerRef.current) {
-        clearInterval(schedulerRef.current);
-      }
-    };
-  }, [isPlaying, project.bpm, loopEnabled, loopStart, loopEnd]);
-
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Top Toolbar */}
@@ -501,15 +473,47 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
           {/* Center Content */}
           <ResizablePanel defaultSize={showBrowser && showVSTRack ? 60 : showBrowser || showVSTRack ? 75 : 100}>
             <ResizablePanelGroup direction="vertical">
-              {/* Channel Rack (Top) */}
-              <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
+              {/* Advanced Panels (Producer DNA, FM Synth, Groove Engine) */}
+              {showAdvancedPanels && (
+                <>
+                  <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
+                    <div className="h-full border-b border-border">
+                      <Tabs defaultValue="producer-dna" className="h-full flex flex-col">
+                        <TabsList className="w-full justify-start rounded-none border-b border-border bg-muted/30 px-2">
+                          <TabsTrigger value="producer-dna" className="text-xs">Producer DNA</TabsTrigger>
+                          <TabsTrigger value="fm-logdrum" className="text-xs">FM Log Drum</TabsTrigger>
+                          <TabsTrigger value="groove" className="text-xs">Groove Engine</TabsTrigger>
+                        </TabsList>
+                        <div className="flex-1 overflow-hidden">
+                        <TabsContent value="producer-dna" className="h-full m-0">
+                            <ProducerDNAPanel 
+                              selectedProfileId={audioDAW.producerProfile.id}
+                              onProfileChange={audioDAW.setProducerProfile}
+                            />
+                          </TabsContent>
+                          <TabsContent value="fm-logdrum" className="h-full m-0">
+                            <FMLogDrumPanel onPatchChange={(patch) => console.log('Patch:', patch)} />
+                          </TabsContent>
+                          <TabsContent value="groove" className="h-full m-0">
+                            <GrooveEnginePanel bpm={project.bpm} />
+                          </TabsContent>
+                        </div>
+                      </Tabs>
+                    </div>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
+                </>
+              )}
+              
+              {/* Channel Rack */}
+              <ResizablePanel defaultSize={showAdvancedPanels ? 25 : 35} minSize={15} maxSize={50}>
                 <ChannelRack
                   pattern={selectedPattern}
                   patterns={project.patterns}
                   selectedPatternId={selectedPatternId}
                   selectedChannelId={selectedChannelId}
-                  currentStep={currentStep}
-                  isPlaying={isPlaying}
+                  currentStep={audioDAW.currentStep}
+                  isPlaying={audioDAW.isPlaying}
                   onSelectPattern={setSelectedPatternId}
                   onSelectChannel={setSelectedChannelId}
                   onAddPattern={handleAddPattern}
@@ -523,29 +527,32 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
               <ResizableHandle withHandle />
 
               {/* Main View (Bottom) */}
-              <ResizablePanel defaultSize={65}>
+              <ResizablePanel defaultSize={showAdvancedPanels ? 50 : 65}>
                 {activeView === 'playlist' && (
                   <Playlist
                     project={project}
                     clips={project.playlist}
                     patterns={project.patterns}
-                    currentBar={currentBar}
-                    isPlaying={isPlaying}
+                    currentBar={audioDAW.currentBar}
+                    currentStep={audioDAW.currentStep}
+                    isPlaying={audioDAW.isPlaying}
                     loopStart={loopStart}
                     loopEnd={loopEnd}
                     zoom={zoom}
+                    bpm={project.bpm}
                     onAddClip={handleAddClip}
                     onUpdateClip={handleUpdateClip}
                     onDeleteClip={handleDeleteClip}
                     onLoopChange={(start, end) => { setLoopStart(start); setLoopEnd(end); }}
+                    onSeek={audioDAW.seek}
                   />
                 )}
                 {activeView === 'pianoroll' && (
                   <PianoRoll
                     channel={selectedChannel}
                     pattern={selectedPattern}
-                    currentStep={currentStep}
-                    isPlaying={isPlaying}
+                    currentStep={audioDAW.currentStep}
+                    isPlaying={audioDAW.isPlaying}
                     snap={snap}
                     zoom={zoom}
                     rootNote={project.key}
@@ -584,20 +591,25 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
 
       {/* Transport Bar */}
       <TransportBar
-        isPlaying={isPlaying}
-        currentStep={currentStep}
-        currentBar={currentBar}
+        isPlaying={audioDAW.isPlaying}
+        currentStep={audioDAW.currentStep}
+        currentBar={audioDAW.currentBar}
         bpm={project.bpm}
         timeSignature={project.timeSignature}
         loopEnabled={loopEnabled}
         loopStart={loopStart}
         loopEnd={loopEnd}
+        meterLevel={audioDAW.meterLevel}
+        isInitialized={audioDAW.isInitialized}
+        producerProfile={audioDAW.producerProfile}
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
         onBpmChange={(bpm) => handleUpdateProject({ bpm })}
         onLoopToggle={() => setLoopEnabled(!loopEnabled)}
-        onSeek={(bar, step) => { setCurrentBar(bar); setCurrentStep(step); }}
+        onSeek={audioDAW.seek}
+        onToggleAdvanced={() => setShowAdvancedPanels(!showAdvancedPanels)}
+        showAdvanced={showAdvancedPanels}
       />
     </div>
   );

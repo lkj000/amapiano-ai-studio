@@ -1,15 +1,16 @@
 /**
  * Browser Component
  * Sample/instrument/preset browser with search and categories
+ * Now with REAL audio playback using Tone.js
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import * as Tone from 'tone';
 import { 
   Search, Folder, FolderOpen, Music, Drum, Piano, 
   Waves, ChevronRight, ChevronDown, Star, Clock, Heart,
@@ -29,6 +30,45 @@ interface BrowserItem {
   children?: BrowserItem[];
   favorite?: boolean;
 }
+
+// Sample configurations for real audio generation
+const SAMPLE_CONFIGS: Record<string, { synth: 'membrane' | 'noise' | 'metal' | 'mono' | 'fm'; note?: string; duration?: string; envelope?: Partial<Tone.EnvelopeOptions> }> = {
+  'kick-1': { synth: 'membrane', note: 'C1', duration: '8n' },
+  'kick-2': { synth: 'membrane', note: 'D1', duration: '8n' },
+  'kick-3': { synth: 'membrane', note: 'E1', duration: '16n' },
+  'kick-4': { synth: 'membrane', note: 'C1', duration: '8n' },
+  'snare-1': { synth: 'noise', duration: '16n', envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 } },
+  'snare-2': { synth: 'noise', duration: '16n', envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.05 } },
+  'snare-3': { synth: 'noise', duration: '8n', envelope: { attack: 0.001, decay: 0.2, sustain: 0.02, release: 0.15 } },
+  'hihat-1': { synth: 'metal', note: 'C6', duration: '32n' },
+  'hihat-2': { synth: 'metal', note: 'C6', duration: '8n' },
+  'hihat-3': { synth: 'noise', duration: '8n', envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 } },
+  'perc-1': { synth: 'membrane', note: 'G2', duration: '16n' },
+  'perc-2': { synth: 'membrane', note: 'A2', duration: '16n' },
+  'perc-3': { synth: 'membrane', note: 'B2', duration: '16n' },
+  'bass-1': { synth: 'mono', note: 'C2', duration: '4n' },
+  'bass-2': { synth: 'mono', note: 'E1', duration: '4n' },
+  'bass-3': { synth: 'mono', note: 'G2', duration: '4n' },
+  'loop-1': { synth: 'fm', note: 'C3', duration: '2n' },
+  'loop-2': { synth: 'fm', note: 'E3', duration: '2n' },
+  'loop-3': { synth: 'fm', note: 'G3', duration: '2n' },
+};
+
+// Instrument configurations for real synth playback
+const INSTRUMENT_CONFIGS: Record<string, { type: 'fm' | 'am' | 'poly' | 'mono' | 'duo'; notes: string[]; duration: string }> = {
+  'toxic': { type: 'fm', notes: ['C4', 'E4', 'G4'], duration: '2n' },
+  'purity': { type: 'poly', notes: ['C3', 'E3', 'G3', 'B3'], duration: '2n' },
+  'dexed': { type: 'fm', notes: ['C4', 'E4', 'G4', 'B4'], duration: '2n' },
+  'nexus': { type: 'poly', notes: ['C3', 'G3', 'C4', 'E4'], duration: '2n' },
+  'sylenth': { type: 'duo', notes: ['C4', 'G4'], duration: '2n' },
+  'serum': { type: 'fm', notes: ['C3', 'E3', 'G3'], duration: '2n' },
+  'pad-analog': { type: 'poly', notes: ['C3', 'E3', 'G3', 'B3'], duration: '1n' },
+  'pad-sign': { type: 'am', notes: ['D3', 'F3', 'A3'], duration: '1n' },
+  'lead-euro': { type: 'mono', notes: ['C5'], duration: '4n' },
+  'lead-machine': { type: 'fm', notes: ['E5'], duration: '4n' },
+  'bass-blue': { type: 'mono', notes: ['C2'], duration: '4n' },
+  'bass-smooth': { type: 'mono', notes: ['E2'], duration: '4n' },
+};
 
 const SAMPLE_LIBRARY: BrowserItem[] = [
   {
@@ -138,6 +178,16 @@ export const Browser: React.FC<BrowserProps> = ({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['drums', 'synths']));
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const activeSynthRef = useRef<Tone.ToneAudioNode | null>(null);
+
+  // Cleanup synth on unmount
+  useEffect(() => {
+    return () => {
+      if (activeSynthRef.current) {
+        activeSynthRef.current.dispose();
+      }
+    };
+  }, []);
 
   const toggleFolder = (id: string) => {
     setExpandedFolders(prev => {
@@ -164,16 +214,166 @@ export const Browser: React.FC<BrowserProps> = ({
     });
   };
 
-  const handlePreview = (item: BrowserItem, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (previewingId === item.id) {
-      setPreviewingId(null);
-    } else {
-      setPreviewingId(item.id);
-      // Simulate preview playback
-      setTimeout(() => setPreviewingId(null), 2000);
+  const stopPreview = useCallback(() => {
+    if (activeSynthRef.current) {
+      activeSynthRef.current.dispose();
+      activeSynthRef.current = null;
     }
-  };
+    setPreviewingId(null);
+  }, []);
+
+  const playSamplePreview = useCallback(async (itemId: string) => {
+    await Tone.start();
+    stopPreview();
+    
+    const config = SAMPLE_CONFIGS[itemId];
+    if (!config) return;
+
+    setPreviewingId(itemId);
+    
+    let synth: Tone.ToneAudioNode;
+    
+    switch (config.synth) {
+      case 'membrane':
+        synth = new Tone.MembraneSynth({
+          pitchDecay: 0.05,
+          octaves: 4,
+          envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.4 }
+        }).toDestination();
+        (synth as Tone.MembraneSynth).triggerAttackRelease(config.note || 'C2', config.duration || '8n');
+        break;
+      case 'noise':
+        synth = new Tone.NoiseSynth({
+          noise: { type: 'white' },
+          envelope: config.envelope || { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+        }).toDestination();
+        (synth as Tone.NoiseSynth).triggerAttackRelease(config.duration || '16n');
+        break;
+      case 'metal':
+        synth = new Tone.MetalSynth({
+          envelope: { attack: 0.001, decay: 0.1, release: 0.1 },
+          harmonicity: 5.1,
+          modulationIndex: 32,
+          resonance: 4000,
+          octaves: 1.5
+        }).toDestination();
+        (synth as Tone.MetalSynth).volume.value = -12;
+        (synth as Tone.MetalSynth).triggerAttackRelease(config.note || 'C6', config.duration || '32n');
+        break;
+      case 'mono':
+        synth = new Tone.MonoSynth({
+          oscillator: { type: 'sawtooth' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+          filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8, baseFrequency: 200, octaves: 3 }
+        }).toDestination();
+        (synth as Tone.MonoSynth).triggerAttackRelease(config.note || 'C2', config.duration || '4n');
+        break;
+      case 'fm':
+        synth = new Tone.FMSynth({
+          harmonicity: 3,
+          modulationIndex: 10,
+          envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.5 }
+        }).toDestination();
+        (synth as Tone.FMSynth).triggerAttackRelease(config.note || 'C3', config.duration || '4n');
+        break;
+      default:
+        return;
+    }
+
+    activeSynthRef.current = synth;
+    
+    // Auto-stop after duration
+    setTimeout(() => {
+      if (previewingId === itemId) {
+        stopPreview();
+      }
+    }, Tone.Time(config.duration || '4n').toMilliseconds() + 500);
+  }, [stopPreview, previewingId]);
+
+  const playInstrumentPreview = useCallback(async (itemId: string) => {
+    await Tone.start();
+    stopPreview();
+    
+    const config = INSTRUMENT_CONFIGS[itemId];
+    if (!config) return;
+
+    setPreviewingId(itemId);
+    
+    let synth: Tone.PolySynth | Tone.MonoSynth | Tone.DuoSynth;
+    
+    switch (config.type) {
+      case 'poly':
+        synth = new Tone.PolySynth(Tone.Synth, {
+          envelope: { attack: 0.02, decay: 0.3, sustain: 0.5, release: 1 }
+        }).toDestination();
+        synth.volume.value = -6;
+        synth.triggerAttackRelease(config.notes, config.duration);
+        break;
+      case 'fm':
+        synth = new Tone.PolySynth(Tone.FMSynth, {
+          harmonicity: 2,
+          modulationIndex: 5,
+          envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8 }
+        }).toDestination();
+        synth.volume.value = -6;
+        synth.triggerAttackRelease(config.notes, config.duration);
+        break;
+      case 'am':
+        synth = new Tone.PolySynth(Tone.AMSynth, {
+          harmonicity: 2,
+          envelope: { attack: 0.1, decay: 0.3, sustain: 0.6, release: 1 }
+        }).toDestination();
+        synth.volume.value = -6;
+        synth.triggerAttackRelease(config.notes, config.duration);
+        break;
+      case 'mono':
+        synth = new Tone.MonoSynth({
+          oscillator: { type: 'sawtooth' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.8 },
+          filterEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8, baseFrequency: 200, octaves: 4 }
+        }).toDestination();
+        synth.volume.value = -6;
+        synth.triggerAttackRelease(config.notes[0], config.duration);
+        break;
+      case 'duo':
+        synth = new Tone.DuoSynth({
+          vibratoAmount: 0.5,
+          vibratoRate: 5,
+          harmonicity: 1.5,
+          voice0: { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.8 } },
+          voice1: { oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.8 } }
+        }).toDestination();
+        synth.volume.value = -6;
+        synth.triggerAttackRelease(config.notes[0], config.duration);
+        break;
+      default:
+        return;
+    }
+
+    activeSynthRef.current = synth;
+    
+    // Auto-stop after duration
+    setTimeout(() => {
+      if (previewingId === itemId) {
+        stopPreview();
+      }
+    }, Tone.Time(config.duration).toMilliseconds() + 500);
+  }, [stopPreview, previewingId]);
+
+  const handlePreview = useCallback((item: BrowserItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (previewingId === item.id) {
+      stopPreview();
+      return;
+    }
+    
+    if (item.type === 'sample') {
+      playSamplePreview(item.id);
+    } else if (item.type === 'instrument' || item.type === 'preset') {
+      playInstrumentPreview(item.id);
+    }
+  }, [previewingId, stopPreview, playSamplePreview, playInstrumentPreview]);
 
   const renderItem = (item: BrowserItem, depth: number = 0) => {
     const isFolder = item.type === 'folder';

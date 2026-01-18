@@ -71,17 +71,22 @@ export class GrooveLearningEngine {
     try {
       // Use a lightweight audio feature extraction model
       // Falls back to CPU if WebGPU not available
-      this.featureExtractor = await pipeline(
-        'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',  // Small, fast model for embeddings
-        { device: 'webgpu' }
-      ).catch(async () => {
+      // Using 'as any' to avoid TS2590 complex union type error from @huggingface/transformers
+      let extractor: any;
+      try {
+        extractor = await pipeline(
+          'feature-extraction',
+          'Xenova/all-MiniLM-L6-v2',
+          { device: 'webgpu' }
+        );
+      } catch {
         console.log('[GrooveLearning] WebGPU not available, falling back to CPU');
-        return await pipeline(
+        extractor = await pipeline(
           'feature-extraction',
           'Xenova/all-MiniLM-L6-v2'
         );
-      });
+      }
+      this.featureExtractor = extractor as FeatureExtractorFn;
       
       this.isInitialized = true;
       console.log('[GrooveLearning] ML model loaded successfully');

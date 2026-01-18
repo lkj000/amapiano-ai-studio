@@ -283,11 +283,17 @@ export default function MasteringStudio() {
     }
   };
 
-  // Helper: Encode AudioBuffer to WAV ArrayBuffer
-  const encodeWav = useCallback((audioBuffer: AudioBuffer, targetSampleRate?: number): ArrayBuffer => {
+
+  // Helper: Encode AudioBuffer to WAV with optional mono downmix
+  const encodeWavWithOptions = useCallback((
+    audioBuffer: AudioBuffer, 
+    targetSampleRate?: number,
+    forceMono?: boolean
+  ): ArrayBuffer => {
     const sourceSampleRate = audioBuffer.sampleRate;
     const outputSampleRate = targetSampleRate || sourceSampleRate;
-    const numChannels = Math.min(audioBuffer.numberOfChannels, 2); // Max stereo
+    const inputChannels = audioBuffer.numberOfChannels;
+    const numChannels = forceMono ? 1 : Math.min(inputChannels, 2);
     const bitsPerSample = 16;
     const bytesPerSample = bitsPerSample / 8;
     const blockAlign = numChannels * bytesPerSample;
@@ -324,7 +330,7 @@ export default function MasteringStudio() {
 
     // Get channel data
     const channels: Float32Array[] = [];
-    for (let ch = 0; ch < numChannels; ch++) {
+    for (let ch = 0; ch < Math.min(inputChannels, 2); ch++) {
       channels.push(audioBuffer.getChannelData(ch));
     }
 
@@ -336,20 +342,34 @@ export default function MasteringStudio() {
       const srcIndexCeil = Math.min(srcIndexFloor + 1, audioBuffer.length - 1);
       const t = srcIndex - srcIndexFloor;
       
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sample0 = channels[ch][srcIndexFloor];
-        const sample1 = channels[ch][srcIndexCeil];
-        const sample = sample0 + t * (sample1 - sample0);
-        const clampedSample = Math.max(-1, Math.min(1, sample));
+      if (forceMono && channels.length > 1) {
+        // Downmix to mono
+        let monoSample = 0;
+        for (let ch = 0; ch < channels.length; ch++) {
+          const sample0 = channels[ch][srcIndexFloor];
+          const sample1 = channels[ch][srcIndexCeil];
+          monoSample += sample0 + t * (sample1 - sample0);
+        }
+        monoSample /= channels.length;
+        const clampedSample = Math.max(-1, Math.min(1, monoSample));
         wavView.setInt16(offset, Math.round(clampedSample * 32767), true);
         offset += 2;
+      } else {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample0 = channels[ch][srcIndexFloor];
+          const sample1 = channels[ch][srcIndexCeil];
+          const sample = sample0 + t * (sample1 - sample0);
+          const clampedSample = Math.max(-1, Math.min(1, sample));
+          wavView.setInt16(offset, Math.round(clampedSample * 32767), true);
+          offset += 2;
+        }
       }
     }
 
     return wavBuffer;
   }, []);
 
-  // Helper: Convert any audio file to WAV, auto-downsample if too large
+  // Helper: Convert any audio file to WAV, maintaining quality (44.1kHz minimum)
   const MAX_WAV_SIZE_MB = 14; // Leave headroom below 15MB limit
   
   const convertToWav = useCallback(async (file: File): Promise<ArrayBuffer> => {
@@ -366,18 +386,30 @@ export default function MasteringStudio() {
       throw new Error('Could not decode audio file. Please try a different format.');
     }
     
-    // Try encoding at original sample rate first
-    let wavBuffer = encodeWav(audioBuffer, audioBuffer.sampleRate);
     const maxBytes = MAX_WAV_SIZE_MB * 1024 * 1024;
+    const isStereo = audioBuffer.numberOfChannels > 1;
     
-    // If too large, progressively downsample
-    const sampleRates = [44100, 32000, 22050, 16000];
-    for (const targetRate of sampleRates) {
-      if (wavBuffer.byteLength <= maxBytes) break;
-      if (targetRate >= audioBuffer.sampleRate) continue;
-      
-      console.log(`WAV too large (${(wavBuffer.byteLength / 1024 / 1024).toFixed(1)}MB), downsampling to ${targetRate}Hz`);
-      wavBuffer = encodeWav(audioBuffer, targetRate);
+    // Strategy: Maintain CD quality (44.1kHz/16-bit), reduce to mono if needed
+    // Never downsample below 44.1kHz as it destroys audio quality
+    
+    // Step 1: Try at original sample rate, stereo
+    let wavBuffer = encodeWavWithOptions(audioBuffer, audioBuffer.sampleRate, false);
+    console.log(`Original WAV: ${(wavBuffer.byteLength / 1024 / 1024).toFixed(1)}MB @ ${audioBuffer.sampleRate}Hz stereo`);
+    
+    // Step 2: If too large and high sample rate (48kHz+), try 44.1kHz
+    if (wavBuffer.byteLength > maxBytes && audioBuffer.sampleRate > 44100) {
+      console.log(`WAV too large, resampling to 44100Hz`);
+      wavBuffer = encodeWavWithOptions(audioBuffer, 44100, false);
+    }
+    
+    // Step 3: If still too large and stereo, convert to mono (halves size)
+    if (wavBuffer.byteLength > maxBytes && isStereo) {
+      console.log(`WAV still too large (${(wavBuffer.byteLength / 1024 / 1024).toFixed(1)}MB), converting to mono for size`);
+      wavBuffer = encodeWavWithOptions(audioBuffer, Math.min(audioBuffer.sampleRate, 44100), true);
+      toast({
+        title: "Audio converted to mono",
+        description: "Stereo file was too large - converted to mono to maintain quality",
+      });
     }
     
     await audioContext.close();
@@ -386,12 +418,14 @@ export default function MasteringStudio() {
     if (wavBuffer.byteLength > maxBytes) {
       const sizeMB = (wavBuffer.byteLength / 1024 / 1024).toFixed(1);
       const durationSec = audioBuffer.duration;
-      const maxDuration = Math.floor((maxBytes / wavBuffer.byteLength) * durationSec);
-      throw new Error(`Audio too long (${sizeMB}MB after compression). Please use a clip under ~${maxDuration} seconds.`);
+      // At 44.1kHz 16-bit mono, max duration for 14MB
+      const maxDurationMono = Math.floor(14 * 1024 * 1024 / (44100 * 2));
+      throw new Error(`Audio too long (${Math.round(durationSec)}s / ${sizeMB}MB). Maximum ~${maxDurationMono}s for mastering. Please trim your track.`);
     }
     
+    console.log(`WAV prepared: ${(wavBuffer.byteLength / 1024 / 1024).toFixed(1)}MB (quality preserved at 44.1kHz+)`);
     return wavBuffer;
-  }, [encodeWav]);
+  }, [encodeWavWithOptions]);
 
   const handleMaster = async () => {
     if (!uploadedFile) {

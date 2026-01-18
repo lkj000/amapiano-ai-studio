@@ -85,6 +85,18 @@ export const GROOVE_PROFILES: Record<string, GrooveProfile> = {
     swingAmount: 0.55,
     swingGrid: '16n',
   },
+  private_school: {
+    name: 'Private School Smooth',
+    lowBandOffset: 0,
+    lowMidOffset: 4,
+    midOffset: 6,
+    highMidOffset: 9,
+    highOffset: 3,
+    velocityVariation: 0.06,
+    humanize: 0.05,
+    swingAmount: 0.4,
+    swingGrid: '8n',
+  },
 };
 
 export type FrequencyBand = 'low' | 'lowMid' | 'mid' | 'highMid' | 'high';
@@ -155,6 +167,12 @@ export class NeuralGrooveEngine {
     noteOrFreq: string | number,
     stepIndex?: number // for swing calculation
   ): number {
+    // Safety check - ensure we have a valid time
+    if (typeof originalTime !== 'number' || isNaN(originalTime)) {
+      console.warn('[NeuralGrooveEngine] Invalid originalTime, using 0');
+      originalTime = Tone.now();
+    }
+    
     const band = this.getFrequencyBand(noteOrFreq);
     const offsetMs = this.getTimingOffset(band);
     
@@ -162,7 +180,7 @@ export class NeuralGrooveEngine {
     let adjustedTime = originalTime + (offsetMs / 1000);
     
     // Apply swing if applicable
-    if (stepIndex !== undefined) {
+    if (stepIndex !== undefined && typeof stepIndex === 'number') {
       const isSwingStep = this.profile.swingGrid === '16n' 
         ? stepIndex % 2 === 1 // Every other 16th note
         : stepIndex % 4 === 2; // Every other 8th note
@@ -173,7 +191,9 @@ export class NeuralGrooveEngine {
       }
     }
     
-    return Math.max(0, adjustedTime);
+    // Ensure the result is a valid positive number
+    const result = Math.max(0, adjustedTime);
+    return isNaN(result) ? originalTime : result;
   }
   
   /**

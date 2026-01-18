@@ -325,6 +325,9 @@ export class RealAudioEngine {
   private playStep(time: number): void {
     if (!this.currentPattern) return;
     
+    // Ensure we have a valid time
+    const safeTime = time || Tone.now();
+    
     this.currentPattern.tracks.forEach((steps, trackId) => {
       const step = steps[this.currentStep];
       const track = this.tracks.get(trackId);
@@ -334,18 +337,43 @@ export class RealAudioEngine {
       // Check probability
       if (step.probability !== undefined && Math.random() > step.probability) return;
       
-      // Apply groove timing
-      const groovedTime = this.grooveEngine.applyGroove(time, step.note || 'C2', this.currentStep);
+      // Apply groove timing with safety check
+      let groovedTime: number;
+      try {
+        groovedTime = this.grooveEngine.applyGroove(safeTime, step.note || 'C2', this.currentStep);
+        // Ensure groovedTime is valid and positive
+        if (typeof groovedTime !== 'number' || isNaN(groovedTime) || groovedTime < 0) {
+          groovedTime = safeTime;
+        }
+      } catch {
+        groovedTime = safeTime;
+      }
       
-      // Trigger the instrument
-      const instrument = track.instrument as any;
-      
-      if (trackId === 'logdrum' && this.logDrumSynth) {
-        this.logDrumSynth.trigger(step.note || 'C2', step.velocity, groovedTime);
-      } else if (instrument.triggerAttackRelease) {
-        instrument.triggerAttackRelease(step.note || 'C2', '16n', groovedTime, step.velocity);
-      } else if (instrument.triggerAttack) {
-        instrument.triggerAttack(groovedTime, step.velocity);
+      // Trigger the instrument with safe timing
+      try {
+        const instrument = track.instrument as any;
+        
+        if (trackId === 'logdrum' && this.logDrumSynth) {
+          this.logDrumSynth.trigger(step.note || 'C2', step.velocity, groovedTime);
+        } else if (track.type === 'drum' && instrument.triggerAttackRelease) {
+          // For NoiseSynth (snare, shaker) - don't pass a note, and use safe duration
+          if (instrument instanceof Tone.NoiseSynth) {
+            instrument.triggerAttackRelease('16n', groovedTime, step.velocity);
+          } else if (instrument instanceof Tone.MetalSynth) {
+            // MetalSynth uses frequency, not note
+            instrument.triggerAttackRelease('32n', groovedTime, step.velocity);
+          } else if (instrument instanceof Tone.MembraneSynth) {
+            instrument.triggerAttackRelease(step.note || 'C1', '8n', groovedTime, step.velocity);
+          } else {
+            instrument.triggerAttackRelease(step.note || 'C2', '16n', groovedTime, step.velocity);
+          }
+        } else if (instrument.triggerAttackRelease) {
+          instrument.triggerAttackRelease(step.note || 'C2', '16n', groovedTime, step.velocity);
+        } else if (instrument.triggerAttack) {
+          instrument.triggerAttack(groovedTime, step.velocity);
+        }
+      } catch (err) {
+        console.warn(`[RealAudioEngine] Failed to trigger ${trackId}:`, err);
       }
     });
   }

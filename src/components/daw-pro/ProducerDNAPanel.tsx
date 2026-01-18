@@ -66,8 +66,16 @@ export const ProducerDNAPanel: React.FC<ProducerDNAPanelProps> = ({
     : null;
   
   const handleApplyMorph = () => {
-    if (morphedProfile && onApplyMorph) {
-      onApplyMorph(morphedProfile);
+    if (morphedProfile) {
+      if (onApplyMorph) {
+        onApplyMorph(morphedProfile);
+      }
+      // Also switch to the target profile as base for UI consistency
+      if (morphTarget) {
+        onProfileChange(morphTarget);
+      }
+      setMorphMode(false);
+      setMorphTarget(null);
     }
   };
   

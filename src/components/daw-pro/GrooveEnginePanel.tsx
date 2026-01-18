@@ -1,9 +1,9 @@
 /**
  * Neural Groove Engine Panel
- * FDD micro-timing visualization and control
+ * FDD micro-timing visualization and control with REAL audio integration
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -11,13 +11,14 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Waves, Sparkles, RotateCcw, Zap } from 'lucide-react';
+import { Waves, Sparkles, RotateCcw, Zap, Play } from 'lucide-react';
 import { 
   NeuralGrooveEngine, 
   GROOVE_PROFILES, 
   GrooveProfile,
   FrequencyBand 
 } from '@/lib/audio/NeuralGrooveEngine';
+import * as Tone from 'tone';
 
 interface GrooveEnginePanelProps {
   bpm: number;
@@ -42,6 +43,7 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
 }) => {
   const [enabled, setEnabled] = useState(true);
   const [profile, setProfile] = useState(GROOVE_PROFILES[selectedProfile] || GROOVE_PROFILES.quantum);
+  const engineRef = useRef<NeuralGrooveEngine | null>(null);
   
   // Custom offsets
   const [offsets, setOffsets] = useState({
@@ -56,7 +58,20 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
   const [humanize, setHumanize] = useState(profile.humanize);
   const [velocityVar, setVelocityVar] = useState(profile.velocityVariation);
   
-  const engine = useMemo(() => new NeuralGrooveEngine(profile, bpm), [bpm]);
+  // Initialize engine
+  useEffect(() => {
+    engineRef.current = new NeuralGrooveEngine(profile, bpm);
+    return () => {
+      engineRef.current = null;
+    };
+  }, []);
+  
+  // Update engine when BPM changes
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setBPM(bpm);
+    }
+  }, [bpm]);
   
   const handleProfileChange = (profileId: string) => {
     const newProfile = GROOVE_PROFILES[profileId];
@@ -72,6 +87,12 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
       setSwing(newProfile.swingAmount);
       setHumanize(newProfile.humanize);
       setVelocityVar(newProfile.velocityVariation);
+      
+      // Update engine
+      if (engineRef.current) {
+        engineRef.current.setProfile(profileId);
+      }
+      
       onProfileChange?.(profileId);
     }
   };
@@ -83,11 +104,23 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
       ...profile,
       [`${band}BandOffset`]: value,
     };
+    
+    // Update engine
+    if (engineRef.current) {
+      engineRef.current.setProfile(profile.name.toLowerCase());
+    }
+    
     onGrooveChange?.(updatedProfile);
   };
   
   const handleSwingChange = (value: number) => {
     setSwing(value);
+    
+    // Update engine
+    if (engineRef.current) {
+      engineRef.current.setSwing(value);
+    }
+    
     const updatedProfile: GrooveProfile = { ...profile, swingAmount: value };
     onGrooveChange?.(updatedProfile);
   };
@@ -96,6 +129,24 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
     setHumanize(value);
     const updatedProfile: GrooveProfile = { ...profile, humanize: value };
     onGrooveChange?.(updatedProfile);
+  };
+  
+  // Preview groove with a test beat
+  const previewGroove = async () => {
+    await Tone.start();
+    
+    const synth = new Tone.MembraneSynth().toDestination();
+    const now = Tone.now();
+    
+    // Play 4 beats with groove applied
+    for (let i = 0; i < 4; i++) {
+      const baseTime = now + (i * 0.5); // 120 BPM equivalent spacing
+      const groovedTime = engineRef.current?.applyGroove(baseTime, 'C2', i) || baseTime;
+      synth.triggerAttackRelease('C2', '8n', groovedTime, 0.8);
+    }
+    
+    // Cleanup
+    setTimeout(() => synth.dispose(), 3000);
   };
   
   const resetToProfile = () => {
@@ -110,6 +161,17 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
     const maxOffset = Math.max(...Object.values(offsets).map(Math.abs));
     return Math.min(100, (maxOffset / 15 + swing + humanize) * 33);
   }, [offsets, swing, humanize]);
+  
+  // Handle enable/disable
+  const handleEnableChange = (value: boolean) => {
+    setEnabled(value);
+    // When disabled, reset groove to neutral
+    if (!value && engineRef.current) {
+      engineRef.current.setSwing(0);
+    } else if (value && engineRef.current) {
+      engineRef.current.setSwing(swing);
+    }
+  };
   
   return (
     <Card className="h-full flex flex-col">
@@ -134,9 +196,21 @@ export const GrooveEnginePanel: React.FC<GrooveEnginePanelProps> = ({
               <span className="text-sm">Enable FDD Processing</span>
               <Switch
                 checked={enabled}
-                onCheckedChange={setEnabled}
+                onCheckedChange={handleEnableChange}
               />
             </div>
+            
+            {/* Preview Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={previewGroove}
+              disabled={!enabled}
+            >
+              <Play className="h-3 w-3 mr-1" />
+              Preview Groove
+            </Button>
             
             {/* Profile Selection */}
             <div className="space-y-2">

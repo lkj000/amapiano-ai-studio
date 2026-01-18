@@ -507,13 +507,33 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
                             <ProducerDNAPanel 
                               selectedProfileId={audioDAW.producerProfile.id}
                               onProfileChange={audioDAW.setProducerProfile}
+                              currentSettings={audioDAW.producerProfile}
+                              onApplyMorph={(morphedProfile) => {
+                                // Apply morphed profile to the engine
+                                console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
+                                audioDAW.setProducerProfile(morphedProfile.id);
+                              }}
                             />
                           </TabsContent>
                           <TabsContent value="fm-logdrum" className="h-full m-0">
-                            <FMLogDrumPanel onPatchChange={(patch) => console.log('Patch:', patch)} />
+                            <FMLogDrumPanel 
+                              onPatchChange={(patch) => {
+                                console.log('[AmapianoPro] FM Patch changed:', patch);
+                                // Patch changes are handled internally by the panel
+                              }} 
+                            />
                           </TabsContent>
                           <TabsContent value="groove" className="h-full m-0">
-                            <GrooveEnginePanel bpm={project.bpm} />
+                            <GrooveEnginePanel 
+                              bpm={project.bpm}
+                              selectedProfile={audioDAW.producerProfile.style}
+                              onProfileChange={(profileId) => {
+                                console.log('[AmapianoPro] Groove profile changed:', profileId);
+                              }}
+                              onGrooveChange={(groove) => {
+                                console.log('[AmapianoPro] Groove settings changed:', groove);
+                              }}
+                            />
                           </TabsContent>
                         </div>
                       </Tabs>
@@ -610,6 +630,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
       {/* Transport Bar */}
       <TransportBar
         isPlaying={audioDAW.isPlaying}
+        isRecording={audioDAW.isRecording}
         currentStep={audioDAW.currentStep}
         currentBar={audioDAW.currentBar}
         bpm={project.bpm}
@@ -623,6 +644,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
+        onRecord={audioDAW.toggleRecording}
         onBpmChange={(bpm) => handleUpdateProject({ bpm })}
         onLoopToggle={() => setLoopEnabled(!loopEnabled)}
         onSeek={audioDAW.seek}

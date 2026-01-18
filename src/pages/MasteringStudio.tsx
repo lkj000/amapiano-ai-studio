@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -98,6 +98,7 @@ const PLATFORM_TARGETS = [
 
 export default function MasteringStudio() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMastered, setIsMastered] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -105,6 +106,9 @@ export default function MasteringStudio() {
   const [selectedPreset, setSelectedPreset] = useState<MasteringPreset>(MASTERING_PRESETS[0]);
   const [targetPlatform, setTargetPlatform] = useState(PLATFORM_TARGETS[0]);
   const [processingProgress, setProcessingProgress] = useState(0);
+  
+  // Audio refs for real playback
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Custom settings
   const [loudness, setLoudness] = useState([-14]);
@@ -116,11 +120,85 @@ export default function MasteringStudio() {
   const [useAI, setUseAI] = useState(true);
   const [referenceTrack, setReferenceTrack] = useState(false);
 
+  // Cleanup audio URL on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Toggle playback function
+  const togglePlayback = useCallback(() => {
+    if (!audioUrl) {
+      toast({
+        title: "No audio loaded",
+        description: "Please upload a track first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      if (!audioRef.current) {
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => setIsPlaying(false);
+        audioRef.current.onerror = () => {
+          toast({
+            title: "Playback error",
+            description: "Failed to play audio",
+            variant: "destructive"
+          });
+          setIsPlaying(false);
+        };
+      }
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => {
+        console.error('Playback error:', err);
+        toast({
+          title: "Playback error",
+          description: "Failed to play audio",
+          variant: "destructive"
+        });
+      });
+      setIsPlaying(true);
+    }
+  }, [audioUrl, isPlaying]);
+
+  // Update audio source when audioUrl changes
+  useEffect(() => {
+    if (audioRef.current && audioUrl) {
+      audioRef.current.src = audioUrl;
+    }
+  }, [audioUrl]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Cleanup previous audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+      
+      // Create new audio URL
+      const url = URL.createObjectURL(file);
+      setAudioUrl(url);
       setUploadedFile(file);
       setIsMastered(false);
+      setIsPlaying(false);
+      
       toast({
         title: "Track uploaded",
         description: `${file.name} ready for mastering`
@@ -268,7 +346,7 @@ export default function MasteringStudio() {
                         size="icon"
                         variant="outline"
                         className="w-12 h-12 rounded-full"
-                        onClick={() => setIsPlaying(!isPlaying)}
+                        onClick={togglePlayback}
                       >
                         {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                       </Button>

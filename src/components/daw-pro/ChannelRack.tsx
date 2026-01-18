@@ -53,17 +53,17 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
   return (
     <div className="h-full flex flex-col bg-card border-b border-border">
       {/* Pattern Selector */}
-      <div className="h-10 px-2 flex items-center gap-2 border-b border-border bg-muted/30">
-        <span className="text-xs text-muted-foreground">Pattern:</span>
+      <div className="h-8 md:h-10 px-1 md:px-2 flex items-center gap-1 md:gap-2 border-b border-border bg-muted/30 overflow-x-auto scrollbar-hide">
+        <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline">Pattern:</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1 h-7">
+            <Button variant="outline" size="sm" className="gap-1 h-6 md:h-7 text-xs">
               <div 
-                className="w-3 h-3 rounded-sm mr-1" 
+                className="w-2 h-2 md:w-3 md:h-3 rounded-sm mr-0.5 md:mr-1" 
                 style={{ backgroundColor: pattern?.color }} 
               />
-              {pattern?.name || 'Select Pattern'}
-              <ChevronDown className="h-3 w-3" />
+              <span className="max-w-16 md:max-w-none truncate">{pattern?.name || 'Select'}</span>
+              <ChevronDown className="h-2.5 w-2.5 md:h-3 md:w-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -82,15 +82,15 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddPattern}>
-          <Plus className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-6 w-6 md:h-7 md:w-7" onClick={onAddPattern}>
+          <Plus className="h-3 w-3 md:h-4 md:w-4" />
         </Button>
 
         {pattern && (
           <Input
             value={pattern.name}
             onChange={(e) => onUpdatePattern(pattern.id, { name: e.target.value })}
-            className="w-32 h-7 text-xs"
+            className="w-20 md:w-32 h-6 md:h-7 text-[10px] md:text-xs hidden sm:block"
           />
         )}
 
@@ -98,8 +98,10 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1 h-7">
-              <Plus className="h-3 w-3" /> Add Channel
+            <Button variant="outline" size="sm" className="gap-1 h-6 md:h-7 text-[10px] md:text-xs">
+              <Plus className="h-2.5 w-2.5 md:h-3 md:w-3" /> 
+              <span className="hidden xs:inline">Add Channel</span>
+              <span className="xs:hidden">Add</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
@@ -117,14 +119,14 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
       <ScrollArea className="flex-1">
         <div className="min-w-fit">
           {/* Step Numbers Header */}
-          <div className="flex h-6 border-b border-border sticky top-0 bg-card z-10">
-            <div className="w-48 flex-shrink-0" />
+          <div className="flex h-5 md:h-6 border-b border-border sticky top-0 bg-card z-10">
+            <div className="w-28 md:w-48 flex-shrink-0" />
             <div className="flex">
               {Array.from({ length: 16 }, (_, i) => (
                 <div 
                   key={i}
                   className={cn(
-                    "w-8 h-6 flex items-center justify-center text-[10px] text-muted-foreground border-r border-border",
+                    "w-6 md:w-8 h-5 md:h-6 flex items-center justify-center text-[8px] md:text-[10px] text-muted-foreground border-r border-border",
                     i % 4 === 0 && "bg-muted/30 font-medium",
                     currentStep === i && isPlaying && "bg-primary/20 text-primary"
                   )}
@@ -140,56 +142,56 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
             <div 
               key={channel.id}
               className={cn(
-                "flex h-10 border-b border-border hover:bg-muted/20 transition-colors",
+                "flex h-8 md:h-10 border-b border-border hover:bg-muted/20 transition-colors",
                 selectedChannelId === channel.id && "bg-muted/40"
               )}
               onClick={() => onSelectChannel(channel.id)}
             >
               {/* Channel Info */}
-              <div className="w-48 flex-shrink-0 flex items-center gap-1 px-2 border-r border-border">
+              <div className="w-28 md:w-48 flex-shrink-0 flex items-center gap-0.5 md:gap-1 px-1 md:px-2 border-r border-border">
                 <div 
-                  className="w-2 h-full mr-1" 
+                  className="w-1.5 md:w-2 h-full mr-0.5 md:mr-1" 
                   style={{ backgroundColor: channel.color }} 
                 />
                 
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-6 w-6"
+                  className="h-5 w-5 md:h-6 md:w-6"
                   onClick={(e) => {
                     e.stopPropagation();
                     onUpdateChannel(channel.id, { muted: !channel.muted });
                   }}
                 >
                   {channel.muted ? (
-                    <VolumeX className="h-3 w-3 text-destructive" />
+                    <VolumeX className="h-2.5 w-2.5 md:h-3 md:w-3 text-destructive" />
                   ) : (
-                    <Volume2 className="h-3 w-3" />
+                    <Volume2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
                   )}
                 </Button>
 
                 <Button 
                   variant={channel.solo ? 'default' : 'ghost'} 
                   size="icon" 
-                  className="h-6 w-6"
+                  className="h-5 w-5 md:h-6 md:w-6 hidden sm:flex"
                   onClick={(e) => {
                     e.stopPropagation();
                     onUpdateChannel(channel.id, { solo: !channel.solo });
                   }}
                 >
-                  <Headphones className="h-3 w-3" />
+                  <Headphones className="h-2.5 w-2.5 md:h-3 md:w-3" />
                 </Button>
 
-                <span className="text-xs font-medium truncate flex-1">{channel.name}</span>
+                <span className="text-[10px] md:text-xs font-medium truncate flex-1">{channel.name}</span>
 
                 {channel.type === 'synth' && (
-                  <Music className="h-3 w-3 text-muted-foreground" />
+                  <Music className="h-2.5 w-2.5 md:h-3 md:w-3 text-muted-foreground hidden xs:block" />
                 )}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <MoreVertical className="h-3 w-3" />
+                    <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 hidden sm:flex">
+                      <MoreVertical className="h-2.5 w-2.5 md:h-3 md:w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -209,11 +211,11 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
                   <button
                     key={stepIndex}
                     className={cn(
-                      "w-8 h-10 border-r border-border transition-all",
+                      "w-6 md:w-8 h-8 md:h-10 border-r border-border transition-all touch-manipulation",
                       stepIndex % 4 === 0 && "border-l-2 border-l-border",
                       active 
                         ? "bg-primary hover:bg-primary/80" 
-                        : "bg-muted/20 hover:bg-muted/40",
+                        : "bg-muted/20 hover:bg-muted/40 active:bg-muted/60",
                       currentStep === stepIndex && isPlaying && "ring-2 ring-accent ring-inset",
                       hoveredStep?.channelId === channel.id && 
                         hoveredStep?.step === stepIndex && !active && 
@@ -229,7 +231,7 @@ export const ChannelRack: React.FC<ChannelRackProps> = ({
                   >
                     {active && (
                       <div className="w-full h-full flex items-center justify-center">
-                        <div className="w-2 h-2 rounded-full bg-background/30" />
+                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-background/30" />
                       </div>
                     )}
                   </button>

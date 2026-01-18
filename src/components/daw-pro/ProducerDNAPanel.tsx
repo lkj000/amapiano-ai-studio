@@ -73,11 +73,12 @@ export const ProducerDNAPanel: React.FC<ProducerDNAPanelProps> = ({
   
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="py-3 px-4">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Producer DNA
-          <Badge variant="outline" className="ml-auto">
+      <CardHeader className="py-2 md:py-3 px-3 md:px-4">
+        <CardTitle className="text-xs md:text-sm flex items-center gap-2">
+          <User className="h-3 w-3 md:h-4 md:w-4" />
+          <span className="hidden xs:inline">Producer DNA</span>
+          <span className="xs:hidden">DNA</span>
+          <Badge variant="outline" className="ml-auto text-[10px] md:text-xs">
             {selectedProfile.name}
           </Badge>
         </CardTitle>
@@ -85,29 +86,30 @@ export const ProducerDNAPanel: React.FC<ProducerDNAPanelProps> = ({
       
       <CardContent className="flex-1 overflow-hidden p-0">
         <ScrollArea className="h-full">
-          <div className="p-4 space-y-4">
+          <div className="p-2 md:p-4 space-y-3 md:space-y-4">
             {/* Producer Selection */}
             <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">SELECT PROFILE</span>
-              <div className="grid grid-cols-2 gap-2">
+              <span className="text-[10px] md:text-xs font-medium text-muted-foreground">SELECT PROFILE</span>
+              <div className="grid grid-cols-2 gap-1 md:gap-2">
                 {PRODUCER_DNA_PRESETS.map(profile => (
                   <button
                     key={profile.id}
                     onClick={() => onProfileChange(profile.id)}
                     className={cn(
-                      "p-3 rounded-lg border text-left transition-all",
+                      "p-2 md:p-3 rounded-lg border text-left transition-all touch-manipulation",
                       selectedProfileId === profile.id
                         ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
+                        : "border-border hover:border-primary/50 active:bg-muted"
                     )}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={cn("w-2 h-2 rounded-full", STYLE_COLORS[profile.style])} />
-                      <span className="text-sm font-medium">{profile.name}</span>
+                    <div className="flex items-center gap-1 md:gap-2 mb-0.5 md:mb-1">
+                      <div className={cn("w-1.5 h-1.5 md:w-2 md:h-2 rounded-full", STYLE_COLORS[profile.style])} />
+                      <span className="text-[10px] md:text-sm font-medium truncate">{profile.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{REGION_LABELS[profile.region]}</span>
-                      <span>•</span>
+                    <div className="flex items-center gap-1 md:gap-2 text-[8px] md:text-[10px] text-muted-foreground">
+                      <span className="hidden sm:inline">{REGION_LABELS[profile.region]}</span>
+                      <span className="sm:hidden">{profile.region.slice(0, 3)}</span>
+                      <span className="hidden sm:inline">•</span>
                       <span>{profile.bpmRange.sweet} BPM</span>
                     </div>
                   </button>

@@ -52,6 +52,7 @@ serve(async (req) => {
         const stems = result.output;
         console.log('[STEM-SPLITTER] Separation complete:', stems);
         
+        // Map all 6 stems from htdemucs_6s model
         return new Response(
           JSON.stringify({
             status: 'succeeded',
@@ -60,6 +61,8 @@ serve(async (req) => {
               vocals: stems.vocals || stems.Vocals,
               drums: stems.drums || stems.Drums,
               bass: stems.bass || stems.Bass,
+              guitar: stems.guitar || stems.Guitar,
+              piano: stems.piano || stems.Piano,
               other: stems.other || stems.Other,
             },
           }),
@@ -118,7 +121,7 @@ serve(async (req) => {
     
     console.log('[STEM-SPLITTER] Audio uploaded:', audioUrl);
 
-    // Use Demucs model on Replicate for stem separation
+    // Use Demucs htdemucs_6s model for 6-stem separation (vocals, drums, bass, guitar, piano, other)
     const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -126,10 +129,10 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: '25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953', // cjwbw/demucs htdemucs
+        version: '25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953', // cjwbw/demucs
         input: {
           audio: audioUrl,
-          model_name: 'htdemucs',
+          model_name: 'htdemucs_6s', // 6-stem model: vocals, drums, bass, guitar, piano, other
           output_format: 'mp3',
         },
       }),

@@ -24,8 +24,10 @@ import {
   BarChart3,
   Settings2,
   ArrowLeftRight,
-  Sparkles
+  Sparkles,
+  Layers
 } from "lucide-react";
+import LayersGenerator from "@/components/studio/LayersGenerator";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -575,6 +577,19 @@ export default function MasteringStudio() {
           </div>
         </div>
 
+        <Tabs defaultValue="mastering" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="mastering" className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4" />
+              AI Mastering
+            </TabsTrigger>
+            <TabsTrigger value="layers" className="flex items-center gap-2">
+              <Layers className="w-4 h-4" />
+              AI Layers
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mastering">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Panel */}
           <div className="lg:col-span-2 space-y-6">
@@ -992,6 +1007,12 @@ export default function MasteringStudio() {
             </div>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="layers">
+            <LayersGenerator />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

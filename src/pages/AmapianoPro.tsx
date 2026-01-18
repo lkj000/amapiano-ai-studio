@@ -435,8 +435,26 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
     }));
   }, []);
 
+  // Responsive state - auto-hide panels on small screens
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setShowBrowser(false);
+        setShowVSTRack(false);
+        setShowAdvancedPanels(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen flex flex-col bg-background overflow-hidden touch-pan-y">
       {/* Top Toolbar */}
       <DAWToolbar
         project={project}

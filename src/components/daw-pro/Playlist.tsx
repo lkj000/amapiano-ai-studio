@@ -137,64 +137,67 @@ export const Playlist: React.FC<PlaylistProps> = ({
   return (
     <div className="h-full flex flex-col bg-card">
       {/* Pattern Picker */}
-      <div className="h-12 flex items-center gap-2 px-2 border-b border-border bg-muted/30 overflow-x-auto">
-        <span className="text-xs text-muted-foreground mr-2">Patterns:</span>
+      <div className="h-10 md:h-12 flex items-center gap-1 md:gap-2 px-1 md:px-2 border-b border-border bg-muted/30 overflow-x-auto scrollbar-hide">
+        <span className="text-[10px] md:text-xs text-muted-foreground mr-1 md:mr-2 hidden sm:inline">Patterns:</span>
         {patterns.map((pattern) => (
           <div
             key={pattern.id}
             draggable
             onDragStart={(e) => handleDragStart(e, pattern.id)}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded cursor-grab active:cursor-grabbing",
-              "border border-border hover:border-primary/50 transition-colors"
+              "flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded cursor-grab active:cursor-grabbing flex-shrink-0",
+              "border border-border hover:border-primary/50 transition-colors touch-manipulation"
             )}
             style={{ backgroundColor: `${pattern.color}30` }}
           >
             <div 
-              className="w-3 h-3 rounded-sm" 
+              className="w-2 h-2 md:w-3 md:h-3 rounded-sm" 
               style={{ backgroundColor: pattern.color }} 
             />
-            <span className="text-xs font-medium">{pattern.name}</span>
+            <span className="text-[10px] md:text-xs font-medium whitespace-nowrap">{pattern.name}</span>
           </div>
         ))}
-        <Button variant="ghost" size="sm" className="h-7">
-          <Plus className="h-3 w-3 mr-1" /> New Pattern
+        <Button variant="ghost" size="sm" className="h-6 md:h-7 text-[10px] md:text-xs flex-shrink-0">
+          <Plus className="h-2.5 w-2.5 md:h-3 md:w-3 mr-0.5 md:mr-1" /> 
+          <span className="hidden xs:inline">New</span>
         </Button>
       </div>
 
       {/* Arrangement Grid */}
       <div className="flex-1 flex overflow-hidden">
         {/* Track Headers */}
-        <div className="w-32 flex-shrink-0 border-r border-border">
+        <div className="w-20 md:w-32 flex-shrink-0 border-r border-border">
           <ScrollArea className="h-full">
             {/* Timeline Header */}
             <div 
-              className="h-6 border-b border-border bg-muted/50 flex items-center px-2"
+              className="h-5 md:h-6 border-b border-border bg-muted/50 flex items-center px-1 md:px-2"
             >
-              <span className="text-[10px] text-muted-foreground">Tracks</span>
+              <span className="text-[8px] md:text-[10px] text-muted-foreground">Tracks</span>
             </div>
             
             {Array.from({ length: TOTAL_TRACKS }, (_, i) => (
               <div
                 key={i}
                 className={cn(
-                  "flex items-center gap-1 px-2 border-b border-border",
+                  "flex items-center gap-0.5 md:gap-1 px-1 md:px-2 border-b border-border",
                   lockedTracks.has(i) && "opacity-50"
                 )}
                 style={{ height: TRACK_HEIGHT }}
               >
-                <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
-                <span className="text-xs flex-1">Track {i + 1}</span>
+                <GripVertical className="h-2.5 w-2.5 md:h-3 md:w-3 text-muted-foreground cursor-grab hidden sm:block" />
+                <span className="text-[10px] md:text-xs flex-1 truncate">
+                  <span className="hidden sm:inline">Track </span>{i + 1}
+                </span>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-5 w-5"
+                  className="h-4 w-4 md:h-5 md:w-5"
                   onClick={() => toggleTrackLock(i)}
                 >
                   {lockedTracks.has(i) ? (
-                    <Lock className="h-3 w-3" />
+                    <Lock className="h-2 w-2 md:h-3 md:w-3" />
                   ) : (
-                    <Unlock className="h-3 w-3 text-muted-foreground" />
+                    <Unlock className="h-2 w-2 md:h-3 md:w-3 text-muted-foreground" />
                   )}
                 </Button>
               </div>
@@ -207,14 +210,14 @@ export const Playlist: React.FC<PlaylistProps> = ({
           <div>
             {/* Bar Numbers / Loop Region - Clickable for seeking */}
             <div 
-              className="h-6 border-b border-border bg-muted/50 sticky top-0 z-10 flex cursor-pointer"
+              className="h-5 md:h-6 border-b border-border bg-muted/50 sticky top-0 z-10 flex cursor-pointer"
               onClick={handleTimelineClick}
             >
               {Array.from({ length: TOTAL_BARS }, (_, i) => (
                 <div
                   key={i}
                   className={cn(
-                    "flex items-center justify-center text-[10px] border-r border-border relative",
+                    "flex items-center justify-center text-[8px] md:text-[10px] border-r border-border relative",
                     i >= loopStart && i < loopEnd && "bg-accent/20",
                     i % 4 === 0 && "font-medium"
                   )}

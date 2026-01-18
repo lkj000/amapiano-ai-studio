@@ -93,18 +93,18 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   };
 
   return (
-    <div className="h-16 bg-card border-t border-border flex items-center px-4 gap-4">
+    <div className="h-14 md:h-16 bg-card border-t border-border flex items-center px-2 md:px-4 gap-1 md:gap-4 overflow-x-auto scrollbar-hide">
       {/* Transport Controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 md:gap-1 flex-shrink-0">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9"
               onClick={() => onSeek(0, 0)}
             >
-              <SkipBack className="h-4 w-4" />
+              <SkipBack className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Go to Start</TooltipContent>
@@ -115,10 +115,10 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9"
               onClick={onStop}
             >
-              <Square className="h-4 w-4" />
+              <Square className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Stop (Space)</TooltipContent>
@@ -129,14 +129,14 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             <Button
               variant={isPlaying ? 'default' : 'ghost'}
               size="icon"
-              className={cn("h-10 w-10", isPlaying && "bg-primary text-primary-foreground animate-pulse")}
+              className={cn("h-9 w-9 md:h-10 md:w-10", isPlaying && "bg-primary text-primary-foreground animate-pulse")}
               onClick={isPlaying ? onPause : onPlay}
               disabled={!isInitialized}
             >
               {isPlaying ? (
-                <Pause className="h-5 w-5" />
+                <Pause className="h-4 w-4 md:h-5 md:w-5" />
               ) : (
-                <Play className="h-5 w-5 ml-0.5" />
+                <Play className="h-4 w-4 md:h-5 md:w-5 ml-0.5" />
               )}
             </Button>
           </TooltipTrigger>
@@ -148,9 +148,9 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9 hidden sm:flex"
             >
-              <Circle className="h-4 w-4 text-destructive" />
+              <Circle className="h-3 w-3 md:h-4 md:w-4 text-destructive" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Record</TooltipContent>
@@ -161,55 +161,53 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             <Button
               variant={loopEnabled ? 'default' : 'ghost'}
               size="icon"
-              className="h-9 w-9"
+              className="h-8 w-8 md:h-9 md:w-9"
               onClick={onLoopToggle}
             >
-              <Repeat className="h-4 w-4" />
+              <Repeat className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Loop ({loopStart + 1}-{loopEnd})</TooltipContent>
         </Tooltip>
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 md:h-8 hidden sm:block" />
 
-      {/* Level Meter */}
-      <div className="flex items-center gap-2">
+      {/* Level Meter - Hidden on mobile */}
+      <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
         <div className="flex flex-col items-center gap-0.5">
-          <div className="flex gap-0.5 h-8">
-            {/* Left Channel */}
-            <div className="w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
+          <div className="flex gap-0.5 h-6 md:h-8">
+            <div className="w-1.5 md:w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
               <div 
                 className={cn("w-full transition-all duration-75", getMeterColor())}
                 style={{ height: `${getMeterHeight()}%` }}
               />
             </div>
-            {/* Right Channel */}
-            <div className="w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
+            <div className="w-1.5 md:w-2 h-full bg-muted rounded-sm overflow-hidden flex flex-col-reverse">
               <div 
                 className={cn("w-full transition-all duration-75", getMeterColor())}
                 style={{ height: `${getMeterHeight() * 0.95}%` }}
               />
             </div>
           </div>
-          <span className="text-[8px] text-muted-foreground font-mono">
-            {meterLevel > -60 ? meterLevel.toFixed(1) : '-∞'} dB
+          <span className="text-[7px] md:text-[8px] text-muted-foreground font-mono">
+            {meterLevel > -60 ? meterLevel.toFixed(1) : '-∞'}
           </span>
         </div>
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 md:h-8" />
 
       {/* Position Display */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
         <div className="text-center">
-          <div className="text-[10px] text-muted-foreground">POSITION</div>
-          <div className="font-mono text-lg font-bold tracking-wider text-primary">
+          <div className="text-[8px] md:text-[10px] text-muted-foreground hidden xs:block">POS</div>
+          <div className="font-mono text-sm md:text-lg font-bold tracking-wider text-primary">
             {formatPosition()}
           </div>
         </div>
 
-        <div className="text-center">
+        <div className="text-center hidden md:block">
           <div className="text-[10px] text-muted-foreground">TIME</div>
           <div className="font-mono text-sm text-muted-foreground">
             {formatTime()}
@@ -217,27 +215,27 @@ export const TransportBar: React.FC<TransportBarProps> = ({
         </div>
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 md:h-8" />
 
-      {/* Tempo */}
-      <div className="flex items-center gap-2">
-        <Music className="h-4 w-4 text-muted-foreground" />
+      {/* Tempo - Compact on mobile */}
+      <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+        <Music className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground hidden xs:block" />
         <div className="flex flex-col">
-          <div className="text-[10px] text-muted-foreground">TEMPO</div>
-          <div className="flex items-center gap-1">
+          <div className="text-[8px] md:text-[10px] text-muted-foreground hidden sm:block">TEMPO</div>
+          <div className="flex items-center gap-0.5 md:gap-1">
             <Input
               type="number"
               value={bpm}
               onChange={(e) => onBpmChange(Math.max(20, Math.min(300, parseInt(e.target.value) || 113)))}
-              className="w-16 h-7 text-center font-mono text-sm"
+              className="w-12 md:w-16 h-6 md:h-7 text-center font-mono text-xs md:text-sm"
             />
-            <span className="text-xs text-muted-foreground">BPM</span>
+            <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline">BPM</span>
           </div>
         </div>
       </div>
 
-      {/* Tempo Slider */}
-      <div className="w-24">
+      {/* Tempo Slider - Hidden on small screens */}
+      <div className="w-16 md:w-24 hidden lg:block">
         <Slider
           value={[bpm]}
           min={60}
@@ -247,33 +245,33 @@ export const TransportBar: React.FC<TransportBarProps> = ({
         />
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 md:h-8 hidden md:block" />
 
-      {/* Producer DNA Badge */}
-      <div className="flex items-center gap-2">
+      {/* Producer DNA Badge - Hidden on mobile */}
+      <div className="hidden md:flex items-center gap-2 flex-shrink-0">
         <Zap className="h-4 w-4 text-primary" />
         <div className="flex flex-col">
-          <div className="text-[10px] text-muted-foreground">PRODUCER DNA</div>
-          <Badge variant="outline" className="text-xs">
+          <div className="text-[10px] text-muted-foreground">DNA</div>
+          <Badge variant="outline" className="text-[10px] md:text-xs">
             {producerProfile.name}
           </Badge>
         </div>
       </div>
 
-      <Separator orientation="vertical" className="h-8" />
+      <Separator orientation="vertical" className="h-6 md:h-8 hidden lg:block" />
 
-      {/* Time Signature */}
-      <div className="flex items-center gap-2">
+      {/* Time Signature - Hidden on smaller screens */}
+      <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
         <Clock className="h-4 w-4 text-muted-foreground" />
         <div className="text-center">
-          <div className="text-[10px] text-muted-foreground">TIME SIG</div>
+          <div className="text-[10px] text-muted-foreground">SIG</div>
           <div className="font-mono text-sm">
             {timeSignature.numerator}/{timeSignature.denominator}
           </div>
         </div>
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 min-w-2" />
 
       {/* Toggle Advanced Panels */}
       <Tooltip>
@@ -281,28 +279,28 @@ export const TransportBar: React.FC<TransportBarProps> = ({
           <Button 
             variant={showAdvanced ? 'default' : 'ghost'} 
             size="icon" 
-            className="h-9 w-9"
+            className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0"
             onClick={onToggleAdvanced}
           >
-            <Settings2 className="h-4 w-4" />
+            <Settings2 className="h-3 w-3 md:h-4 md:w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Toggle Advanced Panels</TooltipContent>
       </Tooltip>
 
-      {/* Audio Status */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      {/* Audio Status - Compact on mobile */}
+      <div className="hidden sm:flex items-center gap-1 md:gap-2 text-[10px] md:text-xs text-muted-foreground flex-shrink-0">
         <div className="flex items-center gap-1">
           <div className={cn(
-            "w-2 h-2 rounded-full",
+            "w-1.5 h-1.5 md:w-2 md:h-2 rounded-full",
             isInitialized 
               ? isPlaying ? "bg-success animate-pulse" : "bg-success" 
               : "bg-warning"
           )} />
-          <span>{isInitialized ? (isPlaying ? 'Playing' : 'Ready') : 'Initializing...'}</span>
+          <span className="hidden md:inline">{isInitialized ? (isPlaying ? 'Playing' : 'Ready') : 'Init...'}</span>
         </div>
-        <Activity className="h-3 w-3" />
-        <span>Tone.js</span>
+        <Activity className="h-2.5 w-2.5 md:h-3 md:w-3 hidden lg:block" />
+        <span className="hidden lg:inline">Tone.js</span>
       </div>
     </div>
   );

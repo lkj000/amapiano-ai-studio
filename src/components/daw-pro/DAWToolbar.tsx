@@ -53,12 +53,14 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
   onZoomChange,
 }) => {
   return (
-    <div className="h-12 bg-card border-b border-border flex items-center px-2 gap-1">
+    <div className="h-10 md:h-12 bg-card border-b border-border flex items-center px-1 md:px-2 gap-0.5 md:gap-1 overflow-x-auto scrollbar-hide">
       {/* File Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-1">
-            File <ChevronDown className="h-3 w-3" />
+          <Button variant="ghost" size="sm" className="gap-1 h-7 md:h-8 text-xs md:text-sm px-2 md:px-3">
+            <span className="hidden xs:inline">File</span>
+            <span className="xs:hidden">📁</span>
+            <ChevronDown className="h-3 w-3 hidden xs:block" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -83,7 +85,7 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-1">
+          <Button variant="ghost" size="sm" className="gap-1 h-7 md:h-8 text-xs md:text-sm px-2 md:px-3 hidden sm:flex">
             Edit <ChevronDown className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
@@ -110,13 +112,13 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1 hidden sm:block" />
 
       {/* Undo/Redo */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Undo2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 hidden sm:flex">
+            <Undo2 className="h-3 w-3 md:h-4 md:w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Undo (Ctrl+Z)</TooltipContent>
@@ -124,28 +126,28 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Redo2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8 hidden sm:flex">
+            <Redo2 className="h-3 w-3 md:h-4 md:w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Redo (Ctrl+Y)</TooltipContent>
       </Tooltip>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1" />
 
       {/* Project Name */}
       <Input
         value={project.name}
         onChange={(e) => onUpdateProject({ name: e.target.value })}
-        className="w-40 h-8 text-sm bg-muted"
+        className="w-24 md:w-40 h-7 md:h-8 text-xs md:text-sm bg-muted"
       />
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1 hidden md:block" />
 
-      {/* Key & Scale */}
-      <div className="flex items-center gap-1">
+      {/* Key & Scale - Hidden on mobile */}
+      <div className="hidden md:flex items-center gap-1">
         <Select value={project.key} onValueChange={(key) => onUpdateProject({ key })}>
-          <SelectTrigger className="w-16 h-8">
+          <SelectTrigger className="w-14 md:w-16 h-7 md:h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -156,7 +158,7 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
         </Select>
 
         <Select value={project.scale} onValueChange={(scale) => onUpdateProject({ scale })}>
-          <SelectTrigger className="w-24 h-8">
+          <SelectTrigger className="w-20 md:w-24 h-7 md:h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -167,26 +169,26 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
         </Select>
       </div>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1 hidden lg:block" />
 
-      {/* Snap */}
-      <div className="flex items-center gap-1">
+      {/* Snap - Hidden on smaller screens */}
+      <div className="hidden lg:flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
               variant={snap !== 'none' ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8"
               onClick={() => onSnapChange(snap === 'none' ? 'step' : 'none')}
             >
-              <Magnet className="h-4 w-4" />
+              <Magnet className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Snap to Grid</TooltipContent>
         </Tooltip>
 
         <Select value={snap} onValueChange={(v) => onSnapChange(v as typeof snap)}>
-          <SelectTrigger className="w-20 h-8">
+          <SelectTrigger className="w-16 md:w-20 h-7 md:h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -198,42 +200,42 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
         </Select>
       </div>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1 hidden xl:block" />
 
-      {/* Zoom */}
-      <div className="flex items-center gap-1">
+      {/* Zoom - Hidden on smaller screens */}
+      <div className="hidden xl:flex items-center gap-1">
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-8 w-8"
+          className="h-7 w-7 md:h-8 md:w-8"
           onClick={() => onZoomChange(Math.max(0.25, zoom - 0.25))}
         >
-          <ZoomOut className="h-4 w-4" />
+          <ZoomOut className="h-3 w-3 md:h-4 md:w-4" />
         </Button>
-        <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
+        <span className="text-[10px] md:text-xs w-8 md:w-10 text-center">{Math.round(zoom * 100)}%</span>
         <Button 
           variant="ghost" 
           size="icon" 
-          className="h-8 w-8"
+          className="h-7 w-7 md:h-8 md:w-8"
           onClick={() => onZoomChange(Math.min(4, zoom + 0.25))}
         >
-          <ZoomIn className="h-4 w-4" />
+          <ZoomIn className="h-3 w-3 md:h-4 md:w-4" />
         </Button>
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 min-w-2" />
 
       {/* View Toggles */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 md:gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
               variant={showBrowser ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8 hidden sm:flex"
               onClick={onToggleBrowser}
             >
-              <Folder className="h-4 w-4" />
+              <Folder className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Browser</TooltipContent>
@@ -244,26 +246,26 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
             <Button 
               variant={showVSTRack ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8 hidden sm:flex"
               onClick={onToggleVSTRack}
             >
-              <Plug className="h-4 w-4" />
+              <Plug className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>VST Rack</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="h-6 mx-1" />
+        <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1 hidden sm:block" />
 
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 
               variant={activeView === 'playlist' ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8"
               onClick={() => onViewChange('playlist')}
             >
-              <Grid3X3 className="h-4 w-4" />
+              <Grid3X3 className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Playlist</TooltipContent>
@@ -274,10 +276,10 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
             <Button 
               variant={activeView === 'pianoroll' ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8"
               onClick={() => onViewChange('pianoroll')}
             >
-              <Music className="h-4 w-4" />
+              <Music className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Piano Roll</TooltipContent>
@@ -288,23 +290,23 @@ export const DAWToolbar: React.FC<DAWToolbarProps> = ({
             <Button 
               variant={activeView === 'mixer' ? 'default' : 'ghost'} 
               size="icon" 
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8"
               onClick={() => onViewChange('mixer')}
             >
-              <SlidersHorizontal className="h-4 w-4" />
+              <SlidersHorizontal className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Mixer</TooltipContent>
         </Tooltip>
       </div>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+      <Separator orientation="vertical" className="h-5 md:h-6 mx-0.5 md:mx-1" />
 
       {/* Settings */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <Settings className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-7 w-7 md:h-8 md:w-8">
+            <Settings className="h-3 w-3 md:h-4 md:w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>Settings</TooltipContent>

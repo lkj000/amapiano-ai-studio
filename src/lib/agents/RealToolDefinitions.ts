@@ -246,6 +246,76 @@ export const exportStemsTool: ToolDefinition = {
   timeout: 120000
 };
 
+// Layer Generation Tool - LANDR Layers Style
+export const layerGenerationTool: ToolDefinition = {
+  name: 'layer_generation',
+  description: 'Generate AI instrumental layers (drums, bass, harmony, texture, melody) that fit an existing track',
+  inputSchema: {
+    layerType: 'string - Type of layer: drums, bass, harmony, texture, melody',
+    analysisData: 'object - Track analysis with bpm, key, scale, genre, energy',
+    settings: 'object - Generation settings with intensity, complexity, fills, dynamics (0-100)',
+    duration: 'number - Duration in seconds (max 30)'
+  },
+  outputSchema: {
+    audioUrl: 'string - URL of generated layer',
+    layerType: 'string - Type of layer generated',
+    metadata: 'object - Generation metadata including prompt used'
+  },
+  execute: async (input: { 
+    layerType: 'drums' | 'bass' | 'harmony' | 'texture' | 'melody';
+    analysisData: { bpm: number; key: string; scale: string; genre?: string; energy?: number };
+    settings: { intensity: number; complexity: number; fills: number; dynamics: number };
+    duration?: number;
+  }) => {
+    const { data, error } = await supabase.functions.invoke('generate-layer', {
+      body: {
+        layerType: input.layerType,
+        analysisData: input.analysisData,
+        settings: input.settings,
+        duration: input.duration || 30
+      }
+    });
+    
+    if (error) throw new Error(`Layer generation failed: ${error.message}`);
+    return data;
+  },
+  retryable: true,
+  maxRetries: 1,
+  timeout: 180000 // 3 minutes
+};
+
+// AI Mastering Tool
+export const aiMasteringTool: ToolDefinition = {
+  name: 'ai_mastering',
+  description: 'Master audio using AI for optimal loudness, clarity, and platform-specific optimization',
+  inputSchema: {
+    audioBase64: 'string - Base64-encoded audio data',
+    preset: 'string - Mastering preset (amapiano-club, streaming, punchy)',
+    targetPlatform: 'string - Target platform (spotify, apple, youtube, club)',
+    settings: 'object - Custom settings for loudness, warmth, clarity, stereoWidth'
+  },
+  outputSchema: {
+    audioUrl: 'string - URL of mastered audio',
+    analysis: 'object - Analysis of the mastered track'
+  },
+  execute: async (input: {
+    audioBase64: string;
+    preset?: string;
+    targetPlatform?: string;
+    settings?: { loudness?: number; warmth?: number; clarity?: number; stereoWidth?: number };
+  }) => {
+    const { data, error } = await supabase.functions.invoke('ai-mastering', {
+      body: input
+    });
+    
+    if (error) throw new Error(`AI mastering failed: ${error.message}`);
+    return data;
+  },
+  retryable: true,
+  maxRetries: 1,
+  timeout: 300000 // 5 minutes
+};
+
 // Get all real tool definitions
 export const getAllRealTools = (): ToolDefinition[] => [
   stemSeparationTool,
@@ -254,7 +324,9 @@ export const getAllRealTools = (): ToolDefinition[] => [
   audioAnalysisTool,
   amapianorizationTool,
   musicGenerationTool,
-  exportStemsTool
+  exportStemsTool,
+  layerGenerationTool,
+  aiMasteringTool
 ];
 
 // Get tool by name

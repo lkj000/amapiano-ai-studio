@@ -98,7 +98,8 @@ const PLATFORM_TARGETS = [
 
 export default function MasteringStudio() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [originalAudioUrl, setOriginalAudioUrl] = useState<string | null>(null);
+  const [masteredAudioUrl, setMasteredAudioUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMastered, setIsMastered] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -106,9 +107,12 @@ export default function MasteringStudio() {
   const [selectedPreset, setSelectedPreset] = useState<MasteringPreset>(MASTERING_PRESETS[0]);
   const [targetPlatform, setTargetPlatform] = useState(PLATFORM_TARGETS[0]);
   const [processingProgress, setProcessingProgress] = useState(0);
-  
-  // Audio refs for real playback
+
+  // Audio ref for real playback
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const activeAudioUrl =
+    playingVersion === "mastered" ? (masteredAudioUrl ?? originalAudioUrl) : originalAudioUrl;
   
   // Custom settings
   const [loudness, setLoudness] = useState([-14]);
@@ -120,65 +124,132 @@ export default function MasteringStudio() {
   const [useAI, setUseAI] = useState(true);
   const [referenceTrack, setReferenceTrack] = useState(false);
 
-  // Cleanup audio URL on unmount
-  useEffect(() => {
-    return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
+  const revokeIfBlobUrl = useCallback((url: string | null) => {
+    if (url && url.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
   }, []);
 
-  // Toggle playback function
+  const originalUrlRef = useRef<string | null>(null);
+  const masteredUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    originalUrlRef.current = originalAudioUrl;
+  }, [originalAudioUrl]);
+
+  useEffect(() => {
+    masteredUrlRef.current = masteredAudioUrl;
+  }, [masteredAudioUrl]);
+
+  const stopPlayback = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+  }, []);
+
+  const clearTrack = useCallback(() => {
+    stopPlayback();
+    audioRef.current = null;
+
+    // Revoke URLs we created
+    const m = masteredUrlRef.current;
+    const o = originalUrlRef.current;
+    revokeIfBlobUrl(m);
+    if (m !== o) {
+      revokeIfBlobUrl(o);
+    }
+
+    setUploadedFile(null);
+    setOriginalAudioUrl(null);
+    setMasteredAudioUrl(null);
+    setIsMastered(false);
+    setPlayingVersion("original");
+  }, [revokeIfBlobUrl, stopPlayback]);
+
+  // Cleanup on unmount (revoke any blob URLs we created)
+  useEffect(() => {
+    return () => {
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
+        }
+
+        const m = masteredUrlRef.current;
+        const o = originalUrlRef.current;
+        revokeIfBlobUrl(m);
+        if (m !== o) {
+          revokeIfBlobUrl(o);
+        }
+      } catch {
+        // ignore
+      }
+    };
+  }, [revokeIfBlobUrl]);
+
+  // Toggle playback for currently selected version (original/mastered)
   const togglePlayback = useCallback(() => {
-    if (!audioUrl) {
+    if (!activeAudioUrl) {
       toast({
         title: "No audio loaded",
         description: "Please upload a track first",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     if (isPlaying) {
-      audioRef.current?.pause();
-      setIsPlaying(false);
-    } else {
-      if (!audioRef.current) {
-        audioRef.current = new Audio(audioUrl);
-        audioRef.current.onended = () => setIsPlaying(false);
-        audioRef.current.onerror = () => {
-          toast({
-            title: "Playback error",
-            description: "Failed to play audio",
-            variant: "destructive"
-          });
-          setIsPlaying(false);
-        };
-      }
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => {
-        console.error('Playback error:', err);
+      stopPlayback();
+      return;
+    }
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(activeAudioUrl);
+      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onerror = () => {
         toast({
           title: "Playback error",
           description: "Failed to play audio",
-          variant: "destructive"
+          variant: "destructive",
+        });
+        setIsPlaying(false);
+      };
+    }
+
+    // Ensure the correct version is loaded
+    if (audioRef.current.src !== activeAudioUrl) {
+      audioRef.current.src = activeAudioUrl;
+    }
+
+    audioRef.current.currentTime = 0;
+    audioRef.current
+      .play()
+      .then(() => setIsPlaying(true))
+      .catch((err) => {
+        console.error("Playback error:", err);
+        toast({
+          title: "Playback error",
+          description: "Browser blocked playback or file is unsupported",
+          variant: "destructive",
         });
       });
-      setIsPlaying(true);
-    }
-  }, [audioUrl, isPlaying]);
+  }, [activeAudioUrl, isPlaying, stopPlayback]);
 
-  // Update audio source when audioUrl changes
+  // If user switches Original/Mastered while playing, switch the audio source
   useEffect(() => {
-    if (audioRef.current && audioUrl) {
-      audioRef.current.src = audioUrl;
-    }
-  }, [audioUrl]);
+    if (!isPlaying) return;
+    if (!activeAudioUrl) return;
+    if (!audioRef.current) return;
+
+    audioRef.current.pause();
+    audioRef.current.src = activeAudioUrl;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {
+      setIsPlaying(false);
+    });
+  }, [activeAudioUrl, isPlaying]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -188,20 +259,25 @@ export default function MasteringStudio() {
         audioRef.current.pause();
         audioRef.current = null;
       }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      if (masteredAudioUrl && masteredAudioUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(masteredAudioUrl);
       }
-      
+      if (originalAudioUrl && originalAudioUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(originalAudioUrl);
+      }
+
       // Create new audio URL
       const url = URL.createObjectURL(file);
-      setAudioUrl(url);
+      setOriginalAudioUrl(url);
+      setMasteredAudioUrl(null);
       setUploadedFile(file);
       setIsMastered(false);
       setIsPlaying(false);
-      
+      setPlayingVersion("original");
+
       toast({
         title: "Track uploaded",
-        description: `${file.name} ready for mastering`
+        description: `${file.name} ready for mastering`,
       });
     }
   };
@@ -211,7 +287,7 @@ export default function MasteringStudio() {
       toast({
         title: "No track uploaded",
         description: "Please upload a track first",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -227,23 +303,27 @@ export default function MasteringStudio() {
       "Optimizing stereo image...",
       "Adding warmth & saturation...",
       "Limiting to target loudness...",
-      "Final quality check..."
+      "Final quality check...",
     ];
 
     for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
       setProcessingProgress(((i + 1) / steps.length) * 100);
       toast({
         title: `Step ${i + 1}/${steps.length}`,
-        description: steps[i]
+        description: steps[i],
       });
     }
+
+    // For now, the "mastered" audio is the uploaded track (placeholder).
+    // When we wire real DSP/AI mastering, this becomes a new URL.
+    setMasteredAudioUrl(originalAudioUrl);
 
     setIsProcessing(false);
     setIsMastered(true);
     toast({
       title: "Mastering complete! ✨",
-      description: `Your track is ready for ${targetPlatform.name}`
+      description: `Your track is ready for ${targetPlatform.name}`,
     });
   };
 
@@ -311,7 +391,7 @@ export default function MasteringStudio() {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => setUploadedFile(null)}
+                        onClick={clearTrack}
                       >
                         Replace
                       </Button>
@@ -634,7 +714,52 @@ export default function MasteringStudio() {
 
               {isMastered && (
                 <>
-                  <Button variant="outline" className="w-full" size="lg">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    onClick={async () => {
+                      const url = masteredAudioUrl ?? originalAudioUrl;
+                      if (!url || !uploadedFile) {
+                        toast({
+                          title: "No mastered file",
+                          description: "Please master a track first",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+
+                      const baseName = uploadedFile.name.replace(/\.[^/.]+$/, "");
+                      const extMatch = uploadedFile.name.match(/\.([0-9a-z]+)$/i);
+                      const ext = extMatch?.[1] ?? "wav";
+                      const downloadName = `${baseName}-mastered.${ext}`;
+
+                      try {
+                        const res = await fetch(url);
+                        const blob = await res.blob();
+                        const blobUrl = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = blobUrl;
+                        a.download = downloadName;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(blobUrl);
+
+                        toast({
+                          title: "Download started",
+                          description: downloadName,
+                        });
+                      } catch (e) {
+                        console.error("Download error:", e);
+                        toast({
+                          title: "Download failed",
+                          description: "Could not download the mastered file",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Download Master
                   </Button>

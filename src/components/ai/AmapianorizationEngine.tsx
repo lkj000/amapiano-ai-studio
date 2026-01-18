@@ -6,6 +6,13 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Wand2, 
   Music4, 
@@ -14,9 +21,14 @@ import {
   Volume2,
   Sparkles,
   Download,
-  Layers
+  Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  AMAPIANORIZER_PRESETS, 
+  type AmapianorizerPresetName,
+  getAvailablePresets 
+} from '@/lib/audio/amapianorizerPresets';
 
 interface AmapianorizationEngineProps {
   stems?: {
@@ -94,12 +106,46 @@ export const AmapianorizationEngine: React.FC<AmapianorizationEngineProps> = ({
     regionalStyle: 'johannesburg'
   });
 
+  const [selectedPreset, setSelectedPreset] = useState<AmapianorizerPresetName | 'custom'>('custom');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [authenticityScore, setAuthenticityScore] = useState(0);
 
   const updateSetting = useCallback((key: keyof EnhancementSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+    setSelectedPreset('custom'); // Switch to custom when manually adjusting
+  }, []);
+
+  const applyPreset = useCallback((presetId: AmapianorizerPresetName) => {
+    const preset = AMAPIANORIZER_PRESETS[presetId];
+    if (!preset) return;
+
+    // Map preset processing to enhancement settings
+    const processing = preset.processing;
+    const options = preset.options;
+
+    setSettings({
+      addLogDrum: options.elements?.logDrums ?? true,
+      logDrumIntensity: processing.logDrumModulationIndex,
+      addPercussion: options.elements?.percussion ?? true,
+      percussionDensity: 100 - Math.abs(processing.ngeDisplacementHighMs) * 10, // Convert displacement to density
+      addPianoChords: options.elements?.piano ?? true,
+      pianoComplexity: preset.id === 'momo-soul-wash' ? 90 : 
+                       preset.id === 'kabza-foundation' ? 60 : 70,
+      addBassline: options.elements?.bass ?? true,
+      bassDepth: processing.logDrumGrit,
+      addVocalChops: Math.abs(processing.formantShiftPercent) > 10,
+      vocalChopRate: Math.abs(processing.formantShiftPercent),
+      sidechainCompression: options.elements?.sidechain ?? true,
+      sidechainAmount: Math.abs(processing.sidechainDepthDb) * 10,
+      filterSweeps: options.elements?.filterSweeps ?? true,
+      sweepFrequency: processing.highCutHz ? Math.round(processing.highCutHz / 200) : 55,
+      culturalAuthenticity: preset.aesthetics.energy === 'high' || preset.aesthetics.energy === 'extreme' ? 'modern' : 'traditional',
+      regionalStyle: (options.region as 'johannesburg' | 'pretoria' | 'durban' | 'cape-town') || 'johannesburg'
+    });
+
+    setSelectedPreset(presetId);
+    toast.success(`Applied "${preset.name}" preset`);
   }, []);
 
   const calculateAuthenticityScore = useCallback(() => {
@@ -230,6 +276,68 @@ export const AmapianorizationEngine: React.FC<AmapianorizationEngineProps> = ({
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Transformation Preset Selector */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              Transformation Preset
+            </label>
+            <Select
+              value={selectedPreset}
+              onValueChange={(value) => {
+                if (value === 'custom') {
+                  setSelectedPreset('custom');
+                } else {
+                  applyPreset(value as AmapianorizerPresetName);
+                }
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a preset or customize" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">
+                  <div className="flex flex-col">
+                    <span>Custom Settings</span>
+                    <span className="text-xs text-muted-foreground">Manual configuration</span>
+                  </div>
+                </SelectItem>
+                {getAvailablePresets().map((presetId) => {
+                  const preset = AMAPIANORIZER_PRESETS[presetId];
+                  return (
+                    <SelectItem key={presetId} value={presetId}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{preset.name}</span>
+                        <span className="text-xs text-muted-foreground">{preset.producerDNA} DNA</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            
+            {selectedPreset !== 'custom' && (
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                <p className="text-xs text-muted-foreground">
+                  {AMAPIANORIZER_PRESETS[selectedPreset as AmapianorizerPresetName]?.description}
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {AMAPIANORIZER_PRESETS[selectedPreset as AmapianorizerPresetName]?.targetBPM} BPM
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {AMAPIANORIZER_PRESETS[selectedPreset as AmapianorizerPresetName]?.targetKey}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    {AMAPIANORIZER_PRESETS[selectedPreset as AmapianorizerPresetName]?.aesthetics.energy} energy
+                  </Badge>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Regional Style Selection */}
           <div className="space-y-3">
             <label className="text-sm font-medium">Regional Style</label>

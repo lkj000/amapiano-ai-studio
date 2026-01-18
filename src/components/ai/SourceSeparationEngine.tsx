@@ -231,31 +231,55 @@ export const SourceSeparationEngine: React.FC<{
       if (pollData.status === 'succeeded' && pollData.stems) {
         setSeparationProgress(95);
         
-        // Map backend stems to EnhancedInstrumentSelector categories
-        const stemMapping: { key: string; name: string; instrument: string; color: string }[] = [
-          { key: 'vocals', name: 'Vocal', instrument: 'vocal', color: INSTRUMENT_COLORS.vocal },
-          { key: 'drums', name: 'Percussion', instrument: 'percussion', color: INSTRUMENT_COLORS.percussion },
-          { key: 'bass', name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
-          { key: 'guitar', name: 'Strings', instrument: 'strings', color: INSTRUMENT_COLORS.strings },
-          { key: 'piano', name: 'Keys', instrument: 'keys', color: INSTRUMENT_COLORS.keys },
-          { key: 'other', name: 'Other/Synth', instrument: 'synth', color: INSTRUMENT_COLORS.synth },
-        ];
-
-        const stems: SeparatedStem[] = stemMapping
-          .filter(m => pollData.stems[m.key])
-          .map((m, idx) => ({
-            id: m.key,
-            name: m.name,
-            instrument: m.instrument,
-            confidence: 90 - idx * 3,
-            waveformData: generateMockWaveform(),
-            audioUrl: pollData.stems[m.key],
-            isPlaying: false,
-            volume: 80 - idx * 5,
-            isMuted: false,
-            color: m.color,
-            category: m.instrument,
+        // Handle both array and object response formats from the API
+        let stemsArray: { id: string; audioUrl: string }[] = [];
+        
+        if (Array.isArray(pollData.stems)) {
+          // API returned array format: [{id: 'vocals', audioUrl: '...'}, ...]
+          stemsArray = pollData.stems;
+        } else if (typeof pollData.stems === 'object') {
+          // API returned object format: {vocals: '...', drums: '...'}
+          stemsArray = Object.entries(pollData.stems).map(([key, url]) => ({
+            id: key,
+            audioUrl: url as string
           }));
+        }
+        
+        // Map backend stems to EnhancedInstrumentSelector categories
+        const stemCategoryMap: Record<string, { name: string; instrument: string; color: string }> = {
+          'vocals': { name: 'Vocal', instrument: 'vocal', color: INSTRUMENT_COLORS.vocal },
+          'vocal': { name: 'Vocal', instrument: 'vocal', color: INSTRUMENT_COLORS.vocal },
+          'drums': { name: 'Percussion', instrument: 'percussion', color: INSTRUMENT_COLORS.percussion },
+          'percussion': { name: 'Percussion', instrument: 'percussion', color: INSTRUMENT_COLORS.percussion },
+          'bass': { name: 'Bass', instrument: 'bass', color: INSTRUMENT_COLORS.bass },
+          'guitar': { name: 'Strings', instrument: 'strings', color: INSTRUMENT_COLORS.strings },
+          'piano': { name: 'Keys', instrument: 'keys', color: INSTRUMENT_COLORS.keys },
+          'keys': { name: 'Keys', instrument: 'keys', color: INSTRUMENT_COLORS.keys },
+          'other': { name: 'Other/Synth', instrument: 'synth', color: INSTRUMENT_COLORS.synth },
+        };
+
+        const stems: SeparatedStem[] = stemsArray
+          .filter(s => s.audioUrl)
+          .map((s, idx) => {
+            const category = stemCategoryMap[s.id.toLowerCase()] || { 
+              name: s.id, 
+              instrument: 'other', 
+              color: INSTRUMENT_COLORS.other 
+            };
+            return {
+              id: s.id,
+              name: category.name,
+              instrument: category.instrument,
+              confidence: 90 - idx * 3,
+              waveformData: generateMockWaveform(),
+              audioUrl: s.audioUrl,
+              isPlaying: false,
+              volume: 80 - idx * 5,
+              isMuted: false,
+              color: category.color,
+              category: category.instrument,
+            };
+          });
 
         setSeparationProgress(100);
 

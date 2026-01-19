@@ -462,9 +462,10 @@ export const SourceSeparationEngine: React.FC<{
         setAnalysisResult(analysis);
       }
 
-      // Notify parent component
-      if (onSeparationComplete) {
-        onSeparationComplete(stems);
+      // Notify parent component using ref to avoid stale closure
+      if (onSeparationCompleteRef.current) {
+        console.log('[SourceSeparation] Calling onSeparationComplete callback with', stems.length, 'stems');
+        onSeparationCompleteRef.current(stems);
       }
 
       toast.success(`Successfully separated audio into ${stems.length} stems with AI classification!`);
@@ -477,8 +478,15 @@ export const SourceSeparationEngine: React.FC<{
     }
   }, [initializeAudioContext, performRealStemSeparation, performAIClassification, analyzeAudioPatterns, enablePatternExtraction, enableAIClassification, onSeparationComplete]);
 
+  // Store ref to callback to avoid stale closures
+  const onSeparationCompleteRef = useRef(onSeparationComplete);
+  useEffect(() => {
+    onSeparationCompleteRef.current = onSeparationComplete;
+  }, [onSeparationComplete]);
+
   // Auto-start processing if an initial URL is provided
   useEffect(() => {
+    let cancelled = false;
     const run = async () => {
       if (autoStart && initialAudioUrl) {
         try {
@@ -487,15 +495,19 @@ export const SourceSeparationEngine: React.FC<{
           const blob = await resp.blob();
           const ext = (blob.type?.split('/')[1] || 'mp3').split(';')[0];
           const file = new File([blob], `track-${Date.now()}.${ext}`, { type: blob.type || 'audio/mpeg' });
+          
+          if (cancelled) return;
           await handleFileUpload(file);
         } catch (e) {
-          toast.error("Failed to prepare track for stem separation");
-          console.error(e);
+          if (!cancelled) {
+            toast.error("Failed to prepare track for stem separation");
+            console.error(e);
+          }
         }
       }
     };
     run();
-    // We intentionally omit handleFileUpload to avoid unnecessary re-runs
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAudioUrl, autoStart]);
 

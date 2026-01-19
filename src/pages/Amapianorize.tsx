@@ -56,6 +56,8 @@ export default function Amapianorize() {
   };
 
   const handleSeparationComplete = (stems: any) => {
+    console.log('[Amapianorize] handleSeparationComplete called with stems:', stems);
+    
     // Store raw stems list for playback panel
     if (Array.isArray(stems)) {
       const stemsList: StemData[] = stems.map((stem: any) => ({
@@ -64,6 +66,7 @@ export default function Amapianorize() {
         audioUrl: stem.audioUrl,
         category: stem.category || stem.id?.toLowerCase() || 'other'
       }));
+      console.log('[Amapianorize] Setting rawStemsList:', stemsList);
       setRawStemsList(stemsList);
     }
 
@@ -94,6 +97,9 @@ export default function Amapianorize() {
       // Already in correct format
       Object.assign(stemUrls, stems);
     }
+    
+    console.log('[Amapianorize] Setting separatedStems:', stemUrls);
+    console.log('[Amapianorize] Has stems keys:', Object.keys(stemUrls));
     
     setSeparatedStems(stemUrls);
     setActiveTab('enhance');
@@ -195,11 +201,19 @@ export default function Amapianorize() {
             </TabsContent>
 
             <TabsContent value="enhance" className="space-y-6">
-              {separatedStems && (
+              {separatedStems ? (
                 <AmapianorizationEngine
                   stems={separatedStems}
                   onEnhancementComplete={handleEnhancementComplete}
                 />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-12 text-center">
+                  <Sparkles className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Waiting for Stems</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Complete the stem separation process first to enable enhancement.
+                  </p>
+                </div>
               )}
             </TabsContent>
 

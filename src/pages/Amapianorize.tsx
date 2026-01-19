@@ -2,17 +2,27 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Upload, Music, Sparkles } from 'lucide-react';
+import { Upload, Music, Sparkles, Headphones } from 'lucide-react';
 import { AmapianorizationEngine } from '@/components/ai/AmapianorizationEngine';
 import { SourceSeparationEngine } from '@/components/ai/SourceSeparationEngine';
+import { StemPlaybackPanel } from '@/components/audio/StemPlaybackPanel';
 import { toast } from 'sonner';
 
+interface StemData {
+  id: string;
+  name: string;
+  audioUrl: string;
+  category?: string;
+}
+
 export default function Amapianorize() {
-  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'enhance'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'separate' | 'enhance' | 'listen'>('upload');
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [audioObjectUrl, setAudioObjectUrl] = useState<string | null>(null);
   const [separatedStems, setSeparatedStems] = useState<any>(null);
+  const [rawStemsList, setRawStemsList] = useState<StemData[]>([]);
   const [enhancedStems, setEnhancedStems] = useState<any>(null);
+  const [enhancedAudioUrl, setEnhancedAudioUrl] = useState<string | null>(null);
 
   // Clean up object URL on unmount or when file changes
   useEffect(() => {
@@ -36,12 +46,27 @@ export default function Amapianorize() {
       }
       setAudioFile(file);
       setAudioObjectUrl(URL.createObjectURL(file));
+      setSeparatedStems(null);
+      setRawStemsList([]);
+      setEnhancedStems(null);
+      setEnhancedAudioUrl(null);
       setActiveTab('separate');
       toast.success(`File "${file.name}" ready for separation`);
     }
   };
 
   const handleSeparationComplete = (stems: any) => {
+    // Store raw stems list for playback panel
+    if (Array.isArray(stems)) {
+      const stemsList: StemData[] = stems.map((stem: any) => ({
+        id: stem.id || stem.instrument || 'unknown',
+        name: stem.name || stem.instrument || stem.id || 'Unknown Stem',
+        audioUrl: stem.audioUrl,
+        category: stem.category || stem.id?.toLowerCase() || 'other'
+      }));
+      setRawStemsList(stemsList);
+    }
+
     // Convert SeparatedStem[] to the format AmapianorizationEngine expects
     const stemUrls: Record<string, string> = {};
     if (Array.isArray(stems)) {
@@ -59,6 +84,7 @@ export default function Amapianorize() {
             'other': 'other',
             'synth': 'other',
             'strings': 'other',
+            'guitar': 'other',
           };
           const mappedKey = keyMap[stem.id?.toLowerCase()] || keyMap[stem.instrument?.toLowerCase()] || 'other';
           stemUrls[mappedKey] = stem.audioUrl;
@@ -76,6 +102,10 @@ export default function Amapianorize() {
 
   const handleEnhancementComplete = (enhanced: any) => {
     setEnhancedStems(enhanced);
+    // Check if there's an output URL
+    if (enhanced?.outputUrl) {
+      setEnhancedAudioUrl(enhanced.outputUrl);
+    }
     toast.success('Enhancement complete! Your track is now authentically Amapiano');
   };
 
@@ -96,18 +126,22 @@ export default function Amapianorize() {
 
           {/* Workflow Tabs */}
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="upload" disabled={activeTab !== 'upload'}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="upload">
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Track
+                Upload
               </TabsTrigger>
               <TabsTrigger value="separate" disabled={!audioFile && activeTab === 'upload'}>
                 <Music className="w-4 h-4 mr-2" />
-                Separate Stems
+                Separate
               </TabsTrigger>
-              <TabsTrigger value="enhance" disabled={!separatedStems && activeTab !== 'enhance'}>
+              <TabsTrigger value="enhance" disabled={!separatedStems}>
                 <Sparkles className="w-4 h-4 mr-2" />
-                Amapianorize
+                Enhance
+              </TabsTrigger>
+              <TabsTrigger value="listen" disabled={rawStemsList.length === 0}>
+                <Headphones className="w-4 h-4 mr-2" />
+                Listen
               </TabsTrigger>
             </TabsList>
 
@@ -167,6 +201,29 @@ export default function Amapianorize() {
                   onEnhancementComplete={handleEnhancementComplete}
                 />
               )}
+            </TabsContent>
+
+            <TabsContent value="listen" className="space-y-6">
+              <StemPlaybackPanel
+                originalAudioUrl={audioObjectUrl || undefined}
+                originalFileName={audioFile?.name}
+                stems={rawStemsList}
+                enhancedAudioUrl={enhancedAudioUrl || undefined}
+                title="Your Audio Files"
+              />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Download Location</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Downloaded stems will be saved to your browser's default <strong>Downloads</strong> folder. 
+                    Use the "Download All" button to get a ZIP file with all stems, or download individual stems 
+                    using the download button next to each track.
+                  </p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 

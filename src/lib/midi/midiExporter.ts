@@ -204,7 +204,9 @@ export function exportMidi(options: MidiExportOptions): Uint8Array {
  * Download MIDI file
  */
 export function downloadMidi(data: Uint8Array, filename: string): void {
-  const blob = new Blob([data], { type: 'audio/midi' });
+  const arrayBuffer = new ArrayBuffer(data.length);
+  new Uint8Array(arrayBuffer).set(data);
+  const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
+import { motion, AnimatePresence } from 'framer-motion';
 import { DAWToolbar } from '@/components/daw-pro/DAWToolbar';
 import { ChannelRack } from '@/components/daw-pro/ChannelRack';
 import { PianoRoll } from '@/components/daw-pro/PianoRoll';
@@ -16,6 +17,9 @@ import { TransportBar } from '@/components/daw-pro/TransportBar';
 import { ProducerDNAPanel } from '@/components/daw-pro/ProducerDNAPanel';
 import { FMLogDrumPanel } from '@/components/daw-pro/FMLogDrumPanel';
 import { GrooveEnginePanel } from '@/components/daw-pro/GrooveEnginePanel';
+import { EffectsRack } from '@/components/daw-pro/EffectsRack';
+import { SoundLibrary } from '@/components/daw-pro/SoundLibrary';
+import { SyntheticIntelligence } from '@/components/daw-pro/SyntheticIntelligence';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRealAudioDAW } from '@/hooks/useRealAudioDAW';
@@ -454,7 +458,12 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden touch-pan-y">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/20 overflow-hidden touch-pan-y"
+    >
       {/* Top Toolbar */}
       <DAWToolbar
         project={project}
@@ -491,57 +500,91 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
           {/* Center Content */}
           <ResizablePanel defaultSize={showBrowser && showVSTRack ? 60 : showBrowser || showVSTRack ? 75 : 100}>
             <ResizablePanelGroup direction="vertical">
-              {/* Advanced Panels (Producer DNA, FM Synth, Groove Engine) */}
-              {showAdvancedPanels && (
-                <>
-                  <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-                    <div className="h-full border-b border-border">
-                      <Tabs defaultValue="producer-dna" className="h-full flex flex-col">
-                        <TabsList className="w-full justify-start rounded-none border-b border-border bg-muted/30 px-2">
-                          <TabsTrigger value="producer-dna" className="text-xs">Producer DNA</TabsTrigger>
-                          <TabsTrigger value="fm-logdrum" className="text-xs">FM Log Drum</TabsTrigger>
-                          <TabsTrigger value="groove" className="text-xs">Groove Engine</TabsTrigger>
-                        </TabsList>
-                        <div className="flex-1 overflow-hidden">
-                        <TabsContent value="producer-dna" className="h-full m-0">
-                            <ProducerDNAPanel 
-                              selectedProfileId={audioDAW.producerProfile.id}
-                              onProfileChange={audioDAW.setProducerProfile}
-                              currentSettings={audioDAW.producerProfile}
-                              onApplyMorph={(morphedProfile) => {
-                                // Apply morphed profile to the engine
-                                console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
-                                audioDAW.setProducerProfile(morphedProfile.id);
-                              }}
-                            />
-                          </TabsContent>
-                          <TabsContent value="fm-logdrum" className="h-full m-0">
-                            <FMLogDrumPanel 
-                              onPatchChange={(patch) => {
-                                console.log('[AmapianoPro] FM Patch changed:', patch);
-                                // Patch changes are handled internally by the panel
-                              }} 
-                            />
-                          </TabsContent>
-                          <TabsContent value="groove" className="h-full m-0">
-                            <GrooveEnginePanel 
-                              bpm={project.bpm}
-                              selectedProfile={audioDAW.producerProfile.style}
-                              onProfileChange={(profileId) => {
-                                console.log('[AmapianoPro] Groove profile changed:', profileId);
-                              }}
-                              onGrooveChange={(groove) => {
-                                console.log('[AmapianoPro] Groove settings changed:', groove);
-                              }}
-                            />
-                          </TabsContent>
-                        </div>
-                      </Tabs>
-                    </div>
-                  </ResizablePanel>
-                  <ResizableHandle withHandle />
-                </>
-              )}
+              {/* Advanced Panels (Producer DNA, FM Synth, Groove Engine, Effects, Sound Library, AI) */}
+              <AnimatePresence>
+                {showAdvancedPanels && (
+                  <>
+                    <ResizablePanel defaultSize={28} minSize={18} maxSize={45}>
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="h-full border-b border-border/50 bg-gradient-to-b from-card/80 to-card"
+                      >
+                        <Tabs defaultValue="producer-dna" className="h-full flex flex-col">
+                          <TabsList className="w-full justify-start rounded-none border-b border-border/50 bg-muted/20 px-2 backdrop-blur-sm">
+                            <TabsTrigger value="producer-dna" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              Producer DNA
+                            </TabsTrigger>
+                            <TabsTrigger value="fm-logdrum" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              FM Log Drum
+                            </TabsTrigger>
+                            <TabsTrigger value="groove" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              Groove Engine
+                            </TabsTrigger>
+                            <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              Effects Rack
+                            </TabsTrigger>
+                            <TabsTrigger value="sounds" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              Sound Library
+                            </TabsTrigger>
+                            <TabsTrigger value="ai" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                              Synth AI
+                            </TabsTrigger>
+                          </TabsList>
+                          <div className="flex-1 overflow-hidden">
+                            <TabsContent value="producer-dna" className="h-full m-0">
+                              <ProducerDNAPanel 
+                                selectedProfileId={audioDAW.producerProfile.id}
+                                onProfileChange={audioDAW.setProducerProfile}
+                                currentSettings={audioDAW.producerProfile}
+                                onApplyMorph={(morphedProfile) => {
+                                  console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
+                                  audioDAW.setProducerProfile(morphedProfile.id);
+                                }}
+                              />
+                            </TabsContent>
+                            <TabsContent value="fm-logdrum" className="h-full m-0">
+                              <FMLogDrumPanel 
+                                onPatchChange={(patch) => {
+                                  console.log('[AmapianoPro] FM Patch changed:', patch);
+                                }} 
+                              />
+                            </TabsContent>
+                            <TabsContent value="groove" className="h-full m-0">
+                              <GrooveEnginePanel 
+                                bpm={project.bpm}
+                                selectedProfile={audioDAW.producerProfile.style}
+                                onProfileChange={(profileId) => {
+                                  console.log('[AmapianoPro] Groove profile changed:', profileId);
+                                }}
+                                onGrooveChange={(groove) => {
+                                  console.log('[AmapianoPro] Groove settings changed:', groove);
+                                }}
+                              />
+                            </TabsContent>
+                            <TabsContent value="effects" className="h-full m-0">
+                              <EffectsRack />
+                            </TabsContent>
+                            <TabsContent value="sounds" className="h-full m-0">
+                              <SoundLibrary 
+                                onSelectSound={(sound) => console.log('Selected sound:', sound)}
+                              />
+                            </TabsContent>
+                            <TabsContent value="ai" className="h-full m-0">
+                              <SyntheticIntelligence 
+                                onGenerate={(result) => console.log('AI Generated:', result)}
+                              />
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                      </motion.div>
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                  </>
+                )}
+              </AnimatePresence>
               
               {/* Channel Rack */}
               <ResizablePanel defaultSize={showAdvancedPanels ? 25 : 35} minSize={15} maxSize={50}>
@@ -651,7 +694,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
         onToggleAdvanced={() => setShowAdvancedPanels(!showAdvancedPanels)}
         showAdvanced={showAdvancedPanels}
       />
-    </div>
+    </motion.div>
   );
 };
 

@@ -10,6 +10,7 @@ import { immer } from 'zustand/middleware/immer';
 // ============ TYPES ============
 
 export type ModalType = 
+  // Core DAW Modals
   | 'welcome'
   | 'export'
   | 'projects'
@@ -27,9 +28,20 @@ export type ModalType =
   | 'syntheticIntelligence'
   | 'collaboration'
   | 'cloudBackup'
+  // AI & Training
   | 'training'
   | 'analytics'
   | 'feedback'
+  | 'neuralEngine'
+  | 'sunoWorkflow'
+  | 'stemSeparation'
+  | 'abTestComparison'
+  | 'modelPerformance'
+  // Advanced Tools
+  | 'culturalPatterns'
+  | 'amapianorization'
+  | 'agenticComposer'
+  | 'advancedAIGenerator'
   | null;
 
 export type WorkspaceType = 'compose' | 'mix' | 'master' | 'learn';

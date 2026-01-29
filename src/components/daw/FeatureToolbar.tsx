@@ -16,6 +16,7 @@ import AudioToMidiConverter from './AudioToMidiConverter';
 import ProjectVersionHistory from './ProjectVersionHistory';
 import ProjectSharingManager from './ProjectSharingManager';
 import ProjectTemplatesDialog from './ProjectTemplatesDialog';
+import AdvancedToolsMenu from './AdvancedToolsMenu';
 import { SourceSeparationEngine } from '@/components/ai/SourceSeparationEngine';
 import { AmapianoSwingQuantizer } from './AmapianoSwingQuantizer';
 import { AuthenticityMeter } from './AuthenticityMeter';
@@ -111,7 +112,10 @@ const FeatureToolbar: React.FC<FeatureToolbarProps> = ({
 
       <Separator orientation="vertical" className="h-8" />
 
-      {/* Instrument Selector */}
+      {/* Advanced Tools Menu - Wires isolated components */}
+      <AdvancedToolsMenu />
+
+      <Separator orientation="vertical" className="h-8" />
       <Dialog open={showInstrumentSelector} onOpenChange={setShowInstrumentSelector}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm">

@@ -79,6 +79,7 @@ import { LogDrumDesignerPanel } from '@/components/LogDrumDesignerPanel';
 import { TutorialIntegration } from '@/components/TutorialIntegration';
 import FeatureToolbar from '@/components/daw/FeatureToolbar';
 import { DAWMasteringPanel } from '@/components/daw/DAWMasteringPanel';
+import { DAWModals } from '@/components/daw/DAWModals';
 import type { DawProjectDataV2 } from '@/types/daw';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -3252,6 +3253,9 @@ export default function DawPage({ user }: DawPageProps) {
           }}
         />
       )}
+      
+      {/* Central Modal Renderer */}
+      <DAWModals />
     </div>
     </>
   );

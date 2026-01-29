@@ -80,7 +80,7 @@ import { TutorialIntegration } from '@/components/TutorialIntegration';
 import FeatureToolbar from '@/components/daw/FeatureToolbar';
 import { DAWMasteringPanel } from '@/components/daw/DAWMasteringPanel';
 import { DAWModals } from '@/components/daw/DAWModals';
-import AdvancedToolsMenu from '@/components/daw/AdvancedToolsMenu';
+
 import type { DawProjectDataV2 } from '@/types/daw';
 
 const AIPromptParser = ({ prompt, className }: { prompt: string, className?: string }) => {
@@ -2145,13 +2145,8 @@ export default function DawPage({ user }: DawPageProps) {
           
           <Separator orientation="vertical" className="h-6 hidden md:block" />
           
-          {/* Advanced Tools Menu - Always visible */}
-          <AdvancedToolsMenu />
-          
-          <Separator orientation="vertical" className="h-6 hidden md:block" />
-          
           {/* Feature Toolbar - responsive on all screens */}
-          <div className="overflow-x-auto flex-1">
+          <div className="overflow-x-auto">
             <FeatureToolbar
               currentProject={projectData as DawProjectDataV2}
               onProjectUpdate={(data) => setProjectDataWithHistory(data as DawProjectData, 'Cloud update')}

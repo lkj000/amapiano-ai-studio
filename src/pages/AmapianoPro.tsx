@@ -20,6 +20,7 @@ import { GrooveEnginePanel } from '@/components/daw-pro/GrooveEnginePanel';
 import { EffectsRack } from '@/components/daw-pro/EffectsRack';
 import { SoundLibrary } from '@/components/daw-pro/SoundLibrary';
 import { SyntheticIntelligence } from '@/components/daw-pro/SyntheticIntelligence';
+import { DAWModals } from '@/components/daw/DAWModals';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRealAudioDAW } from '@/hooks/useRealAudioDAW';
@@ -694,6 +695,9 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
         onToggleAdvanced={() => setShowAdvancedPanels(!showAdvancedPanels)}
         showAdvanced={showAdvancedPanels}
       />
+      
+      {/* Central Modal Renderer */}
+      <DAWModals />
     </motion.div>
   );
 };

@@ -1,19 +1,22 @@
 /**
  * AmapianoPro - Full-featured DAW for Amapiano Production
  * With real audio synthesis via Tone.js
+ * Updated UI matching professional reference design
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DAWToolbar } from '@/components/daw-pro/DAWToolbar';
+import { DAWHeaderBar } from '@/components/daw-pro/DAWHeaderBar';
+import { DAWTransportBar } from '@/components/daw-pro/DAWTransportBar';
+import { QuickAudioBar } from '@/components/daw-pro/QuickAudioBar';
+import { SIPanel } from '@/components/daw-pro/SIPanel';
 import { ChannelRack } from '@/components/daw-pro/ChannelRack';
 import { PianoRoll } from '@/components/daw-pro/PianoRoll';
 import { Playlist } from '@/components/daw-pro/Playlist';
 import { Mixer } from '@/components/daw-pro/Mixer';
 import { Browser } from '@/components/daw-pro/Browser';
 import { VSTRack } from '@/components/daw-pro/VSTRack';
-import { TransportBar } from '@/components/daw-pro/TransportBar';
 import { ProducerDNAPanel } from '@/components/daw-pro/ProducerDNAPanel';
 import { FMLogDrumPanel } from '@/components/daw-pro/FMLogDrumPanel';
 import { GrooveEnginePanel } from '@/components/daw-pro/GrooveEnginePanel';
@@ -23,7 +26,9 @@ import { SyntheticIntelligence } from '@/components/daw-pro/SyntheticIntelligenc
 import { DAWModals } from '@/components/daw/DAWModals';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useRealAudioDAW } from '@/hooks/useRealAudioDAW';
+import { Folder, Search, Sparkles, SlidersHorizontal, AudioWaveform, Plus } from 'lucide-react';
 
 export interface DAWPattern {
   id: string;
@@ -458,6 +463,10 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // State for SI panel
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -465,226 +474,26 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
       transition={{ duration: 0.3 }}
       className="h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/20 overflow-hidden touch-pan-y"
     >
-      {/* Top Toolbar */}
-      <DAWToolbar
-        project={project}
-        onUpdateProject={handleUpdateProject}
-        activeView={activeView}
-        onViewChange={setActiveView}
-        onToggleBrowser={() => setShowBrowser(!showBrowser)}
-        onToggleVSTRack={() => setShowVSTRack(!showVSTRack)}
-        showBrowser={showBrowser}
-        showVSTRack={showVSTRack}
-        onTranspose={handleTranspose}
-        snap={snap}
-        onSnapChange={setSnap}
+      {/* Header Bar */}
+      <DAWHeaderBar
+        projectName={project.name}
+        onProjectNameChange={(name) => handleUpdateProject({ name })}
         zoom={zoom}
         onZoomChange={setZoom}
+        siActive={true}
+        onSave={() => console.log('Save project')}
+        onExport={() => console.log('Export project')}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Browser Panel */}
-          {showBrowser && (
-            <>
-              <ResizablePanel defaultSize={15} minSize={10} maxSize={25}>
-                <Browser
-                  onSelectSample={(sample) => console.log('Selected sample:', sample)}
-                  onLoadInstrument={(instrument) => console.log('Load instrument:', instrument)}
-                />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-            </>
-          )}
-
-          {/* Center Content */}
-          <ResizablePanel defaultSize={showBrowser && showVSTRack ? 60 : showBrowser || showVSTRack ? 75 : 100}>
-            <ResizablePanelGroup direction="vertical">
-              {/* Advanced Panels (Producer DNA, FM Synth, Groove Engine, Effects, Sound Library, AI) */}
-              <AnimatePresence>
-                {showAdvancedPanels && (
-                  <>
-                    <ResizablePanel defaultSize={28} minSize={18} maxSize={45}>
-                      <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className="h-full border-b border-border/50 bg-gradient-to-b from-card/80 to-card"
-                      >
-                        <Tabs defaultValue="producer-dna" className="h-full flex flex-col">
-                          <TabsList className="w-full justify-start rounded-none border-b border-border/50 bg-muted/20 px-2 backdrop-blur-sm">
-                            <TabsTrigger value="producer-dna" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              Producer DNA
-                            </TabsTrigger>
-                            <TabsTrigger value="fm-logdrum" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              FM Log Drum
-                            </TabsTrigger>
-                            <TabsTrigger value="groove" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              Groove Engine
-                            </TabsTrigger>
-                            <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              Effects Rack
-                            </TabsTrigger>
-                            <TabsTrigger value="sounds" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              Sound Library
-                            </TabsTrigger>
-                            <TabsTrigger value="ai" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
-                              Synth AI
-                            </TabsTrigger>
-                          </TabsList>
-                          <div className="flex-1 overflow-hidden">
-                            <TabsContent value="producer-dna" className="h-full m-0">
-                              <ProducerDNAPanel 
-                                selectedProfileId={audioDAW.producerProfile.id}
-                                onProfileChange={audioDAW.setProducerProfile}
-                                currentSettings={audioDAW.producerProfile}
-                                onApplyMorph={(morphedProfile) => {
-                                  console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
-                                  audioDAW.setProducerProfile(morphedProfile.id);
-                                }}
-                              />
-                            </TabsContent>
-                            <TabsContent value="fm-logdrum" className="h-full m-0">
-                              <FMLogDrumPanel 
-                                onPatchChange={(patch) => {
-                                  console.log('[AmapianoPro] FM Patch changed:', patch);
-                                }} 
-                              />
-                            </TabsContent>
-                            <TabsContent value="groove" className="h-full m-0">
-                              <GrooveEnginePanel 
-                                bpm={project.bpm}
-                                selectedProfile={audioDAW.producerProfile.style}
-                                onProfileChange={(profileId) => {
-                                  console.log('[AmapianoPro] Groove profile changed:', profileId);
-                                }}
-                                onGrooveChange={(groove) => {
-                                  console.log('[AmapianoPro] Groove settings changed:', groove);
-                                }}
-                              />
-                            </TabsContent>
-                            <TabsContent value="effects" className="h-full m-0">
-                              <EffectsRack />
-                            </TabsContent>
-                            <TabsContent value="sounds" className="h-full m-0">
-                              <SoundLibrary 
-                                onSelectSound={(sound) => console.log('Selected sound:', sound)}
-                              />
-                            </TabsContent>
-                            <TabsContent value="ai" className="h-full m-0">
-                              <SyntheticIntelligence 
-                                onGenerate={(result) => console.log('AI Generated:', result)}
-                              />
-                            </TabsContent>
-                          </div>
-                        </Tabs>
-                      </motion.div>
-                    </ResizablePanel>
-                    <ResizableHandle withHandle />
-                  </>
-                )}
-              </AnimatePresence>
-              
-              {/* Channel Rack */}
-              <ResizablePanel defaultSize={showAdvancedPanels ? 25 : 35} minSize={15} maxSize={50}>
-                <ChannelRack
-                  pattern={selectedPattern}
-                  patterns={project.patterns}
-                  selectedPatternId={selectedPatternId}
-                  selectedChannelId={selectedChannelId}
-                  currentStep={audioDAW.currentStep}
-                  isPlaying={audioDAW.isPlaying}
-                  onSelectPattern={setSelectedPatternId}
-                  onSelectChannel={setSelectedChannelId}
-                  onAddPattern={handleAddPattern}
-                  onUpdatePattern={handleUpdatePattern}
-                  onAddChannel={handleAddChannel}
-                  onUpdateChannel={handleUpdateChannel}
-                  onToggleStep={handleToggleStep}
-                />
-              </ResizablePanel>
-              
-              <ResizableHandle withHandle />
-
-              {/* Main View (Bottom) */}
-              <ResizablePanel defaultSize={showAdvancedPanels ? 50 : 65}>
-                {activeView === 'playlist' && (
-                  <Playlist
-                    project={project}
-                    clips={project.playlist}
-                    patterns={project.patterns}
-                    currentBar={audioDAW.currentBar}
-                    currentStep={audioDAW.currentStep}
-                    isPlaying={audioDAW.isPlaying}
-                    loopStart={loopStart}
-                    loopEnd={loopEnd}
-                    zoom={zoom}
-                    bpm={project.bpm}
-                    onAddClip={handleAddClip}
-                    onUpdateClip={handleUpdateClip}
-                    onDeleteClip={handleDeleteClip}
-                    onLoopChange={(start, end) => { setLoopStart(start); setLoopEnd(end); }}
-                    onSeek={audioDAW.seek}
-                  />
-                )}
-                {activeView === 'pianoroll' && (
-                  <PianoRoll
-                    channel={selectedChannel}
-                    pattern={selectedPattern}
-                    currentStep={audioDAW.currentStep}
-                    isPlaying={audioDAW.isPlaying}
-                    snap={snap}
-                    zoom={zoom}
-                    rootNote={project.key}
-                    scale={project.scale}
-                    onAddNote={handleAddNote}
-                    onUpdateNote={handleUpdateNote}
-                    onDeleteNote={handleDeleteNote}
-                  />
-                )}
-                {activeView === 'mixer' && (
-                  <Mixer
-                    channels={project.mixerChannels}
-                    masterVolume={project.masterVolume}
-                    onUpdateChannel={handleUpdateMixerChannel}
-                    onUpdateMasterVolume={(vol) => handleUpdateProject({ masterVolume: vol })}
-                  />
-                )}
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-
-          {/* VST Rack Panel */}
-          {showVSTRack && (
-            <>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                <VSTRack
-                  selectedChannel={selectedChannel}
-                  onUpdateChannel={handleUpdateChannel}
-                />
-              </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
-      </div>
-
       {/* Transport Bar */}
-      <TransportBar
+      <DAWTransportBar
         isPlaying={audioDAW.isPlaying}
         isRecording={audioDAW.isRecording}
         currentStep={audioDAW.currentStep}
         currentBar={audioDAW.currentBar}
         bpm={project.bpm}
-        timeSignature={project.timeSignature}
         loopEnabled={loopEnabled}
-        loopStart={loopStart}
-        loopEnd={loopEnd}
-        meterLevel={audioDAW.meterLevel}
         isInitialized={audioDAW.isInitialized}
-        producerProfile={audioDAW.producerProfile}
         onPlay={handlePlay}
         onPause={handlePause}
         onStop={handleStop}
@@ -692,8 +501,260 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
         onBpmChange={(bpm) => handleUpdateProject({ bpm })}
         onLoopToggle={() => setLoopEnabled(!loopEnabled)}
         onSeek={audioDAW.seek}
-        onToggleAdvanced={() => setShowAdvancedPanels(!showAdvancedPanels)}
-        showAdvanced={showAdvancedPanels}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Left SI Panel */}
+          <ResizablePanel defaultSize={15} minSize={12} maxSize={22}>
+            <SIPanel
+              onGenerate={(params) => {
+                console.log('Generate with params:', params);
+                setIsGenerating(true);
+                // Simulate generation
+                let progress = 0;
+                const interval = setInterval(() => {
+                  progress += 10;
+                  setGenerationProgress(progress);
+                  if (progress >= 100) {
+                    clearInterval(interval);
+                    setIsGenerating(false);
+                    setGenerationProgress(0);
+                  }
+                }, 500);
+              }}
+              isGenerating={isGenerating}
+              generationProgress={generationProgress}
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+
+          {/* Center Content with Tabs */}
+          <ResizablePanel defaultSize={showVSTRack ? 65 : 85}>
+            <div className="h-full flex flex-col">
+              {/* View Tabs */}
+              <div className="h-10 bg-card/50 border-b border-border flex items-center px-2 gap-2">
+                <Button
+                  variant={showBrowser ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setShowBrowser(!showBrowser)}
+                >
+                  <Folder className="w-3.5 h-3.5" />
+                  Browser
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  Analyze
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Master
+                </Button>
+
+                <div className="flex-1" />
+
+                <Button
+                  variant={activeView === 'mixer' ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setActiveView('mixer')}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  Mixer
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setShowAdvancedPanels(!showAdvancedPanels)}
+                >
+                  <AudioWaveform className="w-3.5 h-3.5" />
+                  Effects
+                </Button>
+                <Button
+                  variant={showVSTRack ? "default" : "ghost"}
+                  size="sm"
+                  className="h-7 gap-1.5 text-xs"
+                  onClick={() => setShowVSTRack(!showVSTRack)}
+                >
+                  <AudioWaveform className="w-3.5 h-3.5" />
+                  Master FX
+                </Button>
+              </div>
+
+              <ResizablePanelGroup direction="horizontal" className="flex-1">
+                {/* Browser Panel (Collapsible Sound Library) */}
+                {showBrowser && (
+                  <>
+                    <ResizablePanel defaultSize={25} minSize={15} maxSize={35}>
+                      <SoundLibrary 
+                        onSelectSound={(sound) => console.log('Selected sound:', sound)}
+                      />
+                    </ResizablePanel>
+                    <ResizableHandle withHandle />
+                  </>
+                )}
+
+                {/* Main Work Area */}
+                <ResizablePanel defaultSize={showBrowser ? 75 : 100}>
+                  <ResizablePanelGroup direction="vertical">
+                    {/* Advanced Panels (Producer DNA, FM Synth, Groove Engine, Effects) */}
+                    <AnimatePresence>
+                      {showAdvancedPanels && (
+                        <>
+                          <ResizablePanel defaultSize={28} minSize={18} maxSize={45}>
+                            <motion.div 
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                              className="h-full border-b border-border/50 bg-gradient-to-b from-card/80 to-card"
+                            >
+                              <Tabs defaultValue="producer-dna" className="h-full flex flex-col">
+                                <TabsList className="w-full justify-start rounded-none border-b border-border/50 bg-muted/20 px-2 backdrop-blur-sm">
+                                  <TabsTrigger value="producer-dna" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                                    Producer DNA
+                                  </TabsTrigger>
+                                  <TabsTrigger value="fm-logdrum" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                                    FM Log Drum
+                                  </TabsTrigger>
+                                  <TabsTrigger value="groove" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                                    Groove Engine
+                                  </TabsTrigger>
+                                  <TabsTrigger value="effects" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                                    Effects Rack
+                                  </TabsTrigger>
+                                  <TabsTrigger value="ai" className="text-xs data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all">
+                                    Synth AI
+                                  </TabsTrigger>
+                                </TabsList>
+                                <div className="flex-1 overflow-hidden">
+                                  <TabsContent value="producer-dna" className="h-full m-0">
+                                    <ProducerDNAPanel 
+                                      selectedProfileId={audioDAW.producerProfile.id}
+                                      onProfileChange={audioDAW.setProducerProfile}
+                                      currentSettings={audioDAW.producerProfile}
+                                      onApplyMorph={(morphedProfile) => {
+                                        console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
+                                        audioDAW.setProducerProfile(morphedProfile.id);
+                                      }}
+                                    />
+                                  </TabsContent>
+                                  <TabsContent value="fm-logdrum" className="h-full m-0">
+                                    <FMLogDrumPanel 
+                                      onPatchChange={(patch) => {
+                                        console.log('[AmapianoPro] FM Patch changed:', patch);
+                                      }} 
+                                    />
+                                  </TabsContent>
+                                  <TabsContent value="groove" className="h-full m-0">
+                                    <GrooveEnginePanel 
+                                      bpm={project.bpm}
+                                      selectedProfile={audioDAW.producerProfile.style}
+                                      onProfileChange={(profileId) => {
+                                        console.log('[AmapianoPro] Groove profile changed:', profileId);
+                                      }}
+                                      onGrooveChange={(groove) => {
+                                        console.log('[AmapianoPro] Groove settings changed:', groove);
+                                      }}
+                                    />
+                                  </TabsContent>
+                                  <TabsContent value="effects" className="h-full m-0">
+                                    <EffectsRack />
+                                  </TabsContent>
+                                  <TabsContent value="ai" className="h-full m-0">
+                                    <SyntheticIntelligence 
+                                      onGenerate={(result) => console.log('AI Generated:', result)}
+                                    />
+                                  </TabsContent>
+                                </div>
+                              </Tabs>
+                            </motion.div>
+                          </ResizablePanel>
+                          <ResizableHandle withHandle />
+                        </>
+                      )}
+                    </AnimatePresence>
+                    
+                    {/* Playlist / Tracks Area */}
+                    <ResizablePanel defaultSize={showAdvancedPanels ? 35 : 50} minSize={20}>
+                      <div className="h-full flex flex-col">
+                        {/* Track Header */}
+                        <div className="h-8 bg-muted/30 border-b border-border/50 flex items-center px-3 justify-between">
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">TRACKS</span>
+                          <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs">
+                            <Plus className="w-3 h-3" />
+                            Add Track
+                          </Button>
+                        </div>
+                        <div className="flex-1">
+                          <Playlist
+                            project={project}
+                            clips={project.playlist}
+                            patterns={project.patterns}
+                            currentBar={audioDAW.currentBar}
+                            currentStep={audioDAW.currentStep}
+                            isPlaying={audioDAW.isPlaying}
+                            loopStart={loopStart}
+                            loopEnd={loopEnd}
+                            zoom={zoom}
+                            bpm={project.bpm}
+                            onAddClip={handleAddClip}
+                            onUpdateClip={handleUpdateClip}
+                            onDeleteClip={handleDeleteClip}
+                            onLoopChange={(start, end) => { setLoopStart(start); setLoopEnd(end); }}
+                            onSeek={audioDAW.seek}
+                          />
+                        </div>
+                      </div>
+                    </ResizablePanel>
+                    
+                    <ResizableHandle withHandle />
+
+                    {/* Mixer (Bottom Section) */}
+                    <ResizablePanel defaultSize={showAdvancedPanels ? 35 : 50} minSize={20}>
+                      <Mixer
+                        channels={project.mixerChannels}
+                        masterVolume={project.masterVolume}
+                        onUpdateChannel={handleUpdateMixerChannel}
+                        onUpdateMasterVolume={(vol) => handleUpdateProject({ masterVolume: vol })}
+                      />
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          </ResizablePanel>
+
+          {/* VST Rack / Effects Panel (Right Side) */}
+          {showVSTRack && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={18} minSize={12} maxSize={25}>
+                <EffectsRack />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      </div>
+
+      {/* Quick Audio Bar (Bottom) */}
+      <QuickAudioBar
+        zoom={zoom}
+        onZoomChange={setZoom}
+        onQuickGenerate={(type) => console.log('Quick generate:', type)}
+        onLoopRecord={audioDAW.toggleRecording}
+        isRecording={audioDAW.isRecording}
       />
       
       {/* Central Modal Renderer */}

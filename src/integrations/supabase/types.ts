@@ -991,6 +991,72 @@ export type Database = {
           },
         ]
       }
+      community_feedback: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          cultural_authenticity_rating: number | null
+          generation_params: Json | null
+          generation_time_ms: number | null
+          id: string
+          is_favorite: boolean | null
+          is_ground_truth: boolean | null
+          linguistic_alignment_score: number | null
+          model_version: string
+          output_type: string | null
+          overall_rating: number | null
+          pattern_id: string | null
+          rhythmic_swing_rating: number | null
+          session_id: string | null
+          tags: string[] | null
+          text_feedback: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          cultural_authenticity_rating?: number | null
+          generation_params?: Json | null
+          generation_time_ms?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          is_ground_truth?: boolean | null
+          linguistic_alignment_score?: number | null
+          model_version?: string
+          output_type?: string | null
+          overall_rating?: number | null
+          pattern_id?: string | null
+          rhythmic_swing_rating?: number | null
+          session_id?: string | null
+          tags?: string[] | null
+          text_feedback?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          cultural_authenticity_rating?: number | null
+          generation_params?: Json | null
+          generation_time_ms?: number | null
+          id?: string
+          is_favorite?: boolean | null
+          is_ground_truth?: boolean | null
+          linguistic_alignment_score?: number | null
+          model_version?: string
+          output_type?: string | null
+          overall_rating?: number | null
+          pattern_id?: string | null
+          rhythmic_swing_rating?: number | null
+          session_id?: string | null
+          tags?: string[] | null
+          text_feedback?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       community_posts: {
         Row: {
           author_id: string
@@ -4879,7 +4945,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      model_performance_analytics: {
+        Row: {
+          avg_confidence: number | null
+          avg_cultural_rating: number | null
+          avg_generation_time: number | null
+          avg_overall_rating: number | null
+          avg_swing_rating: number | null
+          favorite_count: number | null
+          feedback_date: string | null
+          high_quality_count: number | null
+          model_version: string | null
+          output_type: string | null
+          total_feedback: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_musical_vector: {
@@ -4892,7 +4973,35 @@ export type Database = {
         Returns: string
       }
       clean_expired_cache: { Args: never; Returns: undefined }
+      detect_model_drift: {
+        Args: { lookback_days?: number; target_model_version: string }
+        Returns: {
+          avg_cultural_rating: number
+          avg_swing_rating: number
+          drift_detected: boolean
+          period: string
+          sample_count: number
+        }[]
+      }
       generate_room_code: { Args: never; Returns: string }
+      get_ground_truth_data: {
+        Args: {
+          limit_count?: number
+          min_rating?: number
+          target_model_version?: string
+        }
+        Returns: {
+          cultural_authenticity_rating: number
+          generation_params: Json
+          id: string
+          model_version: string
+          output_type: string
+          pattern_id: string
+          rhythmic_swing_rating: number
+          tags: string[]
+          text_feedback: string
+        }[]
+      }
       get_personalized_feed: {
         Args: { p_limit?: number; p_offset?: number; p_user_id?: string }
         Returns: {

@@ -2144,8 +2144,8 @@ export default function DawPage({ user }: DawPageProps) {
           
           <Separator orientation="vertical" className="h-6 hidden md:block" />
           
-          {/* Feature Toolbar - hidden on small screens */}
-          <div className="hidden lg:block">
+          {/* Feature Toolbar - responsive on all screens */}
+          <div className="overflow-x-auto">
             <FeatureToolbar
               currentProject={projectData as DawProjectDataV2}
               onProjectUpdate={(data) => setProjectDataWithHistory(data as DawProjectData, 'Cloud update')}

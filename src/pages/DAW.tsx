@@ -80,6 +80,8 @@ import { TutorialIntegration } from '@/components/TutorialIntegration';
 import FeatureToolbar from '@/components/daw/FeatureToolbar';
 import { DAWMasteringPanel } from '@/components/daw/DAWMasteringPanel';
 import { DAWModals } from '@/components/daw/DAWModals';
+import { DAWAuthGuard } from '@/components/daw/DAWAuthGuard';
+import { useDAWState } from '@/hooks/useDAWState';
 
 import type { DawProjectDataV2 } from '@/types/daw';
 
@@ -158,95 +160,52 @@ interface DawPageProps {
   user: User | null;
 }
 
-export default function DawPage({ user }: DawPageProps) {
+// Inner DAW component that uses hooks (only rendered when authenticated)
+function DAWContent({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const { isFeatureEnabled } = useFeatureFlags(user);
 
-  // Redirect unauthenticated users
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="mb-6">
-            <Music className="w-16 h-16 mx-auto mb-4 text-primary" />
-            <h2 className="text-2xl font-bold text-white mb-2">Authentication Required</h2>
-            <p className="text-gray-400 mb-6">
-              You need to sign in to access the DAW and create projects.
-            </p>
-          </div>
-          <div className="space-y-3">
-            <Button 
-              onClick={() => window.location.href = '/auth'} 
-              className="w-full"
-            >
-              Sign In / Sign Up
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => window.location.href = '/'} 
-              className="w-full"
-            >
-              Back to Home
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [showPianoRoll, setShowPianoRoll] = useState(false);
-  const [showMixer, setShowMixer] = useState(false);
-  const [showEffects, setShowEffects] = useState(false);
-  const [showAutomation, setShowAutomation] = useState(false);
-  const [showAudioRecording, setShowAudioRecording] = useState(false);
-  const [showCommunity, setShowCommunity] = useState(false);
-  const [showVSTPlugins, setShowVSTPlugins] = useState(false);
-  const [showMIDIController, setShowMIDIController] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [showAIAssistant, setShowAIAssistant] = useState(true);
-  const [showVoiceToMusic, setShowVoiceToMusic] = useState(false);
-  const [importAudioUrl, setImportAudioUrl] = useState<string | null>(null);
-  const [showAdvancedPatterns, setShowAdvancedPatterns] = useState(false);
-  const [showArtistStyleTransfer, setShowArtistStyleTransfer] = useState(false);
-  const [showVirtualInstruments, setShowVirtualInstruments] = useState(false);
-  const [showRealtimeAI, setShowRealtimeAI] = useState(false);
-  const [showAIModelRouter, setShowAIModelRouter] = useState(false);
-  const [showVoiceAIGuide, setShowVoiceAIGuide] = useState(false);
-  const [showRAGKnowledge, setShowRAGKnowledge] = useState(false);
-  const [showRealTimeCollab, setShowRealTimeCollab] = useState(false);
-  const [showAIMarketplace, setShowAIMarketplace] = useState(false);
-  const [showMusicAnalysis, setShowMusicAnalysis] = useState(false);
-  const [showUnifiedAnalysis, setShowUnifiedAnalysis] = useState(false);
-  const [showAuraSidebar, setShowAuraSidebar] = useState(true);
-  const [isAuraSidebarMinimized, setIsAuraSidebarMinimized] = useState(false);
-  const [showPluginSidebar, setShowPluginSidebar] = useState(false);
-  const [showHighSpeedEngine, setShowHighSpeedEngine] = useState(true);
-  const [showGhostProducer, setShowGhostProducer] = useState(false);
-  const [showTutorials, setShowTutorials] = useState(false);
-  const [showMastering, setShowMastering] = useState(false);
-  const [showCursorTracking, setShowCursorTracking] = useState(true);
-  const [pianoRollIsPlaying, setPianoRollIsPlaying] = useState(false);
-  const [pianoRollTime, setPianoRollTime] = useState(0);
-  const pianoRollTimerRef = useRef<number | null>(null);
-  const [zoom, setZoom] = useState([100]);
-  const [selectedRegion, setSelectedRegion] = useState('johannesburg');
-  const [selectedNotes, setSelectedNotes] = useState<MidiNote[]>([]);
-  const [selectedInstruments, setSelectedInstruments] = useState<any[]>([]);
-  const dawContainerRef = useRef<HTMLDivElement>(null);
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    dragType: null,
-    clipId: null,
-    trackId: null,
-    startX: 0,
-    startTime: 0,
-  });
-  const timelineContainerRef = useRef<HTMLDivElement>(null);
+  // Centralized UI state from Zustand store
+  const {
+    selectedTrackId, setSelectedTrackId,
+    selectedNotes, setSelectedNotes,
+    selectedRegion, setSelectedRegion,
+    selectedInstruments, setSelectedInstruments,
+    showPianoRoll, showMixer, showEffects, showAutomation,
+    showAudioRecording, showCommunity, showVSTPlugins, showMIDIController,
+    showAIAssistant, showVoiceToMusic, showAdvancedPatterns,
+    showArtistStyleTransfer, showVirtualInstruments, showRealtimeAI,
+    showAIModelRouter, showVoiceAIGuide, showRAGKnowledge,
+    showRealTimeCollab, showAIMarketplace, showMusicAnalysis,
+    showUnifiedAnalysis, showAuraSidebar, showPluginSidebar,
+    showHighSpeedEngine, showGhostProducer, showTutorials, showMastering,
+    showCursorTracking, isAuraSidebarMinimized,
+    isRecording, setIsRecording,
+    pianoRollIsPlaying, setPianoRollIsPlaying,
+    pianoRollTime, setPianoRollTime,
+    audioGateVisible, setAudioGateVisible,
+    isSettingsOpen, setIsSettingsOpen,
+    isOpenProjectOpen, setIsOpenProjectOpen,
+    zoom, setZoom,
+    aiPrompt, setAiPrompt,
+    importAudioUrl, setImportAudioUrl,
+    dragState, setDragState, resetDragState,
+    togglePanel, setPanel,
+    // Panel setters
+    setShowPianoRoll, setShowMixer, setShowEffects, setShowAutomation,
+    setShowAudioRecording, setShowCommunity, setShowVSTPlugins, setShowMIDIController,
+    setShowAIAssistant, setShowVoiceToMusic, setShowAdvancedPatterns,
+    setShowArtistStyleTransfer, setShowVirtualInstruments, setShowRealtimeAI,
+    setShowAIModelRouter, setShowVoiceAIGuide, setShowRAGKnowledge,
+    setShowRealTimeCollab, setShowAIMarketplace, setShowMusicAnalysis,
+    setShowUnifiedAnalysis, setShowAuraSidebar, setShowPluginSidebar,
+    setShowHighSpeedEngine, setShowGhostProducer, setShowTutorials, setShowMastering,
+    setShowCursorTracking, setIsAuraSidebarMinimized,
+  } = useDAWState();
 
-  // Modals state
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isOpenProjectOpen, setIsOpenProjectOpen] = useState(false);
+  const pianoRollTimerRef = useRef<number | null>(null);
+  const dawContainerRef = useRef<HTMLDivElement>(null);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Project State
   const [activeProjectId, setActiveProjectId] = useState<string | undefined>();
@@ -291,7 +250,6 @@ export default function DawPage({ user }: DawPageProps) {
 
   // Tone.js playback for real audio (alongside existing engine for compatibility)
   const tonePlayback = useTonePlayback(projectData);
-  const [audioGateVisible, setAudioGateVisible] = useState(true);
 
   useEffect(() => {
     if (sessionStorage.getItem('audioContextStarted') === 'true') {
@@ -299,7 +257,7 @@ export default function DawPage({ user }: DawPageProps) {
       // Safe to initialize Tone in same session without user gesture
       tonePlayback.initialize().catch(() => {});
     }
-  }, [tonePlayback]);
+  }, [tonePlayback, setAudioGateVisible]);
 
   const handleAudioStart = useCallback(async () => {
     try {
@@ -3259,5 +3217,19 @@ export default function DawPage({ user }: DawPageProps) {
       <DAWModals />
     </div>
     </>
+  );
+}
+
+// Wrapper component with auth guard - this fixes the React Hooks violation
+// (hooks were previously called after a conditional return)
+interface DawPageProps {
+  user: User | null;
+}
+
+export default function DawPage({ user }: DawPageProps) {
+  return (
+    <DAWAuthGuard user={user}>
+      <DAWContent user={user!} />
+    </DAWAuthGuard>
   );
 }

@@ -32,10 +32,11 @@ const TimelineClip = memo<{
   onDelete: (clipId: string) => void;
   onDragStart: (e: React.MouseEvent, trackId: string, clipId: string) => void;
 }>(({ clip, trackId, zoom, onUpdate, onDuplicate, onSplit, onDelete, onDragStart }) => {
-  // Increased base multiplier for wider clips - multiply zoom by 3x for better visibility
+  // Clips sized proportionally - no scrolling needed
   const clipStyle = useMemo(() => ({
-    left: `${(clip.startTime / 8) * zoom * 3}px`,
-    width: `${Math.max((clip.duration / 8) * zoom * 3, 120)}px`, // Minimum 120px width
+    left: `${(clip.startTime / 8) * zoom}px`,
+    width: `calc(100% - ${(clip.startTime / 8) * zoom}px)`, // Fill remaining space
+    maxWidth: `${Math.max((clip.duration / 8) * zoom * 2, 150)}px`,
   }), [clip.startTime, clip.duration, zoom]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -110,7 +111,7 @@ const TimelineTrack = memo<{
           </div>
         </Button>
         {/* Clips area */}
-        <div className="flex-1 relative h-16 bg-background/50 min-w-[600px]">
+        <div className="flex-1 relative h-16 bg-background/50">
           {track.clips.map((clip) => (
             <TimelineClip
               key={clip.id}
@@ -208,14 +209,14 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   onDragStart,
   selectedTrackId
 }) => {
-  // Calculate playhead position - offset by track header width (200px), match the 3x zoom multiplier
+  // Calculate playhead position - offset by track header width (200px)
   const playheadPosition = useMemo(() => ({
-    left: `${200 + (currentTime / 8) * zoom * 3}px`
+    left: `${200 + (currentTime / 8) * zoom}px`
   }), [currentTime, zoom]);
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
+      <div className="overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
         <VirtualizedTrackList
           tracks={tracks}
           selectedTrackId={selectedTrackId}

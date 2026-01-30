@@ -11,6 +11,7 @@ interface OptimizedTimelineProps {
   tracks: DawTrack[];
   zoom: number;
   currentTime: number;
+  isPlaying?: boolean;
   dragState: DragState;
   onTrackSelect: (trackId: string) => void;
   onClipUpdate: (trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => void;
@@ -89,21 +90,26 @@ const TimelineTrack = memo<{
   return (
     <div className={`border-b border-border transition-colors duration-200 ${isSelected ? 'bg-accent/20' : 'hover:bg-muted/50'}`}>
       <div className="flex">
+        {/* Track Header - wider to show full info */}
         <Button
           variant={isSelected ? "default" : "ghost"}
           size="sm"
-          className="w-32 h-16 justify-start rounded-none border-r"
+          className="min-w-[200px] w-[200px] h-16 justify-start rounded-none border-r px-3 shrink-0"
           onClick={handleSelect}
         >
-          <div className={`w-3 h-3 rounded-full mr-2 ${track.color}`} />
-          <div className="text-left">
-            <div className="text-sm font-medium">{track.name}</div>
-            <div className="text-xs text-muted-foreground">
-              {track.type === 'midi' ? (track as any).instrument : 'Audio'}
+          <div className={`w-4 h-4 rounded-full mr-3 shrink-0 ${track.color}`} />
+          <div className="text-left overflow-hidden">
+            <div className="text-sm font-medium truncate">{track.name}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {track.type === 'midi' ? (track as any).instrument || 'MIDI' : 'Audio Track'}
+            </div>
+            <div className="text-[10px] text-muted-foreground/70">
+              {track.clips.length} clip{track.clips.length !== 1 ? 's' : ''}
             </div>
           </div>
         </Button>
-        <div className="flex-1 relative h-16 bg-background">
+        {/* Clips area */}
+        <div className="flex-1 relative h-16 bg-background/50 min-w-[400px]">
           {track.clips.map((clip) => (
             <TimelineClip
               key={clip.id}
@@ -191,6 +197,7 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   tracks,
   zoom,
   currentTime,
+  isPlaying = false,
   dragState,
   onTrackSelect,
   onClipUpdate,
@@ -200,13 +207,14 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   onDragStart,
   selectedTrackId
 }) => {
+  // Calculate playhead position - offset by track header width (200px)
   const playheadPosition = useMemo(() => ({
-    left: `${(currentTime / 8) * zoom}px`
+    left: `${200 + (currentTime / 8) * zoom}px`
   }), [currentTime, zoom]);
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="overflow-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
         <VirtualizedTrackList
           tracks={tracks}
           selectedTrackId={selectedTrackId}
@@ -220,11 +228,16 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
         />
       </div>
       
-      {/* Playhead */}
+      {/* Playhead - always visible, animated during playback */}
       <div
-        className="absolute top-0 w-0.5 bg-red-500 z-10 h-full pointer-events-none transition-all duration-100"
+        className={`absolute top-0 w-1 bg-destructive z-20 h-full pointer-events-none shadow-lg ${
+          isPlaying ? 'animate-pulse' : ''
+        }`}
         style={playheadPosition}
-      />
+      >
+        {/* Playhead triangle indicator */}
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-destructive" />
+      </div>
     </Card>
   );
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,67 +7,79 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from "./components/Navigation";
+import LoadingSpinner from "./components/LoadingSpinner";
+
+// Eager load critical pages
 import Index from "./pages/Index";
-import Generate from "./pages/Generate";
-import Analyze from "./pages/Analyze";
-import Samples from "./pages/Samples";
-import Patterns from "./pages/Patterns";
-import DAW from "./pages/DAW";
-import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import TemplatesShowcase from "./pages/TemplatesShowcase";
-import Profile from "./pages/Profile";
-import { Admin } from "./pages/Admin";
-import AuraPlatform from "./pages/AuraPlatform";
-import Aura808Demo from "./pages/Aura808Demo";
-import AIHub from "./pages/AIHub";
-import CreatorHub from "./pages/CreatorHub";
-import SocialFeed from "./pages/SocialFeed";
-import VASTDemo from "./pages/VASTDemo";
-import Research from "./pages/Research";
-import EssentiaDemo from "./pages/EssentiaDemo";
-import PluginDev from "./pages/PluginDev";
-import AudioEditor from "./pages/AudioEditor";
-import Performance from "./pages/Performance";
-import Amapianorize from "./pages/Amapianorize";
-import AudioTestLab from "./pages/AudioTestLab";
-import WorkflowValidation from "./pages/WorkflowValidation";
-import UserStudy from "./pages/UserStudy";
-import StudyRecruitment from "./pages/StudyRecruitment";
-import StudyAnalytics from "./pages/StudyAnalytics";
-import ABPairGenerator from "./pages/ABPairGenerator";
-import AgentDemo from "./pages/AgentDemo";
-import Level5Dashboard from "./pages/Level5Dashboard";
-import MLQuantize from "./pages/MLQuantize";
-import ModalDashboard from "./pages/ModalDashboard";
-import SunoGenerator from "./pages/SunoGenerator";
-import ElevenLabsSinging from "./pages/ElevenLabsSinging";
-import InstrumentalGenerator from "./pages/InstrumentalGenerator";
-import BackingWithIntro from "./pages/BackingWithIntro";
-import AILyricsGeneratorPage from "./pages/AILyricsGeneratorPage";
-import StemSplitterPage from "./pages/StemSplitterPage";
-import VocalRemoverPage from "./pages/VocalRemoverPage";
-import SoundEffectPage from "./pages/SoundEffectPage";
-import SunoStudioPage from "./pages/SunoStudioPage";
-import TrainingDataCollection from "./pages/TrainingDataCollection";
-import AuraXHub from "./pages/AuraXHub";
-import AuraXArchitecture from "./pages/AuraXArchitecture";
-import VoiceLicensing from "./pages/VoiceLicensing";
-import TextToProduction from "./pages/TextToProduction";
-import TrainingDataset from "./pages/TrainingDataset";
-import VoiceLab from "./pages/VoiceLab";
-import AudioLab from "./pages/AudioLab";
-import Studio from "./pages/Studio";
-import LANDRHub from "./pages/LANDRHub";
-import AWSActivatePitchDeck from "./pages/AWSActivatePitchDeck";
-import PitchDeckComparison from "./pages/PitchDeckComparison";
-import MasteringStudio from "./pages/MasteringStudio";
-import ReleaseManager from "./pages/ReleaseManager";
-import PromotionHub from "./pages/PromotionHub";
-import RhythmDemo from "./pages/RhythmDemo";
-import AmapianoPro from "./pages/AmapianoPro";
+import NotFound from "./pages/NotFound";
+
+// Lazy load all other pages for code splitting
+const Generate = lazy(() => import("./pages/Generate"));
+const Analyze = lazy(() => import("./pages/Analyze"));
+const Samples = lazy(() => import("./pages/Samples"));
+const Patterns = lazy(() => import("./pages/Patterns"));
+const DAW = lazy(() => import("./pages/DAW"));
+const TemplatesShowcase = lazy(() => import("./pages/TemplatesShowcase"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Admin = lazy(() => import("./pages/Admin").then(m => ({ default: m.Admin })));
+const AuraPlatform = lazy(() => import("./pages/AuraPlatform"));
+const Aura808Demo = lazy(() => import("./pages/Aura808Demo"));
+const AIHub = lazy(() => import("./pages/AIHub"));
+const CreatorHub = lazy(() => import("./pages/CreatorHub"));
+const SocialFeed = lazy(() => import("./pages/SocialFeed"));
+const VASTDemo = lazy(() => import("./pages/VASTDemo"));
+const Research = lazy(() => import("./pages/Research"));
+const EssentiaDemo = lazy(() => import("./pages/EssentiaDemo"));
+const PluginDev = lazy(() => import("./pages/PluginDev"));
+const AudioEditor = lazy(() => import("./pages/AudioEditor"));
+const Performance = lazy(() => import("./pages/Performance"));
+const Amapianorize = lazy(() => import("./pages/Amapianorize"));
+const AudioTestLab = lazy(() => import("./pages/AudioTestLab"));
+const WorkflowValidation = lazy(() => import("./pages/WorkflowValidation"));
+const UserStudy = lazy(() => import("./pages/UserStudy"));
+const StudyRecruitment = lazy(() => import("./pages/StudyRecruitment"));
+const StudyAnalytics = lazy(() => import("./pages/StudyAnalytics"));
+const ABPairGenerator = lazy(() => import("./pages/ABPairGenerator"));
+const AgentDemo = lazy(() => import("./pages/AgentDemo"));
+const Level5Dashboard = lazy(() => import("./pages/Level5Dashboard"));
+const MLQuantize = lazy(() => import("./pages/MLQuantize"));
+const ModalDashboard = lazy(() => import("./pages/ModalDashboard"));
+const SunoGenerator = lazy(() => import("./pages/SunoGenerator"));
+const ElevenLabsSinging = lazy(() => import("./pages/ElevenLabsSinging"));
+const InstrumentalGenerator = lazy(() => import("./pages/InstrumentalGenerator"));
+const BackingWithIntro = lazy(() => import("./pages/BackingWithIntro"));
+const AILyricsGeneratorPage = lazy(() => import("./pages/AILyricsGeneratorPage"));
+const StemSplitterPage = lazy(() => import("./pages/StemSplitterPage"));
+const VocalRemoverPage = lazy(() => import("./pages/VocalRemoverPage"));
+const SoundEffectPage = lazy(() => import("./pages/SoundEffectPage"));
+const SunoStudioPage = lazy(() => import("./pages/SunoStudioPage"));
+const TrainingDataCollection = lazy(() => import("./pages/TrainingDataCollection"));
+const AuraXHub = lazy(() => import("./pages/AuraXHub"));
+const AuraXArchitecture = lazy(() => import("./pages/AuraXArchitecture"));
+const VoiceLicensing = lazy(() => import("./pages/VoiceLicensing"));
+const TextToProduction = lazy(() => import("./pages/TextToProduction"));
+const TrainingDataset = lazy(() => import("./pages/TrainingDataset"));
+const VoiceLab = lazy(() => import("./pages/VoiceLab"));
+const AudioLab = lazy(() => import("./pages/AudioLab"));
+const Studio = lazy(() => import("./pages/Studio"));
+const LANDRHub = lazy(() => import("./pages/LANDRHub"));
+const AWSActivatePitchDeck = lazy(() => import("./pages/AWSActivatePitchDeck"));
+const PitchDeckComparison = lazy(() => import("./pages/PitchDeckComparison"));
+const MasteringStudio = lazy(() => import("./pages/MasteringStudio"));
+const ReleaseManager = lazy(() => import("./pages/ReleaseManager"));
+const PromotionHub = lazy(() => import("./pages/PromotionHub"));
+const RhythmDemo = lazy(() => import("./pages/RhythmDemo"));
+const AmapianoPro = lazy(() => import("./pages/AmapianoPro"));
 
 const queryClient = new QueryClient();
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <LoadingSpinner size="lg" />
+  </div>
+);
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -141,74 +153,80 @@ const App = () => {
         <BrowserRouter>
           <div className="min-h-screen bg-background">
             <Navigation user={user} />
-            <Routes>
-              <Route path="/" element={<Index user={user} />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/templates" element={<TemplatesShowcase />} />
-              <Route path="/generate" element={<Generate user={user} />} />
-              <Route path="/analyze" element={<Analyze user={user} />} />
-              <Route path="/samples" element={<Samples user={user} />} />
-              <Route path="/patterns" element={<Patterns user={user} />} />
-              <Route path="/daw" element={<DAW user={user} />} />
-              <Route path="/aura" element={<AuraPlatform user={user} />} />
-              <Route path="/aura808" element={<Aura808Demo />} />
-              <Route path="/ai-hub" element={<AIHub user={user} />} />
-              <Route path="/social" element={<SocialFeed user={user} />} />
-              <Route path="/social/post/:id" element={<SocialFeed user={user} />} />
-              <Route path="/creator-hub" element={<CreatorHub user={user} />} />
-              <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
-              <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
-              <Route path="/subscription-success" element={<Index user={user} />} />
-              <Route path="/purchase-success" element={<Index user={user} />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/vast-demo" element={<VASTDemo />} />
-              <Route path="/research" element={<Research />} />
-              <Route path="/essentia-demo" element={<EssentiaDemo />} />
-              <Route path="/plugin-dev" element={<PluginDev />} />
-              <Route path="/audio-editor" element={<AudioEditor user={user} />} />
-              <Route path="/performance" element={<Performance />} />
-              <Route path="/amapianorize" element={<Amapianorize />} />
-              <Route path="/audio-test-lab" element={<AudioTestLab />} />
-              <Route path="/workflow-validation" element={<WorkflowValidation />} />
-              <Route path="/user-study" element={<UserStudy />} />
-              <Route path="/study-recruitment" element={<StudyRecruitment />} />
-              <Route path="/study-analytics" element={<StudyAnalytics />} />
-              <Route path="/ab-pair-generator" element={<ABPairGenerator />} />
-              <Route path="/agent-demo" element={<AgentDemo />} />
-              <Route path="/level5-dashboard" element={<Level5Dashboard />} />
-              <Route path="/ml/quantize" element={<MLQuantize />} />
-              <Route path="/modal-dashboard" element={<ModalDashboard />} />
-              <Route path="/generate-song-suno" element={<SunoGenerator user={user} />} />
-              <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
-              <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
-              <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
-              <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
-              <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
-              <Route path="/vocal-remover" element={<VocalRemoverPage />} />
-              <Route path="/sound-effect" element={<SoundEffectPage />} />
-              <Route path="/training" element={<TrainingDataCollection />} />
-              <Route path="/aura-x" element={<AuraXHub />} />
-              <Route path="/aura-x/architecture" element={<AuraXArchitecture />} />
-              <Route path="/aura-x/voice-licensing" element={<VoiceLicensing user={user} />} />
-              <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
-              <Route path="/training-dataset" element={<TrainingDataset />} />
-              <Route path="/voice-lab" element={<VoiceLab />} />
-              <Route path="/audio-lab" element={<AudioLab />} />
-              <Route path="/studio" element={<Studio user={user} />} />
-              <Route path="/landr" element={<LANDRHub />} />
-              <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
-              <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
-              <Route path="/master" element={<MasteringStudio />} />
-              <Route path="/release" element={<ReleaseManager />} />
-              <Route path="/promote" element={<PromotionHub />} />
-              <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
-              <Route path="/rhythm-demo" element={<RhythmDemo />} />
-              <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
-              <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                {/* Eager loaded routes */}
+                <Route path="/" element={<Index user={user} />} />
+                <Route path="/auth" element={<Auth />} />
+                
+                {/* Lazy loaded routes */}
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/templates" element={<TemplatesShowcase />} />
+                <Route path="/generate" element={<Generate user={user} />} />
+                <Route path="/analyze" element={<Analyze user={user} />} />
+                <Route path="/samples" element={<Samples user={user} />} />
+                <Route path="/patterns" element={<Patterns user={user} />} />
+                <Route path="/daw" element={<DAW user={user} />} />
+                <Route path="/aura" element={<AuraPlatform user={user} />} />
+                <Route path="/aura808" element={<Aura808Demo />} />
+                <Route path="/ai-hub" element={<AIHub user={user} />} />
+                <Route path="/social" element={<SocialFeed user={user} />} />
+                <Route path="/social/post/:id" element={<SocialFeed user={user} />} />
+                <Route path="/creator-hub" element={<CreatorHub user={user} />} />
+                <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
+                <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
+                <Route path="/subscription-success" element={<Index user={user} />} />
+                <Route path="/purchase-success" element={<Index user={user} />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/vast-demo" element={<VASTDemo />} />
+                <Route path="/research" element={<Research />} />
+                <Route path="/essentia-demo" element={<EssentiaDemo />} />
+                <Route path="/plugin-dev" element={<PluginDev />} />
+                <Route path="/audio-editor" element={<AudioEditor user={user} />} />
+                <Route path="/performance" element={<Performance />} />
+                <Route path="/amapianorize" element={<Amapianorize />} />
+                <Route path="/audio-test-lab" element={<AudioTestLab />} />
+                <Route path="/workflow-validation" element={<WorkflowValidation />} />
+                <Route path="/user-study" element={<UserStudy />} />
+                <Route path="/study-recruitment" element={<StudyRecruitment />} />
+                <Route path="/study-analytics" element={<StudyAnalytics />} />
+                <Route path="/ab-pair-generator" element={<ABPairGenerator />} />
+                <Route path="/agent-demo" element={<AgentDemo />} />
+                <Route path="/level5-dashboard" element={<Level5Dashboard />} />
+                <Route path="/ml/quantize" element={<MLQuantize />} />
+                <Route path="/modal-dashboard" element={<ModalDashboard />} />
+                <Route path="/generate-song-suno" element={<SunoGenerator user={user} />} />
+                <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
+                <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
+                <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
+                <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
+                <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
+                <Route path="/vocal-remover" element={<VocalRemoverPage />} />
+                <Route path="/sound-effect" element={<SoundEffectPage />} />
+                <Route path="/training" element={<TrainingDataCollection />} />
+                <Route path="/aura-x" element={<AuraXHub />} />
+                <Route path="/aura-x/architecture" element={<AuraXArchitecture />} />
+                <Route path="/aura-x/voice-licensing" element={<VoiceLicensing user={user} />} />
+                <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
+                <Route path="/training-dataset" element={<TrainingDataset />} />
+                <Route path="/voice-lab" element={<VoiceLab />} />
+                <Route path="/audio-lab" element={<AudioLab />} />
+                <Route path="/studio" element={<Studio user={user} />} />
+                <Route path="/landr" element={<LANDRHub />} />
+                <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
+                <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
+                <Route path="/master" element={<MasteringStudio />} />
+                <Route path="/release" element={<ReleaseManager />} />
+                <Route path="/promote" element={<PromotionHub />} />
+                <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
+                <Route path="/rhythm-demo" element={<RhythmDemo />} />
+                <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
+                <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
+                
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </div>
         </BrowserRouter>
       </TooltipProvider>

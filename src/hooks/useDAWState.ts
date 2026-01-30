@@ -84,6 +84,37 @@ interface DAWUIState {
   setImportAudioUrl: (url: string | null) => void;
   setDragState: (state: DragState) => void;
   resetDragState: () => void;
+  
+  // Individual panel setters (for direct access)
+  setShowPianoRoll: (value: boolean) => void;
+  setShowMixer: (value: boolean) => void;
+  setShowEffects: (value: boolean) => void;
+  setShowAutomation: (value: boolean) => void;
+  setShowAudioRecording: (value: boolean) => void;
+  setShowCommunity: (value: boolean) => void;
+  setShowVSTPlugins: (value: boolean) => void;
+  setShowMIDIController: (value: boolean) => void;
+  setShowAIAssistant: (value: boolean) => void;
+  setShowVoiceToMusic: (value: boolean) => void;
+  setShowAdvancedPatterns: (value: boolean) => void;
+  setShowArtistStyleTransfer: (value: boolean) => void;
+  setShowVirtualInstruments: (value: boolean) => void;
+  setShowRealtimeAI: (value: boolean) => void;
+  setShowAIModelRouter: (value: boolean) => void;
+  setShowVoiceAIGuide: (value: boolean) => void;
+  setShowRAGKnowledge: (value: boolean) => void;
+  setShowRealTimeCollab: (value: boolean) => void;
+  setShowAIMarketplace: (value: boolean) => void;
+  setShowMusicAnalysis: (value: boolean) => void;
+  setShowUnifiedAnalysis: (value: boolean) => void;
+  setShowAuraSidebar: (value: boolean) => void;
+  setShowPluginSidebar: (value: boolean) => void;
+  setShowHighSpeedEngine: (value: boolean) => void;
+  setShowGhostProducer: (value: boolean) => void;
+  setShowTutorials: (value: boolean) => void;
+  setShowMastering: (value: boolean) => void;
+  setShowCursorTracking: (value: boolean) => void;
+  setIsAuraSidebarMinimized: (value: boolean) => void;
 }
 
 const defaultDragState: DragState = {
@@ -184,6 +215,37 @@ export const useDAWState = create<DAWUIState>()(
     setImportAudioUrl: (url) => set((state) => { state.importAudioUrl = url; }),
     setDragState: (dragState) => set((state) => { state.dragState = dragState; }),
     resetDragState: () => set((state) => { state.dragState = defaultDragState; }),
+    
+    // Individual panel setters
+    setShowPianoRoll: (value) => set((state) => { state.showPianoRoll = value; }),
+    setShowMixer: (value) => set((state) => { state.showMixer = value; }),
+    setShowEffects: (value) => set((state) => { state.showEffects = value; }),
+    setShowAutomation: (value) => set((state) => { state.showAutomation = value; }),
+    setShowAudioRecording: (value) => set((state) => { state.showAudioRecording = value; }),
+    setShowCommunity: (value) => set((state) => { state.showCommunity = value; }),
+    setShowVSTPlugins: (value) => set((state) => { state.showVSTPlugins = value; }),
+    setShowMIDIController: (value) => set((state) => { state.showMIDIController = value; }),
+    setShowAIAssistant: (value) => set((state) => { state.showAIAssistant = value; }),
+    setShowVoiceToMusic: (value) => set((state) => { state.showVoiceToMusic = value; }),
+    setShowAdvancedPatterns: (value) => set((state) => { state.showAdvancedPatterns = value; }),
+    setShowArtistStyleTransfer: (value) => set((state) => { state.showArtistStyleTransfer = value; }),
+    setShowVirtualInstruments: (value) => set((state) => { state.showVirtualInstruments = value; }),
+    setShowRealtimeAI: (value) => set((state) => { state.showRealtimeAI = value; }),
+    setShowAIModelRouter: (value) => set((state) => { state.showAIModelRouter = value; }),
+    setShowVoiceAIGuide: (value) => set((state) => { state.showVoiceAIGuide = value; }),
+    setShowRAGKnowledge: (value) => set((state) => { state.showRAGKnowledge = value; }),
+    setShowRealTimeCollab: (value) => set((state) => { state.showRealTimeCollab = value; }),
+    setShowAIMarketplace: (value) => set((state) => { state.showAIMarketplace = value; }),
+    setShowMusicAnalysis: (value) => set((state) => { state.showMusicAnalysis = value; }),
+    setShowUnifiedAnalysis: (value) => set((state) => { state.showUnifiedAnalysis = value; }),
+    setShowAuraSidebar: (value) => set((state) => { state.showAuraSidebar = value; }),
+    setShowPluginSidebar: (value) => set((state) => { state.showPluginSidebar = value; }),
+    setShowHighSpeedEngine: (value) => set((state) => { state.showHighSpeedEngine = value; }),
+    setShowGhostProducer: (value) => set((state) => { state.showGhostProducer = value; }),
+    setShowTutorials: (value) => set((state) => { state.showTutorials = value; }),
+    setShowMastering: (value) => set((state) => { state.showMastering = value; }),
+    setShowCursorTracking: (value) => set((state) => { state.showCursorTracking = value; }),
+    setIsAuraSidebarMinimized: (value) => set((state) => { state.isAuraSidebarMinimized = value; }),
   }))
 );
 

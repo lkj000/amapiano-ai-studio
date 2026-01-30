@@ -1,14 +1,52 @@
 /**
- * useDAWState - Centralized DAW UI state management
+ * useDAWState - Centralized DAW UI and Project state management
  * Extracts 50+ useState hooks from DAW.tsx into a single store
  */
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { MidiNote, DragState } from '@/types/daw';
+import { devtools, persist } from 'zustand/middleware';
+import type { MidiNote, DragState, DawProjectData, DawTrackV2 } from '@/types/daw';
 import type { InstrumentSpec } from '@/components/instruments';
 
+// Default project data
+const defaultProjectData: DawProjectData = {
+  bpm: 118,
+  keySignature: 'F#m',
+  tracks: [
+    {
+      id: `track_${Date.now()}_1`,
+      type: 'midi',
+      name: 'Log Drums',
+      instrument: 'Signature Log Drum',
+      clips: [],
+      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: true,
+      color: 'bg-red-500',
+      automationLanes: [],
+    } as DawTrackV2,
+    {
+      id: `track_${Date.now()}_2`,
+      type: 'midi',
+      name: 'Piano Chords',
+      instrument: 'Amapiano Piano',
+      clips: [],
+      mixer: { volume: 0.7, pan: 0, isMuted: false, isSolo: false, effects: [] },
+      isArmed: false,
+      color: 'bg-blue-500',
+      automationLanes: [],
+    } as DawTrackV2,
+  ],
+  masterVolume: 0.8,
+};
+
 interface DAWUIState {
+  // Project State (moved from local useState)
+  activeProjectId: string | null;
+  projectName: string;
+  projectData: DawProjectData | null;
+  projectInitialized: boolean;
+
   // Track & Selection
   selectedTrackId: string | null;
   selectedNotes: MidiNote[];
@@ -65,6 +103,14 @@ interface DAWUIState {
 
   // Drag State
   dragState: DragState;
+
+  // Project Actions
+  setActiveProjectId: (id: string | null) => void;
+  setProjectName: (name: string) => void;
+  setProjectData: (data: DawProjectData | null) => void;
+  updateProjectData: (updater: (prev: DawProjectData | null) => DawProjectData | null) => void;
+  setProjectInitialized: (initialized: boolean) => void;
+  resetProject: () => void;
 
   // Actions
   setSelectedTrackId: (id: string | null) => void;
@@ -128,6 +174,12 @@ const defaultDragState: DragState = {
 
 export const useDAWState = create<DAWUIState>()(
   immer((set) => ({
+    // Project State
+    activeProjectId: null,
+    projectName: 'Untitled Project',
+    projectData: null,
+    projectInitialized: false,
+
     // Track & Selection
     selectedTrackId: null,
     selectedNotes: [],
@@ -184,6 +236,21 @@ export const useDAWState = create<DAWUIState>()(
 
     // Drag State
     dragState: defaultDragState,
+
+    // Project Actions
+    setActiveProjectId: (id) => set((state) => { state.activeProjectId = id; }),
+    setProjectName: (name) => set((state) => { state.projectName = name; }),
+    setProjectData: (data) => set((state) => { state.projectData = data; }),
+    updateProjectData: (updater) => set((state) => { 
+      state.projectData = updater(state.projectData); 
+    }),
+    setProjectInitialized: (initialized) => set((state) => { state.projectInitialized = initialized; }),
+    resetProject: () => set((state) => { 
+      state.activeProjectId = null;
+      state.projectName = 'Untitled Project';
+      state.projectData = null;
+      state.projectInitialized = false;
+    }),
 
     // Actions
     setSelectedTrackId: (id) => set((state) => { state.selectedTrackId = id; }),

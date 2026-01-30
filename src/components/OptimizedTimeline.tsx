@@ -221,6 +221,54 @@ const VirtualizedTrackList = memo<{
   );
 });
 
+// Timeline ruler with bar/beat markers
+const TimelineRuler = memo<{ zoom: number; laneMinWidthPx: number; bpm?: number }>(({ zoom, laneMinWidthPx, bpm = 120 }) => {
+  const markers = useMemo(() => {
+    const result: { position: number; label: string; isMajor: boolean }[] = [];
+    const totalBeats = Math.ceil((laneMinWidthPx * TIME_SCALE_DIVISOR) / zoom);
+    
+    for (let beat = 0; beat <= totalBeats; beat += 4) {
+      const bar = Math.floor(beat / 4) + 1;
+      result.push({
+        position: (beat / TIME_SCALE_DIVISOR) * zoom,
+        label: `${bar}`,
+        isMajor: true
+      });
+      // Add quarter beat markers
+      for (let q = 1; q < 4 && beat + q <= totalBeats; q++) {
+        result.push({
+          position: ((beat + q) / TIME_SCALE_DIVISOR) * zoom,
+          label: '',
+          isMajor: false
+        });
+      }
+    }
+    return result;
+  }, [zoom, laneMinWidthPx]);
+
+  return (
+    <div className="flex border-b border-border bg-muted/30 sticky top-0 z-30">
+      <div className="w-80 min-w-80 shrink-0 px-3 py-1.5 text-xs font-medium text-muted-foreground border-r bg-background sticky left-0 z-40">
+        Timeline
+      </div>
+      <div className="relative h-6 flex-1" style={{ minWidth: laneMinWidthPx }}>
+        {markers.map((marker, i) => (
+          <div
+            key={i}
+            className="absolute top-0 flex flex-col items-center"
+            style={{ left: marker.position }}
+          >
+            <div className={`${marker.isMajor ? 'h-3 w-px bg-muted-foreground/60' : 'h-1.5 w-px bg-muted-foreground/30'}`} />
+            {marker.isMajor && (
+              <span className="text-[10px] text-muted-foreground/80 mt-0.5">{marker.label}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
 export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   tracks,
   zoom,
@@ -237,7 +285,6 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
 }) => {
   const laneMinWidthPx = useMemo(() => {
     const maxEnd = getMaxTimelineEnd(tracks);
-    // Add padding so the last clip isn't flush against the edge.
     return Math.max(0, (maxEnd / TIME_SCALE_DIVISOR) * zoom + 200);
   }, [tracks, zoom]);
 
@@ -247,8 +294,11 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 150, 800) + 'px' }}>
         <div className="relative min-w-full" style={{ minWidth: `${TRACK_HEADER_WIDTH_PX + laneMinWidthPx}px` }}>
+          {/* Timeline ruler with bar markers */}
+          <TimelineRuler zoom={zoom} laneMinWidthPx={laneMinWidthPx} />
+          
           <VirtualizedTrackList
             tracks={tracks}
             selectedTrackId={selectedTrackId}

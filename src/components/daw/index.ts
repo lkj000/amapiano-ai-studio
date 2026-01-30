@@ -19,3 +19,6 @@ export { LogDrumPitchEnvelopeEditor } from './LogDrumPitchEnvelopeEditor';
 export { DAWMasteringPanel } from './DAWMasteringPanel';
 export { default as OpenProjectModal } from './OpenProjectModal';
 export { default as ProjectSettingsModal } from './ProjectSettingsModal';
+export { DAWHeader } from './DAWHeader';
+export { DAWAuthGuard } from './DAWAuthGuard';
+export { DAWLoadingGate, DAWLoading, DAWError } from './DAWLoadingStates';

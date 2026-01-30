@@ -32,9 +32,10 @@ const TimelineClip = memo<{
   onDelete: (clipId: string) => void;
   onDragStart: (e: React.MouseEvent, trackId: string, clipId: string) => void;
 }>(({ clip, trackId, zoom, onUpdate, onDuplicate, onSplit, onDelete, onDragStart }) => {
+  // Increased base multiplier for wider clips - multiply zoom by 3x for better visibility
   const clipStyle = useMemo(() => ({
-    left: `${(clip.startTime / 8) * zoom}px`,
-    width: `${(clip.duration / 8) * zoom}px`,
+    left: `${(clip.startTime / 8) * zoom * 3}px`,
+    width: `${Math.max((clip.duration / 8) * zoom * 3, 120)}px`, // Minimum 120px width
   }), [clip.startTime, clip.duration, zoom]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -109,7 +110,7 @@ const TimelineTrack = memo<{
           </div>
         </Button>
         {/* Clips area */}
-        <div className="flex-1 relative h-16 bg-background/50 min-w-[400px]">
+        <div className="flex-1 relative h-16 bg-background/50 min-w-[600px]">
           {track.clips.map((clip) => (
             <TimelineClip
               key={clip.id}
@@ -207,9 +208,9 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   onDragStart,
   selectedTrackId
 }) => {
-  // Calculate playhead position - offset by track header width (200px)
+  // Calculate playhead position - offset by track header width (200px), match the 3x zoom multiplier
   const playheadPosition = useMemo(() => ({
-    left: `${200 + (currentTime / 8) * zoom}px`
+    left: `${200 + (currentTime / 8) * zoom * 3}px`
   }), [currentTime, zoom]);
 
   return (

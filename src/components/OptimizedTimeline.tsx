@@ -7,6 +7,20 @@ import type { DawTrack, MidiClip, AudioClip, DragState } from '@/types/daw';
 type Clip = MidiClip | AudioClip;
 import { FixedSizeList as List } from 'react-window';
 
+const TIME_SCALE_DIVISOR = 8;
+const TRACK_HEADER_WIDTH_PX = 320;
+const MIN_CLIP_WIDTH_PX = 48;
+
+function getMaxTimelineEnd(tracks: DawTrack[]) {
+  let maxEnd = 0;
+  for (const t of tracks) {
+    for (const c of t.clips) {
+      maxEnd = Math.max(maxEnd, c.startTime + c.duration);
+    }
+  }
+  return maxEnd;
+}
+
 interface OptimizedTimelineProps {
   tracks: DawTrack[];
   zoom: number;
@@ -32,12 +46,15 @@ const TimelineClip = memo<{
   onDelete: (clipId: string) => void;
   onDragStart: (e: React.MouseEvent, trackId: string, clipId: string) => void;
 }>(({ clip, trackId, zoom, onUpdate, onDuplicate, onSplit, onDelete, onDragStart }) => {
-  // Clips sized proportionally - no scrolling needed
-  const clipStyle = useMemo(() => ({
-    left: `${(clip.startTime / 8) * zoom}px`,
-    width: `calc(100% - ${(clip.startTime / 8) * zoom}px)`, // Fill remaining space
-    maxWidth: `${Math.max((clip.duration / 8) * zoom * 2, 150)}px`,
-  }), [clip.startTime, clip.duration, zoom]);
+  // Keep width in pixels; calc() can go negative and make clips invisible.
+  const clipStyle = useMemo(() => {
+    const leftPx = (clip.startTime / TIME_SCALE_DIVISOR) * zoom;
+    const widthPx = Math.max((clip.duration / TIME_SCALE_DIVISOR) * zoom, MIN_CLIP_WIDTH_PX);
+    return {
+      left: `${leftPx}px`,
+      width: `${widthPx}px`,
+    };
+  }, [clip.startTime, clip.duration, zoom]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -74,13 +91,14 @@ const TimelineTrack = memo<{
   track: DawTrack;
   isSelected: boolean;
   zoom: number;
+  laneMinWidthPx: number;
   onSelect: (trackId: string) => void;
   onClipUpdate: (trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => void;
   onClipDuplicate: (clipId: string) => void;
   onClipSplit: (clipId: string, position: number) => void;
   onClipDelete: (clipId: string) => void;
   onDragStart: (e: React.MouseEvent, trackId: string, clipId: string) => void;
-}>(({ track, isSelected, zoom, onSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart }) => {
+}>(({ track, isSelected, zoom, laneMinWidthPx, onSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart }) => {
   const handleSelect = useCallback(() => {
     onSelect(track.id);
   }, [onSelect, track.id]);
@@ -92,26 +110,31 @@ const TimelineTrack = memo<{
   return (
     <div className={`border-b border-border transition-colors duration-200 ${isSelected ? 'bg-accent/20' : 'hover:bg-muted/50'}`}>
       <div className="flex">
-        {/* Track Header - wider to show full info */}
-        <Button
-          variant={isSelected ? "default" : "ghost"}
-          size="sm"
-          className="min-w-[200px] w-[200px] h-16 justify-start rounded-none border-r px-3 shrink-0"
-          onClick={handleSelect}
-        >
-          <div className={`w-4 h-4 rounded-full mr-3 shrink-0 ${track.color}`} />
-          <div className="text-left overflow-hidden">
-            <div className="text-sm font-medium truncate">{track.name}</div>
-            <div className="text-xs text-muted-foreground truncate">
-              {track.type === 'midi' ? (track as any).instrument || 'MIDI' : 'Audio Track'}
+        {/* Track header pinned during horizontal scroll */}
+        <div className="sticky left-0 z-20 bg-background">
+          <Button
+            variant={isSelected ? "default" : "ghost"}
+            size="sm"
+            className="w-80 min-w-80 max-w-80 h-16 justify-start items-start rounded-none border-r px-3 py-2"
+            onClick={handleSelect}
+          >
+            <div className={`w-4 h-4 rounded-full mr-3 mt-0.5 shrink-0 ${track.color}`} />
+            <div className="text-left overflow-hidden">
+              <div className="text-sm font-medium whitespace-normal leading-tight">
+                {track.name}
+              </div>
+              <div className="text-xs text-muted-foreground whitespace-normal leading-tight mt-0.5">
+                {track.type === 'midi' ? (track as any).instrument || 'MIDI' : 'Audio Track'}
+              </div>
+              <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                {track.clips.length} clip{track.clips.length !== 1 ? 's' : ''}
+              </div>
             </div>
-            <div className="text-[10px] text-muted-foreground/70">
-              {track.clips.length} clip{track.clips.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-        </Button>
+          </Button>
+        </div>
+
         {/* Clips area */}
-        <div className="flex-1 relative h-16 bg-background/50">
+        <div className="flex-1 relative h-16 bg-background/50" style={{ minWidth: laneMinWidthPx }}>
           {track.clips.map((clip) => (
             <TimelineClip
               key={clip.id}
@@ -135,13 +158,14 @@ const VirtualizedTrackList = memo<{
   tracks: DawTrack[];
   selectedTrackId: string | null;
   zoom: number;
+  laneMinWidthPx: number;
   onTrackSelect: (trackId: string) => void;
   onClipUpdate: (trackId: string, clipId: string, updates: { startTime?: number; duration?: number }) => void;
   onClipDuplicate: (clipId: string) => void;
   onClipSplit: (clipId: string, position: number) => void;
   onClipDelete: (clipId: string) => void;
   onDragStart: (e: React.MouseEvent, trackId: string, clipId: string) => void;
-}>(({ tracks, selectedTrackId, zoom, onTrackSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart }) => {
+}>(({ tracks, selectedTrackId, zoom, laneMinWidthPx, onTrackSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart }) => {
   const ItemRenderer = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
     const track = tracks[index];
     return (
@@ -150,6 +174,7 @@ const VirtualizedTrackList = memo<{
           track={track}
           isSelected={selectedTrackId === track.id}
           zoom={zoom}
+          laneMinWidthPx={laneMinWidthPx}
           onSelect={onTrackSelect}
           onClipUpdate={onClipUpdate}
           onClipDuplicate={onClipDuplicate}
@@ -159,7 +184,7 @@ const VirtualizedTrackList = memo<{
         />
       </div>
     );
-  }, [tracks, selectedTrackId, zoom, onTrackSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart]);
+  }, [tracks, selectedTrackId, zoom, laneMinWidthPx, onTrackSelect, onClipUpdate, onClipDuplicate, onClipSplit, onClipDelete, onDragStart]);
 
   // Use virtualization for performance with unlimited tracks
   if (tracks.length > 10) {
@@ -183,6 +208,7 @@ const VirtualizedTrackList = memo<{
           track={track}
           isSelected={selectedTrackId === track.id}
           zoom={zoom}
+          laneMinWidthPx={laneMinWidthPx}
           onSelect={onTrackSelect}
           onClipUpdate={onClipUpdate}
           onClipDuplicate={onClipDuplicate}
@@ -209,36 +235,43 @@ export const OptimizedTimeline: React.FC<OptimizedTimelineProps> = memo(({
   onDragStart,
   selectedTrackId
 }) => {
-  // Calculate playhead position - offset by track header width (200px)
+  const laneMinWidthPx = useMemo(() => {
+    const maxEnd = getMaxTimelineEnd(tracks);
+    // Add padding so the last clip isn't flush against the edge.
+    return Math.max(0, (maxEnd / TIME_SCALE_DIVISOR) * zoom + 200);
+  }, [tracks, zoom]);
+
   const playheadPosition = useMemo(() => ({
-    left: `${200 + (currentTime / 8) * zoom}px`
+    left: `${TRACK_HEADER_WIDTH_PX + (currentTime / TIME_SCALE_DIVISOR) * zoom}px`
   }), [currentTime, zoom]);
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
-        <VirtualizedTrackList
-          tracks={tracks}
-          selectedTrackId={selectedTrackId}
-          zoom={zoom}
-          onTrackSelect={onTrackSelect}
-          onClipUpdate={onClipUpdate}
-          onClipDuplicate={onClipDuplicate}
-          onClipSplit={onClipSplit}
-          onClipDelete={onClipDelete}
-          onDragStart={onDragStart}
-        />
-      </div>
-      
-      {/* Playhead - always visible, animated during playback */}
-      <div
-        className={`absolute top-0 w-1 bg-destructive z-20 h-full pointer-events-none shadow-lg ${
-          isPlaying ? 'animate-pulse' : ''
-        }`}
-        style={playheadPosition}
-      >
-        {/* Playhead triangle indicator */}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-destructive" />
+      <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: Math.min(tracks.length * 64 + 100, 800) + 'px' }}>
+        <div className="relative min-w-full" style={{ minWidth: `${TRACK_HEADER_WIDTH_PX + laneMinWidthPx}px` }}>
+          <VirtualizedTrackList
+            tracks={tracks}
+            selectedTrackId={selectedTrackId}
+            zoom={zoom}
+            laneMinWidthPx={laneMinWidthPx}
+            onTrackSelect={onTrackSelect}
+            onClipUpdate={onClipUpdate}
+            onClipDuplicate={onClipDuplicate}
+            onClipSplit={onClipSplit}
+            onClipDelete={onClipDelete}
+            onDragStart={onDragStart}
+          />
+
+          {/* Playhead - in the same scrollable coordinate space as the clips */}
+          <div
+            className={`absolute top-0 w-1 bg-destructive z-20 h-full pointer-events-none shadow-lg ${
+              isPlaying ? 'animate-pulse' : ''
+            }`}
+            style={playheadPosition}
+          >
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-destructive" />
+          </div>
+        </div>
       </div>
     </Card>
   );

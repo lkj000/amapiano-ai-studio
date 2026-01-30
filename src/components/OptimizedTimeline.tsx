@@ -87,37 +87,28 @@ const TimelineTrack = memo<{
   }, [onClipUpdate, track.id]);
 
   return (
-    <div className={`border-b border-border transition-colors duration-200 ${isSelected ? 'bg-accent/20' : 'hover:bg-muted/50'}`}>
-      <div className="flex">
-        <Button
-          variant={isSelected ? "default" : "ghost"}
-          size="sm"
-          className="w-32 h-16 justify-start rounded-none border-r"
-          onClick={handleSelect}
-        >
-          <div className={`w-3 h-3 rounded-full mr-2 ${track.color}`} />
-          <div className="text-left">
-            <div className="text-sm font-medium">{track.name}</div>
-            <div className="text-xs text-muted-foreground">
-              {track.type === 'midi' ? (track as any).instrument : 'Audio'}
-            </div>
-          </div>
-        </Button>
-        <div className="flex-1 relative h-16 bg-background">
-          {track.clips.map((clip) => (
-            <TimelineClip
-              key={clip.id}
-              clip={clip}
-              trackId={track.id}
-              zoom={zoom}
-              onUpdate={handleClipUpdate}
-              onDuplicate={onClipDuplicate}
-              onSplit={onClipSplit}
-              onDelete={onClipDelete}
-              onDragStart={onDragStart}
-            />
-          ))}
-        </div>
+    <div 
+      className={`border-b border-border transition-colors duration-200 h-16 relative ${isSelected ? 'bg-accent/20' : 'hover:bg-muted/50'}`}
+      onClick={handleSelect}
+    >
+      {/* Track color indicator */}
+      <div className={`absolute left-0 top-0 w-1 h-full ${track.color}`} />
+      
+      {/* Clips area - full width */}
+      <div className="w-full h-full relative pl-2">
+        {track.clips.map((clip) => (
+          <TimelineClip
+            key={clip.id}
+            clip={clip}
+            trackId={track.id}
+            zoom={zoom}
+            onUpdate={handleClipUpdate}
+            onDuplicate={onClipDuplicate}
+            onSplit={onClipSplit}
+            onDelete={onClipDelete}
+            onDragStart={onDragStart}
+          />
+        ))}
       </div>
     </div>
   );

@@ -578,41 +578,67 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
     toast.info('Rendering audio... This may take a moment.');
 
     try {
-      // Get all notes from MIDI data
+      // Get all notes from MIDI data - handle multiple possible formats
       const allNotes: Array<{ pitch: number; velocity: number; startTime: number; duration: number }> = [];
       
-      if (result.generatedTrack.midiData?.tracks) {
-        for (const track of result.generatedTrack.midiData.tracks) {
-          for (const note of track.notes || []) {
+      const midiData = result.generatedTrack.midiData;
+      
+      if (midiData?.tracks && Array.isArray(midiData.tracks)) {
+        for (const track of midiData.tracks) {
+          const notes = track.notes || track.data || [];
+          for (const note of notes) {
             allNotes.push({
-              pitch: note.pitch,
-              velocity: note.velocity || 100,
-              startTime: note.startTime,
-              duration: note.duration
+              pitch: note.pitch ?? note.note ?? 60,
+              velocity: note.velocity ?? 100,
+              startTime: note.startTime ?? note.time ?? 0,
+              duration: note.duration ?? note.dur ?? 0.5
             });
           }
+        }
+      } else if (Array.isArray(midiData)) {
+        // Direct array of notes
+        for (const note of midiData) {
+          allNotes.push({
+            pitch: note.pitch ?? note.note ?? 60,
+            velocity: note.velocity ?? 100,
+            startTime: note.startTime ?? note.time ?? 0,
+            duration: note.duration ?? note.dur ?? 0.5
+          });
         }
       }
 
       if (allNotes.length === 0) {
-        toast.error('No notes to render');
+        toast.error('No MIDI notes available to render. Try generating a track first.');
+        return;
+      }
+
+      // Ensure valid timing values
+      const validNotes = allNotes.filter(n => 
+        typeof n.pitch === 'number' && 
+        typeof n.startTime === 'number' && 
+        typeof n.duration === 'number' &&
+        n.duration > 0
+      );
+
+      if (validNotes.length === 0) {
+        toast.error('MIDI notes have invalid timing data');
         return;
       }
 
       // Calculate duration
-      const maxEndTime = Math.max(...allNotes.map(n => n.startTime + n.duration));
+      const maxEndTime = Math.max(...validNotes.map(n => n.startTime + n.duration));
       const bpm = result.generatedTrack.metadata.bpm || 115;
-      const durationSeconds = (maxEndTime / bpm) * 60 + 2; // Add 2s tail
+      const durationSeconds = Math.max(5, (maxEndTime / bpm) * 60 + 2); // Min 5s, add 2s tail
 
       // Create offline context for rendering
-      const offlineContext = new OfflineAudioContext(2, 44100 * durationSeconds, 44100);
+      const offlineContext = new OfflineAudioContext(2, Math.ceil(44100 * durationSeconds), 44100);
       
       // Create a simple piano-like synth using Web Audio API
-      for (const note of allNotes) {
+      for (const note of validNotes) {
         const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
-        const startTimeSec = (note.startTime / bpm) * 60;
-        const durationSec = (note.duration / bpm) * 60;
-        const velocity = note.velocity / 127;
+        const startTimeSec = Math.max(0, (note.startTime / bpm) * 60);
+        const durationSec = Math.max(0.01, (note.duration / bpm) * 60);
+        const velocity = Math.min(1, Math.max(0, note.velocity / 127));
 
         // Create oscillator for each note
         const osc = offlineContext.createOscillator();
@@ -630,12 +656,16 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
         const attackTime = 0.02;
         const decayTime = 0.1;
         const sustainLevel = 0.7;
-        const releaseTime = 0.3;
+        const releaseTime = Math.min(0.3, durationSec * 0.5);
 
         gain.gain.setValueAtTime(0, startTimeSec);
         gain.gain.linearRampToValueAtTime(velocity * 0.5, startTimeSec + attackTime);
         gain.gain.linearRampToValueAtTime(velocity * sustainLevel * 0.5, startTimeSec + attackTime + decayTime);
-        gain.gain.setValueAtTime(velocity * sustainLevel * 0.5, startTimeSec + durationSec - releaseTime);
+        
+        const releaseStart = startTimeSec + durationSec - releaseTime;
+        if (releaseStart > startTimeSec + attackTime + decayTime) {
+          gain.gain.setValueAtTime(velocity * sustainLevel * 0.5, releaseStart);
+        }
         gain.gain.linearRampToValueAtTime(0, startTimeSec + durationSec);
 
         osc.connect(filter);
@@ -666,7 +696,7 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       toast.success('Audio file downloaded!');
     } catch (error) {
       console.error('Render failed:', error);
-      toast.error('Failed to render audio');
+      toast.error(`Failed to render audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

@@ -9,12 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Mic, MicOff, Play, Square, Wand2, Music, Volume2, VolumeX,
   Brain, Headphones, AudioWaveform, Sparkles, Upload, Download,
-  RefreshCw, Settings2, Clock, User, Bot, Languages
+  RefreshCw, Settings2, Clock, User, Bot, Languages, FileMusic, FileAudio
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LanguageSelector } from './LanguageSelector';
 import { useMultiLanguage } from '@/hooks/useMultiLanguage';
+import { exportMidi, downloadMidi, MidiTrack } from '@/lib/midi/midiExporter';
+import * as Tone from 'tone';
 
 interface VoiceToMusicEngineProps {
   onTrackGenerated: (trackData: any) => void;
@@ -537,6 +539,249 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
   };
 
+  // Download MIDI file from generated result
+  const handleDownloadMidi = (result: GenerationResult) => {
+    if (!result.generatedTrack.midiData) {
+      toast.error('No MIDI data available');
+      return;
+    }
+
+    const midiTracks: MidiTrack[] = result.generatedTrack.midiData.tracks?.map((track: any, idx: number) => ({
+      name: track.name || `Track ${idx + 1}`,
+      channel: track.channel || idx,
+      notes: (track.notes || []).map((note: any) => ({
+        pitch: note.pitch,
+        velocity: note.velocity || 100,
+        startTime: note.startTime,
+        duration: note.duration
+      }))
+    })) || [];
+
+    if (midiTracks.length === 0) {
+      toast.error('No tracks in MIDI data');
+      return;
+    }
+
+    const midiData = exportMidi({
+      bpm: result.generatedTrack.metadata.bpm,
+      ticksPerBeat: 480,
+      tracks: midiTracks
+    });
+
+    const timestamp = new Date().toISOString().slice(0, 10);
+    downloadMidi(midiData, `voice-generated-${result.type}-${timestamp}.mid`);
+    toast.success('MIDI file downloaded!');
+  };
+
+  // Render MIDI to audio and download as MP3/WAV
+  const handleRenderAndDownloadMP3 = async (result: GenerationResult) => {
+    toast.info('Rendering audio... This may take a moment.');
+
+    try {
+      // Get all notes from MIDI data
+      const allNotes: Array<{ pitch: number; velocity: number; startTime: number; duration: number }> = [];
+      
+      if (result.generatedTrack.midiData?.tracks) {
+        for (const track of result.generatedTrack.midiData.tracks) {
+          for (const note of track.notes || []) {
+            allNotes.push({
+              pitch: note.pitch,
+              velocity: note.velocity || 100,
+              startTime: note.startTime,
+              duration: note.duration
+            });
+          }
+        }
+      }
+
+      if (allNotes.length === 0) {
+        toast.error('No notes to render');
+        return;
+      }
+
+      // Calculate duration
+      const maxEndTime = Math.max(...allNotes.map(n => n.startTime + n.duration));
+      const bpm = result.generatedTrack.metadata.bpm || 115;
+      const durationSeconds = (maxEndTime / bpm) * 60 + 2; // Add 2s tail
+
+      // Create offline context for rendering
+      const offlineContext = new OfflineAudioContext(2, 44100 * durationSeconds, 44100);
+      
+      // Create a simple piano-like synth using Web Audio API
+      for (const note of allNotes) {
+        const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
+        const startTimeSec = (note.startTime / bpm) * 60;
+        const durationSec = (note.duration / bpm) * 60;
+        const velocity = note.velocity / 127;
+
+        // Create oscillator for each note
+        const osc = offlineContext.createOscillator();
+        const gain = offlineContext.createGain();
+        const filter = offlineContext.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.value = frequency;
+
+        filter.type = 'lowpass';
+        filter.frequency.value = 2000 + (velocity * 2000);
+        filter.Q.value = 1;
+
+        // ADSR envelope
+        const attackTime = 0.02;
+        const decayTime = 0.1;
+        const sustainLevel = 0.7;
+        const releaseTime = 0.3;
+
+        gain.gain.setValueAtTime(0, startTimeSec);
+        gain.gain.linearRampToValueAtTime(velocity * 0.5, startTimeSec + attackTime);
+        gain.gain.linearRampToValueAtTime(velocity * sustainLevel * 0.5, startTimeSec + attackTime + decayTime);
+        gain.gain.setValueAtTime(velocity * sustainLevel * 0.5, startTimeSec + durationSec - releaseTime);
+        gain.gain.linearRampToValueAtTime(0, startTimeSec + durationSec);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineContext.destination);
+
+        osc.start(startTimeSec);
+        osc.stop(startTimeSec + durationSec + 0.1);
+      }
+
+      // Render
+      const renderedBuffer = await offlineContext.startRendering();
+
+      // Convert to WAV
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      
+      // Download
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(wavBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `voice-generated-${result.type}-${timestamp}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success('Audio file downloaded!');
+    } catch (error) {
+      console.error('Render failed:', error);
+      toast.error('Failed to render audio');
+    }
+  };
+
+  // WAV encoder helper
+  const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+
+    const dataLength = buffer.length * blockAlign;
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, bufferLength - 8, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    // Write samples
+    let offset = 44;
+    const channels = [];
+    for (let i = 0; i < numChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+        const int16 = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+        view.setInt16(offset, int16, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([arrayBuffer], { type: 'audio/wav' });
+  };
+
+  // Preview playback using Tone.js
+  const handlePlayPreview = async (result: GenerationResult) => {
+    try {
+      await Tone.start();
+      
+      const synth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'fatsawtooth' as any },
+        envelope: { attack: 0.02, decay: 0.1, sustain: 0.6, release: 0.4 }
+      }).toDestination();
+
+      const bpm = result.generatedTrack.metadata.bpm || 115;
+      Tone.Transport.bpm.value = bpm;
+
+      const allNotes: Array<{ pitch: number; velocity: number; startTime: number; duration: number }> = [];
+      
+      if (result.generatedTrack.midiData?.tracks) {
+        for (const track of result.generatedTrack.midiData.tracks) {
+          for (const note of track.notes || []) {
+            allNotes.push({
+              pitch: note.pitch,
+              velocity: note.velocity || 100,
+              startTime: note.startTime,
+              duration: note.duration
+            });
+          }
+        }
+      }
+
+      if (allNotes.length === 0) {
+        toast.error('No notes to play');
+        return;
+      }
+
+      // Schedule notes
+      const now = Tone.now();
+      for (const note of allNotes) {
+        const frequency = Tone.Frequency(note.pitch, 'midi').toFrequency();
+        const startTimeSec = (note.startTime / bpm) * 60;
+        const durationSec = (note.duration / bpm) * 60;
+        
+        synth.triggerAttackRelease(frequency, durationSec, now + startTimeSec, note.velocity / 127);
+      }
+
+      toast.success('Playing preview...');
+
+      // Cleanup after playback
+      const maxEndTime = Math.max(...allNotes.map(n => n.startTime + n.duration));
+      const totalDuration = (maxEndTime / bpm) * 60 + 1;
+      setTimeout(() => {
+        synth.dispose();
+      }, totalDuration * 1000);
+
+    } catch (error) {
+      console.error('Preview failed:', error);
+      toast.error('Failed to play preview');
+    }
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -718,12 +963,45 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
                     </span>
                   </div>
                   <div className="text-sm mb-2">{result.transcript}</div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                     <span>{result.generatedTrack.metadata.bpm} BPM</span>
                     <span>•</span>
                     <span>{result.generatedTrack.metadata.key}</span>
                     <span>•</span>
                     <span>{Math.round(result.generatedTrack.metadata.confidence * 100)}% confidence</span>
+                  </div>
+                  
+                  {/* Download Buttons */}
+                  <div className="flex gap-2 flex-wrap">
+                    {result.generatedTrack.midiData && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadMidi(result)}
+                        className="text-xs"
+                      >
+                        <FileMusic className="w-3 h-3 mr-1" />
+                        Download MIDI
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleRenderAndDownloadMP3(result)}
+                      className="text-xs"
+                    >
+                      <FileAudio className="w-3 h-3 mr-1" />
+                      Download MP3
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handlePlayPreview(result)}
+                      className="text-xs"
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      Preview
+                    </Button>
                   </div>
                 </div>
               ))}

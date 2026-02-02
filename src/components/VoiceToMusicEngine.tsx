@@ -458,12 +458,36 @@ export const VoiceToMusicEngine: React.FC<VoiceToMusicEngineProps> = ({
       setSession(prev => ({ ...prev, transcript: result.transcript }));
 
       // Trigger callback to add to DAW
-      onTrackGenerated({
-        name: `Voice Generated - ${selectedMode}`,
-        audioUrl: result.generatedTrack.audioUrl,
-        type: 'audio',
-        metadata: result.generatedTrack.metadata
-      });
+      // If we have MIDI data but no audio URL, pass it as a MIDI track
+      const hasMidiData = data.midiData?.tracks?.length > 0;
+      const hasAudioUrl = !!data.audioUrl && data.audioUrl !== '';
+      
+      if (hasMidiData && !hasAudioUrl) {
+        // Convert AI-generated MIDI to DAW format
+        const midiNotes = data.midiData.tracks.flatMap((track: any) => 
+          (track.notes || []).map((note: any, idx: number) => ({
+            id: `note_${Date.now()}_${idx}`,
+            pitch: note.pitch,
+            velocity: note.velocity,
+            startTime: note.startTime,
+            duration: note.duration
+          }))
+        );
+        
+        onTrackGenerated({
+          name: `Voice Generated - ${selectedMode}`,
+          type: 'midi',
+          midiData: midiNotes,
+          metadata: result.generatedTrack.metadata
+        });
+      } else {
+        onTrackGenerated({
+          name: `Voice Generated - ${selectedMode}`,
+          audioUrl: result.generatedTrack.audioUrl,
+          type: 'audio',
+          metadata: result.generatedTrack.metadata
+        });
+      }
 
       toast.success(`✨ Successfully generated ${selectedMode} track!`);
 

@@ -502,32 +502,72 @@ function DAWContent({ user }: { user: User }) {
       return;
     }
 
-    // Create a new track from the generated data
-    const newTrack: DawTrackV2 = {
-      id: `track_${Date.now()}`,
-      type: 'audio' as const, // Voice-generated tracks are audio
-      name: trackData.name || 'AI Generated Track',
-      clips: trackData.audioUrl ? [{
-        id: `clip_${Date.now()}`,
-        startTime: 0,
-        duration: 16, // Default duration, will be adjusted
-        audioUrl: trackData.audioUrl,
-        name: trackData.name || 'Generated Audio'
-      }] : [],
-      mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
-      isArmed: false,
-      color: trackData.metadata?.genre === 'Amapiano' ? 'bg-purple-500' : 'bg-green-500',
-      automationLanes: [],
-      recordings: [],
-      metadata: trackData.metadata // Store BPM, key, etc.
-    } as DawTrackV2;
+    let newTrack: DawTrackV2;
+    
+    // Check if this is a MIDI track (from voice-to-music with MIDI data)
+    if (trackData.type === 'midi' && trackData.midiData) {
+      // Create a MIDI track that Tone.js will synthesize
+      const notes = Array.isArray(trackData.midiData) ? trackData.midiData : [];
+      const maxEndTime = notes.length > 0 
+        ? Math.max(...notes.map((n: any) => (n.startTime || 0) + (n.duration || 1)))
+        : 8;
+      
+      newTrack = {
+        id: `track_${Date.now()}`,
+        type: 'midi' as const,
+        name: trackData.name || 'AI Generated MIDI',
+        instrument: 'Piano', // Default to piano, can be changed
+        clips: [{
+          id: `clip_${Date.now()}`,
+          startTime: 0,
+          duration: Math.max(maxEndTime, 4),
+          name: trackData.name || 'Generated MIDI',
+          notes: notes
+        }],
+        mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+        isArmed: false,
+        color: 'bg-cyan-500',
+        automationLanes: [],
+        recordings: [],
+        metadata: trackData.metadata
+      } as DawTrackV2;
+      
+      console.log('[DAW] Created MIDI track with', notes.length, 'notes');
+    } else {
+      // Create an audio track
+      newTrack = {
+        id: `track_${Date.now()}`,
+        type: 'audio' as const,
+        name: trackData.name || 'AI Generated Track',
+        clips: trackData.audioUrl ? [{
+          id: `clip_${Date.now()}`,
+          startTime: 0,
+          duration: 16,
+          audioUrl: trackData.audioUrl,
+          name: trackData.name || 'Generated Audio'
+        }] : [],
+        mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+        isArmed: false,
+        color: trackData.metadata?.genre === 'Amapiano' ? 'bg-purple-500' : 'bg-green-500',
+        automationLanes: [],
+        recordings: [],
+        metadata: trackData.metadata
+      } as DawTrackV2;
+    }
 
     const newData = { ...projectData, tracks: [...projectData.tracks, newTrack] };
     undoRedoControls.pushState(newData, `AI Generated: ${newTrack.name}`);
     setProjectData(newData);
     
-    // Notify user that audio is being loaded
-    if (trackData.audioUrl) {
+    // Notify user
+    if (newTrack.type === 'midi') {
+      const noteCount = newTrack.clips[0] && 'notes' in newTrack.clips[0] 
+        ? (newTrack.clips[0] as any).notes?.length || 0 
+        : 0;
+      toast.success(`🎹 MIDI Track "${newTrack.name}" added!`, {
+        description: `${noteCount} notes • ${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'} • Press Play to hear!`
+      });
+    } else if (trackData.audioUrl) {
       toast.success(`🎵 Track "${newTrack.name}" added!`, {
         description: `${trackData.metadata?.bpm || 118} BPM • ${trackData.metadata?.key || 'F#m'} • Loading audio...`
       });

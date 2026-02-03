@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,31 +12,30 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import { WorkspaceSwitcher } from '@/components/WorkspaceSwitcher';
 import { PresenceIndicators } from '@/components/PresenceIndicators';
+import { DeveloperModeToggle } from '@/components/DeveloperModeToggle';
+import { useDeveloperModeStore } from '@/stores/developerModeStore';
+import { 
+  CORE_NAV_ITEMS, 
+  NAV_CATEGORIES, 
+  filterByRole, 
+  filterCategoriesByRole,
+  type NavItem,
+  type NavCategory,
+} from '@/components/navigation/NavigationConfig';
 import { toast } from "sonner";
 import { 
   Music, 
-  Search, 
-  Headphones, 
-  Grid3X3, 
-  Volume2,
   Menu,
   X,
-  Sparkles,
   Crown,
   ShoppingCart,
   LogOut,
   Settings,
   User as UserIcon,
-  Brain,
-  Users,
   DollarSign,
   Shield,
-  Radio,
-  Activity,
-  Disc3,
-  Upload,
-  Megaphone,
-  Layers
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 interface NavigationProps {
@@ -46,6 +46,22 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { subscription_tier, openCustomerPortal } = useSubscription(user);
+  
+  // Developer mode state
+  const { 
+    isDeveloperMode, 
+    userRole, 
+    expandedCategories, 
+    toggleCategory,
+    syncUserRole 
+  } = useDeveloperModeStore();
+
+  // Sync user role on mount/user change
+  useEffect(() => {
+    if (user?.id) {
+      syncUserRole(user.id);
+    }
+  }, [user?.id, syncUserRole]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -60,32 +76,78 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
     }
   };
 
-  const navItems = [
-    { path: "/", label: "Home", icon: Sparkles },
-    { path: "/generate", label: "Generate", icon: Music },
-    { path: "/studio", label: "Studio", icon: Layers },
-    { path: "/master", label: "Master", icon: Disc3 },
-    { path: "/release", label: "Release", icon: Upload },
-    { path: "/promote", label: "Promote", icon: Megaphone },
-    { path: "/social", label: "Social", icon: Users },
-    { path: "/daw", label: "DAW", icon: Volume2 },
-    { path: "/templates", label: "Templates", icon: Grid3X3 },
-    { path: "/analyze", label: "Analyze", icon: Search },
-    { path: "/samples", label: "Samples", icon: Headphones },
-    { path: "/patterns", label: "Patterns", icon: Grid3X3 },
-    { path: "/audio-editor", label: "Audio Editor", icon: Radio },
-    { path: "/amapianorize", label: "Amapianorize", icon: Sparkles },
-    { path: "/aura808", label: "Aura 808", icon: Music },
-    { path: "/aura", label: "AURA-X", icon: Brain },
-    { path: "/ai-hub", label: "AI Hub", icon: Brain },
-    { path: "/research", label: "Research", icon: Brain },
-    { path: "/performance", label: "Performance", icon: Activity },
-    { path: "/level5-dashboard", label: "Level 5", icon: Shield },
-  ];
+  // Get filtered navigation items based on role
+  const coreItems = filterByRole(CORE_NAV_ITEMS, userRole, isDeveloperMode);
+  const categories = filterCategoriesByRole(userRole, isDeveloperMode);
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
+  };
+
+  const renderNavLink = (item: NavItem, onClick?: () => void) => {
+    const Icon = item.icon;
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        onClick={onClick}
+        className={cn(
+          "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap",
+          isActive(item.path)
+            ? "bg-primary text-primary-foreground shadow-glow"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        )}
+      >
+        <Icon className="w-4 h-4 shrink-0" />
+        <span>{item.label}</span>
+        {item.badge && (
+          <span className={cn(
+            "text-[10px] px-1.5 py-0.5 rounded-full uppercase font-bold",
+            item.badge === 'new' && "bg-green-500/20 text-green-400",
+            item.badge === 'beta' && "bg-purple-500/20 text-purple-400",
+            item.badge === 'pro' && "bg-amber-500/20 text-amber-400",
+          )}>
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
+  const renderCategory = (category: NavCategory, closeMobileMenu: () => void) => {
+    const Icon = category.icon;
+    const isExpanded = expandedCategories.includes(category.id);
+    
+    return (
+      <Collapsible
+        key={category.id}
+        open={isExpanded}
+        onOpenChange={() => toggleCategory(category.id)}
+      >
+        <CollapsibleTrigger asChild>
+          <button
+            className={cn(
+              "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+              "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Icon className="w-4 h-4" />
+              <span>{category.label}</span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pl-4 space-y-1">
+          {category.items.map((item) => renderNavLink(item, closeMobileMenu))}
+        </CollapsibleContent>
+      </Collapsible>
+    );
   };
 
   return (
@@ -102,26 +164,9 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation - Core items only */}
           <div className="hidden lg:flex items-center space-x-1 flex-1 justify-center max-w-4xl mx-4 overflow-x-auto scrollbar-hide">
-            {navItems.slice(0, 8).map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap",
-                    isActive(item.path)
-                      ? "bg-primary text-primary-foreground shadow-glow"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span className="hidden xl:inline">{item.label}</span>
-                </Link>
-              );
-            })}
+            {coreItems.slice(0, 6).map((item) => renderNavLink(item))}
           </div>
 
           {/* Auth/User Section & Mobile Menu */}
@@ -130,6 +175,8 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
               <LanguageSelector variant="minimal" />
               {user && <WorkspaceSwitcher />}
               {user && <PresenceIndicators />}
+              {/* Developer Mode Toggle */}
+              <DeveloperModeToggle variant="icon" />
             </div>
             {user ? (
               <>
@@ -178,12 +225,14 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
                         Marketplace
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/admin" className="flex items-center cursor-pointer">
-                        <Shield className="mr-2 h-4 w-4" />
-                        Admin Panel
-                      </Link>
-                    </DropdownMenuItem>
+                    {isDeveloperMode && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/admin" className="flex items-center cursor-pointer">
+                          <Shield className="mr-2 h-4 w-4" />
+                          Admin Panel
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={handleBillingPortal} className="cursor-pointer">
                       <Settings className="mr-2 h-4 w-4" />
                       Billing Portal
@@ -223,29 +272,27 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation - Categorized */}
         {isMobileMenuOpen && (
           <div className="lg:hidden py-4 border-t border-border animate-in slide-in-from-top-2 duration-200">
             <div className="space-y-1 max-h-[calc(100vh-8rem)] overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                      isActive(item.path)
-                        ? "bg-primary text-primary-foreground shadow-glow"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted active:bg-muted"
-                    )}
-                  >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+              {/* Quick Access */}
+              <div className="pb-2 mb-2 border-b border-border/50">
+                <p className="px-3 text-xs text-muted-foreground uppercase tracking-wide mb-2">
+                  Quick Access
+                </p>
+                {coreItems.map((item) => renderNavLink(item, () => setIsMobileMenuOpen(false)))}
+              </div>
+              
+              {/* Categorized Navigation */}
+              {categories.map((category) => renderCategory(category, () => setIsMobileMenuOpen(false)))}
+              
+              {/* Developer Mode Toggle for Mobile */}
+              <div className="pt-2 mt-2 border-t border-border/50 px-3">
+                <DeveloperModeToggle variant="compact" />
+              </div>
+
+              {/* User Section */}
               <div className="pt-4 space-y-2 border-t border-border mt-2">
                 {user ? (
                   <>
@@ -269,14 +316,16 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
                       <ShoppingCart className="w-5 h-5" />
                       Marketplace
                     </Link>
-                    <Link
-                      to="/admin"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all active:bg-muted"
-                    >
-                      <Shield className="w-5 h-5" />
-                      Admin Panel
-                    </Link>
+                    {isDeveloperMode && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all active:bg-muted"
+                      >
+                        <Shield className="w-5 h-5" />
+                        Admin Panel
+                      </Link>
+                    )}
                     <Button
                       onClick={() => {
                         handleBillingPortal();

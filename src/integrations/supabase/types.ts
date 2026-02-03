@@ -2523,7 +2523,11 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_admin: boolean | null
+          is_developer: boolean | null
+          is_researcher: boolean | null
           is_seller: boolean | null
+          role: string | null
           updated_at: string
           user_id: string | null
         }
@@ -2533,7 +2537,11 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_admin?: boolean | null
+          is_developer?: boolean | null
+          is_researcher?: boolean | null
           is_seller?: boolean | null
+          role?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -2543,7 +2551,11 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_admin?: boolean | null
+          is_developer?: boolean | null
+          is_researcher?: boolean | null
           is_seller?: boolean | null
+          role?: string | null
           updated_at?: string
           user_id?: string | null
         }

@@ -146,11 +146,12 @@ export const useDeveloperModeStore = create<DeveloperModeState>()(
         set({ isLoading: true });
         
         try {
-          // Query user's role from profiles or a dedicated roles table
+          // Query user's role from profiles - using raw select to avoid type issues
+          // The columns were added via migration but types may not be regenerated yet
           const { data: profile, error } = await supabase
             .from('profiles')
-            .select('role, is_admin, is_developer, is_researcher')
-            .eq('id', userId)
+            .select('*')
+            .eq('user_id', userId)
             .single();
           
           if (error) {
@@ -159,17 +160,20 @@ export const useDeveloperModeStore = create<DeveloperModeState>()(
             return;
           }
           
+          // Cast to any to access potentially new columns safely
+          const profileData = profile as Record<string, unknown>;
+          
           // Determine highest role based on flags
           let role: UserRole = 'user';
           
-          if (profile?.is_admin) {
+          if (profileData?.is_admin === true) {
             role = 'admin';
-          } else if (profile?.is_researcher) {
+          } else if (profileData?.is_researcher === true) {
             role = 'researcher';
-          } else if (profile?.is_developer) {
+          } else if (profileData?.is_developer === true) {
             role = 'developer';
-          } else if (profile?.role) {
-            role = profile.role as UserRole;
+          } else if (typeof profileData?.role === 'string' && profileData.role in ROLE_HIERARCHY) {
+            role = profileData.role as UserRole;
           }
           
           set({ 

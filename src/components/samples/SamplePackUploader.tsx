@@ -3,14 +3,14 @@
  * Uploads files to Supabase Storage and catalogs them in sample_library
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Upload, FolderUp, X, FileAudio, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FolderUp, FolderOpen, X, FileAudio, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSampleLibrary } from '@/hooks/useSampleLibrary';
 import { cn } from '@/lib/utils';
@@ -43,6 +43,15 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
   const [progress, setProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Set webkitdirectory via ref since React doesn't support it as a prop
+  useEffect(() => {
+    if (folderInputRef.current) {
+      folderInputRef.current.setAttribute('webkitdirectory', '');
+      folderInputRef.current.setAttribute('directory', '');
+    }
+  }, [open]);
 
   const inferCategory = (filename: string): string => {
     const lower = filename.toLowerCase();
@@ -209,7 +218,6 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
             onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
             onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
             className={cn(
               'border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors',
               isDragOver
@@ -219,7 +227,10 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
           >
             <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
             <p className="text-sm font-medium">
-              Drag & drop audio files or <span className="text-primary underline">browse</span>
+              Drag & drop audio files or{' '}
+              <span className="text-primary underline" onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>browse files</span>
+              {' '}or{' '}
+              <span className="text-primary underline" onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}>select folder</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               WAV, MP3, FLAC, OGG, AIFF, M4A — categories auto-detected from filenames
@@ -230,7 +241,14 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
               multiple
               accept={ACCEPTED_AUDIO}
               className="hidden"
-              onChange={e => e.target.files && addFiles(e.target.files)}
+              onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
           </div>
 

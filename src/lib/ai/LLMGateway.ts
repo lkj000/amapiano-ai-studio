@@ -18,8 +18,7 @@ export type LLMProvider =
   | 'anthropic'      // Claude models
   | 'google'         // Vertex AI
   | 'replicate'      // Open source models
-  | 'local'          // Local ONNX models
-  | 'mock';          // For testing
+  | 'local';         // Local ONNX models
 
 export type ModelCapability = 
   | 'text-generation'
@@ -189,18 +188,6 @@ const MODEL_REGISTRY: ModelConfig[] = [
     available: false, // Enable when ONNX runtime loaded
     rateLimit: { requestsPerMinute: 1000, tokensPerMinute: 1000000 }
   },
-  // Mock for testing
-  {
-    id: 'mock-model',
-    provider: 'mock',
-    modelName: 'mock/test',
-    capabilities: ['text-generation', 'chat', 'reasoning', 'function-calling'],
-    costPer1kTokens: 0,
-    maxTokens: 8192,
-    latencyMs: 10,
-    qualityScore: 0.5,
-    available: true
-  }
 ];
 
 // Response cache
@@ -217,7 +204,7 @@ export class LLMGateway {
 
   private constructor() {
     this.providerStats = new Map();
-    for (const provider of ['lovable-ai', 'openai', 'anthropic', 'google', 'replicate', 'local', 'mock'] as LLMProvider[]) {
+    for (const provider of ['lovable-ai', 'openai', 'anthropic', 'google', 'replicate', 'local'] as LLMProvider[]) {
       this.providerStats.set(provider, { requests: 0, failures: 0, totalLatency: 0 });
     }
   }
@@ -366,14 +353,12 @@ export class LLMGateway {
       case 'lovable-ai':
         return this.executeLovableAI(model, request, startTime);
       
-      case 'mock':
-        return this.executeMock(model, request, startTime);
-      
       case 'local':
         return this.executeLocal(model, request, startTime);
       
       default:
-        throw new Error(`Provider ${model.provider} not implemented`);
+        // Route all other providers through Lovable AI Gateway as proxy
+        return this.executeLovableAI(model, request, startTime);
     }
   }
 
@@ -438,40 +423,6 @@ export class LLMGateway {
     };
   }
 
-  /**
-   * Execute mock response for testing
-   */
-  private async executeMock(model: ModelConfig, request: LLMRequest, startTime: number): Promise<LLMResponse> {
-    await new Promise(resolve => setTimeout(resolve, 50));
-    const latency = Date.now() - startTime;
-    
-    const mockContent = request.tools
-      ? 'I will use the provided tools to help you.'
-      : 'This is a mock response for testing purposes.';
-
-    return {
-      id: `mock_${Date.now()}`,
-      provider: model.provider,
-      model: model.modelName,
-      content: mockContent,
-      toolCalls: request.tools ? [{
-        id: 'call_mock',
-        type: 'function',
-        function: {
-          name: request.tools[0].function.name,
-          arguments: '{}'
-        }
-      }] : undefined,
-      usage: {
-        promptTokens: 100,
-        completionTokens: 50,
-        totalTokens: 150,
-        cost: 0
-      },
-      latency,
-      cached: false
-    };
-  }
 
   /**
    * Execute streaming request

@@ -115,7 +115,9 @@ export const useEssentiaAnalysis = () => {
     // Perform FFT analysis on chunks
     let centroidSum = 0, rolloffSum = 0, fluxSum = 0, flatnessSum = 0;
     let bandwidthSum = 0;
-    const contrast: number[] = [];
+    const contrastBands = 7;
+    const contrastAccum = new Array(contrastBands).fill(0);
+    let prevSpectrum: Float32Array | null = null;
     let chunks = 0;
 
     for (let i = 0; i < channelData.length; i += fftSize / 2) {
@@ -153,23 +155,59 @@ export const useEssentiaAnalysis = () => {
       rolloffSum += rolloffIdx * sampleRate / fftSize;
 
       // Spectral Flatness (geometric mean / arithmetic mean)
-      let geoMean = 1, arithMean = 0;
+      let logSum = 0, arithMean = 0;
       for (let j = 0; j < spectrum.length; j++) {
-        geoMean *= Math.pow(spectrum[j] + 1e-10, 1 / spectrum.length);
+        logSum += Math.log(spectrum[j] + 1e-10);
         arithMean += spectrum[j] / spectrum.length;
       }
+      const geoMean = Math.exp(logSum / spectrum.length);
       flatnessSum += arithMean > 0 ? geoMean / arithMean : 0;
+
+      // Spectral Flux (sum of squared differences between successive spectra)
+      if (prevSpectrum) {
+        let flux = 0;
+        for (let j = 0; j < spectrum.length; j++) {
+          const diff = spectrum[j] - prevSpectrum[j];
+          flux += diff * diff;
+        }
+        fluxSum += Math.sqrt(flux);
+      }
+      prevSpectrum = new Float32Array(spectrum);
+
+      // Spectral Bandwidth
+      const centroidFreq = totalMag > 0 ? weightedSum / totalMag : 0;
+      let bwSum = 0;
+      for (let j = 0; j < spectrum.length; j++) {
+        const freq = j * sampleRate / fftSize;
+        bwSum += spectrum[j] * Math.pow(freq - centroidFreq, 2);
+      }
+      bandwidthSum += totalMag > 0 ? Math.sqrt(bwSum / totalMag) : 0;
+
+      // Spectral Contrast (energy ratio across frequency sub-bands)
+      const bandSize = Math.floor(spectrum.length / contrastBands);
+      for (let b = 0; b < contrastBands; b++) {
+        const bandStart = b * bandSize;
+        const bandEnd = Math.min(bandStart + bandSize, spectrum.length);
+        const bandValues = Array.from(spectrum.slice(bandStart, bandEnd)).sort((a, c) => a - c);
+        const peakEnergy = bandValues.slice(-Math.max(1, Math.floor(bandValues.length * 0.1)))
+          .reduce((s, v) => s + v, 0);
+        const valleyEnergy = bandValues.slice(0, Math.max(1, Math.floor(bandValues.length * 0.1)))
+          .reduce((s, v) => s + v, 0);
+        contrastAccum[b] += valleyEnergy > 1e-10 ? Math.log10(peakEnergy / valleyEnergy) : 0;
+      }
 
       chunks++;
     }
 
+    const contrast = chunks > 0 ? contrastAccum.map(v => v / chunks) : Array(contrastBands).fill(0);
+
     return {
-      centroid: centroidSum / chunks,
-      rolloff: rolloffSum / chunks,
-      flux: fluxSum / chunks,
-      flatness: flatnessSum / chunks,
-      bandwidth: bandwidthSum / chunks,
-      contrast: [0.5, 0.6, 0.7, 0.8, 0.9, 0.85, 0.75] // Mock spectral contrast
+      centroid: chunks > 0 ? centroidSum / chunks : 0,
+      rolloff: chunks > 0 ? rolloffSum / chunks : 0,
+      flux: chunks > 0 ? fluxSum / chunks : 0,
+      flatness: chunks > 0 ? flatnessSum / chunks : 0,
+      bandwidth: chunks > 0 ? bandwidthSum / chunks : 0,
+      contrast
     };
   }, []);
 
@@ -217,25 +255,86 @@ export const useEssentiaAnalysis = () => {
   // Tonal Analysis (Key Detection)
   const analyzeTonal = useCallback((audioBuffer: AudioBuffer): TonalDescriptors => {
     const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const chroma = new Array(12).fill(0).map(() => Math.random());
+    const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+    const chroma = new Array(12).fill(0);
     
-    // Find most prominent chroma (simplified key detection)
-    // Use reduce instead of spread operator to avoid stack overflow
-    const maxChroma = chroma.reduce((max, val) => Math.max(max, val), -Infinity);
-    const maxIdx = chroma.indexOf(maxChroma);
-    const key = keys[maxIdx];
-    const chromaSum = chroma.reduce((a, b) => a + b, 0);
-    const keyStrength = chromaSum > 0 ? chroma[maxIdx] / chromaSum : 0;
-
-    // HPCP - Harmonic Pitch Class Profile (12-bin)
-    const hpcp = maxChroma > 0 ? chroma.map(v => v / maxChroma) : chroma;
+    // Real chroma extraction via DFT at pitch frequencies
+    const fftSize = 4096;
+    for (let offset = 0; offset < channelData.length - fftSize; offset += fftSize) {
+      const chunk = channelData.slice(offset, offset + fftSize);
+      for (let pitchClass = 0; pitchClass < 12; pitchClass++) {
+        // Sum energy across octaves for each pitch class (C2-C7)
+        for (let octave = 2; octave <= 7; octave++) {
+          const freq = 440 * Math.pow(2, (pitchClass - 9 + (octave - 4) * 12) / 12);
+          const k = Math.round(freq * fftSize / sampleRate);
+          if (k >= 0 && k < fftSize / 2) {
+            // Goertzel-like magnitude at target frequency
+            let real = 0, imag = 0;
+            const w = (2 * Math.PI * k) / fftSize;
+            for (let n = 0; n < fftSize; n++) {
+              real += chunk[n] * Math.cos(w * n);
+              imag -= chunk[n] * Math.sin(w * n);
+            }
+            chroma[pitchClass] += Math.sqrt(real * real + imag * imag);
+          }
+        }
+      }
+    }
+    
+    // Normalize chroma
+    const chromaMax = chroma.reduce((max: number, val: number) => Math.max(max, val), 0);
+    const normalizedChroma = chromaMax > 0 ? chroma.map((v: number) => v / chromaMax) : chroma;
+    
+    // Key detection via correlation with major/minor profiles (Krumhansl-Schmuckler)
+    const majorProfile = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+    const minorProfile = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+    
+    let bestKey = 0;
+    let bestCorr = -Infinity;
+    let bestMode = 'major';
+    
+    for (let shift = 0; shift < 12; shift++) {
+      let majorCorr = 0, minorCorr = 0;
+      for (let j = 0; j < 12; j++) {
+        const idx = (j + shift) % 12;
+        majorCorr += normalizedChroma[idx] * majorProfile[j];
+        minorCorr += normalizedChroma[idx] * minorProfile[j];
+      }
+      if (majorCorr > bestCorr) { bestCorr = majorCorr; bestKey = shift; bestMode = 'major'; }
+      if (minorCorr > bestCorr) { bestCorr = minorCorr; bestKey = shift; bestMode = 'minor'; }
+    }
+    
+    const key = keys[bestKey] + (bestMode === 'minor' ? 'm' : '');
+    const chromaSum = normalizedChroma.reduce((a: number, b: number) => a + b, 0);
+    const keyStrength = chromaSum > 0 ? normalizedChroma[bestKey] / chromaSum : 0;
+    
+    // HPCP
+    const hpcp = chromaMax > 0 ? chroma.map((v: number) => v / chromaMax) : chroma;
+    
+    // Tuning estimation from A4 partial
+    const a4Bin = Math.round(440 * fftSize / sampleRate);
+    let peakBin = a4Bin;
+    let peakMag = 0;
+    for (let b = Math.max(0, a4Bin - 3); b <= Math.min(fftSize / 2 - 1, a4Bin + 3); b++) {
+      let real = 0, imag = 0;
+      const w = (2 * Math.PI * b) / fftSize;
+      const chunk = channelData.slice(0, Math.min(fftSize, channelData.length));
+      for (let n = 0; n < chunk.length; n++) {
+        real += chunk[n] * Math.cos(w * n);
+        imag -= chunk[n] * Math.sin(w * n);
+      }
+      const mag = Math.sqrt(real * real + imag * imag);
+      if (mag > peakMag) { peakMag = mag; peakBin = b; }
+    }
+    const tuning = peakBin * sampleRate / fftSize;
 
     return {
       key,
       keyStrength,
-      chroma,
+      chroma: normalizedChroma,
       hpcp,
-      tuning: 440 + (Math.random() - 0.5) * 2 // A4 tuning
+      tuning: Math.abs(tuning - 440) < 20 ? tuning : 440
     };
   }, []);
 

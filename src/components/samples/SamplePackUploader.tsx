@@ -101,7 +101,10 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
   };
 
   const uploadAll = async () => {
-    if (files.length === 0) return;
+    if (files.length === 0) {
+      toast.error('Please add audio files first');
+      return;
+    }
     if (!packName.trim()) {
       toast.error('Please enter a pack name');
       return;
@@ -132,6 +135,7 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
         updateFile(i, { status: 'done' });
         completed++;
       } catch (err: any) {
+        console.error(`Upload failed for ${entry.name}:`, err);
         updateFile(i, { status: 'error', error: err.message || 'Upload failed' });
         errors++;
       }
@@ -301,7 +305,7 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
             </Button>
             <Button
               onClick={uploadAll}
-              disabled={files.length === 0 || isUploading || !packName.trim()}
+              disabled={isUploading}
               className="gap-2"
             >
               <Upload className="w-4 h-4" />

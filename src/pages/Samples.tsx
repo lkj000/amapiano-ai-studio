@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface SamplesProps {
 }
 
 const Samples: React.FC<SamplesProps> = ({ user }) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedGenre, setSelectedGenre] = useState("all");
@@ -210,7 +212,7 @@ const Samples: React.FC<SamplesProps> = ({ user }) => {
                               metadata: { bpm: sample.bpm || 120, genre: sample.category, duration: sample.duration_seconds || 30 },
                             };
                             localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
-                            window.open('/daw', '_blank');
+                            navigate('/daw');
                             toast.success(`🎵 "${sample.name}" sent to DAW!`);
                           }}>
                             <Music className="w-3 h-3 mr-1" />Add to DAW

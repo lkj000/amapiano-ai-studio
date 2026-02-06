@@ -3,7 +3,7 @@
  * Uploads files to Supabase Storage and catalogs them in sample_library
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,14 +44,13 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-
-  // Set webkitdirectory via ref since React doesn't support it as a prop
-  useEffect(() => {
-    if (folderInputRef.current) {
-      folderInputRef.current.setAttribute('webkitdirectory', '');
-      folderInputRef.current.setAttribute('directory', '');
+  const setFolderInput = useCallback((node: HTMLInputElement | null) => {
+    if (node) {
+      node.setAttribute('webkitdirectory', '');
+      node.setAttribute('directory', '');
     }
-  }, [open]);
+    (folderInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+  }, []);
 
   const inferCategory = (filename: string): string => {
     const lower = filename.toLowerCase();
@@ -244,7 +243,7 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
               onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />
             <input
-              ref={folderInputRef}
+              ref={setFolderInput}
               type="file"
               multiple
               className="hidden"

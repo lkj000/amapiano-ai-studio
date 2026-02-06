@@ -53,19 +53,19 @@ export default function SampleLibraryPanel({
 
   // Fetch samples
   const { data: samples = [], isLoading } = useQuery({
-    queryKey: ['samples', uiState.selectedCategory, uiState.searchQuery],
+    queryKey: ['sample-library', uiState.selectedCategory, uiState.searchQuery],
     queryFn: async () => {
       let query = supabase
-        .from('samples')
+        .from('sample_library')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (uiState.selectedCategory !== 'all') {
-        query = query.eq('category', uiState.selectedCategory);
+        query = query.ilike('category', `%${uiState.selectedCategory}%`);
       }
 
       if (uiState.searchQuery) {
-        query = query.or(`name.ilike.%${uiState.searchQuery}%,description.ilike.%${uiState.searchQuery}%,tags.cs.{${uiState.searchQuery}}`);
+        query = query.or(`name.ilike.%${uiState.searchQuery}%,tags.cs.{${uiState.searchQuery}}`);
       }
 
       const { data, error } = await query;
@@ -74,18 +74,18 @@ export default function SampleLibraryPanel({
         id: sample.id,
         userId: sample.user_id,
         name: sample.name,
-        description: sample.description,
-        fileUrl: sample.file_url,
-        category: sample.category as any,
+        description: sample.pack_name || '',
+        fileUrl: sample.audio_url,
+        category: (sample.category?.toLowerCase() || 'misc') as any,
         bpm: sample.bpm,
         keySignature: sample.key_signature,
-        duration: sample.duration,
-        fileSize: sample.file_size,
-        waveformData: sample.waveform_data as any,
+        duration: sample.duration_seconds || 0,
+        fileSize: sample.file_size_bytes,
+        waveformData: undefined,
         tags: sample.tags || [],
-        isPublic: sample.is_public,
-        createdAt: sample.created_at,
-        updatedAt: sample.updated_at
+        isPublic: sample.is_public ?? false,
+        createdAt: sample.created_at || '',
+        updatedAt: sample.updated_at || '',
       })) || [];
     }
   });
@@ -93,95 +93,55 @@ export default function SampleLibraryPanel({
   // Upload sample mutation
   const uploadSampleMutation = useMutation({
     mutationFn: async (file: File) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Must be logged in to upload');
+
       setIsUploading(true);
       setUploadProgress(0);
 
       try {
-        // Create unique filename
-        const fileName = `${Date.now()}_${file.name}`;
-        const filePath = `samples/${fileName}`;
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
 
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('samples')
-          .upload(filePath, file);
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
         if (uploadError) throw uploadError;
+        setUploadProgress(50);
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('samples')
-          .getPublicUrl(filePath);
+          .getPublicUrl(fileName);
 
-        // Get audio duration and generate waveform
-        const audioContext = new AudioContext();
-        const arrayBuffer = await file.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        const duration = audioBuffer.duration;
+        // Get audio duration
+        const duration = await new Promise<number>((resolve) => {
+          const audio = new Audio();
+          audio.onloadedmetadata = () => resolve(audio.duration);
+          audio.onerror = () => resolve(0);
+          audio.src = URL.createObjectURL(file);
+        });
 
-        // Generate waveform data
-        const channelData = audioBuffer.getChannelData(0);
-        const samples = 200;
-        const blockSize = Math.floor(channelData.length / samples);
-        const waveformData: number[] = [];
-        
-        for (let i = 0; i < samples; i++) {
-          const start = i * blockSize;
-          const end = start + blockSize;
-          let max = 0;
-          
-          for (let j = start; j < end; j++) {
-            const sample = Math.abs(channelData[j]);
-            if (sample > max) max = sample;
-          }
-          
-          waveformData.push(max);
-        }
+        setUploadProgress(75);
 
-        // Detect BPM (basic tempo detection)
-        let detectedBPM = null;
-        try {
-          // Simple peak detection for BPM estimation
-          const peaks = [];
-          const threshold = 0.3;
-          
-          for (let i = 1; i < waveformData.length - 1; i++) {
-            if (waveformData[i] > threshold && 
-                waveformData[i] > waveformData[i - 1] && 
-                waveformData[i] > waveformData[i + 1]) {
-              peaks.push(i);
-            }
-          }
-          
-          if (peaks.length > 1) {
-            const avgInterval = (peaks[peaks.length - 1] - peaks[0]) / (peaks.length - 1);
-            const timePerSample = duration / samples;
-            const avgPeakInterval = avgInterval * timePerSample;
-            detectedBPM = Math.round((60 / avgPeakInterval) / 4); // Assuming 4/4 time
-          }
-        } catch (e) {
-          console.warn('BPM detection failed:', e);
-        }
-
-        // Save sample metadata to database
         const { data: sampleData, error: dbError } = await supabase
-          .from('samples')
+          .from('sample_library')
           .insert({
-            name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-            file_url: publicUrl,
-            category: 'misc', // Default category
-            duration,
-            file_size: file.size,
-            waveform_data: waveformData,
-            bpm: detectedBPM,
+            user_id: user.id,
+            name: file.name.replace(/\.[^/.]+$/, ''),
+            audio_url: publicUrl,
+            category: 'Other',
+            sample_type: 'oneshot',
+            duration_seconds: duration,
+            file_size_bytes: file.size,
             tags: [],
-            is_public: false
+            is_public: false,
           })
           .select()
           .single();
 
         if (dbError) throw dbError;
-
+        setUploadProgress(100);
         return sampleData;
       } finally {
         setIsUploading(false);
@@ -189,11 +149,9 @@ export default function SampleLibraryPanel({
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['samples'] });
+      queryClient.invalidateQueries({ queryKey: ['sample-library'] });
       toast.success('Sample uploaded successfully!');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     },
     onError: (error) => {
       console.error('Upload failed:', error);

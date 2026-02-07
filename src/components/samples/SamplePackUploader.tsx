@@ -43,14 +43,6 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
   const [progress, setProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const folderInputRef = useRef<HTMLInputElement>(null);
-  const setFolderInput = useCallback((node: HTMLInputElement | null) => {
-    if (node) {
-      node.setAttribute('webkitdirectory', '');
-      node.setAttribute('directory', '');
-    }
-    (folderInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
-  }, []);
 
   const inferCategory = (filename: string): string => {
     const lower = filename.toLowerCase();
@@ -93,6 +85,21 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
     setFiles(prev => [...prev, ...entries]);
     toast.success(`Added ${entries.length} file(s)`);
   }, [defaultCategory, defaultType]);
+
+  const handleFolderClick = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        addFiles(target.files);
+      }
+    };
+    input.click();
+  }, [addFiles]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -229,7 +236,7 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
               Drag & drop audio files or{' '}
               <span className="text-primary underline" onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>browse files</span>
               {' '}or{' '}
-              <span className="text-primary underline" onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}>select folder</span>
+              <span className="text-primary underline cursor-pointer" onClick={(e) => { e.stopPropagation(); handleFolderClick(); }}>select folder</span>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               WAV, MP3, FLAC, OGG, AIFF, M4A — categories auto-detected from filenames
@@ -239,13 +246,6 @@ export function SamplePackUploader({ onComplete }: { onComplete?: () => void }) 
               type="file"
               multiple
               accept={ACCEPTED_AUDIO}
-              className="hidden"
-              onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
-            />
-            <input
-              ref={setFolderInput}
-              type="file"
-              multiple
               className="hidden"
               onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
             />

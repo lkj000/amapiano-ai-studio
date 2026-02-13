@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -48,12 +48,6 @@ export const useSubscription = (user: User | null) => {
     loading: false,
     error: null,
   });
-  const mountedRef = useRef(true);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => { mountedRef.current = false; };
-  }, []);
 
   const checkSubscription = useCallback(async () => {
     if (!user) {
@@ -71,7 +65,7 @@ export const useSubscription = (user: User | null) => {
 
     try {
       const data = await fetchSubscriptionOnce();
-      if (!mountedRef.current) return;
+
 
       setSubscriptionState({
         subscribed: data.subscribed || false,
@@ -81,7 +75,7 @@ export const useSubscription = (user: User | null) => {
         error: null,
       });
     } catch (error) {
-      if (!mountedRef.current) return;
+      
       console.error('Subscription check failed:', error);
       setSubscriptionState(prev => ({
         ...prev,

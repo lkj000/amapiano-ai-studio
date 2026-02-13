@@ -22,7 +22,21 @@ function loadPersistedState() {
   try {
     const raw = localStorage.getItem(DJ_STATE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const state = JSON.parse(raw);
+    
+    // Filter out tracks with blob URLs — they're invalid after reload
+    if (state?.tracks) {
+      const hasBlobTracks = state.tracks.some((t: any) => t.fileUrl?.startsWith('blob:'));
+      if (hasBlobTracks) {
+        // Tracks with blob URLs can't survive reload — clear them
+        state.tracks = [];
+        state.generatedSets = [];
+        state.phase = 'idle';
+        state.aiNarrative = '';
+      }
+    }
+    
+    return state;
   } catch { return null; }
 }
 
@@ -166,6 +180,22 @@ export default function DJAgent({ user }: DJAgentProps) {
     if (tracks.length < 3) {
       toast.error('Add at least 3 tracks to generate a DJ set');
       return;
+    }
+
+    // Check for stale blob URLs before starting
+    const staleTracks = tracks.filter(t => t.fileUrl?.startsWith('blob:'));
+    if (staleTracks.length > 0) {
+      try {
+        const testResp = await fetch(staleTracks[0].fileUrl);
+        if (!testResp.ok) throw new Error('stale');
+      } catch {
+        toast.error('Audio files expired after page reload. Please re-upload your tracks.');
+        setTracks([]);
+        setGeneratedSets([]);
+        setPhase('idle');
+        localStorage.removeItem(DJ_STATE_KEY);
+        return;
+      }
     }
 
     try {

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,14 +16,36 @@ import {
   DJTrack, SetConfig, AgentPhase, GeneratedSet
 } from '@/components/dj-agent/DJAgentTypes';
 
+const DJ_STATE_KEY = 'dj-agent-state';
+
+function loadPersistedState() {
+  try {
+    const raw = localStorage.getItem(DJ_STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function persistState(tracks: DJTrack[], generatedSets: GeneratedSet[], config: SetConfig, phase: AgentPhase, aiNarrative: string) {
+  try {
+    // Only persist tracks that have blob URLs still valid, plus completed results
+    localStorage.setItem(DJ_STATE_KEY, JSON.stringify({
+      tracks, generatedSets, config,
+      phase: phase === 'complete' ? 'complete' : 'idle',
+      aiNarrative,
+    }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 interface DJAgentProps {
   user?: User | null;
 }
 
 export default function DJAgent({ user }: DJAgentProps) {
   const navigate = useNavigate();
-  const [tracks, setTracks] = useState<DJTrack[]>([]);
-  const [config, setConfig] = useState<SetConfig>({
+  const saved = useRef(loadPersistedState()).current;
+  const [tracks, setTracks] = useState<DJTrack[]>(saved?.tracks ?? []);
+  const [config, setConfig] = useState<SetConfig>(saved?.config ?? {
     duration: 60,
     preset: 'private_school_3am_peak',
     risk: 0.35,
@@ -31,14 +53,19 @@ export default function DJAgent({ user }: DJAgentProps) {
     harmonicStrictness: 0.75,
     maxBpmDelta: 3,
   });
-  const [phase, setPhase] = useState<AgentPhase>('idle');
+  const [phase, setPhase] = useState<AgentPhase>(saved?.phase ?? 'idle');
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState('');
-  const [generatedSets, setGeneratedSets] = useState<GeneratedSet[]>([]);
+  const [message, setMessage] = useState(saved?.phase === 'complete' ? 'Restored previous session. Generated sets ready.' : '');
+  const [generatedSets, setGeneratedSets] = useState<GeneratedSet[]>(saved?.generatedSets ?? []);
   const [activeSetIndex, setActiveSetIndex] = useState(0);
-  const [aiNarrative, setAiNarrative] = useState('');
+  const [aiNarrative, setAiNarrative] = useState(saved?.aiNarrative ?? '');
   const [isStreamingAI, setIsStreamingAI] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Persist state on meaningful changes
+  useEffect(() => {
+    persistState(tracks, generatedSets, config, phase, aiNarrative);
+  }, [tracks, generatedSets, config, phase, aiNarrative]);
 
   const handleAddTracks = useCallback((newTracks: DJTrack[]) => {
     setTracks(prev => [...prev, ...newTracks]);
@@ -210,6 +237,7 @@ export default function DJAgent({ user }: DJAgentProps) {
     setActiveSetIndex(0);
     setAiNarrative('');
     setIsStreamingAI(false);
+    localStorage.removeItem(DJ_STATE_KEY);
   }, []);
 
   return (

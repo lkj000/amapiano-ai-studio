@@ -1,144 +1,24 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Disc3 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ArrowLeft, Disc3, Brain, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import DJTrackPool from '@/components/dj-agent/DJTrackPool';
 import DJSetConfig from '@/components/dj-agent/DJSetConfig';
 import DJAgentPanel from '@/components/dj-agent/DJAgentPanel';
 import DJSetPreview from '@/components/dj-agent/DJSetPreview';
+import { analyzeTrackReal } from '@/components/dj-agent/DJAudioAnalyzer';
+import { planSets } from '@/components/dj-agent/DJSetPlanner';
 import {
-  DJTrack, SetConfig, AgentPhase, GeneratedSet, 
-  MixRole, TransitionType, PRESET_INFO
+  DJTrack, SetConfig, AgentPhase, GeneratedSet
 } from '@/components/dj-agent/DJAgentTypes';
 
 interface DJAgentProps {
   user?: User | null;
 }
-
-// Simulated analysis — in production this calls your Python/Rust engine
-const analyzeTrack = async (track: DJTrack): Promise<DJTrack> => {
-  await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
-  const bpm = 108 + Math.random() * 18; // 108-126 for amapiano
-  const keys = ['Am', 'Cm', 'Fm', 'Gm', 'Dm', 'Bbm', 'Ebm'];
-  const camelots = ['8A', '5A', '4A', '6A', '7A', '3A', '2A'];
-  const ki = Math.floor(Math.random() * keys.length);
-  return {
-    ...track,
-    durationSec: 180 + Math.random() * 180,
-    features: {
-      bpm,
-      bpmConfidence: 0.85 + Math.random() * 0.15,
-      key: keys[ki],
-      camelot: camelots[ki],
-      lufsIntegrated: -14 + Math.random() * 6,
-      energyCurve: Array.from({ length: 20 }, () => Math.random()),
-      segments: [
-        { type: 'intro', startSec: 0, endSec: 30, energy: 0.3 },
-        { type: 'verse', startSec: 30, endSec: 90, energy: 0.5 },
-        { type: 'drop', startSec: 90, endSec: 150, energy: 0.9 },
-        { type: 'breakdown', startSec: 150, endSec: 200, energy: 0.4 },
-        { type: 'outro', startSec: 200, endSec: 240, energy: 0.2 },
-      ],
-      vocalActivityCurve: Array.from({ length: 20 }, () => Math.random() * 0.7),
-    }
-  };
-};
-
-// Simulated planner — in production this is beam search + scoring
-const generateSets = async (tracks: DJTrack[], config: SetConfig): Promise<GeneratedSet[]> => {
-  await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-  
-  const targetSec = config.duration * 60;
-  const risks = [0.2, config.risk, Math.min(config.risk + 0.3, 1)];
-  const labels = ['Safe', 'Balanced', 'Wild'];
-
-  return risks.map((risk, vi) => {
-    // Shuffle tracks with some variation per version
-    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-    const selected: DJTrack[] = [];
-    let totalDur = 0;
-    for (const t of shuffled) {
-      if (totalDur >= targetSec) break;
-      selected.push(t);
-      totalDur += (t.durationSec || 240);
-    }
-
-    const roles: MixRole[] = ['warmup', 'lift', 'peak', 'release', 'peak2', 'outro'];
-    const transitions: TransitionType[] = [
-      'phrase_crossfade_eq_swap', 'echo_out', 'stem_vocal_tease', 
-      'loop_roll_build', 'clean_cut_on_phrase', 'filter_sweep'
-    ];
-
-    let time = 0;
-    const items = selected.flatMap((track, i) => {
-      const dur = track.durationSec || 240;
-      const role = roles[Math.min(i, roles.length - 1)];
-      const startTime = time;
-      time += dur;
-      
-      const result: import('@/components/dj-agent/DJAgentTypes').PerformancePlanItem[] = [{
-        itemId: crypto.randomUUID(),
-        type: 'track',
-        trackId: track.id,
-        trackTitle: track.title,
-        trackArtist: track.artist,
-        mixRole: role,
-        startTimeSec: startTime,
-        durationSec: dur,
-      }];
-
-      if (i < selected.length - 1) {
-        result.push({
-          itemId: crypto.randomUUID(),
-          type: 'transition',
-          transitionType: transitions[Math.floor(Math.random() * transitions.length)],
-          bars: [8, 16, 32][Math.floor(Math.random() * 3)],
-          startTimeSec: startTime + dur - 16,
-          durationSec: 16,
-        });
-      }
-      return result;
-    });
-
-    const formatTime = (sec: number) => {
-      const m = Math.floor(sec / 60);
-      const s = Math.floor(sec % 60);
-      return `${m}:${s.toString().padStart(2, '0')}`;
-    };
-
-    return {
-      planId: crypto.randomUUID(),
-      name: `${labels[vi]} Mix — ${PRESET_INFO[config.preset].label}`,
-      preset: config.preset,
-      durationSec: time,
-      items,
-      scores: {
-        harmonicClash: 70 + Math.floor(Math.random() * 25),
-        tempoJump: 75 + Math.floor(Math.random() * 20),
-        vocalOverlapConflict: 80 + Math.floor(Math.random() * 15),
-        energySmoothness: 65 + Math.floor(Math.random() * 30),
-        transitionCleanliness: 70 + Math.floor(Math.random() * 25),
-        novelty: 60 + Math.floor(Math.random() * 35),
-        overall: 70 + Math.floor(Math.random() * 25),
-      },
-      energyCurve: Array.from({ length: 30 }, (_, i) => {
-        const t = i / 29;
-        // Shape based on preset
-        const base = Math.sin(t * Math.PI) * 0.6 + 0.3;
-        return Math.max(0.1, Math.min(1, base + (Math.random() - 0.5) * 0.2));
-      }),
-      tracklist: selected.map((t, i) => ({
-        time: formatTime(items.filter(it => it.type === 'track')[i]?.startTimeSec || 0),
-        title: t.title,
-        artist: t.artist,
-        bpm: Math.round(t.features?.bpm || 120),
-        key: t.features?.key || 'Am',
-      })),
-    };
-  });
-};
 
 export default function DJAgent({ user }: DJAgentProps) {
   const navigate = useNavigate();
@@ -156,6 +36,9 @@ export default function DJAgent({ user }: DJAgentProps) {
   const [message, setMessage] = useState('');
   const [generatedSets, setGeneratedSets] = useState<GeneratedSet[]>([]);
   const [activeSetIndex, setActiveSetIndex] = useState(0);
+  const [aiNarrative, setAiNarrative] = useState('');
+  const [isStreamingAI, setIsStreamingAI] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleAddTracks = useCallback((newTracks: DJTrack[]) => {
     setTracks(prev => [...prev, ...newTracks]);
@@ -165,6 +48,93 @@ export default function DJAgent({ user }: DJAgentProps) {
     setTracks(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  /**
+   * Stream AI DJ brain narrative
+   */
+  const streamAINarrative = useCallback(async (analyzedTracks: DJTrack[], setScores: any) => {
+    setIsStreamingAI(true);
+    setAiNarrative('');
+    
+    const trackData = analyzedTracks.map(t => ({
+      title: t.title,
+      artist: t.artist,
+      bpm: t.features?.bpm,
+      key: t.features?.key,
+      camelot: t.features?.camelot,
+      avgEnergy: t.features ? t.features.energyCurve.reduce((a, b) => a + b, 0) / t.features.energyCurve.length : 0,
+      lufs: t.features?.lufsIntegrated,
+      durationSec: t.durationSec,
+    }));
+
+    try {
+      abortRef.current = new AbortController();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dj-agent-brain`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ tracks: trackData, config, planScores: setScores }),
+          signal: abortRef.current.signal,
+        }
+      );
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        const errMsg = errData.error || `AI error (${resp.status})`;
+        toast.error(errMsg);
+        setIsStreamingAI(false);
+        return;
+      }
+
+      if (!resp.body) {
+        setIsStreamingAI(false);
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let narrative = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              narrative += content;
+              setAiNarrative(narrative);
+            }
+          } catch {
+            buffer = line + '\n' + buffer;
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('AI narrative error:', err);
+      }
+    } finally {
+      setIsStreamingAI(false);
+    }
+  }, [config]);
+
   const handleGenerate = useCallback(async () => {
     if (tracks.length < 3) {
       toast.error('Add at least 3 tracks to generate a DJ set');
@@ -172,56 +142,74 @@ export default function DJAgent({ user }: DJAgentProps) {
     }
 
     try {
-      // Phase 1: Analyze
+      // Phase 1: Real audio analysis using Web Audio API
       setPhase('analyzing');
-      setMessage('Analyzing BPM, key, energy, and segments for each track...');
+      setMessage('Decoding audio and extracting BPM, key, energy, segments via Web Audio API...');
       const analyzed: DJTrack[] = [];
       for (let i = 0; i < tracks.length; i++) {
-        setProgress((i / tracks.length) * 30);
-        const result = await analyzeTrack(tracks[i]);
-        analyzed.push(result);
+        setProgress(((i + 0.5) / tracks.length) * 30);
+        setMessage(`Analyzing track ${i + 1}/${tracks.length}: "${tracks[i].title}" — BPM detection, Krumhansl-Schmuckler key, RMS energy...`);
+        try {
+          const result = await analyzeTrackReal(tracks[i]);
+          analyzed.push(result);
+        } catch (err) {
+          console.error(`Failed to analyze "${tracks[i].title}":`, err);
+          toast.error(`Failed to analyze "${tracks[i].title}" — skipping`);
+        }
+        setProgress(((i + 1) / tracks.length) * 30);
       }
+      
+      if (analyzed.length < 3) {
+        throw new Error('Need at least 3 successfully analyzed tracks');
+      }
+      
       setTracks(analyzed);
       setProgress(30);
 
-      // Phase 2: Plan
+      // Phase 2: Real beam search planning with Camelot compatibility
       setPhase('planning');
-      setMessage('Building energy arc, checking key/BPM compatibility, selecting transitions...');
-      setProgress(45);
-      await new Promise(r => setTimeout(r, 800));
-      setProgress(55);
+      setMessage('Running beam search (width=20) with Camelot wheel compatibility, BPM proximity, and energy arc scoring...');
+      setProgress(40);
 
-      // Phase 3: Variants
+      // Phase 3: Generate 3 real variations using beam search with different risk offsets
       setPhase('generating_variants');
-      setMessage('Creating 3 set variations: Safe, Balanced, and Wild...');
-      setProgress(65);
-      const sets = await generateSets(analyzed, config);
-      setProgress(85);
+      setMessage('Generating Safe, Balanced, and Wild variations via beam search with different risk parameters...');
+      setProgress(55);
+      
+      const sets = planSets(analyzed, config);
+      setProgress(75);
 
-      // Phase 4: Render
+      // Phase 4: AI DJ brain narrative (streams in background)
       setPhase('rendering');
-      setMessage('Finalizing performance plans and scoring...');
-      await new Promise(r => setTimeout(r, 1000));
+      setMessage('Querying AI DJ brain for narrative arc, transition notes, and Extend/Mashup recommendations...');
+      setProgress(85);
+      
+      // Start AI streaming in background (non-blocking)
+      const bestScores = sets.reduce((best, s) => s.scores.overall > best.overall ? s.scores : best, sets[0].scores);
+      streamAINarrative(analyzed, bestScores);
+      
       setProgress(100);
-
       setGeneratedSets(sets);
       setActiveSetIndex(0);
       setPhase('complete');
-      setMessage(`Generated ${sets.length} set variations — select one to preview or export.`);
-      toast.success('DJ set generated successfully!');
+      setMessage(`Generated ${sets.length} variations using real audio analysis + beam search. AI narrative streaming below.`);
+      toast.success('DJ set generated with real analysis!');
     } catch (err) {
       setPhase('error');
       setMessage(err instanceof Error ? err.message : 'Generation failed');
       toast.error('Failed to generate DJ set');
     }
-  }, [tracks, config]);
+  }, [tracks, config, streamAINarrative]);
 
   const handleReset = useCallback(() => {
+    abortRef.current?.abort();
     setPhase('idle');
     setProgress(0);
     setMessage('');
     setGeneratedSets([]);
     setActiveSetIndex(0);
+    setAiNarrative('');
+    setIsStreamingAI(false);
   }, []);
 
   return (
@@ -235,7 +223,7 @@ export default function DJAgent({ user }: DJAgentProps) {
           <Disc3 className="w-6 h-6 text-primary animate-spin" style={{ animationDuration: '3s' }} />
           <div>
             <h1 className="text-lg font-bold">AURA-X DJ Agent</h1>
-            <p className="text-xs text-muted-foreground">Level-5 Autonomous Music Performance Intelligence</p>
+            <p className="text-xs text-muted-foreground">Level-5 Autonomous Music Performance Intelligence — Real Analysis, No Mocks</p>
           </div>
         </div>
       </div>
@@ -267,13 +255,37 @@ export default function DJAgent({ user }: DJAgentProps) {
             <DJSetConfig config={config} onChange={setConfig} />
           </div>
 
-          {/* Right: Preview */}
-          <div className="lg:col-span-5">
+          {/* Right: Preview + AI Narrative */}
+          <div className="lg:col-span-5 space-y-4">
             <DJSetPreview
               sets={generatedSets}
               activeSetIndex={activeSetIndex}
               onSelectSet={setActiveSetIndex}
             />
+
+            {/* AI DJ Brain Narrative */}
+            {(aiNarrative || isStreamingAI) && (
+              <Card className="border-accent/30 bg-gradient-to-br from-card to-accent/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-accent" />
+                    AI DJ Brain — Performance Direction
+                    {isStreamingAI && (
+                      <span className="ml-auto text-xs text-accent animate-pulse flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" /> Streaming...
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[250px]">
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                      {aiNarrative || 'Waiting for AI response...'}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

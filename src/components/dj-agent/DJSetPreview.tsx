@@ -1,13 +1,14 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { Download, FileText, ListMusic, BarChart3, Clock, Music2, ArrowRight, Play, Pause, SkipForward, SkipBack, Volume2 } from 'lucide-react';
+import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2 } from 'lucide-react';
 import { GeneratedSet } from './DJAgentTypes';
-import { toast } from 'sonner';
+import { useCrossfadePlayer } from './useCrossfadePlayer';
+import { exportCueSheet, exportMixAsWav, copyTracklistToClipboard } from './djExportUtils';
 
 interface DJSetPreviewProps {
   sets: GeneratedSet[];
@@ -17,135 +18,51 @@ interface DJSetPreviewProps {
 }
 
 export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks = [] }: DJSetPreviewProps) {
-  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(0.8);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animFrameRef = useRef<number>(0);
-
   const activeSet = sets[activeSetIndex];
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
-  // Cleanup on unmount or set change
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [activeSetIndex]);
-
-  const findTrackUrl = useCallback((trackId?: string): string | null => {
-    if (!trackId) return null;
-    const t = tracks.find(tr => tr.id === trackId);
-    return t?.fileUrl || null;
-  }, [tracks]);
-
-  const updateTimeLoop = useCallback(() => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-    animFrameRef.current = requestAnimationFrame(updateTimeLoop);
-  }, []);
-
-  const playTrackAtIndex = useCallback((index: number) => {
-    if (!activeSet) return;
-    
-    // Find the track items in the set (skip transition items)
-    const trackItems = activeSet.items.filter(item => item.type === 'track');
-    if (index < 0 || index >= trackItems.length) return;
-
-    const item = trackItems[index];
-    const url = findTrackUrl(item.trackId);
-    
-    if (!url) {
-      toast.error(`No audio URL for "${item.trackTitle}"`);
-      return;
-    }
-
-    // Stop current
-    audioRef.current?.pause();
-    cancelAnimationFrame(animFrameRef.current);
-
-    const audio = new Audio(url);
-    audio.volume = volume;
-    
-    audio.onloadedmetadata = () => {
-      setDuration(audio.duration);
-    };
-    
-    audio.onended = () => {
-      // Auto-advance to next track
-      const nextIndex = index + 1;
-      if (nextIndex < trackItems.length) {
-        playTrackAtIndex(nextIndex);
-      } else {
-        setIsPlaying(false);
-        setPlayingIndex(null);
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
-
-    audio.onerror = () => {
-      toast.error(`Failed to play track`);
-      setIsPlaying(false);
-      setPlayingIndex(null);
-    };
-
-    audio.play().then(() => {
-      audioRef.current = audio;
-      setPlayingIndex(index);
-      setIsPlaying(true);
-      updateTimeLoop();
-    }).catch(() => {
-      toast.error('Browser blocked audio — interact with the page first');
-    });
-  }, [activeSet, findTrackUrl, volume, updateTimeLoop]);
-
-  const handlePlayPause = useCallback(() => {
-    if (!activeSet) return;
-    
-    if (isPlaying && audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      cancelAnimationFrame(animFrameRef.current);
-    } else if (!isPlaying && audioRef.current && playingIndex !== null) {
-      audioRef.current.play();
-      setIsPlaying(true);
-      updateTimeLoop();
-    } else {
-      // Start from beginning
-      playTrackAtIndex(0);
-    }
-  }, [isPlaying, playingIndex, activeSet, playTrackAtIndex, updateTimeLoop]);
-
-  const handleSkip = useCallback((direction: 'next' | 'prev') => {
-    if (!activeSet || playingIndex === null) return;
-    const trackItems = activeSet.items.filter(item => item.type === 'track');
-    const next = direction === 'next' ? playingIndex + 1 : playingIndex - 1;
-    if (next >= 0 && next < trackItems.length) {
-      playTrackAtIndex(next);
-    }
-  }, [activeSet, playingIndex, playTrackAtIndex]);
-
-  const handleVolumeChange = useCallback((val: number[]) => {
-    const v = val[0];
-    setVolume(v);
-    if (audioRef.current) audioRef.current.volume = v;
-  }, []);
-
-  const handleSeek = useCallback((val: number[]) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = val[0];
-      setCurrentTime(val[0]);
-    }
-  }, []);
+  const {
+    isPlaying,
+    playingIndex,
+    currentTime,
+    duration,
+    volume,
+    handlePlayPause,
+    handleSkip,
+    handleVolumeChange,
+    handleSeek,
+    playTrackAtIndex,
+    trackItems,
+  } = useCrossfadePlayer(activeSet, tracks);
 
   const formatTimestamp = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
+
+  const handleExportMix = useCallback(async () => {
+    if (!activeSet || isExporting) return;
+    setIsExporting(true);
+    setExportProgress(0);
+    try {
+      await exportMixAsWav(activeSet, tracks, setExportProgress);
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  }, [activeSet, tracks, isExporting]);
+
+  const handleExportCueSheet = useCallback(() => {
+    if (!activeSet) return;
+    exportCueSheet(activeSet);
+  }, [activeSet]);
+
+  const handleCopyTracklist = useCallback(() => {
+    if (!activeSet) return;
+    copyTracklistToClipboard(activeSet);
+  }, [activeSet]);
 
   if (sets.length === 0) {
     return (
@@ -164,8 +81,6 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
     if (score >= 60) return 'text-yellow-400';
     return 'text-red-400';
   };
-
-  const trackItems = activeSet.items.filter(item => item.type === 'track');
 
   return (
     <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
@@ -191,7 +106,7 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Transport controls */}
+        {/* Transport controls — crossfade mode */}
         {tracks.length > 0 && (
           <div className="bg-muted/30 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-center gap-2">
@@ -210,6 +125,7 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
               <>
                 <div className="text-center text-xs text-muted-foreground">
                   Now: <span className="text-foreground font-medium">{trackItems[playingIndex]?.trackTitle}</span>
+                  <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">Crossfade Mix</Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="w-10 text-right font-mono">{formatTimestamp(currentTime)}</span>
@@ -302,16 +218,30 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
 
         <Separator />
 
-        {/* Export */}
+        {/* Export buttons — all functional */}
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex-1">
-            <Download className="w-4 h-4 mr-1" /> Export Mix
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1" 
+            onClick={handleExportMix}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" /> {exportProgress}%
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-1" /> Export Mix
+              </>
+            )}
           </Button>
-          <Button variant="outline" size="sm" className="flex-1">
+          <Button variant="outline" size="sm" className="flex-1" onClick={handleExportCueSheet}>
             <FileText className="w-4 h-4 mr-1" /> Cue Sheet
           </Button>
-          <Button variant="outline" size="sm">
-            <ArrowRight className="w-4 h-4" />
+          <Button variant="outline" size="sm" onClick={handleCopyTracklist} title="Copy tracklist to clipboard">
+            <Copy className="w-4 h-4" />
           </Button>
         </div>
       </CardContent>

@@ -215,7 +215,11 @@ export default function DJAgent({ user }: DJAgentProps) {
         console.log(`[DJ Agent] 🔬 Analyzing track ${i + 1}/${tracks.length}: "${tracks[i].title}" (${tracks[i].fileUrl?.substring(0, 50)})`);
         setMessage(`Analyzing track ${i + 1}/${tracks.length}: "${tracks[i].title}" — BPM detection, Krumhansl-Schmuckler key, RMS energy...`);
         try {
-          const result = await analyzeTrackReal(tracks[i]);
+          const analysisPromise = analyzeTrackReal(tracks[i]);
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error(`Analysis timed out after 30s`)), 30000)
+          );
+          const result = await Promise.race([analysisPromise, timeoutPromise]);
           console.log(`[DJ Agent] ✅ Analysis complete for "${tracks[i].title}":`, { bpm: result.features?.bpm, key: result.features?.key, camelot: result.features?.camelot, lufs: result.features?.lufsIntegrated });
           analyzed.push(result);
         } catch (err) {

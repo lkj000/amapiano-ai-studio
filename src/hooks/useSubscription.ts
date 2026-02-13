@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 
@@ -12,6 +12,34 @@ export interface SubscriptionState {
   error: string | null;
 }
 
+// ── Module-level deduplication & cache ──
+let _inflight: Promise<any> | null = null;
+let _cachedResult: { data: any; ts: number } | null = null;
+const CACHE_TTL_MS = 15_000; // 15 s – avoid hammering Stripe on every mount
+
+async function fetchSubscriptionOnce(): Promise<any> {
+  // Return cached if fresh
+  if (_cachedResult && Date.now() - _cachedResult.ts < CACHE_TTL_MS) {
+    return _cachedResult.data;
+  }
+
+  // Deduplicate concurrent calls
+  if (_inflight) return _inflight;
+
+  _inflight = (async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription');
+      if (error) throw error;
+      _cachedResult = { data, ts: Date.now() };
+      return data;
+    } finally {
+      _inflight = null;
+    }
+  })();
+
+  return _inflight;
+}
+
 export const useSubscription = (user: User | null) => {
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>({
     subscribed: false,
@@ -20,12 +48,18 @@ export const useSubscription = (user: User | null) => {
     loading: false,
     error: null,
   });
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const checkSubscription = useCallback(async () => {
     if (!user) {
       setSubscriptionState({
         subscribed: false,
-        subscription_tier: 'free', 
+        subscription_tier: 'free',
         subscription_end: null,
         loading: false,
         error: null,
@@ -36,9 +70,8 @@ export const useSubscription = (user: User | null) => {
     setSubscriptionState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('check-subscription');
-      
-      if (error) throw error;
+      const data = await fetchSubscriptionOnce();
+      if (!mountedRef.current) return;
 
       setSubscriptionState({
         subscribed: data.subscribed || false,
@@ -48,6 +81,7 @@ export const useSubscription = (user: User | null) => {
         error: null,
       });
     } catch (error) {
+      if (!mountedRef.current) return;
       console.error('Subscription check failed:', error);
       setSubscriptionState(prev => ({
         ...prev,
@@ -74,7 +108,6 @@ export const useSubscription = (user: User | null) => {
     const { data, error } = await supabase.functions.invoke('customer-portal');
     if (error) throw error;
     
-    // Open in new tab
     window.open(data.url, '_blank');
   }, [user]);
 
@@ -82,7 +115,7 @@ export const useSubscription = (user: User | null) => {
   const hasFeature = useCallback((feature: string): boolean => {
     const { subscription_tier } = subscriptionState;
     
-    const features = {
+    const features: Record<string, string[]> = {
       'unlimited_projects': ['producer', 'professional', 'enterprise'],
       'basic_vst_plugins': ['producer', 'professional', 'enterprise'],
       'sample_library': ['producer', 'professional', 'enterprise'],
@@ -102,7 +135,7 @@ export const useSubscription = (user: User | null) => {
   const getFeatureLimit = useCallback((feature: string): number => {
     const { subscription_tier } = subscriptionState;
     
-    const limits = {
+    const limits: Record<string, Record<string, number>> = {
       'max_projects': {
         'free': 3,
         'producer': Infinity,
@@ -126,12 +159,14 @@ export const useSubscription = (user: User | null) => {
     return limits[feature]?.[subscription_tier] || 0;
   }, [subscriptionState.subscription_tier]);
 
-  // Check subscription on user change and periodically
+  // Check on mount + refresh every 30s (single shared fetch)
   useEffect(() => {
     checkSubscription();
     
-    // Auto-refresh every 30 seconds if user is logged in
-    const interval = user ? setInterval(checkSubscription, 30000) : null;
+    const interval = user ? setInterval(() => {
+      _cachedResult = null; // bust cache for periodic refresh
+      checkSubscription();
+    }, 30000) : null;
     
     return () => {
       if (interval) clearInterval(interval);

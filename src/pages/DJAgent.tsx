@@ -261,6 +261,7 @@ export default function DJAgent({ user }: DJAgentProps) {
               sets={generatedSets}
               activeSetIndex={activeSetIndex}
               onSelectSet={setActiveSetIndex}
+              tracks={tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl }))}
             />
 
             {/* AI DJ Brain Narrative */}

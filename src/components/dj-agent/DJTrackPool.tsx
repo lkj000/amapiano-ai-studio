@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, Music, Trash2, FolderOpen, Loader2 } from 'lucide-react';
+import { Upload, Music, Trash2, FolderOpen, Loader2, Play, Pause, Volume2 } from 'lucide-react';
 import { DJTrack } from './DJAgentTypes';
 import { toast } from 'sonner';
 
@@ -18,6 +18,8 @@ interface DJTrackPoolProps {
 
 export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnalyzing }: DJTrackPoolProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const processFiles = useCallback((files: FileList) => {
     const audioFiles = Array.from(files).filter(f => {
@@ -45,6 +47,40 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnal
     onAddTracks(newTracks);
     toast.success(`Added ${newTracks.length} track(s) to pool`);
   }, [onAddTracks]);
+
+  const handlePlayToggle = useCallback((track: DJTrack) => {
+    if (playingTrackId === track.id) {
+      // Stop current
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setPlayingTrackId(null);
+      return;
+    }
+
+    // Stop previous
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const audio = new Audio(track.fileUrl);
+    audio.volume = 0.8;
+    audio.onended = () => {
+      setPlayingTrackId(null);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      toast.error(`Failed to play "${track.title}"`);
+      setPlayingTrackId(null);
+      audioRef.current = null;
+    };
+    audio.play().then(() => {
+      audioRef.current = audio;
+      setPlayingTrackId(track.id);
+    }).catch(() => {
+      toast.error('Browser blocked audio playback — click Enable Audio first');
+    });
+  }, [playingTrackId]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -133,9 +169,22 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnal
             {tracks.map(track => (
               <div
                 key={track.id}
-                className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 group"
+                className={`flex items-center gap-2 p-2 rounded-md hover:bg-muted/40 group ${
+                  playingTrackId === track.id ? 'bg-primary/10 border border-primary/30' : ''
+                }`}
               >
-                <Music className="w-4 h-4 text-muted-foreground shrink-0" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => handlePlayToggle(track)}
+                >
+                  {playingTrackId === track.id ? (
+                    <Pause className="w-3.5 h-3.5 text-primary" />
+                  ) : (
+                    <Play className="w-3.5 h-3.5" />
+                  )}
+                </Button>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{track.title}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -153,6 +202,9 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnal
                     )}
                     {isAnalyzing && !track.features && (
                       <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                    )}
+                    {playingTrackId === track.id && (
+                      <Volume2 className="w-3 h-3 text-primary animate-pulse" />
                     )}
                   </div>
                 </div>

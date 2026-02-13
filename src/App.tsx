@@ -48,6 +48,7 @@ const ModalDashboard = lazy(() => import("./pages/ModalDashboard"));
 const SunoGenerator = lazy(() => import("./pages/SunoGenerator"));
 const ElevenLabsSinging = lazy(() => import("./pages/ElevenLabsSinging"));
 const InstrumentalGenerator = lazy(() => import("./pages/InstrumentalGenerator"));
+const DJAgent = lazy(() => import("./pages/DJAgent"));
 const BackingWithIntro = lazy(() => import("./pages/BackingWithIntro"));
 const AILyricsGeneratorPage = lazy(() => import("./pages/AILyricsGeneratorPage"));
 const StemSplitterPage = lazy(() => import("./pages/StemSplitterPage"));
@@ -221,6 +222,7 @@ const App = () => {
                 <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
                 <Route path="/rhythm-demo" element={<RhythmDemo />} />
                 <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
+                <Route path="/dj-agent" element={<DJAgent user={user} />} />
                 <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
                 
                 {/* Catch-all route */}

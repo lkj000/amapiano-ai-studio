@@ -1410,6 +1410,187 @@ export type Database = {
         }
         Relationships: []
       }
+      dj_library_tracks: {
+        Row: {
+          artist: string | null
+          created_at: string
+          duration_sec: number | null
+          file_format: string
+          file_url: string
+          id: string
+          sha256: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          artist?: string | null
+          created_at?: string
+          duration_sec?: number | null
+          file_format?: string
+          file_url: string
+          id?: string
+          sha256?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          artist?: string | null
+          created_at?: string
+          duration_sec?: number | null
+          file_format?: string
+          file_url?: string
+          id?: string
+          sha256?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      dj_performance_plans: {
+        Row: {
+          created_at: string
+          duration_target_sec: number
+          id: string
+          name: string
+          plan_data: Json
+          preset: string
+          risk: number
+          scores: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_target_sec?: number
+          id?: string
+          name?: string
+          plan_data?: Json
+          preset?: string
+          risk?: number
+          scores?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_target_sec?: number
+          id?: string
+          name?: string
+          plan_data?: Json
+          preset?: string
+          risk?: number
+          scores?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      dj_renders: {
+        Row: {
+          created_at: string
+          cuesheet: Json | null
+          format: string
+          id: string
+          output_url: string | null
+          plan_id: string
+          render_duration_sec: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuesheet?: Json | null
+          format?: string
+          id?: string
+          output_url?: string | null
+          plan_id: string
+          render_duration_sec?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cuesheet?: Json | null
+          format?: string
+          id?: string
+          output_url?: string | null
+          plan_id?: string
+          render_duration_sec?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_renders_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "dj_performance_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_track_features: {
+        Row: {
+          analyzed_at: string
+          beatgrid: Json | null
+          bpm: number | null
+          bpm_confidence: number | null
+          camelot: string | null
+          energy_curve: Json | null
+          id: string
+          key: string | null
+          lufs_integrated: number | null
+          segments: Json | null
+          track_id: string
+          true_peak_db: number | null
+          vocal_activity_curve: Json | null
+        }
+        Insert: {
+          analyzed_at?: string
+          beatgrid?: Json | null
+          bpm?: number | null
+          bpm_confidence?: number | null
+          camelot?: string | null
+          energy_curve?: Json | null
+          id?: string
+          key?: string | null
+          lufs_integrated?: number | null
+          segments?: Json | null
+          track_id: string
+          true_peak_db?: number | null
+          vocal_activity_curve?: Json | null
+        }
+        Update: {
+          analyzed_at?: string
+          beatgrid?: Json | null
+          bpm?: number | null
+          bpm_confidence?: number | null
+          camelot?: string | null
+          energy_curve?: Json | null
+          id?: string
+          key?: string | null
+          lufs_integrated?: number | null
+          segments?: Json | null
+          track_id?: string
+          true_peak_db?: number | null
+          vocal_activity_curve?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_track_features_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "dj_library_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duet_collaborations: {
         Row: {
           collaboration_type: string | null

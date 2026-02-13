@@ -82,10 +82,16 @@ export default function DJAgent({ user }: DJAgentProps) {
   }, [tracks, generatedSets, config, phase, aiNarrative]);
 
   const handleAddTracks = useCallback((newTracks: DJTrack[]) => {
-    setTracks(prev => [...prev, ...newTracks]);
+    console.log(`[DJ Agent] 📁 Adding ${newTracks.length} track(s):`, newTracks.map(t => ({ title: t.title, artist: t.artist, duration: t.durationSec, fileUrl: t.fileUrl?.substring(0, 60) })));
+    setTracks(prev => {
+      const updated = [...prev, ...newTracks];
+      console.log(`[DJ Agent] 📊 Track pool now has ${updated.length} total tracks`);
+      return updated;
+    });
   }, []);
 
   const handleRemoveTrack = useCallback((id: string) => {
+    console.log(`[DJ Agent] 🗑️ Removing track: ${id}`);
     setTracks(prev => prev.filter(t => t.id !== id));
   }, []);
 
@@ -200,21 +206,25 @@ export default function DJAgent({ user }: DJAgentProps) {
 
     try {
       // Phase 1: Real audio analysis using Web Audio API
+      console.log(`[DJ Agent] 🚀 Starting generation with ${tracks.length} tracks, config:`, config);
       setPhase('analyzing');
       setMessage('Decoding audio and extracting BPM, key, energy, segments via Web Audio API...');
       const analyzed: DJTrack[] = [];
       for (let i = 0; i < tracks.length; i++) {
         setProgress(((i + 0.5) / tracks.length) * 30);
+        console.log(`[DJ Agent] 🔬 Analyzing track ${i + 1}/${tracks.length}: "${tracks[i].title}" (${tracks[i].fileUrl?.substring(0, 50)})`);
         setMessage(`Analyzing track ${i + 1}/${tracks.length}: "${tracks[i].title}" — BPM detection, Krumhansl-Schmuckler key, RMS energy...`);
         try {
           const result = await analyzeTrackReal(tracks[i]);
+          console.log(`[DJ Agent] ✅ Analysis complete for "${tracks[i].title}":`, { bpm: result.features?.bpm, key: result.features?.key, camelot: result.features?.camelot, lufs: result.features?.lufsIntegrated });
           analyzed.push(result);
         } catch (err) {
-          console.error(`Failed to analyze "${tracks[i].title}":`, err);
+          console.error(`[DJ Agent] ❌ Failed to analyze "${tracks[i].title}":`, err);
           toast.error(`Failed to analyze "${tracks[i].title}" — skipping`);
         }
         setProgress(((i + 1) / tracks.length) * 30);
       }
+      console.log(`[DJ Agent] 📊 Analysis phase complete: ${analyzed.length}/${tracks.length} tracks analyzed successfully`);
       
       if (analyzed.length < 3) {
         throw new Error('Need at least 3 successfully analyzed tracks');
@@ -225,19 +235,23 @@ export default function DJAgent({ user }: DJAgentProps) {
 
       // Phase 2: Real beam search planning with Camelot compatibility
       setPhase('planning');
+      console.log('[DJ Agent] 🗺️ Phase 2: Planning — beam search with Camelot compatibility');
       setMessage('Running beam search (width=20) with Camelot wheel compatibility, BPM proximity, and energy arc scoring...');
       setProgress(40);
 
       // Phase 3: Generate 3 real variations using beam search with different risk offsets
       setPhase('generating_variants');
+      console.log('[DJ Agent] 🎛️ Phase 3: Generating Safe/Balanced/Wild variations');
       setMessage('Generating Safe, Balanced, and Wild variations via beam search with different risk parameters...');
       setProgress(55);
       
       const sets = planSets(analyzed, config);
+      console.log(`[DJ Agent] ✅ Generated ${sets.length} set variations:`, sets.map(s => ({ name: s.name, scores: s.scores })));
       setProgress(75);
 
       // Phase 4: AI DJ brain narrative (streams in background)
       setPhase('rendering');
+      console.log('[DJ Agent] 🧠 Phase 4: Streaming AI DJ brain narrative');
       setMessage('Querying AI DJ brain for narrative arc, transition notes, and Extend/Mashup recommendations...');
       setProgress(85);
       
@@ -249,9 +263,11 @@ export default function DJAgent({ user }: DJAgentProps) {
       setGeneratedSets(sets);
       setActiveSetIndex(0);
       setPhase('complete');
+      console.log('[DJ Agent] 🎉 Generation complete!');
       setMessage(`Generated ${sets.length} variations using real audio analysis + beam search. AI narrative streaming below.`);
       toast.success('DJ set generated with real analysis!');
     } catch (err) {
+      console.error('[DJ Agent] 💥 Generation failed:', err);
       setPhase('error');
       setMessage(err instanceof Error ? err.message : 'Generation failed');
       toast.error('Failed to generate DJ set');

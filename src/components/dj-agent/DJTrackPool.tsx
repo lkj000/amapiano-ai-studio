@@ -7,7 +7,9 @@ import { Upload, Music, Trash2, FolderOpen, Loader2, Play, Pause, Volume2 } from
 import { DJTrack } from './DJAgentTypes';
 import { toast } from 'sonner';
 
-const ACCEPTED_AUDIO = '.mp3,.mp4,.wav,.flac,.ogg,.aiff,.m4a';
+// iOS Safari is picky with accept strings — use broad audio/* plus specific extensions
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ACCEPTED_AUDIO = IS_IOS ? 'audio/*' : 'audio/*,.mp3,.mp4,.wav,.flac,.ogg,.aiff,.m4a';
 
 interface DJTrackPoolProps {
   tracks: DJTrack[];
@@ -88,30 +90,50 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnal
     if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
   }, [processFiles]);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleFileSelect = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = ACCEPTED_AUDIO;
-    input.onchange = (e) => {
+    if (!fileInputRef.current) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = ACCEPTED_AUDIO;
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      fileInputRef.current = input;
+    }
+    fileInputRef.current.onchange = (e) => {
       const target = e.target as HTMLInputElement;
-      if (target.files) processFiles(target.files);
+      if (target.files?.length) processFiles(target.files);
+      target.value = ''; // reset so same files can be re-selected
     };
-    input.click();
+    fileInputRef.current.click();
   }, [processFiles]);
 
   const handleFolderSelect = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.setAttribute('webkitdirectory', '');
-    input.setAttribute('directory', '');
-    input.onchange = (e) => {
+    if (IS_IOS) {
+      // iOS doesn't support folder selection — fall back to file picker
+      handleFileSelect();
+      return;
+    }
+    if (!folderInputRef.current) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.setAttribute('webkitdirectory', '');
+      input.setAttribute('directory', '');
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      folderInputRef.current = input;
+    }
+    folderInputRef.current.onchange = (e) => {
       const target = e.target as HTMLInputElement;
-      if (target.files) processFiles(target.files);
+      if (target.files?.length) processFiles(target.files);
+      target.value = '';
     };
-    input.click();
-  }, [processFiles]);
+    folderInputRef.current.click();
+  }, [processFiles, handleFileSelect]);
 
   const formatDuration = (sec?: number) => {
     if (!sec) return '--:--';

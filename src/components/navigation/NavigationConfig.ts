@@ -51,6 +51,7 @@ export interface NavCategory {
 export const CORE_NAV_ITEMS: NavItem[] = [
   { path: '/', label: 'Home', icon: Sparkles, requiredRole: 'user' },
   { path: '/generate', label: 'Generate', icon: Music, requiredRole: 'user' },
+  { path: '/dj-agent', label: 'DJ Mix', icon: Disc3, requiredRole: 'user' },
   { path: '/studio', label: 'Studio', icon: Layers, requiredRole: 'user' },
   { path: '/social', label: 'Social', icon: Users, requiredRole: 'user' },
 ];

@@ -146,7 +146,7 @@ export async function exportMixAsMp3(
   toast.info('Encoding MP3...');
 
   try {
-    const { default: lamejs } = await import('lamejs');
+    const lamejs = await import('@breezystack/lamejs');
     const mp3encoder = new lamejs.Mp3Encoder(rawBuffer.numberOfChannels, rawBuffer.sampleRate, 192);
     
     const left = rawBuffer.getChannelData(0);
@@ -287,7 +287,7 @@ async function exportMixAsMp3FromBuffer(
   name: string,
   onProgress?: (pct: number) => void
 ) {
-  const { default: lamejs } = await import('lamejs');
+  const lamejs = await import('@breezystack/lamejs');
   const mp3encoder = new lamejs.Mp3Encoder(rawBuffer.numberOfChannels, rawBuffer.sampleRate, 192);
   const left = rawBuffer.getChannelData(0);
   const right = rawBuffer.numberOfChannels > 1 ? rawBuffer.getChannelData(1) : left;

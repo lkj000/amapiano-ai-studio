@@ -99,7 +99,7 @@ const Navigation: React.FC<NavigationProps> = ({ user }) => {
             : "text-muted-foreground hover:text-foreground hover:bg-muted"
         )}
       >
-        <Icon className="w-4 h-4 shrink-0" />
+        <Icon className={cn("w-4 h-4 shrink-0", item.path === '/dj-agent' && "animate-spin")} style={item.path === '/dj-agent' ? { animationDuration: '3s' } : undefined} />
         <span>{item.label}</span>
         {item.badge && (
           <span className={cn(

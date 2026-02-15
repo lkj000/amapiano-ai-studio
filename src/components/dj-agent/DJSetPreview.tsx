@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2, Layers } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2, Layers, ChevronDown } from 'lucide-react';
 import { GeneratedSet, DJTrackStems } from './DJAgentTypes';
 import { useCrossfadePlayer } from './useCrossfadePlayer';
 import { useStemCrossfadePlayer } from './useStemCrossfadePlayer';
-import { exportCueSheet, exportMixAsWav, copyTracklistToClipboard } from './djExportUtils';
+import { exportCueSheet, exportMixAsWav, exportMixAsMp3, exportMixAsMp4, copyTracklistToClipboard } from './djExportUtils';
 
 interface DJSetPreviewProps {
   sets: GeneratedSet[];
@@ -60,12 +61,18 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleExportMix = useCallback(async () => {
+  const handleExportMix = useCallback(async (format: 'wav' | 'mp3' | 'mp4') => {
     if (!activeSet || isExporting) return;
     setIsExporting(true);
     setExportProgress(0);
     try {
-      await exportMixAsWav(activeSet, tracks, setExportProgress);
+      if (format === 'mp3') {
+        await exportMixAsMp3(activeSet, tracks, setExportProgress);
+      } else if (format === 'mp4') {
+        await exportMixAsMp4(activeSet, tracks, setExportProgress);
+      } else {
+        await exportMixAsWav(activeSet, tracks, setExportProgress);
+      }
     } finally {
       setIsExporting(false);
       setExportProgress(0);
@@ -267,23 +274,30 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
 
         {/* Export buttons — all functional */}
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1" 
-            onClick={handleExportMix}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" /> {exportProgress}%
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4 mr-1" /> Export Mix
-              </>
-            )}
-          </Button>
+          {isExporting ? (
+            <Button variant="outline" size="sm" className="flex-1" disabled>
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" /> {exportProgress}%
+            </Button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1">
+                  <Download className="w-4 h-4 mr-1" /> Export Mix <ChevronDown className="w-3 h-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExportMix('wav')}>
+                  WAV (Lossless)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportMix('mp3')}>
+                  MP3 (192kbps)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExportMix('mp4')}>
+                  M4A / MP4 (AAC)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button variant="outline" size="sm" className="flex-1" onClick={handleExportCueSheet}>
             <FileText className="w-4 h-4 mr-1" /> Cue Sheet
           </Button>

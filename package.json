@@ -60,6 +60,7 @@
     "jsdom": "^28.0.0",
     "jspdf": "^3.0.3",
     "jszip": "^3.10.1",
+    "lamejs": "^1.2.1",
     "lucide-react": "^0.462.0",
     "midi-parser-js": "^4.0.4",
     "next-themes": "^0.3.0",

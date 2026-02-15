@@ -230,6 +230,8 @@ export default function DJAgent({ user }: DJAgentProps) {
           toast.error(`Failed to analyze "${tracks[i].title}" — skipping`);
         }
         setProgress(((i + 1) / tracks.length) * 30);
+        // Brief yield to allow garbage collection between tracks
+        await new Promise(r => setTimeout(r, 100));
       }
       console.log(`[DJ Agent] 📊 Analysis phase complete: ${analyzed.length}/${tracks.length} tracks analyzed successfully`);
       

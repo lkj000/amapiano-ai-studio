@@ -111,8 +111,8 @@ export async function exportMixAsWav(
   onProgress?: (pct: number) => void
 ) {
   const DEFAULT_CROSSFADE = 8;
+  const EXPORT_SAMPLE_RATE = 44100;
   const trackItems = set.items.filter(i => i.type === 'track');
-  const transitionItems = set.items.filter(i => i.type === 'transition');
 
   if (trackItems.length === 0) {
     toast.error('No tracks to export');
@@ -122,74 +122,61 @@ export async function exportMixAsWav(
   toast.info('Rendering mix — this may take a moment...');
   onProgress?.(5);
 
-  // Load all audio buffers
-  const onlineCtx = new AudioContext();
-  const buffers: (AudioBuffer | null)[] = [];
-  
+  // Load and decode one track at a time to prevent OOM
+  const decoded: { index: number; buffer: AudioBuffer }[] = [];
+
   for (let i = 0; i < trackItems.length; i++) {
     const url = trackSources.find(t => t.id === trackItems[i].trackId)?.fileUrl;
-    if (!url) {
-      buffers.push(null);
-      continue;
-    }
+    if (!url) continue;
     try {
       const resp = await fetch(url);
       const arrBuf = await resp.arrayBuffer();
-      const audioBuf = await onlineCtx.decodeAudioData(arrBuf);
-      buffers.push(audioBuf);
-    } catch {
-      buffers.push(null);
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: EXPORT_SAMPLE_RATE });
+      const audioBuf = await ctx.decodeAudioData(arrBuf);
+      await ctx.close();
+      decoded.push({ index: i, buffer: audioBuf });
+    } catch (e) {
+      console.warn(`[DJ Export] Failed to load track ${i}:`, e);
     }
     onProgress?.(5 + (i / trackItems.length) * 40);
+    // Yield to GC between tracks
+    await new Promise(r => setTimeout(r, 50));
   }
-  onlineCtx.close();
 
-  const validBuffers = buffers.map((b, i) => b ? { index: i, buffer: b } : null).filter(Boolean) as { index: number; buffer: AudioBuffer }[];
-  if (validBuffers.length === 0) {
+  if (decoded.length === 0) {
     toast.error('Could not load any audio for export');
     return;
   }
 
-  // Calculate total duration with crossfades
+  // Calculate schedule
   let totalDuration = 0;
   const schedules: { buffer: AudioBuffer; startTime: number; crossfadeSec: number; isFirst: boolean; isLast: boolean }[] = [];
-  
-  for (let i = 0; i < validBuffers.length; i++) {
-    const { buffer } = validBuffers[i];
-    const crossfadeSec = i < validBuffers.length - 1 ? Math.min(DEFAULT_CROSSFADE, buffer.duration * 0.3) : 0;
-    
+
+  for (let i = 0; i < decoded.length; i++) {
+    const { buffer } = decoded[i];
+    const crossfadeSec = i < decoded.length - 1 ? Math.min(DEFAULT_CROSSFADE, buffer.duration * 0.3) : 0;
     schedules.push({
       buffer,
       startTime: totalDuration,
       crossfadeSec,
       isFirst: i === 0,
-      isLast: i === validBuffers.length - 1,
+      isLast: i === decoded.length - 1,
     });
-    
     totalDuration += buffer.duration - crossfadeSec;
-  }
-
-  // Add last track's remaining duration
-  if (validBuffers.length > 0) {
-    const lastBuf = validBuffers[validBuffers.length - 1].buffer;
-    // totalDuration already includes last track fully since crossfade = 0 for last
   }
 
   onProgress?.(50);
 
   // Render offline
-  const sampleRate = 44100;
-  const offlineCtx = new OfflineAudioContext(2, Math.ceil(totalDuration * sampleRate), sampleRate);
+  const offlineCtx = new OfflineAudioContext(2, Math.ceil(totalDuration * EXPORT_SAMPLE_RATE), EXPORT_SAMPLE_RATE);
 
   for (const sched of schedules) {
     const source = offlineCtx.createBufferSource();
     source.buffer = sched.buffer;
-    
     const gain = offlineCtx.createGain();
     gain.connect(offlineCtx.destination);
     source.connect(gain);
 
-    // Fade in
     if (!sched.isFirst) {
       gain.gain.setValueAtTime(0, sched.startTime);
       gain.gain.linearRampToValueAtTime(1, sched.startTime + sched.crossfadeSec);
@@ -197,7 +184,6 @@ export async function exportMixAsWav(
       gain.gain.setValueAtTime(1, sched.startTime);
     }
 
-    // Fade out
     if (!sched.isLast && sched.crossfadeSec > 0) {
       const fadeOutStart = sched.startTime + sched.buffer.duration - sched.crossfadeSec;
       gain.gain.setValueAtTime(1, fadeOutStart);
@@ -210,19 +196,21 @@ export async function exportMixAsWav(
   onProgress?.(60);
 
   const renderedBuffer = await offlineCtx.startRendering();
+  // Free decoded buffers
+  decoded.length = 0;
+  schedules.length = 0;
   onProgress?.(85);
 
-  // Encode as WAV
   const wav = encodeWAV(renderedBuffer);
   const blob = new Blob([wav], { type: 'audio/wav' });
   const url = URL.createObjectURL(blob);
-  
+
   const a = document.createElement('a');
   a.href = url;
   a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.wav`;
   a.click();
   URL.revokeObjectURL(url);
-  
+
   onProgress?.(100);
   toast.success('Mix exported as WAV!');
 }

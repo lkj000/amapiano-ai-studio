@@ -42,6 +42,7 @@ export interface DJTrack {
   fileFormat: string;
   durationSec?: number;
   features?: TrackFeatures;
+  stems?: DJTrackStems;
 }
 
 export interface TrackFeatures {
@@ -69,6 +70,17 @@ export interface SetConfig {
   allowVocalOverlay: boolean;
   harmonicStrictness: number; // 0-1
   maxBpmDelta: number;
+  enableStemMode: boolean;
+}
+
+/** Stem data attached to a DJTrack when stem mode is active */
+export interface DJTrackStems {
+  vocals?: string;  // URL
+  drums?: string;
+  bass?: string;
+  guitar?: string;
+  piano?: string;
+  other?: string;
 }
 
 export interface PerformancePlanItem {
@@ -103,6 +115,7 @@ export interface GeneratedSet {
   scores: SetScores;
   energyCurve: number[];
   tracklist: { time: string; title: string; artist?: string; bpm: number; key: string }[];
+  isStemmed?: boolean;
 }
 
 export const PRESET_INFO: Record<DJPreset, { label: string; description: string; icon: string }> = {

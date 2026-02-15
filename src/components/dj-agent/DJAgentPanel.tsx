@@ -18,7 +18,7 @@ interface DJAgentPanelProps {
 const PHASE_LABELS: Record<AgentPhase, { label: string; color: string }> = {
   idle: { label: 'Ready', color: 'text-muted-foreground' },
   uploading: { label: 'Uploading...', color: 'text-info' },
-  analyzing: { label: 'Analyzing Tracks', color: 'text-primary' },
+  analyzing: { label: 'Analyzing / Stemming', color: 'text-primary' },
   planning: { label: 'Planning Set', color: 'text-accent' },
   generating_variants: { label: 'Generating Variants', color: 'text-secondary' },
   rendering: { label: 'Rendering Mix', color: 'text-primary' },

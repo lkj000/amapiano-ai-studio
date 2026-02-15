@@ -5,22 +5,40 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2 } from 'lucide-react';
-import { GeneratedSet } from './DJAgentTypes';
+import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2, Layers } from 'lucide-react';
+import { GeneratedSet, DJTrackStems } from './DJAgentTypes';
 import { useCrossfadePlayer } from './useCrossfadePlayer';
+import { useStemCrossfadePlayer } from './useStemCrossfadePlayer';
 import { exportCueSheet, exportMixAsWav, copyTracklistToClipboard } from './djExportUtils';
 
 interface DJSetPreviewProps {
   sets: GeneratedSet[];
   activeSetIndex: number;
   onSelectSet: (index: number) => void;
-  tracks?: { id: string; fileUrl: string }[];
+  tracks?: { id: string; fileUrl: string; stems?: DJTrackStems }[];
 }
 
 export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks = [] }: DJSetPreviewProps) {
   const activeSet = sets[activeSetIndex];
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+
+  const isStemmedSet = activeSet?.isStemmed ?? false;
+
+  // Standard crossfade player (for non-stemmed sets)
+  const standardPlayer = useCrossfadePlayer(
+    isStemmedSet ? undefined : activeSet,
+    tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl }))
+  );
+
+  // Stem crossfade player (for stemmed sets)
+  const stemPlayer = useStemCrossfadePlayer(
+    isStemmedSet ? activeSet : undefined,
+    tracks
+  );
+
+  // Use whichever player is active
+  const player = isStemmedSet ? stemPlayer : standardPlayer;
 
   const {
     isPlaying,
@@ -34,7 +52,7 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
     handleSeek,
     playTrackAtIndex,
     trackItems,
-  } = useCrossfadePlayer(activeSet, tracks);
+  } = player;
 
   const formatTimestamp = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -70,7 +88,7 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
         <div className="text-center p-8">
           <ListMusic className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">Generated sets will appear here</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">The agent will produce 3 variations (Safe, Balanced, Wild)</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">The agent will produce 3 variations (Safe, Balanced, Wild) + optional Stemmed 4th</p>
         </div>
       </Card>
     );
@@ -91,17 +109,18 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
             Generated Sets
           </CardTitle>
           <div className="flex gap-1">
-            {sets.map((set, i) => (
-              <Button
-                key={set.planId}
-                variant={i === activeSetIndex ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => onSelectSet(i)}
-                className="text-xs px-3"
-              >
-                v{i + 1}
-              </Button>
-            ))}
+              {sets.map((set, i) => (
+                <Button
+                  key={set.planId}
+                  variant={i === activeSetIndex ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => onSelectSet(i)}
+                  className={`text-xs px-3 ${set.isStemmed ? 'gap-1' : ''}`}
+                >
+                  {set.isStemmed && <Layers className="w-3 h-3" />}
+                  {set.isStemmed ? 'Stemmed' : `v${i + 1}`}
+                </Button>
+              ))}
           </div>
         </div>
       </CardHeader>
@@ -125,8 +144,36 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
               <>
                 <div className="text-center text-xs text-muted-foreground">
                   Now: <span className="text-foreground font-medium">{trackItems[playingIndex]?.trackTitle}</span>
-                  <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">Crossfade Mix</Badge>
+                  <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">
+                    {isStemmedSet ? 'Per-Stem Mix' : 'Crossfade Mix'}
+                  </Badge>
                 </div>
+                {/* Stem mute/solo controls for stemmed sets */}
+                {isStemmedSet && 'toggleStemMute' in stemPlayer && (
+                  <div className="flex flex-wrap gap-1 justify-center">
+                    {['drums', 'bass', 'vocals', 'guitar', 'piano', 'other'].map(stemKey => {
+                      const isMuted = stemPlayer.mutedStems.has(stemKey);
+                      const isSoloed = stemPlayer.soloedStems.has(stemKey);
+                      return (
+                        <button
+                          key={stemKey}
+                          onClick={() => stemPlayer.toggleStemMute(stemKey)}
+                          onDoubleClick={() => stemPlayer.toggleStemSolo(stemKey)}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border transition-all ${
+                            isSoloed
+                              ? 'border-primary bg-primary/20 text-primary'
+                              : isMuted
+                              ? 'border-border/20 text-muted-foreground/40 line-through'
+                              : 'border-border/40 text-muted-foreground hover:border-primary/40'
+                          }`}
+                          title={`Click: mute/unmute ${stemKey} | Double-click: solo`}
+                        >
+                          {stemKey}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="w-10 text-right font-mono">{formatTimestamp(currentTime)}</span>
                   <Slider

@@ -10,8 +10,10 @@ import DJTrackPool from '@/components/dj-agent/DJTrackPool';
 import DJSetConfig from '@/components/dj-agent/DJSetConfig';
 import DJAgentPanel from '@/components/dj-agent/DJAgentPanel';
 import DJSetPreview from '@/components/dj-agent/DJSetPreview';
+import DJSetComparison from '@/components/dj-agent/DJSetComparison';
 import { analyzeTrackReal } from '@/components/dj-agent/DJAudioAnalyzer';
 import { planSets } from '@/components/dj-agent/DJSetPlanner';
+import { separateDJTracks } from '@/components/dj-agent/DJStemSeparator';
 import {
   DJTrack, SetConfig, AgentPhase, GeneratedSet
 } from '@/components/dj-agent/DJAgentTypes';
@@ -66,6 +68,7 @@ export default function DJAgent({ user }: DJAgentProps) {
     allowVocalOverlay: true,
     harmonicStrictness: 0.75,
     maxBpmDelta: 3,
+    enableStemMode: false,
   });
   const [phase, setPhase] = useState<AgentPhase>(saved?.phase ?? 'idle');
   const [progress, setProgress] = useState(0);
@@ -237,39 +240,61 @@ export default function DJAgent({ user }: DJAgentProps) {
       setTracks(analyzed);
       setProgress(30);
 
-      // Phase 2: Real beam search planning with Camelot compatibility
-      setPhase('planning');
-      console.log('[DJ Agent] 🗺️ Phase 2: Planning — beam search with Camelot compatibility');
-      setMessage('Running beam search (width=20) with Camelot wheel compatibility, BPM proximity, and energy arc scoring...');
-      setProgress(40);
+      // Phase 2: Stem separation (if enabled)
+      let tracksForPlanning = analyzed;
+      if (config.enableStemMode) {
+        setPhase('analyzing');
+        console.log('[DJ Agent] 🎛️ Phase 2: Stem separation via htdemucs_6s');
+        setMessage('Separating stems for each track (vocals, drums, bass, guitar, piano, other)... This takes 2-4 min per track.');
+        setProgress(32);
 
-      // Phase 3: Generate 3 real variations using beam search with different risk offsets
-      setPhase('generating_variants');
-      console.log('[DJ Agent] 🎛️ Phase 3: Generating Safe/Balanced/Wild variations');
-      setMessage('Generating Safe, Balanced, and Wild variations via beam search with different risk parameters...');
+        tracksForPlanning = await separateDJTracks(analyzed, (completed, total, title) => {
+          const stemProgress = 30 + (completed / total) * 20;
+          setProgress(stemProgress);
+          setMessage(`Separating stems ${completed + 1}/${total}: "${title}"...`);
+        });
+
+        const stemmedCount = tracksForPlanning.filter(t => t.stems).length;
+        console.log(`[DJ Agent] ✅ Stem separation complete: ${stemmedCount}/${tracksForPlanning.length} tracks separated`);
+        setProgress(50);
+        setTracks(tracksForPlanning);
+      }
+
+      // Phase 3: Real beam search planning with Camelot compatibility
+      setPhase('planning');
+      console.log('[DJ Agent] 🗺️ Phase 3: Planning — beam search with Camelot compatibility');
+      setMessage('Running beam search (width=20) with Camelot wheel compatibility, BPM proximity, and energy arc scoring...');
       setProgress(55);
+
+      // Phase 4: Generate variations using beam search with different risk offsets
+      setPhase('generating_variants');
+      const variantCount = config.enableStemMode ? 'Safe/Balanced/Wild/Stemmed' : 'Safe/Balanced/Wild';
+      console.log(`[DJ Agent] 🎛️ Phase 4: Generating ${variantCount} variations`);
+      setMessage(`Generating ${variantCount} variations via beam search with different risk parameters...`);
+      setProgress(60);
       
-      const sets = planSets(analyzed, config);
-      console.log(`[DJ Agent] ✅ Generated ${sets.length} set variations:`, sets.map(s => ({ name: s.name, scores: s.scores })));
+      const sets = planSets(tracksForPlanning, config);
+      console.log(`[DJ Agent] ✅ Generated ${sets.length} set variations:`, sets.map(s => ({ name: s.name, scores: s.scores, stemmed: s.isStemmed })));
       setProgress(75);
 
-      // Phase 4: AI DJ brain narrative (streams in background)
+      // Phase 5: AI DJ brain narrative (streams in background)
       setPhase('rendering');
-      console.log('[DJ Agent] 🧠 Phase 4: Streaming AI DJ brain narrative');
+      console.log('[DJ Agent] 🧠 Phase 5: Streaming AI DJ brain narrative');
       setMessage('Querying AI DJ brain for narrative arc, transition notes, and Extend/Mashup recommendations...');
       setProgress(85);
       
       // Start AI streaming in background (non-blocking)
       const bestScores = sets.reduce((best, s) => s.scores.overall > best.overall ? s.scores : best, sets[0].scores);
-      streamAINarrative(analyzed, bestScores);
+      streamAINarrative(tracksForPlanning, bestScores);
       
       setProgress(100);
       setGeneratedSets(sets);
       setActiveSetIndex(0);
       setPhase('complete');
       console.log('[DJ Agent] 🎉 Generation complete!');
-      setMessage(`Generated ${sets.length} variations using real audio analysis + beam search. AI narrative streaming below.`);
-      toast.success('DJ set generated with real analysis!');
+      const stemNote = config.enableStemMode ? ' + stem-separated variation' : '';
+      setMessage(`Generated ${sets.length} variations using real audio analysis + beam search${stemNote}. AI narrative streaming below.`);
+      toast.success(`DJ set generated with ${sets.length} variations!`);
     } catch (err) {
       console.error('[DJ Agent] 💥 Generation failed:', err);
       setPhase('error');
@@ -333,14 +358,23 @@ export default function DJAgent({ user }: DJAgentProps) {
             <DJSetConfig config={config} onChange={setConfig} />
           </div>
 
-          {/* Right: Preview + AI Narrative */}
+          {/* Right: Preview + Comparison + AI Narrative */}
           <div className="lg:col-span-5 space-y-4">
             <DJSetPreview
               sets={generatedSets}
               activeSetIndex={activeSetIndex}
               onSelectSet={setActiveSetIndex}
-              tracks={tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl }))}
+              tracks={tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl, stems: t.stems }))}
             />
+
+            {/* Comparison panel — shown when sets are generated */}
+            {generatedSets.length > 1 && (
+              <DJSetComparison
+                sets={generatedSets}
+                activeSetIndex={activeSetIndex}
+                onSelectSet={setActiveSetIndex}
+              />
+            )}
 
             {/* AI DJ Brain Narrative */}
             {(aiNarrative || isStreamingAI) && (

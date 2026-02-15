@@ -35,13 +35,16 @@ const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.6
 async function decodeAudioFile(fileUrl: string): Promise<AudioBuffer> {
   const response = await fetch(fileUrl);
   const arrayBuffer = await response.arrayBuffer();
-  // Use 22050 Hz to halve memory usage — sufficient for BPM/key/energy analysis
+  // Use 11025 Hz — minimum viable for BPM/key/energy analysis, 1/4 memory of 44100
   const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-    sampleRate: 22050,
+    sampleRate: 11025,
   });
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  await audioContext.close();
-  return audioBuffer;
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    return audioBuffer;
+  } finally {
+    await audioContext.close();
+  }
 }
 
 function getMonoSamples(buffer: AudioBuffer): Float32Array {
@@ -382,9 +385,17 @@ function detectSegments(energyCurve: number[], durationSec: number): TrackSegmen
  */
 export async function analyzeTrackReal(track: DJTrack): Promise<DJTrack> {
   const audioBuffer = await decodeAudioFile(track.fileUrl);
-  const samples = getMonoSamples(audioBuffer);
+  const fullDurationSec = audioBuffer.duration;
   const sampleRate = audioBuffer.sampleRate;
-  const durationSec = audioBuffer.duration;
+  
+  // Only analyze first 45 seconds to prevent OOM on large batches
+  const maxAnalysisSamples = Math.min(audioBuffer.length, Math.floor(sampleRate * 45));
+  const rawMono = getMonoSamples(audioBuffer);
+  // Slice to 45s and let the full buffer be GC'd
+  const samples = rawMono.length > maxAnalysisSamples
+    ? rawMono.slice(0, maxAnalysisSamples)
+    : rawMono;
+  const durationSec = fullDurationSec;
   
   // Run all analyses
   const { bpm, confidence: bpmConfidence } = detectBPM(samples, sampleRate);

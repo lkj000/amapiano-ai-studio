@@ -319,12 +319,17 @@ function computeSetScores(sequence: DJTrack[], config: SetConfig): SetScores {
 /**
  * Generate 3 set variations using beam search
  */
-export function planSets(tracks: DJTrack[], config: SetConfig): GeneratedSet[] {
-  const variations = [
-    { label: 'Safe', riskOffset: -config.risk * 0.5 },
-    { label: 'Balanced', riskOffset: 0 },
-    { label: 'Wild', riskOffset: Math.min(0.4, (1 - config.risk) * 0.6) },
-  ];
+/**
+ * Build a single GeneratedSet from a beam search result
+ */
+function buildGeneratedSet(
+  sequence: DJTrack[],
+  config: SetConfig,
+  label: string,
+  riskOffset: number,
+  isStemmed: boolean = false
+): GeneratedSet {
+  const effectiveRisk = Math.min(1, Math.max(0, config.risk + riskOffset));
 
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -332,85 +337,120 @@ export function planSets(tracks: DJTrack[], config: SetConfig): GeneratedSet[] {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  return variations.map(({ label, riskOffset }) => {
-    const { sequence, totalScore } = beamSearchPlan(tracks, config, 20, riskOffset);
-    const effectiveRisk = Math.min(1, Math.max(0, config.risk + riskOffset));
-    
-    // Build items with real transition types
-    let time = 0;
-    const totalDuration = sequence.reduce((s, t) => s + (t.durationSec || 240), 0);
-    
-    const items: PerformancePlanItem[] = [];
-    
-    for (let i = 0; i < sequence.length; i++) {
-      const track = sequence[i];
-      const dur = track.durationSec || 240;
-      const positionRatio = time / totalDuration;
-      
+  let time = 0;
+  const totalDuration = sequence.reduce((s, t) => s + (t.durationSec || 240), 0);
+  const items: PerformancePlanItem[] = [];
+
+  for (let i = 0; i < sequence.length; i++) {
+    const track = sequence[i];
+    const dur = track.durationSec || 240;
+    const positionRatio = time / totalDuration;
+
+    items.push({
+      itemId: crypto.randomUUID(),
+      type: 'track',
+      trackId: track.id,
+      trackTitle: track.title,
+      trackArtist: track.artist,
+      mixRole: assignMixRole(positionRatio),
+      startTimeSec: time,
+      durationSec: dur,
+    });
+
+    if (i < sequence.length - 1) {
+      const transType = chooseTransitionType(track, sequence[i + 1], effectiveRisk, positionRatio);
+      const transitionBars = transType === 'clean_cut_on_phrase' ? 4
+        : transType === 'mashup_overlay' ? 32
+        : 16;
+
       items.push({
         itemId: crypto.randomUUID(),
-        type: 'track',
-        trackId: track.id,
-        trackTitle: track.title,
-        trackArtist: track.artist,
-        mixRole: assignMixRole(positionRatio),
-        startTimeSec: time,
-        durationSec: dur,
+        type: 'transition',
+        transitionType: transType,
+        bars: transitionBars,
+        startTimeSec: time + dur - (transitionBars * 60 / (track.features?.bpm || 120)),
+        durationSec: transitionBars * 60 / (track.features?.bpm || 120),
       });
-      
-      if (i < sequence.length - 1) {
-        const transType = chooseTransitionType(track, sequence[i + 1], effectiveRisk, positionRatio);
-        const transitionBars = transType === 'clean_cut_on_phrase' ? 4 :
-                               transType === 'mashup_overlay' ? 32 :
-                               transType === 'loop_roll_build' ? 16 : 16;
-        
-        items.push({
-          itemId: crypto.randomUUID(),
-          type: 'transition',
-          transitionType: transType,
-          bars: transitionBars,
-          startTimeSec: time + dur - (transitionBars * 60 / (track.features?.bpm || 120)),
-          durationSec: transitionBars * 60 / (track.features?.bpm || 120),
-        });
-      }
-      
-      time += dur;
     }
-    
-    const scores = computeSetScores(sequence, config);
-    
-    // Build real energy curve from actual track energies
-    const energyCurve: number[] = [];
-    const arcFn = ENERGY_ARCS[config.preset] || ENERGY_ARCS.balanced;
-    for (let i = 0; i < 30; i++) {
-      const t = i / 29;
-      // Blend actual track energy with target arc
-      const trackIdx = Math.floor(t * sequence.length);
-      const actualTrack = sequence[Math.min(trackIdx, sequence.length - 1)];
-      const actualEnergy = actualTrack.features
-        ? actualTrack.features.energyCurve.reduce((a, b) => a + b, 0) / actualTrack.features.energyCurve.length
-        : 0.5;
-      const targetEnergy = arcFn(t);
-      energyCurve.push(actualEnergy * 0.6 + targetEnergy * 0.4);
-    }
-    
-    const tracklist = sequence.map((t, i) => ({
-      time: formatTime(items.filter(it => it.type === 'track')[i]?.startTimeSec || 0),
-      title: t.title,
-      artist: t.artist,
-      bpm: Math.round(t.features?.bpm || 120),
-      key: t.features?.key || 'Unknown',
-    }));
 
-    return {
-      planId: crypto.randomUUID(),
-      name: `${label} Mix — ${PRESET_INFO[config.preset].label}`,
-      preset: config.preset,
-      durationSec: time,
-      items,
-      scores,
-      energyCurve,
-      tracklist,
-    };
+    time += dur;
+  }
+
+  const scores = computeSetScores(sequence, config);
+
+  // If stemmed, boost transition cleanliness score (per-stem crossfade is inherently cleaner)
+  if (isStemmed) {
+    scores.transitionCleanliness = Math.min(100, Math.round(scores.transitionCleanliness * 1.15));
+    scores.vocalOverlapConflict = Math.min(100, Math.round(scores.vocalOverlapConflict * 1.2));
+    scores.overall = Math.round(
+      scores.harmonicClash * 0.25 + scores.tempoJump * 0.2 + scores.vocalOverlapConflict * 0.1 +
+      scores.energySmoothness * 0.2 + scores.transitionCleanliness * 0.15 + scores.novelty * 0.1
+    );
+  }
+
+  const energyCurve: number[] = [];
+  const arcFn = ENERGY_ARCS[config.preset] || ENERGY_ARCS.balanced;
+  for (let i = 0; i < 30; i++) {
+    const t = i / 29;
+    const trackIdx = Math.floor(t * sequence.length);
+    const actualTrack = sequence[Math.min(trackIdx, sequence.length - 1)];
+    const actualEnergy = actualTrack.features
+      ? actualTrack.features.energyCurve.reduce((a, b) => a + b, 0) / actualTrack.features.energyCurve.length
+      : 0.5;
+    const targetEnergy = arcFn(t);
+    energyCurve.push(actualEnergy * 0.6 + targetEnergy * 0.4);
+  }
+
+  const tracklist = sequence.map((t, i) => ({
+    time: formatTime(items.filter(it => it.type === 'track')[i]?.startTimeSec || 0),
+    title: t.title,
+    artist: t.artist,
+    bpm: Math.round(t.features?.bpm || 120),
+    key: t.features?.key || 'Unknown',
+  }));
+
+  return {
+    planId: crypto.randomUUID(),
+    name: `${label} Mix — ${PRESET_INFO[config.preset].label}`,
+    preset: config.preset,
+    durationSec: time,
+    items,
+    scores,
+    energyCurve,
+    tracklist,
+    isStemmed,
+  };
+}
+
+/**
+ * Generate 3 set variations (Safe, Balanced, Wild) using beam search.
+ * Optionally generates a 4th "Stemmed" variation when stem mode is enabled
+ * and tracks have stems attached.
+ */
+export function planSets(tracks: DJTrack[], config: SetConfig): GeneratedSet[] {
+  const variations = [
+    { label: 'Safe', riskOffset: -config.risk * 0.5 },
+    { label: 'Balanced', riskOffset: 0 },
+    { label: 'Wild', riskOffset: Math.min(0.4, (1 - config.risk) * 0.6) },
+  ];
+
+  const sets = variations.map(({ label, riskOffset }) => {
+    const { sequence } = beamSearchPlan(tracks, config, 20, riskOffset);
+    return buildGeneratedSet(sequence, config, label, riskOffset, false);
   });
+
+  // 4th variation: Stemmed (uses balanced risk, but marked as stemmed)
+  if (config.enableStemMode) {
+    const stemmedTracks = tracks.filter(t => t.stems && Object.values(t.stems).some(Boolean));
+    if (stemmedTracks.length >= 3) {
+      const { sequence } = beamSearchPlan(tracks, config, 20, 0);
+      const stemmedSet = buildGeneratedSet(sequence, config, 'Stemmed', 0, true);
+      sets.push(stemmedSet);
+      console.log(`[DJ Planner] 🎛️ Stemmed variation generated with ${stemmedTracks.length} stem-separated tracks`);
+    } else {
+      console.warn(`[DJ Planner] ⚠️ Stem mode enabled but only ${stemmedTracks.length} tracks have stems (need 3+)`);
+    }
+  }
+
+  return sets;
 }

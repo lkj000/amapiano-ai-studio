@@ -3,7 +3,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Settings2, Layers } from 'lucide-react';
 import { SetConfig, DJPreset, SetDuration, PRESET_INFO } from './DJAgentTypes';
 
 interface DJSetConfigProps {
@@ -123,6 +124,24 @@ export default function DJSetConfig({ config, onChange }: DJSetConfigProps) {
             checked={config.allowVocalOverlay}
             onCheckedChange={(v) => update('allowVocalOverlay', v)}
           />
+        </div>
+
+        {/* Stem Mode */}
+        <div className="space-y-2 border-t border-border/30 pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary" />
+              <Label className="text-sm font-medium">Stem Mode</Label>
+              <Badge variant="outline" className="text-[9px] px-1 py-0">4th Variation</Badge>
+            </div>
+            <Switch
+              checked={config.enableStemMode}
+              onCheckedChange={(v) => update('enableStemMode', v)}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Separates each track into stems (vocals, drums, bass, etc.) and generates a 4th "Stemmed" variation with per-stem crossfading for professional-grade transitions. Takes 2-4 min per track.
+          </p>
         </div>
       </CardContent>
     </Card>

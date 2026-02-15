@@ -206,70 +206,124 @@ export async function exportMixAsMp4(
   toast.info('Encoding M4A (AAC)...');
 
   try {
-    // Play rendered buffer through AudioContext and capture via MediaRecorder
-    const ctx = new AudioContext({ sampleRate: rawBuffer.sampleRate });
-    const dest = ctx.createMediaStreamDestination();
-    const source = ctx.createBufferSource();
-    source.buffer = rawBuffer;
-    source.connect(dest);
+    // Check if browser supports AAC via MediaRecorder
+    const supportsAac = MediaRecorder.isTypeSupported('audio/mp4')
+      || MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2');
 
-    // Determine supported mime type
-    const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
-      ? 'audio/mp4'
-      : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+    if (supportsAac) {
+      // Native AAC path (Safari, some Chromium builds)
+      const ctx = new AudioContext({ sampleRate: rawBuffer.sampleRate });
+      const dest = ctx.createMediaStreamDestination();
+      const source = ctx.createBufferSource();
+      source.buffer = rawBuffer;
+      source.connect(dest);
 
-    const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const mimeType = MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')
+        ? 'audio/mp4;codecs=mp4a.40.2'
+        : 'audio/mp4';
 
-    const recorder = new MediaRecorder(dest.stream, { mimeType });
-    const chunks: Blob[] = [];
+      const recorder = new MediaRecorder(dest.stream, { mimeType });
+      const chunks: Blob[] = [];
 
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunks.push(e.data);
-    };
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
 
-    const done = new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
-    });
+      const done = new Promise<void>((resolve) => {
+        recorder.onstop = () => resolve();
+      });
 
-    recorder.start(1000);
-    source.start(0);
+      recorder.start(1000);
+      source.start(0);
 
-    // Monitor progress
-    const totalDur = rawBuffer.duration;
-    const progressInterval = setInterval(() => {
-      const elapsed = ctx.currentTime;
-      onProgress?.(75 + Math.min(24, (elapsed / totalDur) * 24));
-    }, 500);
+      const totalDur = rawBuffer.duration;
+      const progressInterval = setInterval(() => {
+        const elapsed = ctx.currentTime;
+        onProgress?.(75 + Math.min(24, (elapsed / totalDur) * 24));
+      }, 500);
 
-    source.onended = () => {
-      clearInterval(progressInterval);
-      setTimeout(() => recorder.stop(), 200);
-    };
+      source.onended = () => {
+        clearInterval(progressInterval);
+        setTimeout(() => recorder.stop(), 200);
+      };
 
-    await done;
-    await ctx.close();
+      await done;
+      await ctx.close();
 
-    const blob = new Blob(chunks, { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.${ext}`;
-    a.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob(chunks, { type: 'audio/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.m4a`;
+      a.click();
+      URL.revokeObjectURL(url);
 
-    onProgress?.(100);
-    toast.success(`Mix exported as ${ext.toUpperCase()}!`);
+      onProgress?.(100);
+      toast.success('Mix exported as M4A (AAC)!');
+    } else {
+      // Fallback: encode as MP3 instead of Opus/WebM
+      toast.info('AAC not supported in this browser — exporting as MP3 instead');
+      await exportMixAsMp3FromBuffer(rawBuffer, set.name, onProgress);
+    }
   } catch (e) {
     console.error('[DJ Export] M4A encoding failed:', e);
-    toast.error('M4A encoding failed — your browser may not support this format');
+    toast.error('M4A encoding failed — falling back to MP3');
+    try {
+      await exportMixAsMp3FromBuffer(rawBuffer, set.name, onProgress);
+    } catch {
+      toast.error('Export failed');
+    }
   }
 }
 
 /**
  * Shared: render mix to AudioBuffer (used by WAV, MP3, M4A exports)
  */
+/**
+ * Helper: encode an existing AudioBuffer to MP3 and trigger download
+ */
+async function exportMixAsMp3FromBuffer(
+  rawBuffer: AudioBuffer,
+  name: string,
+  onProgress?: (pct: number) => void
+) {
+  const { default: lamejs } = await import('lamejs');
+  const mp3encoder = new lamejs.Mp3Encoder(rawBuffer.numberOfChannels, rawBuffer.sampleRate, 192);
+  const left = rawBuffer.getChannelData(0);
+  const right = rawBuffer.numberOfChannels > 1 ? rawBuffer.getChannelData(1) : left;
+  const sampleBlockSize = 1152;
+  const mp3Data: ArrayBuffer[] = [];
+
+  for (let i = 0; i < left.length; i += sampleBlockSize) {
+    const leftChunk = new Int16Array(Math.min(sampleBlockSize, left.length - i));
+    const rightChunk = new Int16Array(Math.min(sampleBlockSize, right.length - i));
+    for (let j = 0; j < leftChunk.length; j++) {
+      leftChunk[j] = Math.max(-32768, Math.min(32767, Math.round(left[i + j] * 32767)));
+      rightChunk[j] = Math.max(-32768, Math.min(32767, Math.round(right[i + j] * 32767)));
+    }
+    const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+    if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf).buffer);
+    if (i % (sampleBlockSize * 100) === 0) {
+      onProgress?.(75 + (i / left.length) * 20);
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  const mp3end = mp3encoder.flush();
+  if (mp3end.length > 0) mp3Data.push(new Uint8Array(mp3end).buffer);
+
+  const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.mp3`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  onProgress?.(100);
+  toast.success('Mix exported as MP3 (AAC unavailable in this browser)');
+}
+
 async function renderMixToAudioBuffer(
   set: GeneratedSet,
   trackSources: { id: string; fileUrl: string }[],

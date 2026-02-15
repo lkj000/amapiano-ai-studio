@@ -110,19 +110,183 @@ export async function exportMixAsWav(
   trackSources: { id: string; fileUrl: string }[],
   onProgress?: (pct: number) => void
 ) {
+  const rawBuffer = await renderMixToAudioBuffer(set, trackSources, (p) => onProgress?.(Math.round(p * 0.85)));
+  if (!rawBuffer) return;
+
+  onProgress?.(90);
+
+  const wav = encodeWAV(rawBuffer);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.wav`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  onProgress?.(100);
+  toast.success('Mix exported as WAV!');
+}
+
+/**
+ * Export mix as MP3 file
+ * Renders via OfflineAudioContext then encodes to MP3 using lamejs
+ */
+export async function exportMixAsMp3(
+  set: GeneratedSet,
+  trackSources: { id: string; fileUrl: string }[],
+  onProgress?: (pct: number) => void
+) {
+  // Render the raw audio first (reuse WAV pipeline up to encoding)
+  const rawBuffer = await renderMixToAudioBuffer(set, trackSources, (p) => onProgress?.(Math.round(p * 0.7)));
+  if (!rawBuffer) return;
+
+  onProgress?.(75);
+  toast.info('Encoding MP3...');
+
+  try {
+    const { default: lamejs } = await import('lamejs');
+    const mp3encoder = new lamejs.Mp3Encoder(rawBuffer.numberOfChannels, rawBuffer.sampleRate, 192);
+    
+    const left = rawBuffer.getChannelData(0);
+    const right = rawBuffer.numberOfChannels > 1 ? rawBuffer.getChannelData(1) : left;
+    const sampleBlockSize = 1152;
+    const mp3Data: ArrayBuffer[] = [];
+
+    for (let i = 0; i < left.length; i += sampleBlockSize) {
+      const leftChunk = new Int16Array(Math.min(sampleBlockSize, left.length - i));
+      const rightChunk = new Int16Array(Math.min(sampleBlockSize, right.length - i));
+      
+      for (let j = 0; j < leftChunk.length; j++) {
+        leftChunk[j] = Math.max(-32768, Math.min(32767, Math.round(left[i + j] * 32767)));
+        rightChunk[j] = Math.max(-32768, Math.min(32767, Math.round(right[i + j] * 32767)));
+      }
+      
+      const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+      if (mp3buf.length > 0) mp3Data.push(new Uint8Array(mp3buf).buffer);
+      
+      if (i % (sampleBlockSize * 100) === 0) {
+        onProgress?.(75 + (i / left.length) * 20);
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+    
+    const mp3end = mp3encoder.flush();
+    if (mp3end.length > 0) mp3Data.push(new Uint8Array(mp3end).buffer);
+
+    const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.mp3`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    onProgress?.(100);
+    toast.success('Mix exported as MP3!');
+  } catch (e) {
+    console.error('[DJ Export] MP3 encoding failed:', e);
+    toast.error('MP3 encoding failed');
+  }
+}
+
+/**
+ * Export mix as M4A/MP4 (AAC) file using MediaRecorder
+ */
+export async function exportMixAsMp4(
+  set: GeneratedSet,
+  trackSources: { id: string; fileUrl: string }[],
+  onProgress?: (pct: number) => void
+) {
+  const rawBuffer = await renderMixToAudioBuffer(set, trackSources, (p) => onProgress?.(Math.round(p * 0.7)));
+  if (!rawBuffer) return;
+
+  onProgress?.(75);
+  toast.info('Encoding M4A (AAC)...');
+
+  try {
+    // Play rendered buffer through AudioContext and capture via MediaRecorder
+    const ctx = new AudioContext({ sampleRate: rawBuffer.sampleRate });
+    const dest = ctx.createMediaStreamDestination();
+    const source = ctx.createBufferSource();
+    source.buffer = rawBuffer;
+    source.connect(dest);
+
+    // Determine supported mime type
+    const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
+      ? 'audio/mp4'
+      : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+
+    const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+
+    const recorder = new MediaRecorder(dest.stream, { mimeType });
+    const chunks: Blob[] = [];
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    const done = new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+    });
+
+    recorder.start(1000);
+    source.start(0);
+
+    // Monitor progress
+    const totalDur = rawBuffer.duration;
+    const progressInterval = setInterval(() => {
+      const elapsed = ctx.currentTime;
+      onProgress?.(75 + Math.min(24, (elapsed / totalDur) * 24));
+    }, 500);
+
+    source.onended = () => {
+      clearInterval(progressInterval);
+      setTimeout(() => recorder.stop(), 200);
+    };
+
+    await done;
+    await ctx.close();
+
+    const blob = new Blob(chunks, { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    onProgress?.(100);
+    toast.success(`Mix exported as ${ext.toUpperCase()}!`);
+  } catch (e) {
+    console.error('[DJ Export] M4A encoding failed:', e);
+    toast.error('M4A encoding failed — your browser may not support this format');
+  }
+}
+
+/**
+ * Shared: render mix to AudioBuffer (used by WAV, MP3, M4A exports)
+ */
+async function renderMixToAudioBuffer(
+  set: GeneratedSet,
+  trackSources: { id: string; fileUrl: string }[],
+  onProgress?: (pct: number) => void
+): Promise<AudioBuffer | null> {
   const DEFAULT_CROSSFADE = 8;
   const EXPORT_SAMPLE_RATE = 44100;
   const trackItems = set.items.filter(i => i.type === 'track');
 
   if (trackItems.length === 0) {
     toast.error('No tracks to export');
-    return;
+    return null;
   }
 
   toast.info('Rendering mix — this may take a moment...');
   onProgress?.(5);
 
-  // Load and decode one track at a time to prevent OOM
   const decoded: { index: number; buffer: AudioBuffer }[] = [];
 
   for (let i = 0; i < trackItems.length; i++) {
@@ -139,16 +303,14 @@ export async function exportMixAsWav(
       console.warn(`[DJ Export] Failed to load track ${i}:`, e);
     }
     onProgress?.(5 + (i / trackItems.length) * 40);
-    // Yield to GC between tracks
     await new Promise(r => setTimeout(r, 50));
   }
 
   if (decoded.length === 0) {
     toast.error('Could not load any audio for export');
-    return;
+    return null;
   }
 
-  // Calculate schedule
   let totalDuration = 0;
   const schedules: { buffer: AudioBuffer; startTime: number; crossfadeSec: number; isFirst: boolean; isLast: boolean }[] = [];
 
@@ -167,7 +329,6 @@ export async function exportMixAsWav(
 
   onProgress?.(50);
 
-  // Render offline
   const offlineCtx = new OfflineAudioContext(2, Math.ceil(totalDuration * EXPORT_SAMPLE_RATE), EXPORT_SAMPLE_RATE);
 
   for (const sched of schedules) {
@@ -196,23 +357,11 @@ export async function exportMixAsWav(
   onProgress?.(60);
 
   const renderedBuffer = await offlineCtx.startRendering();
-  // Free decoded buffers
   decoded.length = 0;
   schedules.length = 0;
+
   onProgress?.(85);
-
-  const wav = encodeWAV(renderedBuffer);
-  const blob = new Blob([wav], { type: 'audio/wav' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${set.name.replace(/[^a-zA-Z0-9]/g, '_')}_mix.wav`;
-  a.click();
-  URL.revokeObjectURL(url);
-
-  onProgress?.(100);
-  toast.success('Mix exported as WAV!');
+  return renderedBuffer;
 }
 
 /**

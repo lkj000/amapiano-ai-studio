@@ -35,11 +35,12 @@ const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.6
 async function decodeAudioFile(fileUrl: string): Promise<AudioBuffer> {
   const response = await fetch(fileUrl);
   const arrayBuffer = await response.arrayBuffer();
+  // Use 22050 Hz to halve memory usage — sufficient for BPM/key/energy analysis
   const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
-    sampleRate: 44100,
+    sampleRate: 22050,
   });
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-  audioContext.close();
+  await audioContext.close();
   return audioBuffer;
 }
 
@@ -393,16 +394,30 @@ export async function analyzeTrackReal(track: DJTrack): Promise<DJTrack> {
   const vocalActivityCurve = estimateVocalActivity(samples, sampleRate, 20);
   const segments = detectSegments(energyCurve, durationSec);
   
+  // Downsample large arrays to max 32 points to reduce memory footprint
+  const downsample = (arr: number[], maxLen: number): number[] => {
+    if (arr.length <= maxLen) return arr;
+    const step = arr.length / maxLen;
+    const result: number[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      result.push(arr[Math.floor(i * step)]);
+    }
+    return result;
+  };
+
   const features: TrackFeatures = {
     bpm,
     bpmConfidence,
     key,
     camelot,
     lufsIntegrated,
-    energyCurve,
+    energyCurve: downsample(energyCurve, 32),
     segments,
-    vocalActivityCurve,
+    vocalActivityCurve: downsample(vocalActivityCurve, 32),
   };
+  
+  // Explicitly release references to large typed arrays
+  // (the AudioBuffer and samples will be GC'd after this function returns)
   
   return { ...track, durationSec, features };
 }

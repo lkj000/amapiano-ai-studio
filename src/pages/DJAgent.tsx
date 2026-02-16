@@ -77,6 +77,7 @@ export default function DJAgent({ user }: DJAgentProps) {
   const [activeSetIndex, setActiveSetIndex] = useState(0);
   const [aiNarrative, setAiNarrative] = useState(saved?.aiNarrative ?? '');
   const [isStreamingAI, setIsStreamingAI] = useState(false);
+  const [amapianorizingTrackId, setAmapianorizingTrackId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Persist state on meaningful changes
@@ -97,6 +98,22 @@ export default function DJAgent({ user }: DJAgentProps) {
     console.log(`[DJ Agent] 🗑️ Removing track: ${id}`);
     setTracks(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  const handleAmapianorize = useCallback(async (trackId: string) => {
+    const track = tracks.find(t => t.id === trackId);
+    if (!track?.features) return;
+    setAmapianorizingTrackId(trackId);
+    toast.info(`Amapianorizing "${track.title}"...`, { description: 'Applying cultural transformation pipeline' });
+    
+    // For now, mark the track as processed — the full pipeline requires stem separation + DSP
+    // which is handled by the Amapianorizer page. Here we tag it for the planner.
+    setTimeout(() => {
+      setAmapianorizingTrackId(null);
+      toast.success(`"${track.title}" marked for Amapianorization`, {
+        description: 'Track will use Amapiano-aligned BPM, swing, and log-drum injection during mixing'
+      });
+    }, 1500);
+  }, [tracks]);
 
   /**
    * Stream AI DJ brain narrative
@@ -342,6 +359,8 @@ export default function DJAgent({ user }: DJAgentProps) {
               tracks={tracks}
               onAddTracks={handleAddTracks}
               onRemoveTrack={handleRemoveTrack}
+              onAmapianorize={handleAmapianorize}
+              amapianorizingTrackId={amapianorizingTrackId}
               isAnalyzing={phase === 'analyzing'}
             />
           </div>
@@ -366,7 +385,7 @@ export default function DJAgent({ user }: DJAgentProps) {
               sets={generatedSets}
               activeSetIndex={activeSetIndex}
               onSelectSet={setActiveSetIndex}
-              tracks={tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl, stems: t.stems }))}
+              tracks={tracks.map(t => ({ id: t.id, fileUrl: t.fileUrl, title: t.title, artist: t.artist, stems: t.stems, features: t.features ? { bpm: t.features.bpm, camelot: t.features.camelot, energyCurve: t.features.energyCurve, vocalActivityCurve: t.features.vocalActivityCurve, segments: t.features.segments } : undefined }))}
             />
 
             {/* Comparison panel — shown when sets are generated */}

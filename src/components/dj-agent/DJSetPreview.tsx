@@ -6,23 +6,30 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2, Layers, ChevronDown } from 'lucide-react';
+import { Download, FileText, ListMusic, BarChart3, Clock, Music2, Copy, Play, Pause, SkipForward, SkipBack, Volume2, Loader2, Layers, ChevronDown, Repeat, PlusCircle } from 'lucide-react';
 import { GeneratedSet, DJTrackStems } from './DJAgentTypes';
 import { useCrossfadePlayer } from './useCrossfadePlayer';
 import { useStemCrossfadePlayer } from './useStemCrossfadePlayer';
 import { exportCueSheet, exportMixAsWav, exportMixAsMp3, exportMixAsMp4, copyTracklistToClipboard } from './djExportUtils';
+import { detectLoopPoints, computeTrackExtension, scoreMixExtendCandidates, type MixExtendSuggestion, type TrackExtendResult } from '@/lib/audio/ExtendEngine';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DJSetPreviewProps {
   sets: GeneratedSet[];
   activeSetIndex: number;
   onSelectSet: (index: number) => void;
-  tracks?: { id: string; fileUrl: string; stems?: DJTrackStems }[];
+  tracks?: { id: string; fileUrl: string; title: string; artist?: string; stems?: DJTrackStems; features?: { bpm: number; camelot: string; energyCurve: number[]; vocalActivityCurve: number[]; segments: any[] } }[];
+  onExtendMix?: (suggestions: MixExtendSuggestion[]) => void;
 }
 
-export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks = [] }: DJSetPreviewProps) {
+export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks = [], onExtendMix }: DJSetPreviewProps) {
   const activeSet = sets[activeSetIndex];
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [extendMode, setExtendMode] = useState<'idle' | 'track' | 'mix'>('idle');
+  const [mixSuggestions, setMixSuggestions] = useState<MixExtendSuggestion[]>([]);
+  const [trackExtendResult, setTrackExtendResult] = useState<TrackExtendResult | null>(null);
+  const [extendingTrackIdx, setExtendingTrackIdx] = useState<number | null>(null);
 
   const isStemmedSet = activeSet?.isStemmed ?? false;
 
@@ -88,6 +95,74 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
     if (!activeSet) return;
     copyTracklistToClipboard(activeSet);
   }, [activeSet]);
+
+  // ─── Track Extend ────────────────────────────────────────────────────────
+  const handleTrackExtend = useCallback((trackIdx: number) => {
+    const trackItem = activeSet?.tracklist[trackIdx];
+    const trackData = tracks.find(t => t.title === trackItem?.title);
+    if (!trackData?.features) return;
+
+    setExtendingTrackIdx(trackIdx);
+    const loopPoints = detectLoopPoints(
+      trackData.features.energyCurve,
+      trackData.features.energyCurve.length * 1.5, // approximate duration
+      trackData.features.bpm,
+      trackData.features.segments
+    );
+
+    if (loopPoints.length > 0) {
+      const result = computeTrackExtension(
+        trackData.features.energyCurve.length * 1.5,
+        trackData.features.energyCurve.length * 1.5 * 1.5, // extend by 50%
+        loopPoints
+      );
+      setTrackExtendResult(result);
+      setExtendMode('track');
+    }
+  }, [activeSet, tracks]);
+
+  // ─── Mix Extend ──────────────────────────────────────────────────────────
+  const handleMixExtend = useCallback(() => {
+    if (!activeSet || tracks.length === 0) return;
+
+    const lastTracklist = activeSet.tracklist[activeSet.tracklist.length - 1];
+    const lastTrackData = tracks.find(t => t.title === lastTracklist?.title);
+    if (!lastTrackData?.features) return;
+
+    const usedIds = new Set(activeSet.tracklist.map(t => {
+      const match = tracks.find(tr => tr.title === t.title);
+      return match?.id || '';
+    }));
+    const usedArtists = new Set(activeSet.tracklist.map(t => t.artist).filter(Boolean) as string[]);
+
+    const lastEnergy = lastTrackData.features.energyCurve;
+    const avgEnergy = lastEnergy.reduce((a, b) => a + b, 0) / lastEnergy.length;
+
+    const candidates = tracks
+      .filter(t => t.features)
+      .map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        bpm: t.features!.bpm,
+        camelot: t.features!.camelot,
+        energy: t.features!.energyCurve.reduce((a, b) => a + b, 0) / t.features!.energyCurve.length,
+        vocalStart: t.features!.vocalActivityCurve[0] || 0,
+      }));
+
+    const suggestions = scoreMixExtendCandidates(
+      { bpm: lastTrackData.features.bpm, camelot: lastTrackData.features.camelot, energy: avgEnergy, artist: lastTrackData.artist },
+      candidates,
+      usedIds,
+      usedArtists,
+      Math.max(0.2, avgEnergy - 0.1) // slight energy decrease for natural arc
+    );
+
+    setMixSuggestions(suggestions.slice(0, 5));
+    setExtendMode('mix');
+    onExtendMix?.(suggestions.slice(0, 5));
+  }, [activeSet, tracks, onExtendMix]);
+
 
   if (sets.length === 0) {
     return (
@@ -264,11 +339,90 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
                   {item.artist && <span className="text-xs text-muted-foreground truncate max-w-[80px]">{item.artist}</span>}
                   <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">{item.bpm} BPM</Badge>
                   <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0">{item.key}</Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleTrackExtend(i); }}
+                          className="text-muted-foreground/40 hover:text-primary transition-colors shrink-0"
+                          title="Extend this track"
+                        >
+                          <Repeat className="w-3 h-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left"><p className="text-xs">Extend track (loop detection)</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ))}
             </div>
           </ScrollArea>
         </div>
+
+        {/* Extend controls */}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1" onClick={handleMixExtend} disabled={tracks.length === 0}>
+            <PlusCircle className="w-4 h-4 mr-1" /> Extend Mix
+          </Button>
+          {extendMode !== 'idle' && (
+            <Button variant="ghost" size="sm" onClick={() => { setExtendMode('idle'); setMixSuggestions([]); setTrackExtendResult(null); }}>
+              Close
+            </Button>
+          )}
+        </div>
+
+        {/* Track Extend Result */}
+        {extendMode === 'track' && trackExtendResult && (
+          <div className="bg-muted/20 rounded-lg p-3 space-y-2 border border-primary/20">
+            <p className="text-xs font-medium flex items-center gap-1">
+              <Repeat className="w-3 h-3 text-primary" /> Track Loop Detected
+            </p>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-sm font-bold text-primary">{trackExtendResult.selectedLoop.lengthBars} bars</p>
+                <p className="text-[10px] text-muted-foreground">Loop length</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary">{Math.round(trackExtendResult.selectedLoop.confidence * 100)}%</p>
+                <p className="text-[10px] text-muted-foreground">Confidence</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-primary">×{trackExtendResult.loopCount}</p>
+                <p className="text-[10px] text-muted-foreground">Repeats</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              {Math.round(trackExtendResult.originalDurationSec)}s → {Math.round(trackExtendResult.extendedDurationSec)}s
+              ({trackExtendResult.crossfadeSec}s crossfade)
+            </p>
+          </div>
+        )}
+
+        {/* Mix Extend Suggestions */}
+        {extendMode === 'mix' && mixSuggestions.length > 0 && (
+          <div className="bg-muted/20 rounded-lg p-3 space-y-2 border border-accent/20">
+            <p className="text-xs font-medium flex items-center gap-1">
+              <PlusCircle className="w-3 h-3 text-accent" /> Mix Continuation Suggestions
+            </p>
+            <div className="space-y-1">
+              {mixSuggestions.map((s, i) => (
+                <div key={s.trackId} className="flex items-center gap-2 p-1.5 rounded bg-muted/20 hover:bg-muted/40 text-xs">
+                  <span className="text-muted-foreground w-4 shrink-0">#{i + 1}</span>
+                  <span className="flex-1 truncate font-medium">{s.trackTitle}</span>
+                  {s.trackArtist && <span className="text-muted-foreground truncate max-w-[60px]">{s.trackArtist}</span>}
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">{s.harmonicMatch}% key</Badge>
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">Δ{s.bpmDelta}</Badge>
+                  <Badge variant="outline" className={`text-[9px] px-1 py-0 ${s.score >= 0.7 ? 'border-green-500/40 text-green-400' : ''}`}>
+                    {Math.round(s.score * 100)}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Ranked by harmonic, BPM, energy fit, and novelty
+            </p>
+          </div>
+        )}
 
         <Separator />
 

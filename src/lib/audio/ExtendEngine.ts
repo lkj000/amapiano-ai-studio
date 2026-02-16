@@ -247,16 +247,20 @@ export function scoreMixExtendCandidates(
     return 0.3;
   };
 
-  return candidates
-    .filter(c => !usedTrackIds.has(c.id))
+  // Separate unused and used candidates — prefer unused but allow used with penalty
+  const unused = candidates.filter(c => !usedTrackIds.has(c.id));
+  const pool = unused.length > 0 ? unused : candidates; // Fallback to all if pool exhausted
+
+  return pool
     .map(candidate => {
       const harmonicMatch = camelotCompat(lastTrack.camelot, candidate.camelot);
       const bpmDelta = Math.abs(lastTrack.bpm - candidate.bpm);
       const bpmScore = bpmDelta <= maxBpmDelta ? 1 - (bpmDelta / maxBpmDelta) * 0.3 : Math.max(0, 1 - bpmDelta / 20);
       const energyFit = 1 - Math.abs(targetEnergy - candidate.energy);
       const novelty = candidate.artist && usedArtists.has(candidate.artist) ? 0.5 : 1;
+      const reusepenalty = usedTrackIds.has(candidate.id) ? 0.7 : 1; // Penalize reuse
 
-      const score = harmonicMatch * 0.4 + bpmScore * 0.25 + energyFit * 0.2 + novelty * 0.15;
+      const score = (harmonicMatch * 0.4 + bpmScore * 0.25 + energyFit * 0.2 + novelty * 0.15) * reusepenalty;
 
       // Suggest transition type
       const energyDiff = candidate.energy - lastTrack.energy;

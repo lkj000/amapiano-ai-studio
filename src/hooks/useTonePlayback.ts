@@ -4,7 +4,7 @@
  * Enhanced with Amapiano-specific instrument sounds
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as Tone from 'tone';
 import type { DawProjectData, DawTrack } from '@/types/daw';
 import { 
@@ -61,7 +61,16 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     Tone.Transport.bpm.value = projectData?.bpm || 118;
   }, [isReady, projectData?.bpm]);
 
-// Setup tracks when project changes - preload audio files
+  // Derive a stable key that only changes when track structure changes (not mixer params)
+  const trackStructureKey = useMemo(() => {
+    if (!projectData?.tracks) return '';
+    return projectData.tracks.map(t => {
+      const clipKey = t.clips.map(c => ('audioUrl' in c ? (c as any).audioUrl : c.id)).join(',');
+      return `${t.id}:${t.type}:${clipKey}`;
+    }).join('|');
+  }, [projectData?.tracks]);
+
+// Setup tracks when track structure changes - preload audio files
   useEffect(() => {
     // Only proceed if audio context is actually running
     if (!isReady || !projectData || !isToneReady()) return;
@@ -145,7 +154,7 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     console.log('[TonePlayback] Tracks ready:', trackChannelsRef.current.size, 
       'instruments:', instrumentsRef.current.size, 
       'audio players:', playersRef.current.size);
-  }, [isReady, projectData]);
+  }, [isReady, trackStructureKey]);
 
   const play = useCallback(async () => {
     if (!isReady) {

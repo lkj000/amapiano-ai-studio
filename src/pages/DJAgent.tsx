@@ -442,7 +442,22 @@ export default function DJAgent({ user }: DJAgentProps) {
             />
             <DJSetConfig config={config} onChange={setConfig} />
             <PitchShiftCalculator />
-            <TechniqueComparisonPanel />
+            <TechniqueComparisonPanel
+              tracks={tracks.map(t => ({
+                id: t.id,
+                title: t.title,
+                fileUrl: t.fileUrl,
+                features: t.features ? {
+                  bpm: t.features.bpm,
+                  key: t.features.key,
+                  camelot: t.features.camelot,
+                  energyCurve: t.features.energyCurve,
+                  segments: t.features.segments,
+                } : undefined,
+              }))}
+              onAmapianorize={handleAmapianorize}
+              sessionBPM={config.maxBpmDelta ? 112 : 112}
+            />
           </div>
 
           {/* Right: Preview + Comparison + AI Narrative */}

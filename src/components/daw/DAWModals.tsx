@@ -27,8 +27,8 @@ const ABTestComparison = lazy(() =>
 const NeuralMusicEngine = lazy(() => 
   import('@/components/ai/NeuralMusicEngine').then(m => ({ default: m.NeuralMusicEngine }))
 );
-const SunoStyleWorkflow = lazy(() => 
-  import('@/components/ai/SunoStyleWorkflow')
+const SunoGeneratorModal = lazy(() => 
+  import('@/components/daw/SunoGeneratorModal')
 );
 const SourceSeparationEngine = lazy(() => 
   import('@/components/ai/SourceSeparationEngine').then(m => ({ default: m.SourceSeparationEngine }))
@@ -84,10 +84,10 @@ const MODAL_CONFIGS: Partial<Record<NonNullable<ModalType>, ModalConfig>> = {
     component: NeuralMusicEngine,
   },
   sunoWorkflow: {
-    title: 'Suno-Style Workflow',
-    description: 'Generate full songs with lyrics, vocals, and stems',
+    title: 'Suno Song Generator',
+    description: 'Generate complete songs with Suno V4 and import directly into your project',
     size: 'xl',
-    component: SunoStyleWorkflow,
+    component: SunoGeneratorModal,
   },
   stemSeparation: {
     title: 'AI Stem Separation',

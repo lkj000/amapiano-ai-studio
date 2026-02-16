@@ -126,7 +126,16 @@ export default function DJSetPreview({ sets, activeSetIndex, onSelectSet, tracks
     if (!activeSet || tracks.length === 0) return;
 
     const lastTracklist = activeSet.tracklist[activeSet.tracklist.length - 1];
-    const lastTrackData = tracks.find(t => t.title === lastTracklist?.title);
+    if (!lastTracklist) return;
+    // Match by title, or fallback to the last track with features
+    let lastTrackData = tracks.find(t => t.title === lastTracklist.title);
+    if (!lastTrackData?.features) {
+      lastTrackData = tracks.find(t => t.title.includes(lastTracklist.title) || lastTracklist.title.includes(t.title));
+    }
+    if (!lastTrackData?.features) {
+      // Ultimate fallback: use last track that has features
+      lastTrackData = [...tracks].reverse().find(t => !!t.features);
+    }
     if (!lastTrackData?.features) return;
 
     const usedIds = new Set(activeSet.tracklist.map(t => {

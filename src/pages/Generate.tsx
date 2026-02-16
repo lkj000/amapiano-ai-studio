@@ -845,31 +845,71 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         </div>
                       </div>
 
-                      {/* Generation Details - Full Prompt & Lyrics */}
+                      {/* Input vs AI Comparison */}
                       {generationDetails && (
-                        <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
+                        <div className="p-4 bg-muted/50 rounded-lg border space-y-4">
                           <h4 className="font-medium text-sm flex items-center gap-2">
                             <Wand2 className="w-4 h-4 text-primary" />
-                            Generation Details
+                            Input vs AI Comparison
                           </h4>
-                          <div className="space-y-2">
-                            <div>
-                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Prompt Used</span>
-                              <p className="text-sm mt-1 p-2 bg-background rounded border font-mono whitespace-pre-wrap break-words">
-                                {generationDetails.prompt}
-                              </p>
-                            </div>
-                            {generationDetails.lyrics && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Your Input Column */}
+                            <div className="space-y-3 p-3 bg-background rounded-lg border">
+                              <Badge variant="secondary" className="text-xs">Your Input</Badge>
                               <div>
-                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lyrics</span>
-                                <p className="text-sm mt-1 p-2 bg-background rounded border font-mono whitespace-pre-wrap break-words">
-                                  {generationDetails.lyrics}
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Prompt / Description</span>
+                                <p className="text-sm mt-1 p-2 bg-muted/50 rounded border font-mono whitespace-pre-wrap break-words min-h-[60px]">
+                                  {prompt || (referenceAnalysis ? `Reference-based: ${referenceAnalysis.mood} ${referenceAnalysis.genre} at ${referenceAnalysis.bpm} BPM` : '(none)')}
                                 </p>
                               </div>
-                            )}
-                            <div>
-                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Source</span>
-                              <Badge variant="outline" className="ml-2 text-xs">{generationDetails.source}</Badge>
+                              {lyrics.trim() && (
+                                <div>
+                                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lyrics</span>
+                                  <p className="text-sm mt-1 p-2 bg-muted/50 rounded border font-mono whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto">
+                                    {lyrics}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                <Badge variant="outline">BPM: {bpm[0]}</Badge>
+                                <Badge variant="outline">Style: {genre === "classic" ? "Classic" : genre === "private-school" ? "Private School" : genre === "vocal" ? "Vocal" : "Deep"}</Badge>
+                                <Badge variant="outline">Duration: {Math.floor(duration[0] / 60)}:{String(duration[0] % 60).padStart(2, '0')}</Badge>
+                                {selectedArtistStyle && <Badge variant="outline">Artist: {selectedArtistStyle}</Badge>}
+                              </div>
+                              {referenceAnalysis && (
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <Badge variant="outline" className="bg-primary/5">Ref BPM: {referenceAnalysis.bpm}</Badge>
+                                  <Badge variant="outline" className="bg-primary/5">Ref Key: {referenceAnalysis.key}</Badge>
+                                  <Badge variant="outline" className="bg-primary/5">Ref Mood: {referenceAnalysis.mood}</Badge>
+                                </div>
+                              )}
+                            </div>
+                            {/* AI Output Column */}
+                            <div className="space-y-3 p-3 bg-background rounded-lg border border-primary/20">
+                              <Badge className="text-xs bg-primary/10 text-primary border-primary/20">AI Output</Badge>
+                              <div>
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Enhanced Prompt Sent to Engine</span>
+                                <p className="text-sm mt-1 p-2 bg-muted/50 rounded border font-mono whitespace-pre-wrap break-words min-h-[60px]">
+                                  {generationDetails.prompt}
+                                </p>
+                              </div>
+                              {generationDetails.lyrics && (
+                                <div>
+                                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lyrics Passed</span>
+                                  <p className="text-sm mt-1 p-2 bg-muted/50 rounded border font-mono whitespace-pre-wrap break-words max-h-[200px] overflow-y-auto">
+                                    {generationDetails.lyrics}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                <Badge variant="outline">BPM: {generatedTrack.bpm}</Badge>
+                                <Badge variant="outline">Style: {generatedTrack.genre}</Badge>
+                                <Badge variant="outline">Duration: {Math.floor(generatedTrack.duration / 60)}:{String(generatedTrack.duration % 60).padStart(2, '0')}</Badge>
+                              </div>
+                              <div>
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Source</span>
+                                <Badge variant="outline" className="ml-2 text-xs">{generationDetails.source}</Badge>
+                              </div>
                             </div>
                           </div>
                         </div>

@@ -38,6 +38,7 @@ import {
 import { toast } from 'sonner';
 import { useSampleLibrary, Sample } from '@/hooks/useSampleLibrary';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
+import { SampleActions } from './SampleActions';
 
 const CATEGORIES = [
   { name: 'All', icon: Music },
@@ -444,6 +445,7 @@ export function SampleBrowser() {
                       >
                         <Download className="w-4 h-4" />
                       </Button>
+                      <SampleActions sample={sample} />
                       <Button
                         variant="ghost"
                         size="sm"

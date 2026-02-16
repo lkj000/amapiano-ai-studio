@@ -156,7 +156,15 @@ export class AmapianorizerTransformer {
       
       this.emitProgress('decomposition', 20, 'Running real-time audio analysis...');
       const sourceAnalysis = await aqsAnalyzer.analyzeBuffer(sourceBuffer);
-      console.log('[AMAPIANORIZER] Source analysis:', sourceAnalysis.lufs.integrated, 'LUFS');
+      const sourceLUFS = sourceAnalysis.lufs.integrated;
+      console.log('[AMAPIANORIZER] Source analysis:', sourceLUFS, 'LUFS');
+      
+      // Normalize input loudness so quiet and loud sources are treated equally
+      // Target -14 LUFS as a pre-mix reference level, clamp gain to prevent over-boosting
+      const referenceLUFS = -14;
+      const lufsCompensation = Math.max(-12, Math.min(6, referenceLUFS - sourceLUFS));
+      const inputGainLinear = Math.pow(10, lufsCompensation / 20);
+      console.log('[AMAPIANORIZER] LUFS compensation:', lufsCompensation.toFixed(1), 'dB → gain:', inputGainLinear.toFixed(3));
       
       this.emitProgress('decomposition', 40, 'Analyzing spectral content...');
       const detectedBPM = this.detectBPM(sourceBuffer);
@@ -221,11 +229,13 @@ export class AmapianorizerTransformer {
       
       this.emitProgress('augmentation', 50, 'Mixing layers with sidechain ducking...');
       
-      // Mix all layers together — keep source loud, blend new elements underneath
+      // Mix all layers together — normalize source loudness first, blend new elements underneath
       const logDrumGain = 0.25 * (preset.processing.logDrumModulationIndex / 100) * transformationRatio;
+      const normalizedSourceGain = Math.min(0.95, 0.92 * inputGainLinear); // Apply LUFS compensation, cap to prevent clipping
+      console.log('[AMAPIANORIZER] Normalized source gain:', normalizedSourceGain.toFixed(3));
       const mixedBuffer = await this.mixBuffers([
-        { buffer: timeStretchedBuffer, gain: 0.92 },           // Preserve original loudness
-        { buffer: logDrumBuffer, gain: Math.min(0.35, logDrumGain) } // Subtle log drums, not overpowering
+        { buffer: timeStretchedBuffer, gain: normalizedSourceGain },       // LUFS-normalized source
+        { buffer: logDrumBuffer, gain: Math.min(0.35, logDrumGain) }       // Subtle log drums, not overpowering
       ]);
       
       this.emitProgress('augmentation', 75, 'Applying effects chain...');

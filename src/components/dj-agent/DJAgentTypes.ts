@@ -43,6 +43,7 @@ export interface DJTrack {
   durationSec?: number;
   features?: TrackFeatures;
   stems?: DJTrackStems;
+  amapianorized?: boolean;
 }
 
 export interface TrackFeatures {

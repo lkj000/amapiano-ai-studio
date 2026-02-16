@@ -14,6 +14,8 @@ import DJSetComparison from '@/components/dj-agent/DJSetComparison';
 import { analyzeTrackReal } from '@/components/dj-agent/DJAudioAnalyzer';
 import { planSets } from '@/components/dj-agent/DJSetPlanner';
 import { separateDJTracks } from '@/components/dj-agent/DJStemSeparator';
+import { amapianorizerTransformer, type TransformationResult } from '@/lib/audio/amapianorizerTransformer';
+import { recommendPreset } from '@/lib/audio/amapianorizerPresets';
 import {
   DJTrack, SetConfig, AgentPhase, GeneratedSet
 } from '@/components/dj-agent/DJAgentTypes';
@@ -102,17 +104,77 @@ export default function DJAgent({ user }: DJAgentProps) {
   const handleAmapianorize = useCallback(async (trackId: string) => {
     const track = tracks.find(t => t.id === trackId);
     if (!track?.features) return;
-    setAmapianorizingTrackId(trackId);
-    toast.info(`Amapianorizing "${track.title}"...`, { description: 'Applying cultural transformation pipeline' });
     
-    // For now, mark the track as processed — the full pipeline requires stem separation + DSP
-    // which is handled by the Amapianorizer page. Here we tag it for the planner.
-    setTimeout(() => {
-      setAmapianorizingTrackId(null);
-      toast.success(`"${track.title}" marked for Amapianorization`, {
-        description: 'Track will use Amapiano-aligned BPM, swing, and log-drum injection during mixing'
+    setAmapianorizingTrackId(trackId);
+    const toastId = toast.loading(`Amapianorizing "${track.title}"...`, { description: 'Running real cultural transformation pipeline' });
+
+    try {
+      // Determine best preset from track characteristics
+      const avgEnergy = track.features.energyCurve.reduce((a, b) => a + b, 0) / track.features.energyCurve.length;
+      const vocalPresence = track.features.vocalActivityCurve
+        ? track.features.vocalActivityCurve.reduce((a, b) => a + b, 0) / track.features.vocalActivityCurve.length
+        : 0;
+
+      const energyLevel: 'low' | 'medium' | 'high' = avgEnergy > 0.65 ? 'high' : avgEnergy > 0.35 ? 'medium' : 'low';
+      const presetId = recommendPreset({
+        hasSoulfulVocals: vocalPresence > 0.4,
+        isPercussive: avgEnergy > 0.6,
+        originalBPM: track.features.bpm,
+        energy: energyLevel,
       });
-    }, 1500);
+
+      console.log(`[DJ Agent] 🎵 Amapianorizing "${track.title}" with preset: ${presetId}`);
+
+      // Run real transformation
+      amapianorizerTransformer.onProgress((progress) => {
+        toast.loading(`Amapianorizing "${track.title}"`, {
+          id: toastId,
+          description: `${progress.phase}: ${progress.currentStep} (${Math.round(progress.progress)}%)`,
+        });
+      });
+
+      const result: TransformationResult = await amapianorizerTransformer.transformTrack({
+        sourceUrl: track.fileUrl,
+        presetId,
+        sourceCharacteristics: {
+          bpm: track.features.bpm,
+          key: track.features.key,
+          hasSoulfulVocals: vocalPresence > 0.4,
+          isPercussive: avgEnergy > 0.6,
+        },
+      });
+
+      if (result.success && result.processedAudioUrl) {
+        // Replace the track's fileUrl with the transformed audio
+        setTracks(prev => prev.map(t =>
+          t.id === trackId
+            ? { ...t, fileUrl: result.processedAudioUrl!, amapianorized: true }
+            : t
+        ));
+        toast.success(`"${track.title}" Amapianorized!`, {
+          id: toastId,
+          description: `Preset: ${result.preset.name} | Vibe: ${result.vibeScore ?? '—'}/100 | Authenticity: ${result.authenticityScore ?? '—'}%`,
+        });
+        console.log(`[DJ Agent] ✅ Amapianorized "${track.title}":`, {
+          preset: result.preset.name,
+          vibeScore: result.vibeScore,
+          authenticityScore: result.authenticityScore,
+        });
+      } else {
+        toast.error(`Amapianorization failed for "${track.title}"`, {
+          id: toastId,
+          description: result.error || 'Unknown error during transformation',
+        });
+      }
+    } catch (err) {
+      console.error(`[DJ Agent] ❌ Amapianorize failed for "${track.title}":`, err);
+      toast.error(`Amapianorization failed for "${track.title}"`, {
+        id: toastId,
+        description: err instanceof Error ? err.message : 'Transformation pipeline error',
+      });
+    } finally {
+      setAmapianorizingTrackId(null);
+    }
   }, [tracks]);
 
   /**

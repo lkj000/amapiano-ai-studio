@@ -445,10 +445,20 @@ function DAWContent({ user }: { user: User }) {
       console.log('DAW: loadedProject.projectData:', loadedProject.projectData);
       console.log('DAW: loadedProject.projectData.tracks:', loadedProject.projectData?.tracks);
       
+      // Filter out tracks with expired Replicate delivery URLs (they return 404)
+      const validTracks = loadedProject.projectData.tracks.filter(track => {
+        const clip = (track as any).clips?.[0];
+        if (clip?.audioUrl && clip.audioUrl.includes('replicate.delivery')) {
+          console.warn(`DAW: Removing track "${(track as any).name}" — expired Replicate URL`);
+          return false;
+        }
+        return true;
+      });
+
       // Migrate old track data to V2 format with automationLanes
       const migratedProjectData = {
         ...loadedProject.projectData,
-        tracks: loadedProject.projectData.tracks.map(track => ({
+        tracks: validTracks.map(track => ({
           ...track,
           automationLanes: (track as any).automationLanes || [],
           ...((track as any).type === 'audio' && { recordings: (track as any).recordings || [] })

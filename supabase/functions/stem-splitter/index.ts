@@ -50,21 +50,53 @@ serve(async (req) => {
       
       if (result.status === 'succeeded') {
         const stems = result.output;
-        console.log('[STEM-SPLITTER] Separation complete:', stems);
+        console.log('[STEM-SPLITTER] Separation complete, persisting stems to storage...');
         
-        // Map all 6 stems from htdemucs_6s model
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+        const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+        const rawStems: Record<string, string> = {
+          vocals: stems.vocals || stems.Vocals || '',
+          drums: stems.drums || stems.Drums || '',
+          bass: stems.bass || stems.Bass || '',
+          guitar: stems.guitar || stems.Guitar || '',
+          piano: stems.piano || stems.Piano || '',
+          other: stems.other || stems.Other || '',
+        };
+
+        const persistedStems: Record<string, string> = {};
+        const stemPrefix = `stems/${predictionId}`;
+
+        for (const [name, url] of Object.entries(rawStems)) {
+          if (!url) continue;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) { persistedStems[name] = url; continue; }
+            const buf = new Uint8Array(await res.arrayBuffer());
+            const path = `${stemPrefix}/${name}.mp3`;
+            const { error: upErr } = await supabase.storage
+              .from('audio-files')
+              .upload(path, buf, { contentType: 'audio/mpeg', upsert: true });
+            if (upErr) {
+              console.error(`[STEM-SPLITTER] Failed to persist ${name}:`, upErr);
+              persistedStems[name] = url; // fallback to Replicate URL
+            } else {
+              const { data: pubUrl } = supabase.storage.from('audio-files').getPublicUrl(path);
+              persistedStems[name] = pubUrl.publicUrl;
+              console.log(`[STEM-SPLITTER] Persisted ${name} → ${pubUrl.publicUrl}`);
+            }
+          } catch (e) {
+            console.error(`[STEM-SPLITTER] Error persisting ${name}:`, e);
+            persistedStems[name] = url;
+          }
+        }
+
         return new Response(
           JSON.stringify({
             status: 'succeeded',
             success: true,
-            stems: {
-              vocals: stems.vocals || stems.Vocals,
-              drums: stems.drums || stems.Drums,
-              bass: stems.bass || stems.Bass,
-              guitar: stems.guitar || stems.Guitar,
-              piano: stems.piano || stems.Piano,
-              other: stems.other || stems.Other,
-            },
+            stems: persistedStems,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

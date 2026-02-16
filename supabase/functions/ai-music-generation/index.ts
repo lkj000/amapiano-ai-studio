@@ -132,6 +132,57 @@ Create a music generation prompt for this track.`
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+
+      // Handle bad_prompt rejection - retry with ElevenLabs' suggested prompt
+      if (musicResponse.status === 400) {
+        try {
+          const errorData = JSON.parse(errorText);
+          const suggestedPrompt = errorData?.detail?.data?.prompt_suggestion;
+          if (suggestedPrompt && errorData?.detail?.status === 'bad_prompt') {
+            console.log('[AI-MUSIC] Prompt rejected, retrying with suggested prompt:', suggestedPrompt.substring(0, 100));
+            
+            const retryResponse = await fetch('https://api.elevenlabs.io/v1/music', {
+              method: 'POST',
+              headers: {
+                'xi-api-key': ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                prompt: suggestedPrompt,
+                duration_seconds: durationSeconds,
+              }),
+            });
+
+            if (retryResponse.ok) {
+              // Use the retry response and continue
+              const retryBuffer = await retryResponse.arrayBuffer();
+              const retryBase64 = uint8ToBase64(new Uint8Array(retryBuffer));
+              console.log('[AI-MUSIC] Retry succeeded, size:', retryBuffer.byteLength, 'bytes');
+
+              const trackName = `AI ${genre || 'Amapiano'} - ${bpm || 112} BPM`;
+              return new Response(JSON.stringify({
+                success: true,
+                audioBase64: retryBase64,
+                audioFormat: 'audio/mpeg',
+                newTrack: {
+                  id: `track_${Date.now()}_ai`,
+                  type: 'audio',
+                  name: trackName,
+                  instrument: genre || 'Amapiano',
+                  clips: [{ id: `clip_${Date.now()}`, name: trackName, startTime: 0, duration: durationSeconds, audioUrl: null }],
+                  mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: ['EQ', 'Compressor'] },
+                  isArmed: false,
+                  color: 'bg-purple-500',
+                },
+                metadata: { title: trackName, genre: genre || 'Amapiano', bpm: bpm || 112, duration: durationSeconds, source: 'elevenlabs-music', prompt: suggestedPrompt.substring(0, 200) },
+              }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            console.error('[AI-MUSIC] Retry also failed:', retryResponse.status);
+          }
+        } catch (parseErr) {
+          console.error('[AI-MUSIC] Failed to parse error for retry:', parseErr);
+        }
+      }
       
       throw new Error(`ElevenLabs Music API error: ${musicResponse.status}`);
     }

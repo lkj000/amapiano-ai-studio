@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, Music, Trash2, FolderOpen, Loader2, Play, Pause, Volume2 } from 'lucide-react';
+import { Upload, Music, Trash2, FolderOpen, Loader2, Play, Pause, Volume2, Sparkles } from 'lucide-react';
 import { DJTrack } from './DJAgentTypes';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // iOS Safari is picky with accept strings — use broad audio/* plus specific extensions
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -15,10 +16,12 @@ interface DJTrackPoolProps {
   tracks: DJTrack[];
   onAddTracks: (tracks: DJTrack[]) => void;
   onRemoveTrack: (id: string) => void;
+  onAmapianorize?: (trackId: string) => void;
   isAnalyzing: boolean;
+  amapianorizingTrackId?: string | null;
 }
 
-export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnalyzing }: DJTrackPoolProps) {
+export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, onAmapianorize, isAnalyzing, amapianorizingTrackId }: DJTrackPoolProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -230,6 +233,28 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, isAnal
                     )}
                   </div>
                 </div>
+                {onAmapianorize && track.features && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="opacity-0 group-hover:opacity-100 h-7 w-7"
+                          onClick={() => onAmapianorize(track.id)}
+                          disabled={amapianorizingTrackId === track.id}
+                        >
+                          {amapianorizingTrackId === track.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p className="text-xs">Amapianorize this track</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

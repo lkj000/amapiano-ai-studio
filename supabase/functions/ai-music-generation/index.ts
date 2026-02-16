@@ -19,9 +19,9 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, trackType, generationType, bpm, genre, duration, selectedArtistStyle, referenceAnalysis } = await req.json();
+    const { prompt, lyrics, trackType, generationType, bpm, genre, duration, selectedArtistStyle, referenceAnalysis } = await req.json();
 
-    console.log('[AI-MUSIC] Request:', { prompt: prompt?.substring(0, 80), trackType, generationType, bpm, genre, duration });
+    console.log('[AI-MUSIC] Request:', { prompt: prompt?.substring(0, 80), lyrics: lyrics?.substring(0, 80), trackType, generationType, bpm, genre, duration });
 
     if (!prompt) {
       throw new Error('Prompt is required');
@@ -45,6 +45,7 @@ serve(async (req) => {
           : '';
 
         const artistContext = selectedArtistStyle ? `\nArtist style inspiration: ${selectedArtistStyle}` : '';
+        const lyricsContext = lyrics ? `\nLyrics to incorporate:\n${lyrics}` : '';
 
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
@@ -57,7 +58,7 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are an expert Amapiano music production prompt engineer. Given the user's description, reference analysis, and parameters, create a vivid, concise music generation prompt (max 200 words) that captures the exact sonic character. Focus on: instrumentation (log drums, piano stabs, bass), rhythm patterns, energy arc, tempo, and sonic texture. Do NOT include lyrics. Output ONLY the prompt text.`
+                content: `You are an expert Amapiano music production prompt engineer. Given the user's description, reference analysis, lyrics, and parameters, create a vivid, concise music generation prompt (max 200 words) that captures the exact sonic character. Focus on: instrumentation (log drums, piano stabs, bass), rhythm patterns, energy arc, tempo, and sonic texture. If lyrics are provided, incorporate their mood and theme into the musical direction. Do NOT include the lyrics text in the output. Output ONLY the prompt text.`
               },
               {
                 role: 'user',
@@ -65,7 +66,7 @@ serve(async (req) => {
 Genre: ${genre || 'Amapiano'}
 BPM: ${bpm || 112}
 Duration: ${duration || 180} seconds
-Generation type: ${generationType || 'prompt'}${refContext}${artistContext}
+Generation type: ${generationType || 'prompt'}${refContext}${artistContext}${lyricsContext}
 
 Create a music generation prompt for this track.`
               }

@@ -46,6 +46,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [referenceAnalysis, setReferenceAnalysis] = useState<any>(null);
   const [referenceAudioUrl, setReferenceAudioUrl] = useState<string | null>(null);
   const [selectedArtistStyle, setSelectedArtistStyle] = useState<string | null>(null);
+  const [lyrics, setLyrics] = useState("");
+  const [generationDetails, setGenerationDetails] = useState<{ prompt: string; lyrics?: string; source: string } | null>(null);
 
   const handleGenerate = async () => {
     if (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio) {
@@ -109,6 +111,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       const { data, error } = await supabase.functions.invoke('ai-music-generation', {
         body: {
           prompt: effectivePrompt,
+          lyrics: lyrics.trim() || undefined,
           trackType: 'audio',
           generationType,
           bpm: effectiveBpm,
@@ -145,6 +148,11 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           duration: data.metadata?.duration || trackDuration,
           audioUrl,
           stems: {}
+        });
+        setGenerationDetails({
+          prompt: data.metadata?.prompt || effectivePrompt,
+          lyrics: lyrics.trim() || undefined,
+          source: data.metadata?.source || 'ai'
         });
         setIsGenerating(false);
         toast.success(`🎉 ${trackTypeLabel} generated successfully (${data.metadata?.duration || trackDuration}s)!`);
@@ -583,8 +591,21 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                           placeholder="Describe your amapiano track... e.g., 'A soulful private school amapiano track with jazzy piano chords, subtle log drums, and deep bass'"
                           value={prompt}
                           onChange={(e) => setPrompt(e.target.value)}
-                          className="min-h-[120px] resize-none"
+                          className="min-h-[100px] resize-none"
                         />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Lyrics (Optional)</label>
+                        <Textarea
+                          placeholder="Enter your lyrics here... The AI will incorporate them into the generated track.&#10;&#10;Example:&#10;[Verse 1]&#10;Ngiyak'thanda wena&#10;Umuhle ngempela&#10;&#10;[Chorus]&#10;Shaya iLog drum..."
+                          value={lyrics}
+                          onChange={(e) => setLyrics(e.target.value)}
+                          className="min-h-[140px] resize-none font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Use [Verse], [Chorus], [Bridge] tags to structure your lyrics
+                        </p>
                       </div>
                       
                       <div className="flex items-center justify-between">
@@ -823,6 +844,36 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                           )}
                         </div>
                       </div>
+
+                      {/* Generation Details - Full Prompt & Lyrics */}
+                      {generationDetails && (
+                        <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
+                          <h4 className="font-medium text-sm flex items-center gap-2">
+                            <Wand2 className="w-4 h-4 text-primary" />
+                            Generation Details
+                          </h4>
+                          <div className="space-y-2">
+                            <div>
+                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">AI Prompt Used</span>
+                              <p className="text-sm mt-1 p-2 bg-background rounded border font-mono whitespace-pre-wrap break-words">
+                                {generationDetails.prompt}
+                              </p>
+                            </div>
+                            {generationDetails.lyrics && (
+                              <div>
+                                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Lyrics</span>
+                                <p className="text-sm mt-1 p-2 bg-background rounded border font-mono whitespace-pre-wrap break-words">
+                                  {generationDetails.lyrics}
+                                </p>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Source</span>
+                              <Badge variant="outline" className="ml-2 text-xs">{generationDetails.source}</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="space-y-3">
                         <h4 className="font-medium text-sm">Generated Track (WAV)</h4>

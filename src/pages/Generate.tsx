@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Play, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap } from "lucide-react";
+import { Music, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
 import SunoStyleWorkflow from "@/components/ai/SunoStyleWorkflow";
 import { AIPromptParser } from "@/components/AIPromptParser";
@@ -36,7 +36,6 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [duration, setDuration] = useState([180]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [generationType, setGenerationType] = useState<"prompt" | "reference" | "stem" | "mood" | "voice-midi" | "suno-style" | "modal-gpu">("prompt");
   const [trackType, setTrackType] = useState<"full" | "loop">("full");
   const [useAIParsing, setUseAIParsing] = useState(true);
@@ -45,6 +44,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [referenceUrl, setReferenceUrl] = useState("");
   const [recordedAudio, setRecordedAudio] = useState<{ blob: Blob; transcription?: string } | null>(null);
   const [referenceAnalysis, setReferenceAnalysis] = useState<any>(null);
+  const [referenceAudioUrl, setReferenceAudioUrl] = useState<string | null>(null);
   const [selectedArtistStyle, setSelectedArtistStyle] = useState<string | null>(null);
 
   const handleGenerate = async () => {
@@ -188,6 +188,9 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
   const handleReferenceFileSelect = async (file: File) => {
     setReferenceFile(file);
+    // Create object URL for playback
+    if (referenceAudioUrl) URL.revokeObjectURL(referenceAudioUrl);
+    setReferenceAudioUrl(URL.createObjectURL(file));
     toast.success(`Reference file "${file.name}" selected`);
     
     // Simulate reference analysis
@@ -423,7 +426,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         />
                         {referenceFile && (
                           <div className="space-y-4">
-                            <div className="p-3 bg-muted rounded-lg">
+                            <div className="p-3 bg-muted rounded-lg space-y-3">
                               <h4 className="font-medium text-sm mb-2">Reference Track Selected</h4>
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
@@ -435,6 +438,11 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                                   <span className="ml-2 font-medium">{(referenceFile.size / 1024 / 1024).toFixed(2)} MB</span>
                                 </div>
                               </div>
+                              {referenceAudioUrl && (
+                                <audio controls className="w-full" src={referenceAudioUrl}>
+                                  Your browser does not support the audio element.
+                                </audio>
+                              )}
                             </div>
 
                             {referenceAnalysis && (
@@ -808,40 +816,16 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         </div>
                       </div>
 
-                      <div className="bg-gradient-primary p-6 rounded-lg text-center">
-                        <div className="w-16 h-16 bg-primary-foreground/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Play className="w-8 h-8 text-primary-foreground" />
-                        </div>
-                        <p className="text-primary-foreground/80 mb-4">Professional Audio Player</p>
-                         <div className="flex gap-2 justify-center">
-                           <Button 
-                             variant="secondary" 
-                             size="sm"
-                             onClick={() => {
-                               setIsPlaying(!isPlaying);
-                               toast.success(isPlaying ? "⏸️ Paused" : "▶️ Playing");
-                             }}
-                           >
-                             {isPlaying ? (
-                               <>
-                                 <div className="w-4 h-4 mr-2 flex gap-1">
-                                   <div className="w-1.5 h-4 bg-current"></div>
-                                   <div className="w-1.5 h-4 bg-current"></div>
-                                 </div>
-                                 Pause
-                               </>
-                             ) : (
-                               <>
-                                 <Play className="w-4 h-4 mr-2" />
-                                 Play
-                               </>
-                             )}
-                           </Button>
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Generated Track (WAV)</h4>
+                        <audio controls className="w-full" src={generatedTrack.audioUrl}>
+                          Your browser does not support the audio element.
+                        </audio>
+                        <div className="flex gap-2 flex-wrap">
                            <Button 
                              variant="outline" 
                              size="sm"
                              onClick={() => {
-                               // Store in localStorage for DAW to pick up
                                const trackData = {
                                  name: generatedTrack.title,
                                  audioUrl: generatedTrack.audioUrl,
@@ -878,17 +862,17 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                                  document.body.removeChild(link);
                                  window.URL.revokeObjectURL(url);
                                  
-                                 toast.success("🎵 Demo track downloaded successfully!");
+                                 toast.success("🎵 Track downloaded as WAV!");
                                } catch (error) {
                                  console.error('Download error:', error);
-                                 toast.error("Download failed - this is a demo version");
+                                 toast.error("Download failed");
                                }
                              }}
                            >
                              <Download className="w-4 h-4 mr-2" />
-                             Download
+                             Download WAV
                            </Button>
-                         </div>
+                        </div>
                       </div>
 
                         <div className="space-y-2">

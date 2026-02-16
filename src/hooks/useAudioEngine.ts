@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { DawProjectData, DawTrack, AudioLevels, MidiNote } from '@/types/daw';
 
 export interface AudioEngineState {
@@ -79,7 +79,16 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     };
   }, []);
 
-  // Setup track gains and effects when project data changes
+  // Derive a stable key that only changes when track structure changes (not mixer params)
+  const trackStructureKey = useMemo(() => {
+    if (!projectData?.tracks) return '';
+    return projectData.tracks.map(t => {
+      const clipKey = t.clips.map(c => ('audioUrl' in c ? (c as any).audioUrl : c.id)).join(',');
+      return `${t.id}:${t.type}:${clipKey}`;
+    }).join('|');
+  }, [projectData?.tracks]);
+
+  // Setup track gains and effects when track structure changes (NOT on mixer updates)
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData || !effectsRef.current) {
       console.log('AudioEngine: Not ready for track setup:', {
@@ -144,7 +153,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         }
       });
     }
-  }, [projectData]);
+  }, [trackStructureKey]);
 
   // Audio level monitoring
   useEffect(() => {

@@ -33,6 +33,21 @@ interface GeneratedTrack {
   hasVocals: boolean;
 }
 
+/**
+ * Custom event dispatched when importing a Suno-generated track into the DAW.
+ * Both DAW.tsx and AmapianoPro.tsx listen for this event.
+ */
+export interface SunoImportDetail {
+  id: string;
+  title: string;
+  audioUrl: string;
+  duration: number;
+  bpm: number;
+  genre: string;
+}
+
+export const SUNO_IMPORT_EVENT = 'suno:import-to-daw';
+
 export function SunoGeneratorModal() {
   const closeModal = useDAWStore(s => s.closeModal);
   
@@ -122,9 +137,24 @@ export function SunoGeneratorModal() {
   };
 
   const importToDAW = (track: GeneratedTrack) => {
-    // TODO: Wire to DAW track creation when store supports audio URL tracks
-    toast.success(`"${track.title}" ready for DAW import`);
+    const detail: SunoImportDetail = {
+      id: track.id,
+      title: track.title,
+      audioUrl: track.audioUrl,
+      duration: track.duration,
+      bpm: track.bpm,
+      genre: track.genre,
+    };
+    window.dispatchEvent(new CustomEvent(SUNO_IMPORT_EVENT, { detail }));
+    toast.success(`"${track.title}" imported to DAW`);
     closeModal();
+  };
+
+  const downloadTrack = (track: GeneratedTrack) => {
+    const a = document.createElement('a');
+    a.href = track.audioUrl;
+    a.download = `${track.title}.mp3`;
+    a.click();
   };
 
   const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -236,9 +266,14 @@ export function SunoGeneratorModal() {
                       <span className="flex items-center gap-0.5"><Clock className="h-3 w-3" />{fmtDur(track.duration)}</span>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => importToDAW(track)}>
-                    <Plus className="h-3 w-3" /> Import
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadTrack(track)}>
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => importToDAW(track)}>
+                      <Plus className="h-3 w-3" /> Import
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

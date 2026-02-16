@@ -259,6 +259,28 @@ function DAWContent({ user }: { user: User }) {
     }
   }, [tonePlayback, setAudioGateVisible]);
 
+  // Listen for Suno import events from the generator modal
+  useEffect(() => {
+    const handleSunoImport = (e: Event) => {
+      const { id, title, audioUrl, duration } = (e as CustomEvent).detail;
+      if (!projectData) return;
+      const newTrack = {
+        id: `suno-${id || Date.now()}`,
+        type: 'audio' as const,
+        name: title || 'Suno Import',
+        clips: [{ id: `clip-${Date.now()}`, name: title, startTime: 0, duration: duration || 180, audioUrl }],
+        mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
+        isArmed: false,
+        color: 'bg-amber-500',
+        automationLanes: [],
+      };
+      setProjectData({ ...projectData, tracks: [...projectData.tracks, newTrack] } as any);
+      toast.success(`"${title}" added as audio track`);
+    };
+    window.addEventListener('suno:import-to-daw', handleSunoImport);
+    return () => window.removeEventListener('suno:import-to-daw', handleSunoImport);
+  }, [projectData, setProjectData]);
+
   const handleAudioStart = useCallback(async () => {
     try {
       await tonePlayback.initialize();

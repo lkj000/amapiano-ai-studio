@@ -67,8 +67,8 @@ export function SunoGeneratorModal() {
     if (!prompt && !lyrics) { toast.error('Add a description or lyrics'); return; }
 
     setStatus('generating');
-    setProgressVal(5);
-    setProgressMsg('Submitting to Suno V4...');
+    setProgressVal(20);
+    setProgressMsg('Generating with ElevenLabs Music...');
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-song-suno', {
@@ -79,30 +79,22 @@ export function SunoGeneratorModal() {
           mood: 'energetic',
           bpm,
           instrumental,
-          customMode: true,
         }
       });
 
       if (error) throw error;
       if (data.requiresSetup) { toast.error(data.message); setStatus('error'); return; }
 
-      if (data.pending && data.taskId) {
-        let attempts = 0;
-        const max = 60;
-        while (attempts < max) {
-          await new Promise(r => setTimeout(r, 3000));
-          attempts++;
-          setProgressVal(Math.min(90, (attempts / max) * 100));
-          setProgressMsg(`Generating... (${attempts * 3}s)`);
-          try {
-            const { data: p } = await supabase.functions.invoke('generate-song-suno', { body: { taskId: data.taskId } });
-            if (p?.audioUrl) { addResult(p); return; }
-          } catch { /* continue */ }
-        }
-        setStatus('error');
-        setProgressMsg('Timed out');
-      } else if (data.audioUrl) {
-        addResult(data);
+      if (data.success && data.audioBase64) {
+        // Convert base64 to a playable blob URL
+        const byteChars = atob(data.audioBase64);
+        const byteArray = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+        const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+        const audioUrl = URL.createObjectURL(blob);
+        addResult({ ...data, audioUrl });
+      } else {
+        throw new Error(data.error || 'No audio returned');
       }
     } catch (err) {
       setStatus('error');

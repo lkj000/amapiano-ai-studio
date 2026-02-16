@@ -109,7 +109,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       const { data, error } = await supabase.functions.invoke('ai-music-generation', {
         body: {
           prompt: effectivePrompt,
-          trackType: 'midi',
+          trackType: 'audio',
           generationType,
           bpm: effectiveBpm,
           genre: effectiveGenre,
@@ -121,25 +121,33 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
       if (error) throw error;
 
-      if (data?.success && data?.newTrack) {
+      if (data?.success) {
+        // Convert base64 audio to blob URL for playback
+        let audioUrl = data.newTrack?.clips?.[0]?.audioUrl || '';
+        if (data.audioBase64) {
+          const audioFormat = data.audioFormat || 'audio/mpeg';
+          const byteString = atob(data.audioBase64);
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+          }
+          const blob = new Blob([ab], { type: audioFormat });
+          audioUrl = URL.createObjectURL(blob);
+        }
+
         setGeneratedTrack({
-          id: data.newTrack.id,
-          title: data.newTrack.name,
+          id: data.newTrack?.id || `track_${Date.now()}`,
+          title: data.newTrack?.name || trackTitle,
           type: trackType,
           bpm: effectiveBpm,
           genre: effectiveGenre,
-          duration: trackDuration,
-          audioUrl: data.newTrack.clips?.[0]?.audioUrl || `${baseUrl}/generated-track`,
-          stems: {
-            drums: `${baseUrl}/drums`,
-            bass: `${baseUrl}/bass`, 
-            piano: `${baseUrl}/piano`,
-            vocals: `${baseUrl}/vocals`,
-            other: `${baseUrl}/other`
-          }
+          duration: data.metadata?.duration || trackDuration,
+          audioUrl,
+          stems: {}
         });
         setIsGenerating(false);
-        toast.success(`🎉 Enhanced ${trackTypeLabel} generated successfully!`);
+        toast.success(`🎉 ${trackTypeLabel} generated successfully (${data.metadata?.duration || trackDuration}s)!`);
         return;
       }
     } catch (aiError: any) {

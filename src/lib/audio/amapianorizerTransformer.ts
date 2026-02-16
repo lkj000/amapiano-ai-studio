@@ -167,23 +167,28 @@ export class AmapianorizerTransformer {
       // Phase 2: Apply Vocal Processing if needed
       this.emitProgress('realignment', 0, 'Initializing vocal processor...');
       
+      // Skip aggressive vocal processing on the full mix — it destroys quality.
+      // Demon Pitch should only be applied to isolated vocal stems, not the master.
       let processedVocalBuffer = sourceBuffer;
-      if (preset.processing.formantShiftPercent !== 0 || 
-          preset.name.toLowerCase().includes('xduppy') ||
-          preset.name.toLowerCase().includes('quantum')) {
-        this.emitProgress('realignment', 20, 'Applying Demon Pitch vocal transformation...');
+      const shouldApplyVocalFX = request.sourceCharacteristics?.hasSoulfulVocals === true &&
+        (preset.name.toLowerCase().includes('xduppy') || preset.name.toLowerCase().includes('quantum'));
+      
+      if (shouldApplyVocalFX) {
+        this.emitProgress('realignment', 20, 'Applying subtle vocal coloring...');
         
-        // Create vocal processor with preset settings
+        // Use gentle settings — NO BitCrusher / NO -12 semitone on full mix
         this.vocalProcessor = createVocalProcessor('xduppy-demon');
         this.vocalProcessor.updateSettings({
-          pitchShift: preset.processing.formantShiftPercent < -10 ? -12 : preset.processing.formantShiftPercent / 10,
-          formantShift: preset.processing.formantShiftPercent,
-          demonMode: preset.processing.formantShiftPercent < -10,
-          reverbMix: preset.processing.reverbMix / 100
+          pitchShift: 0,                    // No pitch destruction on full mix
+          formantShift: 0,                  // No formant warping
+          demonMode: false,                 // Never on full mix
+          reverbMix: Math.min(0.15, preset.processing.reverbMix / 100) // Subtle reverb only
         });
         
         processedVocalBuffer = await this.vocalProcessor.processBuffer(sourceBuffer);
-        console.log('[AMAPIANORIZER] Vocal processing complete');
+        console.log('[AMAPIANORIZER] Gentle vocal coloring applied');
+      } else {
+        console.log('[AMAPIANORIZER] Skipping vocal FX — preserving original audio quality');
       }
       
       this.emitProgress('realignment', 50, 'Applying tempo warp...');
@@ -216,10 +221,11 @@ export class AmapianorizerTransformer {
       
       this.emitProgress('augmentation', 50, 'Mixing layers with sidechain ducking...');
       
-      // Mix all layers together
+      // Mix all layers together — keep source loud, blend new elements underneath
+      const logDrumGain = 0.25 * (preset.processing.logDrumModulationIndex / 100) * transformationRatio;
       const mixedBuffer = await this.mixBuffers([
-        { buffer: timeStretchedBuffer, gain: 0.7 * transformationRatio },
-        { buffer: logDrumBuffer, gain: 0.6 * preset.processing.logDrumModulationIndex / 100 }
+        { buffer: timeStretchedBuffer, gain: 0.92 },           // Preserve original loudness
+        { buffer: logDrumBuffer, gain: Math.min(0.35, logDrumGain) } // Subtle log drums, not overpowering
       ]);
       
       this.emitProgress('augmentation', 75, 'Applying effects chain...');
@@ -542,10 +548,26 @@ export class AmapianorizerTransformer {
   }
   
   private async timeStretch(buffer: AudioBuffer, ratio: number): Promise<AudioBuffer> {
-    // Use Tone.js GrainPlayer for time stretching
+    // For small tempo adjustments (< 8%), use simple playback rate change
+    // which preserves quality much better than granular synthesis
+    if (Math.abs(ratio - 1) < 0.08) {
+      const duration = buffer.duration / ratio;
+      const stretched = await Tone.Offline(({ destination }) => {
+        const player = new Tone.Player(buffer);
+        player.playbackRate = ratio;
+        player.connect(destination);
+        player.start(0);
+      }, duration);
+      return stretched.get()!;
+    }
+    
+    // For larger tempo changes, use GrainPlayer with optimized settings
+    // to minimize artifacts
     const duration = buffer.duration / ratio;
     const stretched = await Tone.Offline(({ destination }) => {
       const grain = new Tone.GrainPlayer(buffer, () => {});
+      grain.grainSize = 0.1;     // 100ms grains (smoother than default 20ms)
+      grain.overlap = 0.05;      // 50ms overlap to smooth transitions
       grain.playbackRate = ratio;
       grain.connect(destination);
       grain.start(0);
@@ -598,8 +620,14 @@ export class AmapianorizerTransformer {
   private async applyMasterChain(buffer: AudioBuffer, settings: { targetLUFS: number; stereoWidth: number; limiterCeiling: number }): Promise<AudioBuffer> {
     const rendered = await Tone.Offline(({ destination }) => {
       const player = new Tone.Player(buffer);
+      // Gentle mastering — preserve dynamics, just catch peaks
       const limiter = new Tone.Limiter(settings.limiterCeiling);
-      const compressor = new Tone.Compressor({ threshold: -12, ratio: 4 });
+      const compressor = new Tone.Compressor({
+        threshold: -6,    // Only catch peaks (was -12)
+        ratio: 2,         // Gentle ratio (was 4)
+        attack: 0.01,     // Slow attack preserves transients
+        release: 0.15,    // Smooth release
+      });
       player.chain(compressor, limiter, destination);
       player.start(0);
     }, buffer.duration);

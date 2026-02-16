@@ -1,6 +1,12 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -116,8 +122,7 @@ Create a music generation prompt for this track.`
 
     // ElevenLabs returns raw audio bytes
     const audioBuffer = await musicResponse.arrayBuffer();
-    const base64Audio = base64Encode(new Uint8Array(audioBuffer)
-    );
+    const base64Audio = uint8ToBase64(new Uint8Array(audioBuffer));
 
     console.log('[MUSIC-GEN] Audio generated, size:', audioBuffer.byteLength, 'bytes');
 

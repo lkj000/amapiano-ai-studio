@@ -11,6 +11,8 @@ import DJSetConfig from '@/components/dj-agent/DJSetConfig';
 import DJAgentPanel from '@/components/dj-agent/DJAgentPanel';
 import DJSetPreview from '@/components/dj-agent/DJSetPreview';
 import DJSetComparison from '@/components/dj-agent/DJSetComparison';
+import PitchShiftCalculator from '@/components/dj-agent/PitchShiftCalculator';
+import TechniqueComparisonPanel from '@/components/dj-agent/TechniqueComparisonPanel';
 import { analyzeTrackReal } from '@/components/dj-agent/DJAudioAnalyzer';
 import { planSets } from '@/components/dj-agent/DJSetPlanner';
 import { separateDJTracks } from '@/components/dj-agent/DJStemSeparator';
@@ -439,6 +441,8 @@ export default function DJAgent({ user }: DJAgentProps) {
               canGenerate={tracks.length >= 3}
             />
             <DJSetConfig config={config} onChange={setConfig} />
+            <PitchShiftCalculator />
+            <TechniqueComparisonPanel />
           </div>
 
           {/* Right: Preview + Comparison + AI Narrative */}

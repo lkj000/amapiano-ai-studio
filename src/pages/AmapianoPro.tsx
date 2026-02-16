@@ -209,6 +209,36 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
     }
   }, [project.bpm, audioDAW]);
 
+  // Listen for Suno import events from the generator modal
+  useEffect(() => {
+    const handleSunoImport = (e: Event) => {
+      const { title, audioUrl, bpm: trackBpm, genre } = (e as CustomEvent).detail;
+      const newChannel: DAWChannel = {
+        id: `suno-${Date.now()}`,
+        name: title || 'Suno Import',
+        type: 'audio',
+        instrument: audioUrl,
+        steps: Array(16).fill(false),
+        notes: [],
+        volume: 0.8,
+        pan: 0,
+        muted: false,
+        solo: false,
+        color: '#F59E0B',
+      };
+      setProject(prev => ({
+        ...prev,
+        patterns: prev.patterns.map(p =>
+          p.id === selectedPatternId
+            ? { ...p, channels: [...p.channels, newChannel] }
+            : p
+        ),
+      }));
+    };
+    window.addEventListener('suno:import-to-daw', handleSunoImport);
+    return () => window.removeEventListener('suno:import-to-daw', handleSunoImport);
+  }, [selectedPatternId]);
+
   // Transport Controls - Now using real audio
   const handlePlay = useCallback(() => {
     audioDAW.play();

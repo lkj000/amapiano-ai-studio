@@ -211,7 +211,14 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, onAmap
                   )}
                 </Button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{track.title}</p>
+                  <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                    {track.title}
+                    {track.amapianorized && (
+                      <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/20 text-amber-400 border-amber-500/30 shrink-0">
+                        <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Amapianorized
+                      </Badge>
+                    )}
+                  </p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {track.artist && <span>{track.artist}</span>}
                     <span>{formatDuration(track.durationSec)}</span>
@@ -233,14 +240,14 @@ export default function DJTrackPool({ tracks, onAddTracks, onRemoveTrack, onAmap
                     )}
                   </div>
                 </div>
-                {onAmapianorize && track.features && (
+                {onAmapianorize && track.features && !track.amapianorized && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="opacity-0 group-hover:opacity-100 h-7 w-7"
+                          className="h-7 w-7 shrink-0"
                           onClick={() => onAmapianorize(track.id)}
                           disabled={amapianorizingTrackId === track.id}
                         >

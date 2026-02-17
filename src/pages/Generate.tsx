@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import SunoStyleWorkflow from "@/components/ai/SunoStyleWorkflow";
 import { AIPromptParser } from "@/components/AIPromptParser";
-import { UnifiedAnalysisPanel } from "@/components/UnifiedAnalysisPanel";
 import { MicrophoneInput } from "@/components/MicrophoneInput";
 import { EnhancedFileUpload } from "@/components/EnhancedFileUpload";
 import { StemByStepGenerator } from "@/components/StemByStepGenerator";
@@ -28,6 +27,7 @@ import { AMAPIANO_VOICE_CATEGORIES } from "@/constants/amapianoVoices";
 import { SA_LANGUAGES } from "@/constants/languages";
 import { GENRE_DEFAULTS, getGenreDefaults } from "@/constants/genreDefaults";
 import { analyzeReferenceBuffer, type ReferenceConstraints } from "@/lib/audio/ReferenceToGenerate";
+import { GeneratedTrackAnalysis } from "@/components/generate/GeneratedTrackAnalysis";
 
 interface GenerateProps {
   user: User | null;
@@ -54,7 +54,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [selectedArtistStyle, setSelectedArtistStyle] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState("");
   const [musicalKey, setMusicalKey] = useState("Am");
-  const [selectedVoiceStyle, setSelectedVoiceStyle] = useState<string | null>(null);
+  const [selectedVoiceStyles, setSelectedVoiceStyles] = useState<string[]>([]);
   const [lyricsLanguage, setLyricsLanguage] = useState("zulu");
   const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false);
   const [culturalSwing, setCulturalSwing] = useState([55]);
@@ -307,7 +307,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           genre: genre === "classic" ? "Classic Amapiano" : genre,
           language: lyricsLanguage,
           mood: referenceAnalysis?.mood || 'energetic',
-          style: selectedVoiceStyle,
+          style: selectedVoiceStyles.length > 0 ? selectedVoiceStyles.join(', ') : undefined,
+          isDuet: selectedVoiceStyles.length > 1,
         }
       });
       if (error) throw error;
@@ -519,22 +520,43 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                       />
                     </div>
 
-                    {/* Voice Style Selector */}
+                    {/* Voice Style Selector - Multi-select */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium flex items-center gap-2">
                         <Mic className="w-4 h-4" />
-                        Voice Style (Optional)
+                        Voice Style(s) — select multiple for duets
                       </label>
-                      <Select value={selectedVoiceStyle || ""} onValueChange={(val) => setSelectedVoiceStyle(val || null)}>
+                      {selectedVoiceStyles.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {selectedVoiceStyles.map((v) => {
+                            const voice = AMAPIANO_VOICE_CATEGORIES.flatMap(c => c.voices).find(vo => vo.value === v);
+                            return (
+                              <Badge key={v} variant="secondary" className="cursor-pointer gap-1" onClick={() => setSelectedVoiceStyles(prev => prev.filter(s => s !== v))}>
+                                {voice?.label || v} ✕
+                              </Badge>
+                            );
+                          })}
+                          {selectedVoiceStyles.length > 1 && (
+                            <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+                              🎤 Duet Mode
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      <Select value="" onValueChange={(val) => {
+                        if (val && val !== 'none' && !selectedVoiceStyles.includes(val)) {
+                          setSelectedVoiceStyles(prev => [...prev, val]);
+                        }
+                      }}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a voice style..." />
+                          <SelectValue placeholder={selectedVoiceStyles.length > 0 ? "Add another voice..." : "Choose voice style(s)..."} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No specific style</SelectItem>
                           {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
                             <div key={cat.category}>
                               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.category}</div>
-                              {cat.voices.map((voice) => (
+                              {cat.voices.filter(v => !selectedVoiceStyles.includes(v.value)).map((voice) => (
                                 <SelectItem key={voice.value} value={voice.value}>
                                   <span>{voice.label}</span>
                                   <span className="text-xs text-muted-foreground ml-2">— {voice.description}</span>
@@ -985,21 +1007,43 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         />
                       </div>
 
+                      {/* Voice Style(s) - Multi-select for Reference tab */}
                       <div className="space-y-2">
                         <label className="text-sm font-medium flex items-center gap-2">
                           <Mic className="w-4 h-4" />
-                          Voice Style (Optional)
+                          Voice Style(s) — select multiple for duets
                         </label>
-                        <Select value={selectedVoiceStyle || ""} onValueChange={(val) => setSelectedVoiceStyle(val || null)}>
+                        {selectedVoiceStyles.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {selectedVoiceStyles.map((v) => {
+                              const voice = AMAPIANO_VOICE_CATEGORIES.flatMap(c => c.voices).find(vo => vo.value === v);
+                              return (
+                                <Badge key={v} variant="secondary" className="cursor-pointer gap-1" onClick={() => setSelectedVoiceStyles(prev => prev.filter(s => s !== v))}>
+                                  {voice?.label || v} ✕
+                                </Badge>
+                              );
+                            })}
+                            {selectedVoiceStyles.length > 1 && (
+                              <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+                                🎤 Duet Mode
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        <Select value="" onValueChange={(val) => {
+                          if (val && val !== 'none' && !selectedVoiceStyles.includes(val)) {
+                            setSelectedVoiceStyles(prev => [...prev, val]);
+                          }
+                        }}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Choose a voice style..." />
+                            <SelectValue placeholder={selectedVoiceStyles.length > 0 ? "Add another voice..." : "Choose voice style(s)..."} />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">No specific style</SelectItem>
                             {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
                               <div key={cat.category}>
                                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.category}</div>
-                                {cat.voices.map((voice) => (
+                                {cat.voices.filter(v => !selectedVoiceStyles.includes(v.value)).map((voice) => (
                                   <SelectItem key={voice.value} value={voice.value}>
                                     <span>{voice.label}</span>
                                     <span className="text-xs text-muted-foreground ml-2">— {voice.description}</span>
@@ -1009,6 +1053,50 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      {/* Lyrics section for Reference tab */}
+                      <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                            Lyrics
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <Select value={lyricsLanguage} onValueChange={setLyricsLanguage}>
+                              <SelectTrigger className="w-[140px] h-8 text-xs">
+                                <Globe className="w-3 h-3 mr-1" />
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SA_LANGUAGES.map((lang) => (
+                                  <SelectItem key={lang.value} value={lang.value}>
+                                    {lang.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleGenerateLyrics}
+                              disabled={isGeneratingLyrics}
+                            >
+                              {isGeneratingLyrics ? (
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3 mr-1" />
+                              )}
+                              Generate
+                            </Button>
+                          </div>
+                        </div>
+                        <Textarea
+                          placeholder="Write or generate lyrics... Use [Verse], [Chorus], [Bridge] tags"
+                          value={lyrics}
+                          onChange={(e) => setLyrics(e.target.value)}
+                          className="min-h-[100px] resize-none font-mono text-sm"
+                        />
                       </div>
                     </div>
                   </CardContent>
@@ -1325,19 +1413,15 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         </div>
 
                       {/* AI Analysis of Generated Track */}
-                      <div className="pt-4 border-t">
-                        <UnifiedAnalysisPanel
-                          file={generatedTrack?.audioFile}
-                          onAnalysisComplete={(analysisData) => {
-                            console.log('✅ Generated track AI analysis:', analysisData);
-                            if (analysisData.essentia?.deepLearning) {
-                              toast.success('✨ AI insights available for your track!');
-                            }
-                          }}
-                          showOptions={false}
-                          className="border-0 shadow-none"
-                        />
-                      </div>
+                      {generatedTrack?.audioUrl && (
+                        <div className="pt-4 border-t space-y-3">
+                          <h4 className="font-medium text-sm flex items-center gap-2">
+                            <Music className="w-4 h-4 text-primary" />
+                            Generated Track Analysis
+                          </h4>
+                          <GeneratedTrackAnalysis audioUrl={generatedTrack.audioUrl} />
+                        </div>
+                      )}
 
                       {parsedPrompt?.instrumentation && (
                         <div className="space-y-2">

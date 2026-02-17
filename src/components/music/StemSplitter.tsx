@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,6 +24,35 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
   const [playingTrack, setPlayingTrack] = useState<string | null>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-load from localStorage (handoff from Generate page)
+  useEffect(() => {
+    const pending = localStorage.getItem('pendingStemTrack');
+    if (pending) {
+      localStorage.removeItem('pendingStemTrack');
+      try {
+        const data = JSON.parse(pending);
+        if (data.audioUrl) {
+          toast.info(`Loading reference track for stem splitting...`);
+          // Fetch the blob URL or public URL and create a File
+          fetch(data.audioUrl)
+            .then(res => res.blob())
+            .then(blob => {
+              const fileName = data.title || 'reference-track';
+              const f = new File([blob], `${fileName}.mp3`, { type: blob.type || 'audio/mpeg' });
+              setFile(f);
+              toast.success(`"${fileName}" loaded — click Split into Stems to proceed`);
+            })
+            .catch(err => {
+              console.error('[StemSplitter] Failed to load pending track:', err);
+              toast.error('Failed to load reference track');
+            });
+        }
+      } catch (e) {
+        console.error('[StemSplitter] Invalid pending data:', e);
+      }
+    }
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];

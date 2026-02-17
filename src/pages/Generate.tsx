@@ -312,9 +312,14 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
         }
       });
       if (error) throw error;
-      const generatedLyrics = data?.lyrics || data?.response || data?.generatedLyrics || '';
-      setLyrics(generatedLyrics);
-      toast.success("🎤 Lyrics generated!");
+      // Edge function returns { versionA: { title, lyrics }, versionB: { title, lyrics } }
+      const generatedLyrics = data?.versionA?.lyrics || data?.lyrics || data?.response || data?.generatedLyrics || '';
+      const versionBLyrics = data?.versionB?.lyrics || '';
+      const combinedLyrics = versionBLyrics 
+        ? `--- Version A: ${data?.versionA?.title || 'Version A'} ---\n${generatedLyrics}\n\n--- Version B: ${data?.versionB?.title || 'Version B'} ---\n${versionBLyrics}`
+        : generatedLyrics;
+      setLyrics(combinedLyrics);
+      toast.success("🎤 Lyrics generated (2 versions)!");
     } catch (err) {
       console.error('Lyrics generation error:', err);
       // Fallback demo lyrics

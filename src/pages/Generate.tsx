@@ -249,6 +249,30 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
         suggestedPrompt: constraints.suggestedPrompt,
         bpmConfidence: constraints.bpmConfidence,
       });
+
+      // Sync BPM slider to match analysis
+      setBpm([Math.round(constraints.bpm)]);
+
+      // Match detected genre to closest Amapiano style
+      const detectedBpm = constraints.bpm;
+      const detectedSubgenre = constraints.genre.subgenre?.toLowerCase() || '';
+      const genreMap: Record<string, string> = {
+        'private_school': 'private-school',
+        'deep': 'deep',
+        'bacardi': 'Bacardi',
+        '3_step': 'Amapiano (Pretoria/Pitori)',
+        'vocal': 'vocal',
+      };
+      const mappedGenre = genreMap[detectedSubgenre];
+      if (mappedGenre && GENRE_DEFAULTS[mappedGenre]) {
+        setGenre(mappedGenre);
+      } else if (constraints.isAmapiano) {
+        // Find best match by BPM proximity
+        const bestMatch = Object.entries(GENRE_DEFAULTS)
+          .filter(([, d]) => detectedBpm >= d.bpmRange[0] - 5 && detectedBpm <= d.bpmRange[1] + 5)
+          .sort(([, a], [, b]) => Math.abs(a.suggestedBpm - detectedBpm) - Math.abs(b.suggestedBpm - detectedBpm))[0];
+        if (bestMatch) setGenre(bestMatch[0]);
+      }
       
       toast.success("Reference track analyzed successfully!");
     } catch (err) {

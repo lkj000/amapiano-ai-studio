@@ -6,9 +6,9 @@ const corsHeaders = {
 };
 
 const MODAL_URL = "https://mabgwej--aura-x-backend-fastapi-app.modal.run";
+const MODAL_TIMEOUT_MS = 15000;
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -35,26 +35,47 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
-    // Call Modal backend with full options
-    const response = await fetch(`${MODAL_URL}/ml/quantize`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        audio_url,
-        target_bits,
-        use_mid_side,
-        use_dithering,
-        noise_shaping,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), MODAL_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(`${MODAL_URL}/ml/quantize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audio_url,
+          target_bits,
+          use_mid_side,
+          use_dithering,
+          noise_shaping,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      const isTimeout = fetchError instanceof DOMException && fetchError.name === 'AbortError';
+      console.error("[modal-quantize] Modal unreachable:", isTimeout ? 'timeout' : fetchError);
+      return new Response(
+        JSON.stringify({
+          error: isTimeout
+            ? "Modal GPU backend timed out. The backend may be in cold-start or stopped."
+            : "Modal GPU backend is unreachable. Deploy with: cd python-backend && modal deploy modal_app/main.py",
+          success: false,
+          backend_status: "unavailable",
+          hint: "See docs/MODAL_ARCHITECTURE.md for deployment instructions"
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[modal-quantize] Modal error: ${response.status}`, errorText);
       return new Response(
-        JSON.stringify({ error: `Modal API error: ${response.status}`, details: errorText, success: false }),
+        JSON.stringify({ error: `Modal API error: ${response.status}`, details: errorText, success: false, backend_status: "error" }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -63,13 +84,13 @@ serve(async (req) => {
     const totalTime = Date.now() - startTime;
 
     console.log(`[modal-quantize] Success: SNR=${result.snr_db?.toFixed(2)}dB, FAD=${(result.fad_score * 100)?.toFixed(2)}%, rank=${result.rank_used}`);
-    console.log(`[modal-quantize] Quality: phase=${(result.phase_coherence * 100)?.toFixed(1)}%, transient=${(result.transient_preservation * 100)?.toFixed(1)}%, stereo=${(result.stereo_imaging * 100)?.toFixed(1)}%`);
-    console.log(`[modal-quantize] Total time: ${totalTime}ms (Modal: ${result.processing_time?.toFixed(2)}s)`);
+    console.log(`[modal-quantize] Total time: ${totalTime}ms`);
 
     return new Response(
       JSON.stringify({
         ...result,
-        edge_function_time: totalTime
+        edge_function_time: totalTime,
+        backend_status: "connected"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

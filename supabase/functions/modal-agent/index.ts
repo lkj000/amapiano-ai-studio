@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Modal backend URL - may not always be available
-const MODAL_BASE_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-ai-fastapi-app.modal.run";
+const MODAL_BASE_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run";
 
 // Local agent execution fallback when Modal is unavailable
 async function executeLocalAgent(goal: string, context: Record<string, unknown>, maxSteps: number) {

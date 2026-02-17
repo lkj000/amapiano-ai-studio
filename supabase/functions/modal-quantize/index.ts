@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MODAL_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-ai-fastapi-app.modal.run";
+const MODAL_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run";
 const MODAL_TIMEOUT_MS = 15000;
 
 serve(async (req) => {

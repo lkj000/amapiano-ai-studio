@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Modal URL - will need to be updated when you deploy your Modal backend
-const MODAL_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-ai-fastapi-app.modal.run";
+const MODAL_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run";
 
 // Development mode flag - DISABLED: Always use real Modal backend
 const DEV_MODE = false;

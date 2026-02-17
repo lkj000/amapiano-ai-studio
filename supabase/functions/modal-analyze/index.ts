@@ -5,8 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const MODAL_BASE_URL = Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run";
-const MODAL_TIMEOUT_MS = 10000;
+const MODAL_BASE_URL = (Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run").replace(/\/+$/, '');
+const MODAL_TIMEOUT_MS = 60000; // 60s to handle cold starts + audio download
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

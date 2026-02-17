@@ -8,7 +8,8 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap, Sparkles, Globe } from "lucide-react";
+import { Music, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap, Sparkles, Globe, Scissors, MicVocal } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import SunoStyleWorkflow from "@/components/ai/SunoStyleWorkflow";
 import { AIPromptParser } from "@/components/AIPromptParser";
@@ -33,6 +34,7 @@ interface GenerateProps {
 }
 
 const Generate: React.FC<GenerateProps> = ({ user }) => {
+  const navigate = useNavigate();
   const { isReady: wasmReady, averageMetrics, engineType } = useWasmAcceleratedGeneration();
   const [prompt, setPrompt] = useState("");
   const [genre, setGenre] = useState("classic");
@@ -763,6 +765,71 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                                           </div>
                                         ))
                                     )}
+                                  </div>
+                                </div>
+
+                                {/* Reference Track Actions */}
+                                <div className="mt-4 pt-3 border-t border-border">
+                                  <span className="text-sm text-muted-foreground block mb-2">Process Reference Track</span>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1.5"
+                                      onClick={() => {
+                                        if (referenceAudioUrl) {
+                                          localStorage.setItem('pendingAmapianorize', JSON.stringify({
+                                            audioUrl: referenceAudioUrl,
+                                            analysis: referenceAnalysis,
+                                          }));
+                                          navigate('/amapianorize');
+                                        } else {
+                                          toast.error('No reference audio available');
+                                        }
+                                      }}
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      Amapianorize
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1.5"
+                                      onClick={() => {
+                                        if (referenceAudioUrl) {
+                                          localStorage.setItem('pendingStemTrack', JSON.stringify({
+                                            audioUrl: referenceAudioUrl,
+                                            title: 'Reference Track',
+                                            analysis: referenceAnalysis,
+                                          }));
+                                          navigate('/stem-splitter');
+                                        } else {
+                                          toast.error('No reference audio available');
+                                        }
+                                      }}
+                                    >
+                                      <Scissors className="w-3.5 h-3.5" />
+                                      Stem Split
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1.5"
+                                      onClick={() => {
+                                        if (referenceAudioUrl) {
+                                          localStorage.setItem('pendingVocalRemove', JSON.stringify({
+                                            audioUrl: referenceAudioUrl,
+                                            title: 'Reference Track',
+                                          }));
+                                          navigate('/vocal-remover');
+                                        } else {
+                                          toast.error('No reference audio available');
+                                        }
+                                      }}
+                                    >
+                                      <MicVocal className="w-3.5 h-3.5" />
+                                      Vocal Remove
+                                    </Button>
                                   </div>
                                 </div>
                               </div>

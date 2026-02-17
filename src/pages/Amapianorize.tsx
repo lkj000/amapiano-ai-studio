@@ -24,6 +24,49 @@ export default function Amapianorize() {
   const [enhancedStems, setEnhancedStems] = useState<any>(null);
   const [enhancedAudioUrl, setEnhancedAudioUrl] = useState<string | null>(null);
 
+  // Check for pendingAmapianorize from Reference tab handoff
+  useEffect(() => {
+    const pending = localStorage.getItem('pendingAmapianorize');
+    if (pending) {
+      try {
+        const data = JSON.parse(pending);
+        localStorage.removeItem('pendingAmapianorize');
+        
+        if (data.audioUrl) {
+          toast.info('Loading track from Reference analysis...');
+          
+          // Fetch the audio URL and create a File object
+          fetch(data.audioUrl)
+            .then(res => res.blob())
+            .then(blob => {
+              const fileName = data.fileName || data.analysis?.fileName || 'reference-track.mp3';
+              const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
+              
+              if (audioObjectUrl) {
+                URL.revokeObjectURL(audioObjectUrl);
+              }
+              
+              setAudioFile(file);
+              setAudioObjectUrl(URL.createObjectURL(file));
+              setSeparatedStems(null);
+              setRawStemsList([]);
+              setEnhancedStems(null);
+              setEnhancedAudioUrl(null);
+              setActiveTab('separate');
+              toast.success(`"${fileName}" loaded — auto-starting separation`);
+            })
+            .catch(err => {
+              console.error('Failed to fetch reference audio:', err);
+              toast.error('Failed to load reference track');
+            });
+        }
+      } catch (e) {
+        console.error('Failed to parse pendingAmapianorize:', e);
+        localStorage.removeItem('pendingAmapianorize');
+      }
+    }
+  }, []);
+
   // Clean up object URL on unmount or when file changes
   useEffect(() => {
     return () => {

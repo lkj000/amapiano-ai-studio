@@ -60,7 +60,7 @@ image = (
         # Supabase
         "supabase==2.3.4",
         "python-jose[cryptography]==3.3.0",
-        "httpx==0.26.0",
+        "httpx==0.25.0",
         # LangChain for Agent
         "langchain==0.1.0",
         "langchain-openai==0.0.2",

@@ -94,7 +94,7 @@ class ModalApiService {
    * Check backend health status
    */
   async checkHealth(): Promise<{ status: string; gpu: boolean }> {
-    const response = await fetch('https://mabgwej--aura-x-ai-fastapi-app.modal.run/health');
+    const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/health');
     return response.json();
   }
 }

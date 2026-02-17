@@ -72,6 +72,7 @@ const ReleaseManager = lazy(() => import("./pages/ReleaseManager"));
 const PromotionHub = lazy(() => import("./pages/PromotionHub"));
 const RhythmDemo = lazy(() => import("./pages/RhythmDemo"));
 const AmapianoPro = lazy(() => import("./pages/AmapianoPro"));
+const AdminInventory = lazy(() => import("./pages/AdminInventory"));
 
 const queryClient = new QueryClient();
 
@@ -223,6 +224,7 @@ const App = () => {
                 <Route path="/rhythm-demo" element={<RhythmDemo />} />
                 <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
                 <Route path="/dj-agent" element={<DJAgent user={user} />} />
+                <Route path="/admin/inventory" element={<AdminInventory />} />
                 <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
                 
                 {/* Catch-all route */}

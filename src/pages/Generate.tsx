@@ -300,7 +300,15 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
             />
           </div>
 
-          <Tabs value={generationType} onValueChange={(value) => setGenerationType(value as typeof generationType)} className="mb-4 sm:mb-6">
+          <Tabs value={generationType} onValueChange={(value) => {
+            const newType = value as typeof generationType;
+            // Clear prompt when switching to reference mode to avoid confusion
+            // (reference generation uses analysis data, not the prompt)
+            if (newType === 'reference' && generationType !== 'reference') {
+              setPrompt('');
+            }
+            setGenerationType(newType);
+          }} className="mb-4 sm:mb-6">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 h-auto gap-1">
               <TabsTrigger value="prompt" className="text-xs sm:text-sm py-2">Prompt</TabsTrigger>
               <TabsTrigger value="reference" className="text-xs sm:text-sm py-2">Reference</TabsTrigger>
@@ -754,11 +762,12 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Track Description (Optional)</label>
+                        <p className="text-xs text-muted-foreground">Generation is driven by the reference analysis above. Add extra direction here only if needed.</p>
                         <Textarea
-                          placeholder="Describe your amapiano track... e.g., 'A soulful private school amapiano track with jazzy piano chords, subtle log drums, and deep bass'"
+                          placeholder="Optional: Add extra direction, e.g., 'make it more upbeat' or 'add vocal chops'..."
                           value={prompt}
                           onChange={(e) => setPrompt(e.target.value)}
-                          className="min-h-[100px] resize-none"
+                          className="min-h-[80px] resize-none"
                         />
                       </div>
 

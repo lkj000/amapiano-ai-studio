@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,7 @@ import { ModalGPUGenerator } from "@/components/generate/ModalGPUGenerator";
 import { AMAPIANO_VOICE_CATEGORIES } from "@/constants/amapianoVoices";
 import { SA_LANGUAGES } from "@/constants/languages";
 import { GENRE_DEFAULTS, getGenreDefaults } from "@/constants/genreDefaults";
+import { analyzeReferenceBuffer, type ReferenceConstraints } from "@/lib/audio/ReferenceToGenerate";
 
 interface GenerateProps {
   user: User | null;
@@ -222,28 +223,38 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
     setReferenceAudioUrl(URL.createObjectURL(file));
     toast.success(`Reference file "${file.name}" selected`);
     
-    // Simulate reference analysis
-    toast.info("Analyzing reference track...");
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setReferenceAnalysis({
-      bpm: 115,
-      key: "C minor",
-      mood: "Melancholic",
-      energy: 0.7,
-      instruments: ["Piano", "Bass", "Drums", "Strings"],
-      genre: "Deep Amapiano",
-      duration: 245,
-      structure: {
-        intro: 16,
-        verse: 32,
-        chorus: 24,
-        bridge: 16,
-        outro: 12
-      }
-    });
-    
-    toast.success("Reference track analyzed successfully!");
+    // Real analysis using SharedAnalysisPipeline (same as DJ Mix)
+    toast.info("Analyzing reference track with SharedAnalysisPipeline...");
+    try {
+      const audioContext = new AudioContext({ sampleRate: 22050 });
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      const constraints = await analyzeReferenceBuffer(audioBuffer);
+      await audioContext.close();
+      
+      setReferenceAnalysis({
+        bpm: constraints.bpm,
+        key: constraints.key,
+        camelot: constraints.camelot,
+        mood: constraints.avgEnergy > 0.6 ? "Energetic" : constraints.avgEnergy > 0.35 ? "Groovy" : "Mellow",
+        energy: constraints.avgEnergy,
+        instruments: constraints.genre.indicators || [],
+        genre: constraints.genre.subgenre?.replace(/_/g, ' ') || (constraints.isAmapiano ? "Amapiano" : "Other"),
+        isAmapiano: constraints.isAmapiano,
+        duration: Math.round(audioBuffer.duration),
+        lufs: constraints.targetLufs,
+        vocalPresence: constraints.vocalPresence,
+        structure: constraints.structure,
+        suggestedPrompt: constraints.suggestedPrompt,
+        bpmConfidence: constraints.bpmConfidence,
+      });
+      
+      toast.success("Reference track analyzed successfully!");
+    } catch (err) {
+      console.error('Reference analysis failed:', err);
+      toast.error("Analysis failed — check audio format");
+    }
   };
 
   const handleGenerateLyrics = async () => {

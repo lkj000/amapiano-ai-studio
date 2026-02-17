@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +11,10 @@ import { Music2, Loader2, Download, Sparkles } from 'lucide-react';
 import VocalRemover from '@/components/music/VocalRemover';
 import SoundEffectGenerator from '@/components/music/SoundEffectGenerator';
 import { MusicToolsSidebar } from '@/components/music/MusicToolsSidebar';
+import { SA_GENRES } from '@/constants/amapianoVoices';
+import { GENERATION_MOODS, getGenreDefaults } from '@/constants/genreDefaults';
+import { GenreAwareBpmKey } from '@/components/music/GenreAwareBpmKey';
+import { CulturalAuthenticityControls, type CulturalSettings } from '@/components/music/CulturalAuthenticityControls';
 
 interface InstrumentalGeneratorProps {
   user: User | null;
@@ -32,27 +35,15 @@ interface GeneratedTrack {
 
 const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) => {
   const [genre, setGenre] = useState('Amapiano');
-  const [subgenre, setSubgenre] = useState('');
-  const [mood, setMood] = useState('energetic African dance music');
-  const [bpm, setBpm] = useState([112]);
+  const [mood, setMood] = useState('energetic');
+  const [bpm, setBpm] = useState([115]);
+  const [musicalKey, setMusicalKey] = useState('Am');
   const [energy, setEnergy] = useState([70]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
-
-  const genres = [
-    'Amapiano', 'Afrobeats', 'House', 'Deep House', 'Techno', 'Lo-Fi',
-    'Hip Hop', 'Jazz', 'Classical', 'Ambient', 'Electronic', 'Funk'
-  ];
-
-  const moods = [
-    'energetic African dance music',
-    'chill and relaxed vibes',
-    'dark and moody atmosphere',
-    'uplifting and euphoric',
-    'deep and hypnotic grooves',
-    'warm and soulful',
-    'intense and driving'
-  ];
+  const [culturalSettings, setCulturalSettings] = useState<CulturalSettings>({
+    swing: [55], gaspTiming: 'beat1', logDrumIntensity: [50],
+  });
 
   const handleGenerate = async () => {
     if (!user) {
@@ -67,10 +58,13 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
       const { data, error } = await supabase.functions.invoke('generate-instrumental', {
         body: {
           genre,
-          subgenre,
           mood,
           bpm: bpm[0],
           energy: energy[0],
+          key: musicalKey,
+          culturalSwing: culturalSettings.swing[0],
+          logDrumIntensity: culturalSettings.logDrumIntensity[0],
+          gaspTiming: culturalSettings.gaspTiming,
         },
       });
 
@@ -107,7 +101,7 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                 <h1 className="text-4xl font-bold">Instrumental Generator</h1>
               </div>
               <p className="text-muted-foreground text-lg">
-                Generate pure instrumental tracks using MusicGen AI
+                Generate pure instrumental tracks using AI
               </p>
             </div>
 
@@ -119,61 +113,44 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                       <Sparkles className="h-5 w-5" />
                       Track Configuration
                     </CardTitle>
-                    <CardDescription>
-                      Configure your instrumental parameters
-                    </CardDescription>
+                    <CardDescription>Configure your instrumental parameters</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Genre</Label>
-                        <Select value={genre} onValueChange={setGenre}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select genre" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {genres.map((g) => (
-                              <SelectItem key={g} value={g}>{g}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Subgenre (optional)</Label>
-                        <Input
-                          placeholder="e.g., piano house, minimal"
-                          value={subgenre}
-                          onChange={(e) => setSubgenre(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
                     <div className="space-y-2">
-                      <Label>Mood/Style</Label>
-                      <Select value={mood} onValueChange={setMood}>
+                      <Label>Genre</Label>
+                      <Select value={genre} onValueChange={setGenre}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select mood" />
+                          <SelectValue placeholder="Select genre" />
                         </SelectTrigger>
                         <SelectContent>
-                          {moods.map((m) => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          {SA_GENRES.map((g) => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
 
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <GenreAwareBpmKey
+                      genre={genre}
+                      bpm={bpm}
+                      onBpmChange={setBpm}
+                      musicalKey={musicalKey}
+                      onKeyChange={setMusicalKey}
+                    />
+
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>BPM: {bpm[0]}</Label>
-                        <Slider
-                          value={bpm}
-                          onValueChange={setBpm}
-                          min={60}
-                          max={180}
-                          step={1}
-                          className="w-full"
-                        />
+                        <Label>Mood</Label>
+                        <Select value={mood} onValueChange={setMood}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select mood" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GENERATION_MOODS.map((m) => (
+                              <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div className="space-y-2">
@@ -181,9 +158,7 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                         <Slider
                           value={energy}
                           onValueChange={setEnergy}
-                          min={0}
-                          max={100}
-                          step={5}
+                          min={0} max={100} step={5}
                           className="w-full"
                         />
                         <p className="text-xs text-muted-foreground">
@@ -194,6 +169,13 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                   </CardContent>
                 </Card>
 
+                {/* Cultural Authenticity */}
+                <CulturalAuthenticityControls
+                  settings={culturalSettings}
+                  onChange={setCulturalSettings}
+                  genre={genre}
+                />
+
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating}
@@ -201,15 +183,9 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                   size="lg"
                 >
                   {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Generating... (this may take 1-2 minutes)
-                    </>
+                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Generating... (this may take 1-2 minutes)</>
                   ) : (
-                    <>
-                      <Music2 className="mr-2 h-5 w-5" />
-                      Generate Instrumental
-                    </>
+                    <><Music2 className="mr-2 h-5 w-5" /> Generate Instrumental</>
                   )}
                 </Button>
 
@@ -228,21 +204,13 @@ const InstrumentalGenerator: React.FC<InstrumentalGeneratorProps> = ({ user }) =
                       <audio controls className="w-full" src={generatedTrack.audioUrl}>
                         Your browser does not support the audio element.
                       </audio>
-
                       <div className="flex gap-4 justify-center">
                         <Button variant="outline" asChild>
-                          <a 
-                            href={generatedTrack.audioUrl} 
-                            download="instrumental.mp3"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Download
+                          <a href={generatedTrack.audioUrl} download="instrumental.mp3" target="_blank" rel="noopener noreferrer">
+                            <Download className="mr-2 h-4 w-4" /> Download
                           </a>
                         </Button>
                       </div>
-
                       <div className="text-sm text-muted-foreground">
                         <p>Source: {generatedTrack.metadata.source}</p>
                         <p>Duration: ~{generatedTrack.metadata.duration}s</p>

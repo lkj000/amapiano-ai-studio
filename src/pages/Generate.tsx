@@ -25,14 +25,7 @@ import { useWasmAcceleratedGeneration } from "@/hooks/useWasmAcceleratedGenerati
 import { ModalGPUGenerator } from "@/components/generate/ModalGPUGenerator";
 import { AMAPIANO_VOICE_CATEGORIES } from "@/constants/amapianoVoices";
 import { SA_LANGUAGES } from "@/constants/languages";
-
-// Genre-aware defaults for BPM and Key
-const GENRE_DEFAULTS: Record<string, { bpmRange: [number, number]; suggestedBpm: number; commonKeys: string[]; description: string }> = {
-  classic: { bpmRange: [110, 120], suggestedBpm: 115, commonKeys: ['Am', 'Cm', 'Fm', 'Gm'], description: 'Original Amapiano sound — log drums, deep bass, groovy piano' },
-  'private-school': { bpmRange: [112, 122], suggestedBpm: 118, commonKeys: ['Am', 'Dm', 'Em', 'Cm'], description: 'Jazzy chords, lush pads, sophisticated melodies' },
-  vocal: { bpmRange: [108, 118], suggestedBpm: 112, commonKeys: ['C', 'F', 'G', 'Am'], description: 'Vocal-driven with soulful melodies and harmonies' },
-  deep: { bpmRange: [106, 116], suggestedBpm: 110, commonKeys: ['Cm', 'Fm', 'Dm', 'Gm'], description: 'Slow, hypnotic, deep basslines and minimal percussion' },
-};
+import { GENRE_DEFAULTS, getGenreDefaults } from "@/constants/genreDefaults";
 
 interface GenerateProps {
   user: User | null;
@@ -67,7 +60,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [generationDetails, setGenerationDetails] = useState<{ prompt: string; lyrics?: string; source: string } | null>(null);
 
   // Genre-aware defaults
-  const currentGenreDefaults = GENRE_DEFAULTS[genre] || GENRE_DEFAULTS.classic;
+  const currentGenreDefaults = getGenreDefaults(genre);
 
   const handleGenerate = async () => {
     if (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio) {

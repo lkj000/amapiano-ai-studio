@@ -259,9 +259,12 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       const subgenreToDropdown: Record<string, string> = {
         'private_school': 'private-school',
         'deep': 'deep',
+        'deep_amapiano': 'deep',
         'vocal': 'vocal',
+        'vocal_amapiano': 'vocal',
         'bacardi': 'classic',
         '3_step': 'classic',
+        'classic': 'classic',
       };
       const mappedStyle = subgenreToDropdown[detectedSubgenre];
       if (mappedStyle) {

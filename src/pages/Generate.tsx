@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Music, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap } from "lucide-react";
+import { Music, Download, Wand2, Loader2, Mic, FileAudio, Link, Cpu, Upload, Zap, Sparkles, Globe } from "lucide-react";
 import { toast } from "sonner";
 import SunoStyleWorkflow from "@/components/ai/SunoStyleWorkflow";
 import { AIPromptParser } from "@/components/AIPromptParser";
@@ -23,6 +23,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from '@supabase/supabase-js';
 import { useWasmAcceleratedGeneration } from "@/hooks/useWasmAcceleratedGeneration";
 import { ModalGPUGenerator } from "@/components/generate/ModalGPUGenerator";
+import { AMAPIANO_VOICE_CATEGORIES } from "@/constants/amapianoVoices";
+import { SA_LANGUAGES } from "@/constants/languages";
+
+// Genre-aware defaults for BPM and Key
+const GENRE_DEFAULTS: Record<string, { bpmRange: [number, number]; suggestedBpm: number; commonKeys: string[]; description: string }> = {
+  classic: { bpmRange: [110, 120], suggestedBpm: 115, commonKeys: ['Am', 'Cm', 'Fm', 'Gm'], description: 'Original Amapiano sound — log drums, deep bass, groovy piano' },
+  'private-school': { bpmRange: [112, 122], suggestedBpm: 118, commonKeys: ['Am', 'Dm', 'Em', 'Cm'], description: 'Jazzy chords, lush pads, sophisticated melodies' },
+  vocal: { bpmRange: [108, 118], suggestedBpm: 112, commonKeys: ['C', 'F', 'G', 'Am'], description: 'Vocal-driven with soulful melodies and harmonies' },
+  deep: { bpmRange: [106, 116], suggestedBpm: 110, commonKeys: ['Cm', 'Fm', 'Dm', 'Gm'], description: 'Slow, hypnotic, deep basslines and minimal percussion' },
+};
 
 interface GenerateProps {
   user: User | null;
@@ -47,7 +57,17 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
   const [referenceAudioUrl, setReferenceAudioUrl] = useState<string | null>(null);
   const [selectedArtistStyle, setSelectedArtistStyle] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState("");
+  const [musicalKey, setMusicalKey] = useState("Am");
+  const [selectedVoiceStyle, setSelectedVoiceStyle] = useState<string | null>(null);
+  const [lyricsLanguage, setLyricsLanguage] = useState("zulu");
+  const [isGeneratingLyrics, setIsGeneratingLyrics] = useState(false);
+  const [culturalSwing, setCulturalSwing] = useState([55]);
+  const [gaspTiming, setGaspTiming] = useState("beat1");
+  const [logDrumIntensity, setLogDrumIntensity] = useState([50]);
   const [generationDetails, setGenerationDetails] = useState<{ prompt: string; lyrics?: string; source: string } | null>(null);
+
+  // Genre-aware defaults
+  const currentGenreDefaults = GENRE_DEFAULTS[genre] || GENRE_DEFAULTS.classic;
 
   const handleGenerate = async () => {
     if (!prompt.trim() && !referenceFile && !referenceUrl.trim() && !recordedAudio) {
@@ -233,13 +253,30 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
     toast.success("Reference track analyzed successfully!");
   };
 
-  const artistStyles = [
-    "Kabza De Small",
-    "Kelvin Momo", 
-    "Babalwa M",
-    "MFR Souls",
-    "Mas MusiQ"
-  ];
+  const handleGenerateLyrics = async () => {
+    setIsGeneratingLyrics(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-lyrics', {
+        body: {
+          genre: genre === "classic" ? "Classic Amapiano" : genre,
+          language: lyricsLanguage,
+          mood: 'energetic',
+          voiceStyle: selectedVoiceStyle,
+        }
+      });
+      if (error) throw error;
+      const generatedLyrics = data?.lyrics || data?.response || data?.generatedLyrics || '';
+      setLyrics(generatedLyrics);
+      toast.success("🎤 Lyrics generated!");
+    } catch (err) {
+      console.error('Lyrics generation error:', err);
+      // Fallback demo lyrics
+      setLyrics(`[Verse 1]\nNgiyak'thanda wena\nUmuhle ngempela\nSihlala ndawonye\n\n[Chorus]\nShaya iLog drum\nSibheke phambili\nThanda mna namhlanje\n\n[Bridge]\nHee... hee...\nYho... yho...`);
+      toast.success("🎤 Demo lyrics generated!");
+    } finally {
+      setIsGeneratingLyrics(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -355,7 +392,11 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Amapiano Style</label>
-                        <Select value={genre} onValueChange={setGenre}>
+                        <Select value={genre} onValueChange={(val) => {
+                          setGenre(val);
+                          const defaults = GENRE_DEFAULTS[val];
+                          if (defaults) setBpm([defaults.suggestedBpm]);
+                        }}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -366,22 +407,47 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                             <SelectItem value="deep">Deep Amapiano</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">{currentGenreDefaults.description}</p>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="flex justify-between">
-                          <label className="text-sm font-medium">BPM</label>
-                          <span className="text-sm text-muted-foreground">{bpm[0]}</span>
-                        </div>
-                        <Slider
-                          value={bpm}
-                          onValueChange={setBpm}
-                          min={80}
-                          max={160}
-                          step={1}
-                          className="w-full"
-                        />
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Key</label>
+                        <Select value={musicalKey} onValueChange={setMusicalKey}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentGenreDefaults.commonKeys.map((k) => (
+                              <SelectItem key={k} value={k}>{k} ★</SelectItem>
+                            ))}
+                            {['C', 'Cm', 'D', 'Dm', 'E', 'Em', 'F', 'Fm', 'G', 'Gm', 'A', 'Am', 'B', 'Bm']
+                              .filter(k => !currentGenreDefaults.commonKeys.includes(k))
+                              .map((k) => (
+                                <SelectItem key={k} value={k}>{k}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium">BPM</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Suggested: {currentGenreDefaults.bpmRange[0]}–{currentGenreDefaults.bpmRange[1]}
+                          </span>
+                          <span className="text-sm font-mono font-medium">{bpm[0]}</span>
+                        </div>
+                      </div>
+                      <Slider
+                        value={bpm}
+                        onValueChange={setBpm}
+                        min={80}
+                        max={160}
+                        step={1}
+                        className="w-full"
+                      />
                     </div>
 
                     <div className="space-y-3">
@@ -399,19 +465,127 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                       />
                     </div>
 
+                    {/* Voice Style Selector */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Artist Style Inspiration (Optional)</label>
-                      <div className="flex flex-wrap gap-2">
-                        {artistStyles.map((artist) => (
-                          <Badge 
-                            key={artist} 
-                            variant={selectedArtistStyle === artist ? "default" : "outline"} 
-                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                            onClick={() => setSelectedArtistStyle(selectedArtistStyle === artist ? null : artist)}
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        <Mic className="w-4 h-4" />
+                        Voice Style (Optional)
+                      </label>
+                      <Select value={selectedVoiceStyle || ""} onValueChange={(val) => setSelectedVoiceStyle(val || null)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a voice style..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No specific style</SelectItem>
+                          {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                            <div key={cat.category}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.category}</div>
+                              {cat.voices.map((voice) => (
+                                <SelectItem key={voice.value} value={voice.value}>
+                                  <span>{voice.label}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">— {voice.description}</span>
+                                </SelectItem>
+                              ))}
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Lyrics Generator */}
+                    <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          Lyrics
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Select value={lyricsLanguage} onValueChange={setLyricsLanguage}>
+                            <SelectTrigger className="w-[140px] h-8 text-xs">
+                              <Globe className="w-3 h-3 mr-1" />
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SA_LANGUAGES.map((lang) => (
+                                <SelectItem key={lang.value} value={lang.value}>
+                                  {lang.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleGenerateLyrics}
+                            disabled={isGeneratingLyrics}
                           >
-                            {artist}
-                          </Badge>
-                        ))}
+                            {isGeneratingLyrics ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3 mr-1" />
+                            )}
+                            Generate
+                          </Button>
+                        </div>
+                      </div>
+                      <Textarea
+                        placeholder="Write or generate lyrics... Use [Verse], [Chorus], [Bridge] tags"
+                        value={lyrics}
+                        onChange={(e) => setLyrics(e.target.value)}
+                        className="min-h-[100px] resize-none font-mono text-sm"
+                      />
+                    </div>
+
+                    {/* Cultural Authenticity Controls */}
+                    <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+                      <label className="text-sm font-medium">Cultural Authenticity</label>
+                      <p className="text-xs text-muted-foreground -mt-2">Fine-tune linguistic, regional, and rhythmic characteristics</p>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="text-sm">Swing Feel</span>
+                            <p className="text-xs text-muted-foreground">How much rhythmic swing — higher = more township bounce</p>
+                          </div>
+                          <span className="text-sm font-mono">{culturalSwing[0]}%</span>
+                        </div>
+                        <Slider value={culturalSwing} onValueChange={setCulturalSwing} min={0} max={100} step={1} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm">Gasp Timing</span>
+                          <p className="text-xs text-muted-foreground">The signature Amapiano vocal gasp placement in the bar</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { value: 'beat1', label: 'Beat 1', desc: 'Classic downbeat gasp' },
+                            { value: 'beat2and', label: 'Beat 2&', desc: 'Syncopated feel' },
+                            { value: 'beat4', label: 'Beat 4', desc: 'Anticipation gasp' },
+                            { value: 'none', label: 'None', desc: 'No gasp' },
+                          ].map((g) => (
+                            <Badge
+                              key={g.value}
+                              variant={gaspTiming === g.value ? "default" : "outline"}
+                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                              onClick={() => setGaspTiming(g.value)}
+                              title={g.desc}
+                            >
+                              {g.label}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="text-sm">Log Drum Intensity</span>
+                            <p className="text-xs text-muted-foreground">Controls the presence and punch of the log drum pattern</p>
+                          </div>
+                          <span className="text-sm font-mono">{logDrumIntensity[0]}%</span>
+                        </div>
+                        <Slider value={logDrumIntensity} onValueChange={setLogDrumIntensity} min={0} max={100} step={1} />
                       </div>
                     </div>
                   </CardContent>
@@ -684,19 +858,29 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Artist Style Inspiration (Optional)</label>
-                        <div className="flex flex-wrap gap-2">
-                          {artistStyles.map((artist) => (
-                            <Badge 
-                              key={artist} 
-                              variant={selectedArtistStyle === artist ? "default" : "outline"} 
-                              className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                              onClick={() => setSelectedArtistStyle(selectedArtistStyle === artist ? null : artist)}
-                            >
-                              {artist}
-                            </Badge>
-                          ))}
-                        </div>
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <Mic className="w-4 h-4" />
+                          Voice Style (Optional)
+                        </label>
+                        <Select value={selectedVoiceStyle || ""} onValueChange={(val) => setSelectedVoiceStyle(val || null)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose a voice style..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No specific style</SelectItem>
+                            {AMAPIANO_VOICE_CATEGORIES.map((cat) => (
+                              <div key={cat.category}>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.category}</div>
+                                {cat.voices.map((voice) => (
+                                  <SelectItem key={voice.value} value={voice.value}>
+                                    <span>{voice.label}</span>
+                                    <span className="text-xs text-muted-foreground ml-2">— {voice.description}</span>
+                                  </SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </CardContent>

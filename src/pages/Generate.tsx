@@ -312,11 +312,14 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
         }
       });
       if (error) throw error;
+      console.log('[LYRICS] Raw response data:', JSON.stringify(data));
       // Edge function returns { versionA: { title, lyrics }, versionB: { title, lyrics } }
-      const generatedLyrics = data?.versionA?.lyrics || data?.lyrics || data?.response || data?.generatedLyrics || '';
-      const versionBLyrics = data?.versionB?.lyrics || '';
+      // supabase.functions.invoke may return string or object
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      const generatedLyrics = parsed?.versionA?.lyrics || parsed?.lyrics || parsed?.response || parsed?.generatedLyrics || '';
+      const versionBLyrics = parsed?.versionB?.lyrics || '';
       const combinedLyrics = versionBLyrics 
-        ? `--- Version A: ${data?.versionA?.title || 'Version A'} ---\n${generatedLyrics}\n\n--- Version B: ${data?.versionB?.title || 'Version B'} ---\n${versionBLyrics}`
+        ? `--- Version A: ${parsed?.versionA?.title || 'Version A'} ---\n${generatedLyrics}\n\n--- Version B: ${parsed?.versionB?.title || 'Version B'} ---\n${versionBLyrics}`
         : generatedLyrics;
       setLyrics(combinedLyrics);
       toast.success("🎤 Lyrics generated (2 versions)!");

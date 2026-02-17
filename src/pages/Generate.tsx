@@ -709,13 +709,21 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
 
                                 <div>
                                   <span className="text-sm text-muted-foreground block mb-2">Song Structure</span>
-                                  <div className="flex gap-1 text-xs">
-                                    {Object.entries(referenceAnalysis.structure).map(([part, bars]) => (
-                                      <div key={part} className="bg-primary/20 px-2 py-1 rounded text-center min-w-12">
-                                        <div className="font-medium capitalize">{part}</div>
-                                        <div className="text-muted-foreground">{bars as number} bars</div>
-                                      </div>
-                                    ))}
+                                  <div className="flex gap-1 text-xs flex-wrap">
+                                    {(Array.isArray(referenceAnalysis.structure)
+                                      ? referenceAnalysis.structure.map((seg: any) => (
+                                          <div key={seg.type} className="bg-primary/20 px-2 py-1 rounded text-center min-w-12">
+                                            <div className="font-medium capitalize">{seg.type}</div>
+                                            <div className="text-muted-foreground">{seg.durationSec}s</div>
+                                          </div>
+                                        ))
+                                      : Object.entries(referenceAnalysis.structure).map(([part, bars]) => (
+                                          <div key={part} className="bg-primary/20 px-2 py-1 rounded text-center min-w-12">
+                                            <div className="font-medium capitalize">{part}</div>
+                                            <div className="text-muted-foreground">{bars as number} bars</div>
+                                          </div>
+                                        ))
+                                    )}
                                   </div>
                                 </div>
                               </div>

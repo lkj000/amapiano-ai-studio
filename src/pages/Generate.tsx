@@ -303,10 +303,11 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
     try {
       const { data, error } = await supabase.functions.invoke('generate-lyrics', {
         body: {
+          theme: prompt.trim() || `${genre === "classic" ? "Classic Amapiano" : genre} track with ${referenceAnalysis?.mood || 'energetic'} vibes`,
           genre: genre === "classic" ? "Classic Amapiano" : genre,
           language: lyricsLanguage,
-          mood: 'energetic',
-          voiceStyle: selectedVoiceStyle,
+          mood: referenceAnalysis?.mood || 'energetic',
+          style: selectedVoiceStyle,
         }
       });
       if (error) throw error;

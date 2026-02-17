@@ -253,25 +253,37 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       // Sync BPM slider to match analysis
       setBpm([Math.round(constraints.bpm)]);
 
-      // Match detected genre to closest Amapiano style
-      const detectedBpm = constraints.bpm;
+      // Match detected genre to closest Amapiano style dropdown value
+      // Valid dropdown values: classic, private-school, vocal, deep
       const detectedSubgenre = constraints.genre.subgenre?.toLowerCase() || '';
-      const genreMap: Record<string, string> = {
+      const subgenreToDropdown: Record<string, string> = {
         'private_school': 'private-school',
         'deep': 'deep',
-        'bacardi': 'Bacardi',
-        '3_step': 'Amapiano (Pretoria/Pitori)',
         'vocal': 'vocal',
+        'bacardi': 'classic',
+        '3_step': 'classic',
       };
-      const mappedGenre = genreMap[detectedSubgenre];
-      if (mappedGenre && GENRE_DEFAULTS[mappedGenre]) {
-        setGenre(mappedGenre);
+      const mappedStyle = subgenreToDropdown[detectedSubgenre];
+      if (mappedStyle) {
+        setGenre(mappedStyle);
       } else if (constraints.isAmapiano) {
-        // Find best match by BPM proximity
-        const bestMatch = Object.entries(GENRE_DEFAULTS)
-          .filter(([, d]) => detectedBpm >= d.bpmRange[0] - 5 && detectedBpm <= d.bpmRange[1] + 5)
-          .sort(([, a], [, b]) => Math.abs(a.suggestedBpm - detectedBpm) - Math.abs(b.suggestedBpm - detectedBpm))[0];
-        if (bestMatch) setGenre(bestMatch[0]);
+        // Pick best dropdown match by BPM proximity
+        const dropdownGenres: Record<string, [number, number]> = {
+          'classic': [110, 120],
+          'private-school': [112, 122],
+          'vocal': [108, 118],
+          'deep': [106, 116],
+        };
+        const detectedBpm = constraints.bpm;
+        const best = Object.entries(dropdownGenres)
+          .sort(([, a], [, b]) => {
+            const midA = (a[0] + a[1]) / 2;
+            const midB = (b[0] + b[1]) / 2;
+            return Math.abs(midA - detectedBpm) - Math.abs(midB - detectedBpm);
+          })[0];
+        if (best) setGenre(best[0]);
+      } else {
+        setGenre('classic');
       }
       
       toast.success("Reference track analyzed successfully!");

@@ -122,6 +122,11 @@ export const GASP_TIMING_OPTIONS = [
 ] as const;
 
 // Helper to get genre defaults with fallback
+// Maps dropdown values to GENRE_DEFAULTS keys
 export function getGenreDefaults(genre: string): GenreDefault {
-  return GENRE_DEFAULTS[genre] || GENRE_DEFAULTS['Amapiano'];
+  const aliasMap: Record<string, string> = {
+    'classic': 'Amapiano',
+  };
+  const key = aliasMap[genre] || genre;
+  return GENRE_DEFAULTS[key] || GENRE_DEFAULTS['Amapiano'];
 }

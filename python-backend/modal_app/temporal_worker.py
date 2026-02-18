@@ -480,7 +480,7 @@ class AmapianorizeWorkflow:
     secrets=[temporal_secret],
     timeout=86400,  # 24h — long-running worker
     allow_concurrent_inputs=1,
-    keep_warm=1,  # Keep 1 instance warm for low latency
+    min_containers=1,  # Keep 1 instance running for low latency
 )
 async def run_temporal_worker():
     """Connect to Temporal Cloud and run the worker."""

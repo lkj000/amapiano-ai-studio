@@ -8,9 +8,7 @@ const corsHeaders = {
 const MODAL_BASE_URL = (Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run").replace(/\/+$/, '');
 const TEMPORAL_NAMESPACE = Deno.env.get("TEMPORAL_NAMESPACE") || "";
 const TEMPORAL_API_KEY = Deno.env.get("TEMPORAL_API_KEY") || "";
-
-// Cloud Ops API for read-only namespace/workflow listing
-const OPS_API_BASE = "https://saas-api.tmprl.cloud/api/v1";
+const TEMPORAL_ENDPOINT = Deno.env.get("TEMPORAL_ENDPOINT") || "us-east-1.aws.api.temporal.io:7233";
 
 interface WorkflowRequest {
   action: 'start' | 'signal' | 'query' | 'terminate' | 'describe' | 'list';
@@ -27,7 +25,7 @@ interface WorkflowRequest {
 
 /**
  * Route workflow operations through Modal backend which has the Temporal Python SDK.
- * Modal connects to Temporal Cloud via gRPC (the only supported protocol for workflow ops).
+ * Modal connects to Temporal Cloud via gRPC using the regional endpoint.
  */
 async function modalTemporalProxy(action: string, body: Record<string, unknown>) {
   const url = `${MODAL_BASE_URL}/temporal/${action}`;
@@ -40,6 +38,7 @@ async function modalTemporalProxy(action: string, body: Record<string, unknown>)
       ...body,
       namespace: TEMPORAL_NAMESPACE,
       api_key: TEMPORAL_API_KEY,
+      endpoint: TEMPORAL_ENDPOINT,
     }),
   });
 
@@ -57,37 +56,7 @@ async function modalTemporalProxy(action: string, body: Record<string, unknown>)
 }
 
 /**
- * Use Temporal Cloud Ops HTTP API for listing (read-only control plane).
- * This is the only HTTP endpoint Temporal Cloud exposes.
- */
-async function opsApiList() {
-  const url = `${OPS_API_BASE}/namespaces`;
-  console.log(`[TEMPORAL] Ops API list: ${url}`);
-
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${TEMPORAL_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(`[TEMPORAL] Ops API error ${res.status}:`, text);
-    throw new Error(`Temporal Ops API error ${res.status}: ${text.substring(0, 300)}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { raw: text };
-  }
-}
-
-/**
  * Local fallback when Modal backend doesn't have Temporal endpoints yet.
- * Returns a structured response indicating the workflow was queued locally.
  */
 function localFallback(action: string, request: WorkflowRequest) {
   const workflowId = request.workflowId || 
@@ -152,11 +121,11 @@ serve(async (req) => {
       workflowId: request.workflowId,
       workflowType: request.workflowType,
       namespace: TEMPORAL_NAMESPACE,
+      endpoint: TEMPORAL_ENDPOINT,
     });
 
     let result: unknown;
 
-    // Try Modal backend first (it has the Temporal Python SDK with gRPC support)
     try {
       const modalBody: Record<string, unknown> = {};
 
@@ -214,7 +183,6 @@ serve(async (req) => {
       console.warn(`[TEMPORAL] Modal proxy unavailable, using local fallback:`, 
         modalError instanceof Error ? modalError.message : 'Unknown error');
       
-      // Fall back to local handling
       result = localFallback(action, request);
     }
 

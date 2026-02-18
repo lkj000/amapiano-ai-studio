@@ -36,11 +36,8 @@ temporal_secret = modal.Secret.from_name(
     required_keys=["TEMPORAL_API_KEY", "TEMPORAL_NAMESPACE", "TEMPORAL_ENDPOINT"],
 )
 
-modal_backend_secret = modal.Secret.from_name(
-    "modal-backend-url",
-    required_keys=["MODAL_BACKEND_URL"],
-    optional=True,
-)
+# Optional: if you've created a 'modal-backend-url' secret, uncomment below
+# modal_backend_secret = modal.Secret.from_name("modal-backend-url", required_keys=["MODAL_BACKEND_URL"])
 
 
 # ── Workflow Input/Output Schemas ────────────────────────────────

@@ -35,15 +35,46 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    // Try getClaims first, fall back to getUser if auth service is recovering
+    let userId: string;
+    let userEmail: string;
+
     const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      logStep("Claims error", { error: claimsError, claims: claimsData });
-      throw new Error(`Authentication failed: ${claimsError?.message || 'Invalid token'}`);
+    if (!claimsError && claimsData?.claims) {
+      userId = claimsData.claims.sub as string;
+      userEmail = claimsData.claims.email as string;
+      logStep("Authenticated via getClaims");
+    } else {
+      logStep("getClaims failed, trying getUser", { error: claimsError?.name, status: (claimsError as any)?.status });
+      // Fallback: use service role client to validate token
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false } }
+      );
+      const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
+      if (userError || !userData?.user) {
+        logStep("Both auth methods failed", { claimsErr: claimsError?.name, userErr: userError?.message });
+        // If auth is genuinely down (503), return graceful default instead of 500
+        if ((claimsError as any)?.status === 503 || (userError as any)?.status === 503) {
+          logStep("Auth service unavailable (503), returning default response");
+          return new Response(JSON.stringify({
+            subscribed: false,
+            subscription_tier: "free",
+            subscription_end: null
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        throw new Error(`Authentication failed: ${userError?.message || claimsError?.message || 'Unknown'}`);
+      }
+      userId = userData.user.id;
+      userEmail = userData.user.email!;
+      logStep("Authenticated via getUser fallback");
     }
 
-    const userId = claimsData.claims.sub;
-    const userEmail = claimsData.claims.email as string;
-    if (!userEmail) throw new Error("No email in token claims");
+    if (!userEmail) throw new Error("No email available");
 
     logStep("User authenticated via claims", { userId, email: userEmail });
 

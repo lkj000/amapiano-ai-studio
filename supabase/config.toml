@@ -189,3 +189,6 @@ verify_jwt = true
 
 [functions.stem-classify]
 verify_jwt = false
+
+[functions.temporal-workflow]
+verify_jwt = false

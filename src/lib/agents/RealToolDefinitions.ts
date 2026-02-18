@@ -349,30 +349,116 @@ export const quantizationTool: ToolDefinition = {
 };
 
 // Autonomous Agent Goal Execution Tool — Modal GPU + LangChain
+// Falls back to Modal if Temporal is unavailable
 export const agentExecutionTool: ToolDefinition = {
   name: 'agent_goal_execution',
-  description: 'Execute autonomous agent goals using LangChain on Modal GPU backend',
+  description: 'Execute autonomous agent goals durably via Temporal Cloud, with Modal GPU fallback',
   inputSchema: {
     goal: 'string - Goal to achieve',
     context: 'object - Context data',
-    maxSteps: 'number - Maximum steps (default: 10)'
+    maxSteps: 'number - Maximum steps (default: 10)',
+    durable: 'boolean - Use Temporal durable execution (default: true)'
   },
   outputSchema: {
     output: 'string - Agent output',
     steps: 'array - Execution steps',
-    success: 'boolean'
+    success: 'boolean',
+    workflowId: 'string - Temporal workflow ID (if durable)'
   },
-  execute: async (input: { goal: string; context?: Record<string, unknown>; maxSteps?: number }) => {
+  execute: async (input: { goal: string; context?: Record<string, unknown>; maxSteps?: number; durable?: boolean }) => {
+    const useDurable = input.durable !== false;
+
+    if (useDurable) {
+      try {
+        const { temporalWorkflowService } = await import('./TemporalWorkflowService');
+        const execution = await temporalWorkflowService.startWorkflow(
+          'ProductionWorkflow',
+          { goal: input.goal, context: input.context || {}, maxSteps: input.maxSteps || 10 },
+        );
+        return {
+          success: true,
+          workflowId: execution.workflowId,
+          status: execution.status,
+          execution_mode: 'temporal_durable',
+          message: `Durable workflow ${execution.workflowId} started on Temporal Cloud`
+        };
+      } catch (temporalError) {
+        console.warn('[AGENT] Temporal unavailable, falling back to Modal:', temporalError);
+      }
+    }
+
+    // Fallback: direct Modal execution
     const { data, error } = await supabase.functions.invoke('modal-agent', {
       body: { goal: input.goal, context: input.context || {}, max_steps: input.maxSteps || 10 }
     });
-    
+
     if (error) throw new Error(`Agent execution failed: ${error.message}`);
     return data;
   },
   retryable: true,
   maxRetries: 1,
   timeout: 120000
+};
+
+// Temporal Workflow Management Tool
+export const temporalWorkflowTool: ToolDefinition = {
+  name: 'temporal_workflow',
+  description: 'Manage durable Temporal workflows: start, signal, query progress, terminate',
+  inputSchema: {
+    action: 'string - start | signal | query | describe | terminate | list',
+    workflowType: 'string - ProductionWorkflow | MixdownWorkflow | MasteringWorkflow | AnalysisWorkflow | AmapianorizeWorkflow',
+    workflowId: 'string - Workflow ID (for signal/query/describe/terminate)',
+    input: 'object - Workflow input parameters',
+    signalName: 'string - Signal name (for signal action)',
+    signalInput: 'object - Signal data',
+    queryType: 'string - Query type (for query action)'
+  },
+  outputSchema: {
+    success: 'boolean',
+    data: 'object - Response data'
+  },
+  execute: async (input: {
+    action: string;
+    workflowType?: string;
+    workflowId?: string;
+    input?: Record<string, unknown>;
+    signalName?: string;
+    signalInput?: unknown;
+    queryType?: string;
+    reason?: string;
+  }) => {
+    const { temporalWorkflowService } = await import('./TemporalWorkflowService');
+
+    switch (input.action) {
+      case 'start':
+        if (!input.workflowType) throw new Error('workflowType required');
+        return await temporalWorkflowService.startWorkflow(
+          input.workflowType as any,
+          input.input || {}
+        );
+      case 'signal':
+        if (!input.workflowId || !input.signalName) throw new Error('workflowId and signalName required');
+        await temporalWorkflowService.signalWorkflow(input.workflowId, input.signalName, input.signalInput);
+        return { success: true };
+      case 'query':
+        if (!input.workflowId || !input.queryType) throw new Error('workflowId and queryType required');
+        return await temporalWorkflowService.queryWorkflow(input.workflowId, input.queryType);
+      case 'describe':
+        if (!input.workflowId) throw new Error('workflowId required');
+        return await temporalWorkflowService.describeWorkflow(input.workflowId);
+      case 'terminate':
+        if (!input.workflowId) throw new Error('workflowId required');
+        await temporalWorkflowService.terminateWorkflow(input.workflowId, input.reason);
+        return { success: true };
+      case 'list':
+        return await temporalWorkflowService.listWorkflows();
+      default:
+        throw new Error(`Unknown action: ${input.action}`);
+    }
+  },
+  retryable: false,
+  maxRetries: 0,
+  timeout: 30000
 };
 
 // Get all real tool definitions
@@ -387,7 +473,8 @@ export const getAllRealTools = (): ToolDefinition[] => [
   layerGenerationTool,
   aiMasteringTool,
   quantizationTool,
-  agentExecutionTool
+  agentExecutionTool,
+  temporalWorkflowTool
 ];
 
 // Get tool by name

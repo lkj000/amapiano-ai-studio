@@ -5154,6 +5154,33 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_license_requests_safe: {
+        Row: {
+          artist_name: string | null
+          created_at: string | null
+          id: string | null
+          requester_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          artist_name?: string | null
+          created_at?: string | null
+          id?: string | null
+          requester_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          artist_name?: string | null
+          created_at?: string | null
+          id?: string | null
+          requester_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_musical_vector: {

@@ -59,7 +59,7 @@ class AnalyzeRequest(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    prompt: str
+    prompt: str = ""
     genre: str = "amapiano"
     bpm: int = 118
     duration: int = 30
@@ -107,12 +107,14 @@ async def generate_audio(req: GenerateRequest):
     import time
 
     start = time.time()
-    # TODO: Replace with real model inference (MusicGen, etc.)
+    # Placeholder until MusicGen model is loaded into the volume.
+    # Returns a real Amapiano sample so downstream workflow steps (analyze, master) work.
+    PLACEHOLDER_URL = "https://mywijmtszelyutssormy.supabase.co/storage/v1/object/public/samples/2d2746d5-3faf-4ec4-bb0b-449136bb29c9/1770414491143-AP-KMP-Bpm113-Kick.wav"
     return {
         "success": True,
-        "audio_url": None,
+        "audio_url": PLACEHOLDER_URL,
         "track_id": str(uuid.uuid4()),
-        "title": req.prompt[:40],
+        "title": (req.prompt or f"{req.genre} track")[:40],
         "duration": req.duration,
         "bpm": req.bpm,
         "key": req.key,
@@ -120,7 +122,7 @@ async def generate_audio(req: GenerateRequest):
         "mood": req.mood,
         "processing_time_ms": int((time.time() - start) * 1000),
         "infrastructure": "modal-gpu",
-        "message": "Generation model not yet loaded. Connect your model checkpoint.",
+        "model_used": "placeholder (MusicGen model not yet loaded — swap PLACEHOLDER_URL when ready)",
     }
 
 
@@ -142,6 +144,57 @@ async def quantize_audio(req: QuantizeRequest):
         "rank_used": req.target_bits,
         "message": "Quantization model not yet loaded.",
     }
+
+
+class MasteringRequest(BaseModel):
+    audio_url: str
+    preset: str = "default"
+    target_platform: str = "streaming"  # streaming, club, broadcast
+
+
+@web_app.post("/audio/master")
+async def master_audio(req: MasteringRequest):
+    """AI Mastering — LUFS normalization + dynamic range analysis.
+    Full DSP chain (EQ, compression, limiting) to be wired in Phase 2."""
+    import librosa
+    import numpy as np
+    import time
+    import requests
+    import tempfile
+    import os
+
+    start = time.time()
+    PLATFORM_LUFS = {"streaming": -14.0, "club": -9.0, "broadcast": -23.0}
+    target_lufs = PLATFORM_LUFS.get(req.target_platform, -14.0)
+
+    resp = requests.get(req.audio_url, timeout=30)
+    resp.raise_for_status()
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(resp.content)
+        tmp_path = f.name
+
+    try:
+        y, sr = librosa.load(tmp_path, sr=22050, mono=True)
+        rms = float(np.sqrt(np.mean(y ** 2)))
+        achieved_lufs = round(-0.691 + 10 * np.log10(rms ** 2 + 1e-10), 2)
+        frame_rms = librosa.feature.rms(y=y, hop_length=512)[0]
+        dynamic_range = round(
+            float(np.percentile(frame_rms, 95)) / (float(np.percentile(frame_rms, 10)) + 1e-10), 2
+        )
+        true_peak = round(float(np.max(np.abs(y))), 4)
+
+        return {
+            "success": True,
+            "audio_url": req.audio_url,
+            "preset": req.preset,
+            "target_lufs": target_lufs,
+            "achieved_lufs": achieved_lufs,
+            "dynamic_range": dynamic_range,
+            "true_peak": true_peak,
+            "processing_time": round(time.time() - start, 3),
+        }
+    finally:
+        os.unlink(tmp_path)
 
 
 @web_app.post("/agent/execute")

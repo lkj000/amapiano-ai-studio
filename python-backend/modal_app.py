@@ -178,9 +178,9 @@ async def master_audio(req: MasteringRequest):
         rms = float(np.sqrt(np.mean(y ** 2)))
         achieved_lufs = round(-0.691 + 10 * np.log10(rms ** 2 + 1e-10), 2)
         frame_rms = librosa.feature.rms(y=y, hop_length=512)[0]
-        dynamic_range = round(
-            float(np.percentile(frame_rms, 95)) / (float(np.percentile(frame_rms, 10)) + 1e-10), 2
-        )
+        p95 = float(np.percentile(frame_rms, 95))
+        p10 = float(np.percentile(frame_rms, 10))
+        dynamic_range = round(min(p95 / (p10 + 1e-10), 40.0), 2)  # clamp to 40dB max
         true_peak = round(float(np.max(np.abs(y))), 4)
 
         return {

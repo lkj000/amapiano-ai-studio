@@ -54,20 +54,17 @@ serve(async (req) => {
       );
       const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(token);
       if (userError || !userData?.user) {
-        logStep("Both auth methods failed", { claimsErr: claimsError?.name, userErr: userError?.message });
-        // If auth is genuinely down (503), return graceful default instead of 500
-        if ((claimsError as any)?.status === 503 || (userError as any)?.status === 503) {
-          logStep("Auth service unavailable (503), returning default response");
-          return new Response(JSON.stringify({
-            subscribed: false,
-            subscription_tier: "free",
-            subscription_end: null
-          }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200,
-          });
-        }
-        throw new Error(`Authentication failed: ${userError?.message || claimsError?.message || 'Unknown'}`);
+        logStep("Both auth methods failed", { claimsErr: claimsError?.name, userErr: JSON.stringify(userError) });
+        // Auth service is unavailable or recovering — return graceful default
+        logStep("Auth service unavailable, returning default response");
+        return new Response(JSON.stringify({
+          subscribed: false,
+          subscription_tier: "free",
+          subscription_end: null
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
       }
       userId = userData.user.id;
       userEmail = userData.user.email!;

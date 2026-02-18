@@ -6,20 +6,24 @@
 import { ToolDefinition } from './ToolChainManager';
 import { supabase } from '@/integrations/supabase/client';
 
-// Stem Separation Tool
+// Stem Separation Tool — Routes through Modal GPU backend
 export const stemSeparationTool: ToolDefinition = {
   name: 'stem_separation',
-  description: 'Separate audio into stems (vocals, drums, bass, other) using Demucs AI',
+  description: 'Separate audio into stems (vocals, drums, bass, other) using Demucs on Modal GPU',
   inputSchema: {
-    audioUrl: 'string - URL of the audio file to separate'
+    audioUrl: 'string - URL of the audio file to separate',
+    stems: 'array - Stem types to extract (default: vocals, drums, bass, other)'
   },
   outputSchema: {
-    predictionId: 'string - ID to poll for results',
-    status: 'string - Current status of separation'
+    stems: 'object - Map of stem names to URLs',
+    success: 'boolean'
   },
-  execute: async (input: { audioUrl: string }) => {
-    const { data, error } = await supabase.functions.invoke('stem-separation', {
-      body: { audioUrl: input.audioUrl }
+  execute: async (input: { audioUrl: string; stems?: string[] }) => {
+    const { data, error } = await supabase.functions.invoke('modal-separate', {
+      body: { 
+        audio_url: input.audioUrl, 
+        stems: input.stems || ['vocals', 'drums', 'bass', 'other'] 
+      }
     });
     
     if (error) throw new Error(`Stem separation failed: ${error.message}`);
@@ -27,7 +31,7 @@ export const stemSeparationTool: ToolDefinition = {
   },
   retryable: true,
   maxRetries: 2,
-  timeout: 300000 // 5 minutes for long-running operation
+  timeout: 300000
 };
 
 // Voice Synthesis Tool
@@ -91,37 +95,39 @@ Include verses, a chorus, and a bridge. Make it authentic to ${input.genre} styl
   timeout: 60000
 };
 
-// Audio Analysis Tool
+// Audio Analysis Tool — Routes through Modal GPU backend (Essentia + Librosa)
 export const audioAnalysisTool: ToolDefinition = {
   name: 'audio_analysis',
-  description: 'Analyze audio for BPM, key, energy, and other musical features',
+  description: 'Analyze audio for BPM, key, energy, genre using Essentia/Librosa on Modal GPU',
   inputSchema: {
-    audioUrl: 'string - URL of the audio file to analyze'
+    audioUrl: 'string - URL of the audio file to analyze',
+    analysisType: 'string - Type of analysis: full, quick, genre (default: full)'
   },
   outputSchema: {
     bpm: 'number - Beats per minute',
     key: 'string - Musical key',
     energy: 'number - Energy level 0-1',
-    danceability: 'number - Danceability score 0-1'
+    danceability: 'number - Danceability score 0-1',
+    genre: 'string - Detected genre',
+    spectral_centroid: 'number'
   },
-  execute: async (input: { audioUrl: string }) => {
-    const { data, error } = await supabase.functions.invoke('analyze-audio', {
-      body: { audioUrl: input.audioUrl }
+  execute: async (input: { audioUrl: string; analysisType?: string }) => {
+    const { data, error } = await supabase.functions.invoke('modal-analyze', {
+      body: { 
+        audio_url: input.audioUrl, 
+        analysis_type: input.analysisType || 'full' 
+      }
     });
     
-    if (error) {
-      throw new Error(`Audio analysis failed: ${error.message}`);
-    }
-    
+    if (error) throw new Error(`Audio analysis failed: ${error.message}`);
     if (!data || !data.bpm) {
       throw new Error('Audio analysis returned invalid data');
     }
-    
     return data;
   },
   retryable: true,
-  maxRetries: 1,
-  timeout: 30000
+  maxRetries: 2,
+  timeout: 60000 // 60s for GPU cold starts
 };
 
 // Amapianorization Tool - Connected to real audio processor
@@ -316,6 +322,59 @@ export const aiMasteringTool: ToolDefinition = {
   timeout: 300000 // 5 minutes
 };
 
+// GPU Quantization Tool — SVDQuant on Modal
+export const quantizationTool: ToolDefinition = {
+  name: 'audio_quantization',
+  description: 'Apply SVDQuant phase-coherent quantization on Modal GPU for efficient audio compression',
+  inputSchema: {
+    audioUrl: 'string - URL of audio to quantize',
+    targetBits: 'number - Target bit depth (default: 8)'
+  },
+  outputSchema: {
+    quantized_url: 'string - URL of quantized audio',
+    snr_db: 'number - Signal-to-noise ratio',
+    compression_ratio: 'number'
+  },
+  execute: async (input: { audioUrl: string; targetBits?: number }) => {
+    const { data, error } = await supabase.functions.invoke('modal-quantize', {
+      body: { audio_url: input.audioUrl, target_bits: input.targetBits || 8 }
+    });
+    
+    if (error) throw new Error(`Quantization failed: ${error.message}`);
+    return data;
+  },
+  retryable: true,
+  maxRetries: 1,
+  timeout: 60000
+};
+
+// Autonomous Agent Goal Execution Tool — Modal GPU + LangChain
+export const agentExecutionTool: ToolDefinition = {
+  name: 'agent_goal_execution',
+  description: 'Execute autonomous agent goals using LangChain on Modal GPU backend',
+  inputSchema: {
+    goal: 'string - Goal to achieve',
+    context: 'object - Context data',
+    maxSteps: 'number - Maximum steps (default: 10)'
+  },
+  outputSchema: {
+    output: 'string - Agent output',
+    steps: 'array - Execution steps',
+    success: 'boolean'
+  },
+  execute: async (input: { goal: string; context?: Record<string, unknown>; maxSteps?: number }) => {
+    const { data, error } = await supabase.functions.invoke('modal-agent', {
+      body: { goal: input.goal, context: input.context || {}, max_steps: input.maxSteps || 10 }
+    });
+    
+    if (error) throw new Error(`Agent execution failed: ${error.message}`);
+    return data;
+  },
+  retryable: true,
+  maxRetries: 1,
+  timeout: 120000
+};
+
 // Get all real tool definitions
 export const getAllRealTools = (): ToolDefinition[] => [
   stemSeparationTool,
@@ -326,7 +385,9 @@ export const getAllRealTools = (): ToolDefinition[] => [
   musicGenerationTool,
   exportStemsTool,
   layerGenerationTool,
-  aiMasteringTool
+  aiMasteringTool,
+  quantizationTool,
+  agentExecutionTool
 ];
 
 // Get tool by name

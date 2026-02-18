@@ -54,7 +54,7 @@ class TemporalWorkflowService {
       workflowId: id,
       workflowType,
       taskQueue: TASK_QUEUE,
-      input: [input],
+      input,
     });
 
     return {

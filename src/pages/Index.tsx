@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,14 +6,16 @@ import { ArrowRight, Music, Search, Headphones, Grid3X3, Volume2, Sparkles, User
 import { Link, useSearchParams } from "react-router-dom";
 import { User } from '@supabase/supabase-js';
 import { useSubscription } from '@/hooks/useSubscription';
-import { SubscriptionModal } from '@/components/SubscriptionModal';
-import { SubscriptionManagement } from '@/components/SubscriptionManagement';
-import { MarketplaceModal } from '@/components/MarketplaceModal';
-import { AIModelMarketplace } from '@/components/AIModelMarketplace';
-import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
-import { PricingSection } from '@/components/PricingSection';
 import { toast } from 'sonner';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
+
+// Lazy load heavy below-fold components
+const SubscriptionModal = lazy(() => import('@/components/SubscriptionModal').then(m => ({ default: m.SubscriptionModal })));
+const SubscriptionManagement = lazy(() => import('@/components/SubscriptionManagement').then(m => ({ default: m.SubscriptionManagement })));
+const MarketplaceModal = lazy(() => import('@/components/MarketplaceModal').then(m => ({ default: m.MarketplaceModal })));
+const AIModelMarketplace = lazy(() => import('@/components/AIModelMarketplace').then(m => ({ default: m.AIModelMarketplace })));
+const RealTimeCollaboration = lazy(() => import('@/components/RealTimeCollaboration').then(m => ({ default: m.RealTimeCollaboration })));
+const PricingSection = lazy(() => import('@/components/PricingSection').then(m => ({ default: m.PricingSection })));
 interface IndexProps {
   user: User | null;
   showSubscription?: boolean;
@@ -21,14 +23,13 @@ interface IndexProps {
 }
 
 const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarketplace = false }) => {
-  const { subscribed } = useSubscription(user);
+  const { subscribed, subscription_tier, hasFeature } = useSubscription(user);
   const [searchParams] = useSearchParams();
   
   // Show subscription management for existing subscribers, subscription modal for new users
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(showSubscription && !subscribed);
   const [subscriptionManagementOpen, setSubscriptionManagementOpen] = useState(showSubscription && subscribed);
   const [marketplaceModalOpen, setMarketplaceModalOpen] = useState(showMarketplace);
-  const { subscription_tier, hasFeature } = useSubscription(user);
 
   // Handle subscription success/cancel from Stripe redirect
   useEffect(() => {
@@ -374,7 +375,9 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
       </section>
 
       {/* Pricing Section */}
-      <PricingSection user={user} />
+      <Suspense fallback={<div className="py-20" />}>
+        <PricingSection user={user} />
+      </Suspense>
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-primary">
@@ -437,40 +440,50 @@ const Index: React.FC<IndexProps> = ({ user, showSubscription = false, showMarke
                 </p>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-8">
-                <AIModelMarketplace />
-                
-                <RealTimeCollaboration
-                  projectId="demo"
-                  currentUser={user}
-                  projectData={null}
-                  onProjectUpdate={(update) => {
-                    console.log('Project update:', update);
-                  }}
-                />
-              </div>
+              <Suspense fallback={<div className="h-64 animate-pulse bg-muted rounded-lg" />}>
+                <div className="grid lg:grid-cols-2 gap-8">
+                  <AIModelMarketplace />
+                  
+                  <RealTimeCollaboration
+                    projectId="demo"
+                    currentUser={user}
+                    projectData={null}
+                    onProjectUpdate={(update) => {
+                      console.log('Project update:', update);
+                    }}
+                  />
+                </div>
+              </Suspense>
             </div>
           </div>
         </section>
       )}
       
-      <SubscriptionModal
-        open={subscriptionModalOpen}
-        onOpenChange={setSubscriptionModalOpen}
-        user={user}
-      />
-      
-      <SubscriptionManagement
-        open={subscriptionManagementOpen}
-        onOpenChange={setSubscriptionManagementOpen}
-        user={user}
-      />
-      
-      <MarketplaceModal
-        open={marketplaceModalOpen}
-        onOpenChange={setMarketplaceModalOpen}
-        user={user}
-      />
+      <Suspense fallback={null}>
+        {subscriptionModalOpen && (
+          <SubscriptionModal
+            open={subscriptionModalOpen}
+            onOpenChange={setSubscriptionModalOpen}
+            user={user}
+          />
+        )}
+        
+        {subscriptionManagementOpen && (
+          <SubscriptionManagement
+            open={subscriptionManagementOpen}
+            onOpenChange={setSubscriptionManagementOpen}
+            user={user}
+          />
+        )}
+        
+        {marketplaceModalOpen && (
+          <MarketplaceModal
+            open={marketplaceModalOpen}
+            onOpenChange={setMarketplaceModalOpen}
+            user={user}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

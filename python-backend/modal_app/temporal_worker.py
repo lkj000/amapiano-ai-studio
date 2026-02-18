@@ -470,59 +470,89 @@ class AmapianorizeWorkflow:
         }
 
 
-# ── Modal Function: Temporal Worker ──────────────────────────────
+# ── Modal Class: Persistent Temporal Worker ──────────────────────
+# Uses @modal.enter() so the worker auto-starts on `modal deploy`
+# when min_containers=1 spins up the container.
 
-@app.function(
+@app.cls(
     image=worker_image,
     secrets=[temporal_secret],
-    timeout=86400,  # 24h — long-running worker
-    allow_concurrent_inputs=1,
-    min_containers=1,  # Keep 1 instance running for low latency
+    timeout=86400,  # 24h max container lifetime
+    min_containers=1,  # Always keep 1 running — worker starts on deploy
 )
-async def run_temporal_worker():
-    """Connect to Temporal Cloud and run the worker."""
-    namespace = os.environ["TEMPORAL_NAMESPACE"]
-    api_key = os.environ["TEMPORAL_API_KEY"]
-    endpoint = os.environ.get("TEMPORAL_ENDPOINT", "us-east-1.aws.api.temporal.io:7233")
+class TemporalWorkerService:
+    @modal.enter()
+    async def start_worker(self):
+        """Runs automatically when the container starts (on deploy or scale-up)."""
+        namespace = os.environ["TEMPORAL_NAMESPACE"]
+        api_key = os.environ["TEMPORAL_API_KEY"]
+        endpoint = os.environ.get("TEMPORAL_ENDPOINT", "us-east-1.aws.api.temporal.io:7233")
 
-    print(f"[WORKER] Connecting to Temporal Cloud: {endpoint} / {namespace}")
+        print(f"[WORKER] Connecting to Temporal Cloud: {endpoint} / {namespace}")
 
-    client = await Client.connect(
-        endpoint,
-        namespace=namespace,
-        api_key=api_key,
-        tls=True,
-    )
+        self.client = await Client.connect(
+            endpoint,
+            namespace=namespace,
+            api_key=api_key,
+            tls=True,
+        )
 
-    print("[WORKER] Connected! Starting worker on queue: aura-x-agent-queue")
+        print("[WORKER] Connected! Starting worker on queue: aura-x-agent-queue")
 
-    worker = Worker(
-        client,
-        task_queue="aura-x-agent-queue",
-        workflows=[
-            ProductionWorkflow,
-            MasteringWorkflow,
-            MixdownWorkflow,
-            AnalysisWorkflow,
-            AmapianorizeWorkflow,
-        ],
-        activities=[
-            analyze_audio,
-            separate_stems,
-            generate_audio,
-            master_audio,
-            amapianorize_audio,
-        ],
-    )
+        self.worker = Worker(
+            self.client,
+            task_queue="aura-x-agent-queue",
+            workflows=[
+                ProductionWorkflow,
+                MasteringWorkflow,
+                MixdownWorkflow,
+                AnalysisWorkflow,
+                AmapianorizeWorkflow,
+            ],
+            activities=[
+                analyze_audio,
+                separate_stems,
+                generate_audio,
+                master_audio,
+                amapianorize_audio,
+            ],
+        )
 
-    print("[WORKER] Worker started. Listening for workflows...")
-    await worker.run()
+        print("[WORKER] Worker started. Listening for workflows...")
+        # Run the worker in the background — it polls Temporal via gRPC
+        self._worker_task = asyncio.create_task(self.worker.run())
+
+    @modal.method()
+    async def health(self) -> dict:
+        """Health check endpoint for monitoring."""
+        return {
+            "status": "running",
+            "task_queue": "aura-x-agent-queue",
+            "workflows": ["ProductionWorkflow", "MasteringWorkflow", "MixdownWorkflow", "AnalysisWorkflow", "AmapianorizeWorkflow"],
+        }
+
+    @modal.exit()
+    async def shutdown(self):
+        """Graceful shutdown when container is recycled."""
+        print("[WORKER] Shutting down gracefully...")
+        if hasattr(self, '_worker_task'):
+            self._worker_task.cancel()
+            try:
+                await self._worker_task
+            except asyncio.CancelledError:
+                pass
+        print("[WORKER] Shutdown complete.")
 
 
-# ── Entrypoint ───────────────────────────────────────────────────
+# ── Entrypoint (for `modal run` testing) ─────────────────────────
 
 @app.local_entrypoint()
 def main():
-    """Deploy with: modal deploy modal_app/temporal_worker.py"""
+    """
+    For testing: modal run modal_app/temporal_worker.py
+    For production: modal deploy modal_app/temporal_worker.py
+      (worker auto-starts via min_containers=1 + @modal.enter)
+    """
     print("Starting AURA-X Temporal Worker on Modal...")
-    run_temporal_worker.remote()
+    svc = TemporalWorkerService()
+    svc.health.remote()

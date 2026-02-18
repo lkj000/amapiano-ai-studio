@@ -64,6 +64,8 @@ image = (
         # LangChain for Agent
         "langchain==0.1.0",
         "langchain-openai==0.0.2",
+        # Temporal SDK for workflow proxy
+        "temporalio>=1.7.1",
     )
 )
 
@@ -666,6 +668,158 @@ async def get_llm_stats():
         avg_latency_ms=avg_latency,
         fallback_rate=fallback_rate
     )
+
+# ============================================================================
+# Temporal Workflow Proxy Endpoints
+# ============================================================================
+
+class TemporalStartRequest(BaseModel):
+    workflow_id: str
+    workflow_type: str
+    task_queue: str = "aura-x-agent-queue"
+    input: Any = []
+    namespace: str = ""
+    api_key: str = ""
+    endpoint: str = "us-east-1.aws.api.temporal.io:7233"
+
+class TemporalWorkflowRequest(BaseModel):
+    workflow_id: str
+    namespace: str = ""
+    api_key: str = ""
+    endpoint: str = "us-east-1.aws.api.temporal.io:7233"
+    signal_name: Optional[str] = None
+    signal_input: Any = None
+    query_type: Optional[str] = None
+    query_args: Any = None
+    reason: Optional[str] = None
+
+
+async def _get_temporal_client(namespace: str, api_key: str, endpoint: str):
+    """Create a Temporal client connection."""
+    from temporalio.client import Client
+    return await Client.connect(
+        endpoint,
+        namespace=namespace,
+        api_key=api_key,
+        tls=True,
+    )
+
+
+@web_app.post("/temporal/start")
+async def temporal_start(req: TemporalStartRequest):
+    """Start a Temporal workflow execution."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+
+        # input from edge function is already a list of workflow args
+        workflow_input = req.input if isinstance(req.input, list) else [req.input]
+
+        handle = await client.start_workflow(
+            req.workflow_type,
+            arg=workflow_input[0] if len(workflow_input) == 1 else workflow_input,
+            id=req.workflow_id,
+            task_queue=req.task_queue,
+        )
+
+        return {
+            "workflowId": req.workflow_id,
+            "runId": handle.result_run_id,
+            "status": "RUNNING",
+        }
+    except Exception as e:
+        logger.error(f"[TEMPORAL] Start failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@web_app.post("/temporal/describe")
+async def temporal_describe(req: TemporalWorkflowRequest):
+    """Describe a Temporal workflow execution."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+        handle = client.get_workflow_handle(req.workflow_id)
+        desc = await handle.describe()
+
+        return {
+            "workflowExecutionInfo": {
+                "execution": {
+                    "workflowId": req.workflow_id,
+                    "runId": desc.run_id,
+                },
+                "status": desc.status.name if desc.status else "UNKNOWN",
+                "startTime": str(desc.start_time) if desc.start_time else "",
+                "closeTime": str(desc.close_time) if desc.close_time else None,
+                "type": {"name": desc.workflow_type or ""},
+                "taskQueue": desc.task_queue or "",
+            }
+        }
+    except Exception as e:
+        logger.error(f"[TEMPORAL] Describe failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@web_app.post("/temporal/signal")
+async def temporal_signal(req: TemporalWorkflowRequest):
+    """Send a signal to a running workflow."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+        handle = client.get_workflow_handle(req.workflow_id)
+        await handle.signal(req.signal_name, req.signal_input)
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"[TEMPORAL] Signal failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@web_app.post("/temporal/query")
+async def temporal_query(req: TemporalWorkflowRequest):
+    """Query a running workflow."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+        handle = client.get_workflow_handle(req.workflow_id)
+        result = await handle.query(req.query_type, req.query_args)
+        return result
+    except Exception as e:
+        logger.error(f"[TEMPORAL] Query failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@web_app.post("/temporal/terminate")
+async def temporal_terminate(req: TemporalWorkflowRequest):
+    """Terminate a running workflow."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+        handle = client.get_workflow_handle(req.workflow_id)
+        await handle.terminate(reason=req.reason or "Terminated by user")
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"[TEMPORAL] Terminate failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@web_app.post("/temporal/list")
+async def temporal_list(req: TemporalWorkflowRequest):
+    """List recent workflow executions."""
+    try:
+        client = await _get_temporal_client(req.namespace, req.api_key, req.endpoint)
+        executions = []
+        async for wf in client.list_workflows(query="ORDER BY StartTime DESC", page_size=20):
+            executions.append({
+                "execution": {
+                    "workflowId": wf.id,
+                    "runId": wf.run_id,
+                },
+                "status": wf.status.name if wf.status else "UNKNOWN",
+                "startTime": str(wf.start_time) if wf.start_time else "",
+                "closeTime": str(wf.close_time) if wf.close_time else None,
+                "type": {"name": wf.workflow_type or ""},
+                "taskQueue": wf.task_queue or "",
+            })
+            if len(executions) >= 20:
+                break
+        return {"executions": executions}
+    except Exception as e:
+        logger.error(f"[TEMPORAL] List failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @web_app.post("/llm/reset-stats")

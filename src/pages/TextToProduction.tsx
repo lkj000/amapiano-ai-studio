@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { 
   Play, Pause, RotateCcw, Download, Sparkles, Music, Mic, FileText,
-  Sliders, Volume2, CheckCircle, Clock, AlertCircle, ChevronRight, Wand2, Layers
+  Sliders, Volume2, CheckCircle, Clock, AlertCircle, ChevronRight, Wand2, Layers, Cpu, XCircle
 } from 'lucide-react';
+import { useTemporalProduction } from '@/hooks/useTemporalProduction';
 import { SA_LANGUAGES } from '@/constants/languages';
 import { SA_GENRES } from '@/constants/amapianoVoices';
 import { GENERATION_MOODS, getGenreDefaults } from '@/constants/genreDefaults';
@@ -39,6 +40,8 @@ const TextToProduction = ({ user }: TextToProductionProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [prompt, setPrompt] = useState('');
+  const [useGpuWorkflow, setUseGpuWorkflow] = useState(true);
+  const temporal = useTemporalProduction();
   
   // Production settings
   const [genre, setGenre] = useState('Amapiano');
@@ -84,6 +87,21 @@ const TextToProduction = ({ user }: TextToProductionProps) => {
       return;
     }
 
+    // GPU Workflow path — starts a durable Temporal ProductionWorkflow on Modal
+    if (useGpuWorkflow) {
+      temporal.startProduction({
+        genre: genre.toLowerCase(),
+        bpm: bpm[0],
+        key: musicalKey,
+        mood,
+        duration: 30,
+        prompt: prompt.trim(),
+        skip_feedback: true,
+      });
+      return;
+    }
+
+    // Legacy edge-function path
     setIsGenerating(true);
     setCurrentStep(0);
 
@@ -324,17 +342,61 @@ const TextToProduction = ({ user }: TextToProductionProps) => {
                   <Label>Include Vocals</Label>
                 </div>
 
-                <Button 
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim()}
-                  className="w-full h-12 text-lg"
-                >
-                  {isGenerating ? (
-                    <><Clock className="w-5 h-5 mr-2 animate-spin" /> Generating...</>
-                  ) : (
-                    <><Sparkles className="w-5 h-5 mr-2" /> Generate Full Track</>
-                  )}
-                </Button>
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                  <Cpu className="w-5 h-5 text-primary" />
+                  <div className="flex-1">
+                    <Label className="font-medium">GPU Production Workflow</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Uses Modal A10G GPU + Temporal durable execution for real MusicGen audio
+                    </p>
+                  </div>
+                  <Switch checked={useGpuWorkflow} onCheckedChange={setUseGpuWorkflow} />
+                </div>
+
+                {useGpuWorkflow && temporal.state.status !== 'idle' ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Badge variant={
+                        temporal.state.status === 'completed' ? 'default' :
+                        temporal.state.status === 'failed' ? 'destructive' : 'secondary'
+                      }>
+                        {temporal.state.status === 'running' && <Clock className="w-3 h-3 mr-1 animate-spin" />}
+                        {temporal.state.status.toUpperCase()}
+                      </Badge>
+                      {temporal.state.workflowId && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {temporal.state.workflowId.slice(0, 24)}…
+                        </span>
+                      )}
+                    </div>
+                    <Progress value={temporal.state.percent} className="h-2" />
+                    <p className="text-sm text-muted-foreground">{temporal.state.currentStep}</p>
+                    <div className="flex gap-2">
+                      {temporal.state.status === 'running' && (
+                        <Button variant="outline" size="sm" onClick={temporal.cancelWorkflow}>
+                          <XCircle className="w-4 h-4 mr-1" /> Cancel
+                        </Button>
+                      )}
+                      {(temporal.state.status === 'completed' || temporal.state.status === 'failed') && (
+                        <Button variant="outline" size="sm" onClick={temporal.reset}>
+                          <RotateCcw className="w-4 h-4 mr-1" /> Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={handleGenerate}
+                    disabled={(useGpuWorkflow ? temporal.state.status === 'running' || temporal.state.status === 'starting' : isGenerating) || !prompt.trim()}
+                    className="w-full h-12 text-lg"
+                  >
+                    {(useGpuWorkflow ? (temporal.state.status === 'running' || temporal.state.status === 'starting') : isGenerating) ? (
+                      <><Clock className="w-5 h-5 mr-2 animate-spin" /> Generating...</>
+                    ) : (
+                      <>{useGpuWorkflow ? <Cpu className="w-5 h-5 mr-2" /> : <Sparkles className="w-5 h-5 mr-2" />} {useGpuWorkflow ? 'Generate on GPU' : 'Generate Full Track'}</>
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
 

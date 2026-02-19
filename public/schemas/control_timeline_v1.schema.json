@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aura-x.dev/schemas/control_timeline_v1.json",
+  "title": "AURA-X ControlTimeline v1",
+  "type": "object",
+  "required": ["schema_version","codec_id","frame_rate_hz","duration_frames","global","sections","curves","groove"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "ctl_v1" },
+    "codec_id": { "type": "string", "minLength": 1 },
+    "frame_rate_hz": { "const": 50 },
+    "duration_frames": { "type": "integer", "minimum": 50 },
+    "seed": { "type": "integer" },
+    "global": {
+      "type": "object",
+      "required": ["bpm","swing","genre","mix_profile"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "bpm": { "type": "number", "minimum": 40, "maximum": 220 },
+        "swing": { "type": "number", "minimum": 0, "maximum": 1 },
+        "key": { "type": "string", "pattern": "^[A-G](#|b)?(maj|min)$" },
+        "genre": {
+          "type": "string",
+          "enum": ["amapiano_private_school","amapiano_sgija","amapiano_bacardi","afro_house","deep_house","afrobeats","hip_hop","pop","other"]
+        },
+        "mood_tags": { "type": "array", "items": { "type": "string" }, "maxItems": 12 },
+        "mix_profile": { "type": "string", "enum": ["club","warm","radio","lofi","cinematic"] },
+        "vocals": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "language_tags": { "type": "array", "items": { "type": "string" } },
+            "presence": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["start_frame","end_frame","label"],
+        "additionalProperties": false,
+        "properties": {
+          "start_frame": { "type": "integer", "minimum": 0 },
+          "end_frame": { "type": "integer", "minimum": 1 },
+          "label": { "type": "string", "enum": ["intro","verse","pre","chorus","break","drop","outro"] },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "curves": {
+      "type": "object",
+      "required": ["energy","log_drum_density","perc_density","pad_warmth","bass_presence"],
+      "additionalProperties": false,
+      "properties": {
+        "energy": { "$ref": "#/$defs/curve" },
+        "log_drum_density": { "$ref": "#/$defs/curve" },
+        "perc_density": { "$ref": "#/$defs/curve" },
+        "pad_warmth": { "$ref": "#/$defs/curve" },
+        "bass_presence": { "$ref": "#/$defs/curve" },
+        "vocal_presence": { "$ref": "#/$defs/curve" }
+      }
+    },
+    "groove": {
+      "type": "object",
+      "required": ["template_id","kick_16","snare_clap_16","hat_16","logdrum_16","microtiming_16"],
+      "additionalProperties": false,
+      "properties": {
+        "template_id": { "type": "string", "minLength": 1 },
+        "kick_16": { "$ref": "#/$defs/pattern16" },
+        "snare_clap_16": { "$ref": "#/$defs/pattern16" },
+        "hat_16": { "$ref": "#/$defs/pattern16" },
+        "logdrum_16": { "$ref": "#/$defs/pattern16" },
+        "microtiming_16": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "items": { "type": "number", "minimum": -0.08, "maximum": 0.08 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "curve": {
+      "type": "array",
+      "items": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "pattern16": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": { "type": "integer", "enum": [0,1] }
+    }
+  }
+}

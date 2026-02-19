@@ -34,6 +34,7 @@ export {
   ControlTimelineV1Schema,
   parseControlTimelineV1,
   safeParseControlTimelineV1,
+  normalizeSections,
 } from './controlTimeline.zod';
 
 // MusicGen adapter

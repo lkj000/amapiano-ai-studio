@@ -163,3 +163,33 @@ export function parseControlTimelineV1(input: unknown): ControlTimelineV1 {
 export function safeParseControlTimelineV1(input: unknown) {
   return ControlTimelineV1Schema.safeParse(input);
 }
+
+// ============ Helpers ============
+
+/**
+ * Fill gaps between sections with a default label.
+ * Returns a new sorted, contiguous section array covering [0, duration_frames).
+ */
+export function normalizeSections(
+  sections: { start_frame: number; end_frame: number; label: string; notes?: string }[],
+  durationFrames: number,
+  fillLabel: string = 'verse'
+): { start_frame: number; end_frame: number; label: string; notes?: string }[] {
+  const sorted = [...sections].sort((a, b) => a.start_frame - b.start_frame);
+  const result: typeof sorted = [];
+  let cursor = 0;
+
+  for (const s of sorted) {
+    if (s.start_frame > cursor) {
+      result.push({ start_frame: cursor, end_frame: s.start_frame, label: fillLabel });
+    }
+    result.push(s);
+    cursor = Math.max(cursor, s.end_frame);
+  }
+
+  if (cursor < durationFrames) {
+    result.push({ start_frame: cursor, end_frame: durationFrames, label: fillLabel });
+  }
+
+  return result;
+}

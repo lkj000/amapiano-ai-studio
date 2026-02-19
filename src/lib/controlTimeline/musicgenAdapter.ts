@@ -22,6 +22,22 @@ function curveAvg(curve: number[]): number {
   return curve.reduce((a, b) => a + b, 0) / curve.length;
 }
 
+/** Downsample a curve to a target length via linear interpolation */
+function downsampleCurve(curve: number[], targetLen: number): number[] {
+  if (targetLen <= 0) return [];
+  if (curve.length === 0) return Array(targetLen).fill(0);
+  const out: number[] = [];
+  for (let i = 0; i < targetLen; i++) {
+    const t = targetLen === 1 ? 0 : i / (targetLen - 1);
+    const idx = t * (curve.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.min(curve.length - 1, lo + 1);
+    const w = idx - lo;
+    out.push(+(curve[lo] * (1 - w) + curve[hi] * w).toFixed(3));
+  }
+  return out;
+}
+
 /**
  * Build a MusicGen-compatible request from a ControlTimeline + user text.
  * The prompt encodes groove, arrangement, and cultural parameters as
@@ -71,6 +87,13 @@ export function buildMusicGenRequest(
     extra: {
       ctl_schema: ctl.schema_version,
       codec_id: ctl.codec_id,
+      curves_1hz: {
+        energy: downsampleCurve(ctl.curves.energy, Math.ceil(durSec)),
+        log_drum_density: downsampleCurve(ctl.curves.log_drum_density, Math.ceil(durSec)),
+        bass_presence: downsampleCurve(ctl.curves.bass_presence, Math.ceil(durSec)),
+        pad_warmth: downsampleCurve(ctl.curves.pad_warmth, Math.ceil(durSec)),
+        perc_density: downsampleCurve(ctl.curves.perc_density, Math.ceil(durSec)),
+      },
     },
   };
 }

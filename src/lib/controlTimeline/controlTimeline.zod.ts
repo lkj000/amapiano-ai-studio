@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import type { ControlTimelineV1 } from './controlTimeline';
+import type { ControlTimelineV1, ControlTimelineSection, SectionLabel } from './controlTimeline';
 
 // ============ Primitives ============
 
@@ -171,10 +171,10 @@ export function safeParseControlTimelineV1(input: unknown) {
  * Returns a sorted, contiguous section array covering [0, durationFrames).
  */
 export function normalizeSections(
-  sections: { start_frame: number; end_frame: number; label: string; notes?: string }[],
+  sections: ControlTimelineSection[],
   durationFrames: number,
-  fillLabel: 'intro' | 'verse' | 'pre' | 'chorus' | 'break' | 'drop' | 'outro' = 'verse'
-): { start_frame: number; end_frame: number; label: string; notes?: string }[] {
+  fillLabel: SectionLabel = 'verse'
+): ControlTimelineSection[] {
   // Clip to bounds and discard degenerate sections
   const clipped = sections
     .map((s) => ({

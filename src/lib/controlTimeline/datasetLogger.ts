@@ -4,10 +4,11 @@
  */
 
 import type { ControlTimelineV1 } from './controlTimeline';
+import type { Json } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 
 /** Cross-environment UUID helper */
-function uuid(): string {
+export function uuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
   }
@@ -40,19 +41,24 @@ export interface DatasetRecord {
  */
 export async function logDatasetRecord(rec: DatasetRecord): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id ?? 'anonymous';
+
+  const analysisData: Json = {
+    record_id: rec.id,
+    model: rec.model,
+    ctl: rec.ctl as unknown as Json,
+    user_prompt: rec.user_prompt,
+    generation_params: rec.generation_params as unknown as Json,
+    outputs: rec.outputs as unknown as Json,
+    metrics: (rec.metrics ?? null) as unknown as Json,
+    created_at: rec.created_at,
+  };
+
   const { error } = await supabase.from('audio_analysis_results').insert([{
+    id: rec.id,
     user_id: userId,
     audio_url: rec.outputs.audio_url ?? '',
     analysis_type: 'ctl_dataset',
-    analysis_data: {
-      record_id: rec.id,
-      model: rec.model,
-      ctl: rec.ctl,
-      user_prompt: rec.user_prompt,
-      generation_params: rec.generation_params,
-      outputs: rec.outputs,
-      metrics: rec.metrics,
-    } as any,
+    analysis_data: analysisData,
   }]);
 
   if (error) {
@@ -81,6 +87,8 @@ export function createDatasetRecord(
       genre: ctl.global.genre,
       mix_profile: ctl.global.mix_profile,
       duration_frames: ctl.duration_frames,
+      codec_id: ctl.codec_id,
+      ctl_schema: ctl.schema_version,
     },
     outputs: { audio_url: audioUrl },
     metrics,

@@ -167,26 +167,43 @@ export function safeParseControlTimelineV1(input: unknown) {
 // ============ Helpers ============
 
 /**
- * Fill gaps between sections with a default label.
- * Returns a new sorted, contiguous section array covering [0, duration_frames).
+ * Fill gaps and trim overlaps between sections.
+ * Returns a sorted, contiguous section array covering [0, durationFrames).
  */
 export function normalizeSections(
   sections: { start_frame: number; end_frame: number; label: string; notes?: string }[],
   durationFrames: number,
-  fillLabel: string = 'verse'
+  fillLabel: 'intro' | 'verse' | 'pre' | 'chorus' | 'break' | 'drop' | 'outro' = 'verse'
 ): { start_frame: number; end_frame: number; label: string; notes?: string }[] {
-  const sorted = [...sections].sort((a, b) => a.start_frame - b.start_frame);
+  // Clip to bounds and discard degenerate sections
+  const clipped = sections
+    .map((s) => ({
+      ...s,
+      start_frame: Math.max(0, Math.min(durationFrames, s.start_frame)),
+      end_frame: Math.max(0, Math.min(durationFrames, s.end_frame)),
+    }))
+    .filter((s) => s.end_frame > s.start_frame);
+
+  const sorted = [...clipped].sort((a, b) => a.start_frame - b.start_frame);
   const result: typeof sorted = [];
   let cursor = 0;
 
   for (const s of sorted) {
+    // Fill gap before this section
     if (s.start_frame > cursor) {
       result.push({ start_frame: cursor, end_frame: s.start_frame, label: fillLabel });
     }
-    result.push(s);
-    cursor = Math.max(cursor, s.end_frame);
+    // Trim overlap: start from cursor if it's past this section's start
+    const start = Math.max(cursor, s.start_frame);
+    if (s.end_frame > start) {
+      result.push({ ...s, start_frame: start });
+      cursor = s.end_frame;
+    } else {
+      cursor = Math.max(cursor, s.end_frame);
+    }
   }
 
+  // Fill trailing gap
   if (cursor < durationFrames) {
     result.push({ start_frame: cursor, end_frame: durationFrames, label: fillLabel });
   }

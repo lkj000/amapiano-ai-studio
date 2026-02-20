@@ -344,22 +344,20 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                      variant="outline" 
                                      size="sm" 
                                      className="flex-1"
-                                     onClick={() => {
-                                       try {
-                                         console.log(`📥 Downloading ${stem} stem...`);
-                                         const element = document.createElement('a');
-                                         element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=${stem}-stem`;
-                                         element.download = `${stem}_stem.wav`;
-                                         element.target = '_blank';
-                                         document.body.appendChild(element);
-                                         element.click();
-                                         document.body.removeChild(element);
-                                         toast.success(`📁 ${stem} stem downloaded!`);
-                                         console.log(`✅ Download triggered for ${stem} stem`);
-                                       } catch (error) {
-                                         console.error(`❌ Failed to download ${stem} stem:`, error);
-                                         toast.error(`Failed to download ${stem} stem`);
-                                       }
+                                      onClick={() => {
+                                        // Stems must come from real separation results
+                                        const stemUrl = analysisResult?.stems?.[stem];
+                                        if (!stemUrl) {
+                                          toast.error(`No ${stem} stem available — run stem separation first`);
+                                          return;
+                                        }
+                                        const element = document.createElement('a');
+                                        element.href = stemUrl;
+                                        element.download = `${stem}_stem.wav`;
+                                        document.body.appendChild(element);
+                                        element.click();
+                                        document.body.removeChild(element);
+                                        toast.success(`📁 ${stem} stem downloaded!`);
                                      }}
                                    >
                                      <Download className="w-3 h-3 mr-1" />
@@ -369,19 +367,14 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                      variant="outline" 
                                      size="sm" 
                                      className="flex-1"
-                                     onClick={() => {
-                                       try {
-                                         console.log(`🔊 Previewing ${stem} stem...`);
-                                         toast.info(`🔊 Previewing ${stem} stem...`);
-                                         const audio = new Audio(`https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=${stem}-stem`);
-                                         audio.play().catch((error) => {
-                                           console.error(`❌ Failed to preview ${stem}:`, error);
-                                           toast.error("Unable to preview audio");
-                                         });
-                                       } catch (error) {
-                                         console.error(`❌ Preview error for ${stem}:`, error);
-                                         toast.error("Unable to preview audio");
-                                       }
+                                      onClick={() => {
+                                        const stemUrl = analysisResult?.stems?.[stem];
+                                        if (!stemUrl) {
+                                          toast.error(`No ${stem} stem available — run stem separation first`);
+                                          return;
+                                        }
+                                        const audio = new Audio(stemUrl);
+                                        audio.play().catch(() => toast.error("Unable to preview audio"));
                                      }}
                                    >
                                      Preview
@@ -411,18 +404,19 @@ const Analyze: React.FC<AnalyzeProps> = ({ user }) => {
                                  variant="outline" 
                                  size="sm" 
                                  className="w-full"
-                                 onClick={() => {
-                                   try {
-                                     console.log(`📥 Exporting MIDI pattern: ${pattern.type}`);
-                                     const element = document.createElement('a');
-                                     element.href = `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=pattern-${index}`;
-                                     element.download = `${pattern.type.replace(/\s+/g, '_')}.mid`;
-                                     element.target = '_blank';
-                                     document.body.appendChild(element);
-                                     element.click();
-                                     document.body.removeChild(element);
-                                     toast.success(`📁 ${pattern.type} MIDI pattern exported!`);
-                                     console.log(`✅ MIDI export triggered for ${pattern.type}`);
+                                  onClick={() => {
+                                    try {
+                                      // Export pattern as JSON (real data from analysis)
+                                      const blob = new Blob([JSON.stringify(pattern, null, 2)], { type: 'application/json' });
+                                      const url = URL.createObjectURL(blob);
+                                      const element = document.createElement('a');
+                                      element.href = url;
+                                      element.download = `${pattern.type.replace(/\s+/g, '_')}.json`;
+                                      document.body.appendChild(element);
+                                      element.click();
+                                      document.body.removeChild(element);
+                                      URL.revokeObjectURL(url);
+                                      toast.success(`📁 ${pattern.type} pattern exported!`);
                                    } catch (error) {
                                      console.error(`❌ Failed to export MIDI pattern:`, error);
                                      toast.error('Failed to export MIDI pattern');

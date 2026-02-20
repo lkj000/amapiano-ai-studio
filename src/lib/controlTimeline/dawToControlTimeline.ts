@@ -13,8 +13,8 @@ import type {
   GenreId,
   MixProfile,
 } from './controlTimeline';
-import { secondsToFrames, beatsToFrames, constantCurve, linearRamp } from './controlTimeline';
-import { normalizeSections } from './controlTimeline.zod';
+import { beatsToFrames, constantCurve, linearRamp } from './controlTimeline';
+import { normalizeSections, ControlTimelineV1Schema } from './controlTimeline.zod';
 import { getGrooveForGenre } from './groovePresets';
 import type { TransportState, ProjectState } from '@/stores/dawStore';
 
@@ -105,28 +105,33 @@ function resampleLane(
   // Sort by time
   const sorted = [...points].sort((a, b) => a.time - b.time);
 
+  // Extend endpoints: anchor first point back to t=0, last point to end
+  const endBeats = ((totalFrames - 1) / 50 / 60) * bpm;
+  if (sorted[0].time > 0) {
+    sorted.unshift({ time: 0, value: sorted[0].value });
+  }
+  if (sorted[sorted.length - 1].time < endBeats) {
+    sorted.push({ time: endBeats, value: sorted[sorted.length - 1].value });
+  }
+
   const curve: number[] = new Array(totalFrames);
+  let j = 0;
+
   for (let f = 0; f < totalFrames; f++) {
     const timeSec = f / 50;
     const timeBeats = (timeSec / 60) * bpm;
 
-    // Find surrounding points
-    if (timeBeats <= sorted[0].time) {
-      curve[f] = sorted[0].value;
-    } else if (timeBeats >= sorted[sorted.length - 1].time) {
-      curve[f] = sorted[sorted.length - 1].value;
+    // Advance index
+    while (j + 1 < sorted.length && sorted[j + 1].time < timeBeats) j++;
+
+    const a = sorted[j];
+    const b = sorted[Math.min(sorted.length - 1, j + 1)];
+
+    if (a.time === b.time) {
+      curve[f] = a.value;
     } else {
-      // Linear interpolation between surrounding points
-      let lo = 0;
-      for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i].time >= timeBeats) {
-          lo = i - 1;
-          break;
-        }
-      }
-      const hi = lo + 1;
-      const t = (timeBeats - sorted[lo].time) / (sorted[hi].time - sorted[lo].time);
-      curve[f] = sorted[lo].value * (1 - t) + sorted[hi].value * t;
+      const t = (timeBeats - a.time) / (b.time - a.time);
+      curve[f] = a.value * (1 - t) + b.value * t;
     }
 
     // Clamp 0..1
@@ -158,11 +163,11 @@ export function dawToControlTimeline(opts: DAWToCTLOptions): ControlTimelineV1 {
   const { transport, project, durationBars, markers, automationLanes } = opts;
   const bpm = transport.bpm;
 
-  // Duration: bars → beats → seconds → frames
+  // Duration: bars → beats → seconds → frames (ceil to avoid truncation drift)
   const beatsPerBar = project.timeSignature.numerator;
   const totalBeats = durationBars * beatsPerBar;
   const totalSeconds = (totalBeats / bpm) * 60;
-  const durationFrames = Math.max(50, secondsToFrames(totalSeconds));
+  const durationFrames = Math.max(50, Math.ceil(totalSeconds * 50));
 
   // Genre
   const genre = opts.genre ?? inferGenre(project);
@@ -227,7 +232,7 @@ export function dawToControlTimeline(opts: DAWToCTLOptions): ControlTimelineV1 {
     ? `${project.key}${project.scale === 'minor' ? 'min' : 'maj'}`
     : undefined;
 
-  return {
+  const ctl: ControlTimelineV1 = {
     schema_version: 'ctl_v1',
     codec_id: opts.codecId ?? 'encodec_32k_4cb_50hz_v1',
     frame_rate_hz: 50,
@@ -236,7 +241,7 @@ export function dawToControlTimeline(opts: DAWToCTLOptions): ControlTimelineV1 {
     global: {
       title: project.name !== 'Untitled Project' ? project.name : undefined,
       bpm,
-      swing: 0.3, // sensible Amapiano default
+      swing: 0.3,
       key: keyStr,
       genre,
       mix_profile: mixProfile,
@@ -245,6 +250,9 @@ export function dawToControlTimeline(opts: DAWToCTLOptions): ControlTimelineV1 {
     curves,
     groove,
   };
+
+  // Validate output against schema before returning
+  return ControlTimelineV1Schema.parse(ctl) as ControlTimelineV1;
 }
 
 // ============ Section → Energy Heuristic ============

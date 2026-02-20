@@ -45,19 +45,19 @@ function parseKey(keyStr?: string): { key: string; scale: 'major' | 'minor' } {
 }
 
 /**
- * Downsample a 50Hz curve to sparse automation points (one per section boundary + extrema).
- * Keeps the point count manageable for DAW UI.
+ * Downsample a 50Hz curve to sparse automation points at ~1Hz.
+ * Keeps point count bounded: max ~durationSeconds points + 1 endpoint.
  */
 function curveToAutomationPoints(
   curve: number[],
   bpm: number,
-  maxPoints: number = 64
 ): DAWAutomationPoint[] {
   if (curve.length === 0) return [];
 
+  const FR = 50;
   const totalFrames = curve.length;
-  // Sample at regular intervals
-  const step = Math.max(1, Math.floor(totalFrames / maxPoints));
+  // 1Hz = one point per second = every 50 frames
+  const step = Math.max(1, FR);
   const points: DAWAutomationPoint[] = [];
 
   for (let f = 0; f < totalFrames; f += step) {
@@ -69,9 +69,10 @@ function curveToAutomationPoints(
 
   // Always include last frame
   const lastFrame = totalFrames - 1;
-  if (points.length === 0 || points[points.length - 1].time !== frameToBeats(lastFrame, bpm)) {
+  const lastTime = frameToBeats(lastFrame, bpm);
+  if (points.length === 0 || points[points.length - 1].time < lastTime) {
     points.push({
-      time: frameToBeats(lastFrame, bpm),
+      time: lastTime,
       value: curve[lastFrame],
     });
   }

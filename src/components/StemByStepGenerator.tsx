@@ -124,13 +124,30 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
       clearInterval(progressInterval);
       setGenerationProgress(100);
 
-      // Simulate audio URL (in real implementation, this would come from the AI service)
-      const mockAudioUrl = `https://example.com/generated-${stemId}-${Date.now()}.mp3`;
+      // Convert base64 audio response to playable blob URL
+      let stemAudioUrl = '';
+      if (data?.audioBase64) {
+        const audioFormat = data.audioFormat || 'audio/mpeg';
+        const byteString = atob(data.audioBase64);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: audioFormat });
+        stemAudioUrl = URL.createObjectURL(blob);
+      } else if (data?.audioUrl) {
+        stemAudioUrl = data.audioUrl;
+      }
+
+      if (!stemAudioUrl) {
+        throw new Error('No audio data returned from generation');
+      }
       
       setStems(prev => prev.map(s => 
         s.id === stemId ? { 
           ...s, 
-          audioUrl: mockAudioUrl,
+          audioUrl: stemAudioUrl,
           isGenerating: false 
         } : s
       ));
@@ -140,8 +157,8 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
         description: `${stem.name} has been generated successfully`,
       });
 
-      // Create audio element
-      const audio = new Audio(mockAudioUrl);
+      // Create audio element with real audio
+      const audio = new Audio(stemAudioUrl);
       audio.loop = true;
       audio.volume = (stem.volume / 100) * (masterVolume / 100);
       audioRefs.current[stemId] = audio;

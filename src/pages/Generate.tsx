@@ -127,13 +127,20 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
         body: {
           prompt: effectivePrompt,
           lyrics: lyrics.trim() || undefined,
-          trackType: 'audio',
+          trackType: trackType,
           generationType,
           bpm: effectiveBpm,
           genre: effectiveGenre,
+          key: musicalKey,
           duration: trackDuration,
           selectedArtistStyle,
-          referenceAnalysis
+          referenceAnalysis,
+          voiceStyles: selectedVoiceStyles.length > 0 ? selectedVoiceStyles : undefined,
+          culturalControls: {
+            swing: culturalSwing[0],
+            gaspTiming,
+            logDrumIntensity: logDrumIntensity[0],
+          },
         }
       });
 
@@ -182,7 +189,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       } else if (aiError?.message?.includes('402') || aiError?.message?.toLowerCase().includes('payment required')) {
         toast.error('💳 AI credits exhausted. Please add credits to continue generating.');
       } else {
-        toast.error('AI generation unavailable, using demo generation');
+        toast.error('AI generation failed. Please try again later.');
       }
     }
 
@@ -305,9 +312,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       toast.success("🎤 Lyrics generated (2 versions)!");
     } catch (err) {
       console.error('Lyrics generation error:', err);
-      // Fallback demo lyrics
-      setLyrics(`[Verse 1]\nNgiyak'thanda wena\nUmuhle ngempela\nSihlala ndawonye\n\n[Chorus]\nShaya iLog drum\nSibheke phambili\nThanda mna namhlanje\n\n[Bridge]\nHee... hee...\nYho... yho...`);
-      toast.success("🎤 Demo lyrics generated!");
+      toast.error("Lyrics generation failed. Please try again.");
     } finally {
       setIsGeneratingLyrics(false);
     }
@@ -1362,43 +1367,59 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                         </div>
                       </div>
 
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Professional Stems</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {["Drums", "Bass", "Piano", "Vocals", "Other"].map((stem) => (
-                              <Button 
-                                key={stem} 
-                                variant="outline" 
-                                size="sm" 
-                                className="justify-start"
-                                onClick={async () => {
-                                  try {
-                                    const response = await fetch(generatedTrack.stems[stem.toLowerCase()]);
-                                    if (!response.ok) throw new Error('Download failed');
-                                    
-                                    const blob = await response.blob();
-                                    const url = window.URL.createObjectURL(blob);
-                                    const link = document.createElement('a');
-                                    link.href = url;
-                                    link.download = `${generatedTrack.title.replace(/\s+/g, '_')}_${stem.toLowerCase()}.wav`;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                    window.URL.revokeObjectURL(url);
-                                    
-                                    toast.success(`🎵 ${stem} stem downloaded successfully!`);
-                                  } catch (error) {
-                                    console.error('Download error:', error);
-                                    toast.error(`${stem} stem download failed - this is a demo version`);
-                                  }
-                                }}
-                              >
-                                <Download className="w-3 h-3 mr-2" />
-                                {stem}
-                              </Button>
-                            ))}
+                        {generatedTrack.stems && Object.keys(generatedTrack.stems).length > 0 && (
+                          <div className="space-y-2">
+                            <h4 className="font-medium">Professional Stems</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              {Object.entries(generatedTrack.stems).map(([stemName, stemUrl]: [string, any]) => (
+                                stemUrl && (
+                                  <Button 
+                                    key={stemName} 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="justify-start capitalize"
+                                    onClick={async () => {
+                                      try {
+                                        const response = await fetch(stemUrl);
+                                        if (!response.ok) throw new Error('Download failed');
+                                        const blob = await response.blob();
+                                        const url = window.URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = url;
+                                        link.download = `${generatedTrack.title.replace(/\s+/g, '_')}_${stemName}.wav`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
+                                        toast.success(`🎵 ${stemName} stem downloaded!`);
+                                      } catch (error) {
+                                        console.error('Download error:', error);
+                                        toast.error(`${stemName} stem download failed`);
+                                      }
+                                    }}
+                                  >
+                                    <Download className="w-3 h-3 mr-2" />
+                                    {stemName}
+                                  </Button>
+                                )
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
+                        {(!generatedTrack.stems || Object.keys(generatedTrack.stems).length === 0) && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              localStorage.setItem('pendingStemSplitUrl', generatedTrack.audioUrl);
+                              navigate('/stem-splitter');
+                              toast.info("Opening Stem Splitter...");
+                            }}
+                          >
+                            <Scissors className="w-4 h-4 mr-2" />
+                            Separate Stems
+                          </Button>
+                        )}
 
                       {/* AI Analysis of Generated Track */}
                       {generatedTrack?.audioUrl && (

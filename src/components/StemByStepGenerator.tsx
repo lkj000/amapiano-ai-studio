@@ -100,10 +100,7 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
     setCurrentGeneratingStem(stemId);
     setGenerationProgress(0);
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setGenerationProgress(prev => Math.min(prev + Math.random() * 15, 95));
-    }, 1000);
+    setGenerationProgress(10);
 
     try {
       const prompt = customPrompt || stem.prompt;
@@ -121,7 +118,6 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
 
       if (error) throw error;
 
-      clearInterval(progressInterval);
       setGenerationProgress(100);
 
       // Convert base64 audio response to playable blob URL
@@ -171,7 +167,6 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
         variant: "destructive",
       });
     } finally {
-      clearInterval(progressInterval);
       setCurrentGeneratingStem(null);
       setGenerationProgress(0);
       setStems(prev => prev.map(s => 

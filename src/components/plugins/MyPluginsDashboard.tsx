@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Download, Eye, Heart, Package, TrendingUp, Edit, Trash2, BarChart } from 'lucide-react';
+import { Code, Download, Eye, Heart, Package, TrendingUp, Edit, Trash2, BarChart, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Plugin {
   id: string;
@@ -18,49 +19,62 @@ interface Plugin {
 }
 
 export function MyPluginsDashboard() {
-  const [selectedPlugin, setSelectedPlugin] = useState<Plugin | null>(null);
+  const [plugins, setPlugins] = useState<Plugin[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const mockPlugins: Plugin[] = [
-    {
-      id: '1',
-      name: 'Amapiano Synth Pro',
-      version: '1.2.3',
-      type: 'Instrument',
-      downloads: 1247,
-      revenue: 2494,
-      rating: 4.8,
-      status: 'published',
-      lastUpdated: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Log Drum FX',
-      version: '2.0.1',
-      type: 'Effect',
-      downloads: 892,
-      revenue: 1784,
-      rating: 4.6,
-      status: 'published',
-      lastUpdated: '2024-01-10'
-    },
-    {
-      id: '3',
-      name: 'Piano Roll Delay',
-      version: '0.9.0',
-      type: 'Effect',
-      downloads: 0,
-      revenue: 0,
-      rating: 0,
-      status: 'draft',
-      lastUpdated: '2024-01-20'
+  useEffect(() => {
+    loadPlugins();
+  }, []);
+
+  const loadPlugins = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setPlugins([]);
+        return;
+      }
+
+      // Query real marketplace items created by this user
+      const { data, error } = await supabase
+        .from('marketplace_items')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: Plugin[] = (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        version: '1.0.0',
+        type: item.category,
+        downloads: item.downloads || 0,
+        revenue: item.price_cents * (item.downloads || 0),
+        rating: item.rating || 0,
+        status: item.active ? 'published' : 'draft',
+        lastUpdated: item.updated_at,
+      }));
+
+      setPlugins(mapped);
+    } catch (err) {
+      console.error('Failed to load plugins:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const plugins = mockPlugins;
+  };
 
   const totalDownloads = plugins.reduce((sum, p) => sum + p.downloads, 0);
   const totalRevenue = plugins.reduce((sum, p) => sum + p.revenue, 0);
   const avgRating = plugins.filter(p => p.rating > 0).reduce((sum, p) => sum + p.rating, 0) / plugins.filter(p => p.rating > 0).length || 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,9 +100,6 @@ export function MyPluginsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalDownloads.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +12% from last month
-            </p>
           </CardContent>
         </Card>
 
@@ -99,9 +110,6 @@ export function MyPluginsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${(totalRevenue / 100).toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">
-              +18% from last month
-            </p>
           </CardContent>
         </Card>
 
@@ -125,106 +133,103 @@ export function MyPluginsDashboard() {
           <TabsTrigger value="all">All Plugins</TabsTrigger>
           <TabsTrigger value="published">Published</TabsTrigger>
           <TabsTrigger value="draft">Drafts</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          {plugins.map(plugin => (
-            <Card key={plugin.id} className="hover:border-primary/50 transition-colors">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2">
-                      {plugin.name}
-                      <Badge variant={plugin.status === 'published' ? 'default' : 'secondary'}>
-                        {plugin.status}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      v{plugin.version} • {plugin.type} • Updated {plugin.lastUpdated}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="icon" variant="outline">
-                      <BarChart className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="outline">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="outline">
-                      <Code className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant="destructive" className="opacity-50">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Downloads</div>
-                    <div className="font-medium flex items-center gap-1">
-                      <Download className="h-3 w-3" />
-                      {plugin.downloads.toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Revenue</div>
-                    <div className="font-medium">${(plugin.revenue / 100).toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Rating</div>
-                    <div className="font-medium flex items-center gap-1">
-                      <Heart className="h-3 w-3" />
-                      {plugin.rating || 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Views</div>
-                    <div className="font-medium flex items-center gap-1">
-                      <Eye className="h-3 w-3" />
-                      {(plugin.downloads * 3.2).toFixed(0)}
-                    </div>
-                  </div>
-                </div>
+          {plugins.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No plugins yet</p>
+                <p className="text-sm">Create your first plugin in the Marketplace</p>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            plugins.map(plugin => (
+              <Card key={plugin.id} className="hover:border-primary/50 transition-colors">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle className="flex items-center gap-2">
+                        {plugin.name}
+                        <Badge variant={plugin.status === 'published' ? 'default' : 'secondary'}>
+                          {plugin.status}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        v{plugin.version} • {plugin.type} • Updated {new Date(plugin.lastUpdated).toLocaleDateString()}
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="icon" variant="outline"><BarChart className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline"><Edit className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline"><Code className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="destructive" className="opacity-50"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Downloads</div>
+                      <div className="font-medium flex items-center gap-1">
+                        <Download className="h-3 w-3" />
+                        {plugin.downloads.toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Revenue</div>
+                      <div className="font-medium">${(plugin.revenue / 100).toFixed(2)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Rating</div>
+                      <div className="font-medium flex items-center gap-1">
+                        <Heart className="h-3 w-3" />
+                        {plugin.rating || 'N/A'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Views</div>
+                      <div className="font-medium flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        —
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="published" className="space-y-4">
-          {plugins.filter(p => p.status === 'published').map(plugin => (
-            <Card key={plugin.id}>
-              <CardHeader>
-                <CardTitle>{plugin.name}</CardTitle>
-                <CardDescription>v{plugin.version} • {plugin.type}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
+          {plugins.filter(p => p.status === 'published').length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-muted-foreground">No published plugins</CardContent></Card>
+          ) : (
+            plugins.filter(p => p.status === 'published').map(plugin => (
+              <Card key={plugin.id}>
+                <CardHeader>
+                  <CardTitle>{plugin.name}</CardTitle>
+                  <CardDescription>v{plugin.version} • {plugin.type}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="draft" className="space-y-4">
-          {plugins.filter(p => p.status === 'draft').map(plugin => (
-            <Card key={plugin.id}>
-              <CardHeader>
-                <CardTitle>{plugin.name}</CardTitle>
-                <CardDescription>v{plugin.version} • {plugin.type}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Analytics Dashboard</CardTitle>
-              <CardDescription>Detailed performance metrics for your plugins</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Advanced analytics coming soon...</p>
-            </CardContent>
-          </Card>
+          {plugins.filter(p => p.status === 'draft').length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-muted-foreground">No drafts</CardContent></Card>
+          ) : (
+            plugins.filter(p => p.status === 'draft').map(plugin => (
+              <Card key={plugin.id}>
+                <CardHeader>
+                  <CardTitle>{plugin.name}</CardTitle>
+                  <CardDescription>v{plugin.version} • {plugin.type}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))
+          )}
         </TabsContent>
       </Tabs>
     </div>

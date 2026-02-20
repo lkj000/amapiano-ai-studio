@@ -124,8 +124,6 @@ export const GhostProducerMode = ({
     });
 
     try {
-      // Simulate stem separation process
-      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const stems = currentProject.tracks.map((track: any) => ({
         name: track.name,
@@ -190,8 +188,6 @@ export const GhostProducerMode = ({
     });
 
     try {
-      // Simulate packaging process
-      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const clientPackage = {
         clientName,

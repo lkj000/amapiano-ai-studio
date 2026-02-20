@@ -81,15 +81,11 @@ export default function ElasticAudioPanel({
     setIsProcessing(true);
     setProcessingProgress(0);
 
-    // Simulate processing with progress updates
-    const steps = 20;
-    for (let i = 0; i <= steps; i++) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      setProcessingProgress((i / steps) * 100);
-    }
-
+    // Real processing happens in the AudioContext when applying changes
+    // Just show indeterminate state — actual work is in onApplyChanges
+    setProcessingProgress(100);
     setIsProcessing(false);
-    toast.success('Elastic audio processing complete');
+    toast.success('Settings ready — apply to process audio');
   }, [audioClip]);
 
   const handlePreview = async () => {

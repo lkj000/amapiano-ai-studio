@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, XCircle, AlertCircle, Play, Shield, Zap, Code, FileCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface QATest {
   id: string;
@@ -64,27 +65,30 @@ export function AutomatedQAPipeline() {
     const updatedTests = [...tests];
     
     for (let i = 0; i < updatedTests.length; i++) {
-      // Set test to running
       updatedTests[i] = { ...updatedTests[i], status: 'running' };
       setTests([...updatedTests]);
-      
-      // Simulate test execution
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Randomly pass/fail/warn for demo
-      const outcomes: Array<'passed' | 'failed' | 'warning'> = ['passed', 'passed', 'passed', 'warning', 'failed'];
-      const result = outcomes[Math.floor(Math.random() * outcomes.length)];
-      
-      updatedTests[i] = {
-        ...updatedTests[i],
-        status: result,
-        duration: Math.random() * 3 + 0.5,
-        details: result === 'failed' 
-          ? 'Found critical issue that needs attention'
-          : result === 'warning'
-          ? 'Minor issue detected - review recommended'
-          : 'All checks passed successfully',
-      };
+
+      try {
+        // Call real QA edge function for each test
+        const { data, error } = await supabase.functions.invoke('plugin-qa', {
+          body: { testId: updatedTests[i].id, testName: updatedTests[i].name }
+        });
+
+        if (error) throw error;
+
+        updatedTests[i] = {
+          ...updatedTests[i],
+          status: data?.passed ? 'passed' : data?.warning ? 'warning' : 'failed',
+          duration: data?.duration || 0,
+          details: data?.details || (error ? 'Service unavailable' : 'Test completed'),
+        };
+      } catch (err) {
+        updatedTests[i] = {
+          ...updatedTests[i],
+          status: 'warning',
+          details: 'QA service unavailable — manual review recommended',
+        };
+      }
       
       setTests([...updatedTests]);
       setProgress(((i + 1) / updatedTests.length) * 100);

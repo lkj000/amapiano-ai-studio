@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -124,18 +125,25 @@ export const VoiceBlender = () => {
     setIsBlending(true);
     setBlendProgress(0);
 
-    // Simulate blending process
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise((r) => setTimeout(r, 100));
-      setBlendProgress(i);
-    }
+    try {
+      // Call real voice blending edge function
+      const { data, error } = await supabase.functions.invoke('voice-blend', {
+        body: {
+          name: blendName,
+          models: slots.filter(s => s.modelId).map(s => ({ modelId: s.modelId, weight: s.weight })),
+        }
+      });
 
-    setIsBlending(false);
-    setBlendedModel(blendName);
-    toast({
-      title: 'Blend Complete!',
-      description: `Voice model "${blendName}" has been created`,
-    });
+      if (error) throw error;
+      setBlendProgress(100);
+      setBlendedModel(blendName);
+      toast({ title: 'Blend Complete!', description: `Voice model "${blendName}" has been created` });
+    } catch (err) {
+      console.error('Voice blend failed:', err);
+      toast({ title: 'Blend Failed', description: 'Voice blending service unavailable', variant: 'destructive' });
+    } finally {
+      setIsBlending(false);
+    }
   };
 
   const getModelById = (id: string) => AVAILABLE_MODELS.find((m) => m.id === id);

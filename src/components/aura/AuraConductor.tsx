@@ -483,7 +483,7 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
             audioUrl={
               currentSession.orchestration_config?.final_result?.final_output?.audio_url || 
               currentSession.orchestration_config?.final_result?.audio_url ||
-              `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=orchestrated_${Date.now()}`
+              ''
             }
             metadata={{
               style: currentSession.orchestration_config?.prompt || 'AI Orchestrated Track',

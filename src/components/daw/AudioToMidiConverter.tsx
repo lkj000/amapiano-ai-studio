@@ -192,29 +192,7 @@ const AudioToMidiConverter: React.FC<AudioToMidiConverterProps> = ({ onMidiGener
     }
   };
 
-  const simulateMidiConversion = async (audioUrl: string): Promise<MidiNote[]> => {
-    // Simulate AI processing with progress updates
-    for (let i = 0; i <= 100; i += 10) {
-      setProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-
-    // Generate mock MIDI data
-    const notes: MidiNote[] = [];
-    const scales = [60, 62, 64, 65, 67, 69, 71, 72]; // C major scale
-    
-    for (let i = 0; i < 16; i++) {
-      notes.push({
-        id: `mock_note_${Date.now()}_${i}`,
-        pitch: scales[Math.floor(Math.random() * scales.length)],
-        velocity: 80 + Math.floor(Math.random() * 40),
-        startTime: i * 0.5,
-        duration: 0.4 + Math.random() * 0.3,
-      });
-    }
-
-    return notes;
-  };
+  // Dead mock function removed — handleConvert uses real edge function
 
   const handleConvert = async () => {
     if (!audioFile) return;

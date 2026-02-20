@@ -48,19 +48,8 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
     setAnalysisProgress(0);
 
     try {
-      // Simulate progressive analysis steps
-      const steps = [
-        { progress: 20, message: "Analyzing rhythmic patterns..." },
-        { progress: 40, message: "Checking harmonic structures..." },
-        { progress: 60, message: "Evaluating cultural elements..." },
-        { progress: 80, message: "Scoring authenticity factors..." },
-        { progress: 100, message: "Generating recommendations..." }
-      ];
-
-      for (const step of steps) {
-        setAnalysisProgress(step.progress);
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
+      // Show indeterminate progress while calling real edge function
+      setAnalysisProgress(50);
 
       const { data, error } = await supabase.functions.invoke('music-analysis', {
         body: {
@@ -83,7 +72,7 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
       const result: AnalysisResult = {
         id: `analysis_${Date.now()}`,
         type: 'cultural_authenticity',
-        score: data?.score || Math.random() * 0.3 + 0.7,
+        score: data?.score || 0,
         details: data?.details || generateCulturalAnalysisDetails(),
         recommendations: data?.recommendations || generateCulturalRecommendations(),
         timestamp: new Date()
@@ -119,17 +108,7 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
     setAnalysisProgress(0);
 
     try {
-      const steps = [
-        { progress: 25, message: "Analyzing chord progressions..." },
-        { progress: 50, message: "Checking harmonic complexity..." },
-        { progress: 75, message: "Evaluating voice leading..." },
-        { progress: 100, message: "Generating theory insights..." }
-      ];
-
-      for (const step of steps) {
-        setAnalysisProgress(step.progress);
-        await new Promise(resolve => setTimeout(resolve, 600));
-      }
+      setAnalysisProgress(50);
 
       const { data, error } = await supabase.functions.invoke('music-analysis', {
         body: {
@@ -150,7 +129,7 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
       const result: AnalysisResult = {
         id: `analysis_${Date.now()}`,
         type: 'music_theory',
-        score: data.score || Math.random() * 0.2 + 0.8,
+        score: data.score || 0,
         details: data.details || generateMusicTheoryDetails(),
         recommendations: data.recommendations || generateTheoryRecommendations(),
         timestamp: new Date()
@@ -174,25 +153,25 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
     setAnalysisProgress(0);
 
     try {
-      const steps = [
-        { progress: 20, message: "Analyzing market trends..." },
-        { progress: 40, message: "Checking radio-friendliness..." },
-        { progress: 60, message: "Evaluating streaming potential..." },
-        { progress: 80, message: "Comparing to successful tracks..." },
-        { progress: 100, message: "Generating market insights..." }
-      ];
+      setAnalysisProgress(50);
 
-      for (const step of steps) {
-        setAnalysisProgress(step.progress);
-        await new Promise(resolve => setTimeout(resolve, 700));
-      }
+      // Call real analysis edge function
+      const { data, error } = await supabase.functions.invoke('music-analysis', {
+        body: {
+          type: 'commercial_potential',
+          projectData,
+          currentTrack,
+        }
+      });
+
+      if (error) throw error;
 
       const result: AnalysisResult = {
         id: `analysis_${Date.now()}`,
         type: 'commercial_potential',
-        score: Math.random() * 0.4 + 0.6, // 60-100%
-        details: generateCommercialAnalysisDetails(),
-        recommendations: generateCommercialRecommendations(),
+        score: data?.score || 0,
+        details: data?.details || 'Analysis returned no details',
+        recommendations: data?.recommendations || [],
         timestamp: new Date()
       };
 
@@ -230,30 +209,28 @@ export const MusicAnalysisTools: React.FC<MusicAnalysisToolsProps> = ({
       }
       const base64Audio = btoa(binary);
 
-      const steps = [
-        { progress: 20, message: "Processing audio file..." },
-        { progress: 40, message: "Extracting musical features..." },
-        { progress: 60, message: "Analyzing structure..." },
-        { progress: 80, message: "Comparing to amapiano database..." },
-        { progress: 100, message: "Generating insights..." }
-      ];
+      // Call real analysis with the uploaded audio
+      const { data, error } = await supabase.functions.invoke('music-analysis', {
+        body: {
+          type: 'genre_classification',
+          audioBase64: base64Audio,
+          filename: uploadedFile.name,
+        }
+      });
 
-      for (const step of steps) {
-        setAnalysisProgress(step.progress);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      if (error) throw error;
 
       const result: AnalysisResult = {
         id: `analysis_${Date.now()}`,
         type: 'genre_classification',
-        score: Math.random() * 0.3 + 0.7,
-        details: generateFileAnalysisDetails(uploadedFile.name),
-        recommendations: generateFileRecommendations(),
+        score: data?.score || 0,
+        details: data?.details || generateFileAnalysisDetails(uploadedFile.name),
+        recommendations: data?.recommendations || generateFileRecommendations(),
         timestamp: new Date()
       };
 
       setAnalysisResults(prev => [result, ...prev]);
-      toast.success(`File analysis complete! Amapiano similarity: ${Math.round(result.score * 100)}%`);
+      toast.success(`File analysis complete! Score: ${Math.round(result.score * 100)}%`);
 
     } catch (error) {
       console.error('File analysis error:', error);

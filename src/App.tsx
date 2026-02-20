@@ -63,7 +63,7 @@ const TextToProduction = lazy(() => import("./pages/TextToProduction"));
 const TrainingDataset = lazy(() => import("./pages/TrainingDataset"));
 const VoiceLab = lazy(() => import("./pages/VoiceLab"));
 const AudioLab = lazy(() => import("./pages/AudioLab"));
-const Studio = lazy(() => import("./pages/Studio"));
+// Studio and AmapianoPro consolidated — redirect to DAW
 const LANDRHub = lazy(() => import("./pages/LANDRHub"));
 const AWSActivatePitchDeck = lazy(() => import("./pages/AWSActivatePitchDeck"));
 const PitchDeckComparison = lazy(() => import("./pages/PitchDeckComparison"));
@@ -71,7 +71,7 @@ const MasteringStudio = lazy(() => import("./pages/MasteringStudio"));
 const ReleaseManager = lazy(() => import("./pages/ReleaseManager"));
 const PromotionHub = lazy(() => import("./pages/PromotionHub"));
 const RhythmDemo = lazy(() => import("./pages/RhythmDemo"));
-const AmapianoPro = lazy(() => import("./pages/AmapianoPro"));
+// AmapianoPro consolidated into DAW
 const AdminInventory = lazy(() => import("./pages/AdminInventory"));
 
 const queryClient = new QueryClient({
@@ -222,7 +222,7 @@ const App = () => {
                 <Route path="/training-dataset" element={<TrainingDataset />} />
                 <Route path="/voice-lab" element={<VoiceLab />} />
                 <Route path="/audio-lab" element={<AudioLab />} />
-                <Route path="/studio" element={<Studio user={user} />} />
+                <Route path="/studio" element={<Navigate to="/daw" replace />} />
                 <Route path="/landr" element={<LANDRHub />} />
                 <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
                 <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
@@ -231,7 +231,7 @@ const App = () => {
                 <Route path="/promote" element={<PromotionHub />} />
                 <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
                 <Route path="/rhythm-demo" element={<RhythmDemo />} />
-                <Route path="/amapiano-pro" element={<AmapianoPro user={user} />} />
+                <Route path="/amapiano-pro" element={<Navigate to="/daw" replace />} />
                 <Route path="/dj-agent" element={<DJAgent user={user} />} />
                 <Route path="/admin/inventory" element={<AdminInventory />} />
                 <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />

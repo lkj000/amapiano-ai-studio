@@ -162,19 +162,29 @@ export function useTonePlayback(projectData: DawProjectData | null) {
     }
 
     if (!projectData) {
-      if (Tone.Transport.state !== 'started') {
-        Tone.Transport.start();
-        setIsPlaying(true);
+      try {
+        if (Tone.Transport.state !== 'started') {
+          Tone.Transport.start();
+          setIsPlaying(true);
+        }
+      } catch (err) {
+        console.error('[TonePlayback] Transport access error:', err);
       }
       return;
     }
 
     // No-op if already playing
-    if (Tone.Transport.state === 'started') return;
+    try {
+      if (Tone.Transport.state === 'started') return;
+    } catch {
+      // Transport not ready, continue to start it
+    }
 
     // Only (re)schedule when starting from stopped (or after a stop/cancel)
-    if (Tone.Transport.state === 'stopped' || !scheduledRef.current) {
-      Tone.Transport.cancel();
+    try {
+      const transportState = Tone.Transport.state;
+      if (transportState === 'stopped' || !scheduledRef.current) {
+        Tone.Transport.cancel();
 
       // Schedule MIDI notes + audio clips for the whole project
       projectData.tracks.forEach((track) => {
@@ -259,22 +269,32 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       });
 
       scheduledRef.current = true;
+      }
+
+      Tone.Transport.start();
+      setIsPlaying(true);
+
+      // Update current time display
+      transportUpdateInterval.current = window.setInterval(() => {
+        try {
+          const seconds = Tone.Transport.seconds;
+          if (typeof seconds === 'number' && !isNaN(seconds)) {
+            const beats = seconds * (projectData?.bpm || 118) / 60;
+            setCurrentTime(beats);
+          }
+        } catch {
+          // Transport may not be fully initialized yet — ignore
+        }
+      }, 50);
+
+      console.log('[TonePlayback] ▶️ Playing with', playersRef.current.size, 'audio players');
+    } catch (err) {
+      console.error('[TonePlayback] Play error:', err);
     }
-
-    Tone.Transport.start();
-    setIsPlaying(true);
-
-    // Update current time display
-    transportUpdateInterval.current = window.setInterval(() => {
-      const beats = Tone.Transport.seconds * (projectData?.bpm || 118) / 60;
-      setCurrentTime(beats);
-    }, 50);
-
-    console.log('[TonePlayback] ▶️ Playing with', playersRef.current.size, 'audio players');
   }, [isReady, initialize, projectData]);
 
   const pause = useCallback(() => {
-    Tone.Transport.pause();
+    try { Tone.Transport.pause(); } catch {}
     setIsPlaying(false);
 
     if (transportUpdateInterval.current) {
@@ -286,8 +306,10 @@ export function useTonePlayback(projectData: DawProjectData | null) {
   }, []);
 
   const stop = useCallback(() => {
-    Tone.Transport.stop();
-    Tone.Transport.cancel(); // Clear scheduled events
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+    } catch {}
     scheduledRef.current = false;
 
     setIsPlaying(false);

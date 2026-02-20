@@ -60,3 +60,7 @@ export { planControlTimeline } from './planner';
 
 // Shared utilities
 export { FR, clamp01, finiteOr, sanitizeCurve, curveAvg } from './utils';
+
+// CTL Transforms
+export { extendCtl, retimeCtl, spliceCtl, mergeCtl, applyStyle } from './transforms';
+export type { StyleDelta, CurveKey } from './transforms';

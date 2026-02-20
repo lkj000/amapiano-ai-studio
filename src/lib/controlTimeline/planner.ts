@@ -13,9 +13,9 @@ import type {
   GenreId,
   MixProfile,
 } from './controlTimeline';
-import { secondsToFrames, constantCurve, linearRamp } from './controlTimeline';
+import { constantCurve, linearRamp } from './controlTimeline';
 import { getGrooveForGenre } from './groovePresets';
-import { normalizeSections } from './controlTimeline.zod';
+import { normalizeSections, ControlTimelineV1Schema } from './controlTimeline.zod';
 
 // ============ Plan Configuration ============
 
@@ -202,7 +202,7 @@ function buildCurvesFromSections(
  */
 export function planControlTimeline(input: PlannerInput): ControlTimelineV1 {
   const durationSec = input.durationSeconds ?? 60;
-  const durationFrames = Math.max(50, secondsToFrames(durationSec));
+  const durationFrames = Math.max(50, Math.ceil(durationSec * 50));
   const genre = input.genre ?? detectGenre(input.prompt);
   const bpm = input.bpm ?? (genre.startsWith('amapiano') ? 113 : 120);
   const mixProfile = input.mixProfile ?? detectMixProfile(input.prompt);
@@ -226,7 +226,7 @@ export function planControlTimeline(input: PlannerInput): ControlTimelineV1 {
   const sections = normalizeSections(rawSections, durationFrames, 'verse');
   const curves = buildCurvesFromSections(sections, durationFrames);
 
-  return {
+  const ctl: ControlTimelineV1 = {
     schema_version: 'ctl_v1',
     codec_id: 'encodec_32k_4cb_50hz_v1',
     frame_rate_hz: 50,
@@ -245,4 +245,7 @@ export function planControlTimeline(input: PlannerInput): ControlTimelineV1 {
     curves,
     groove,
   };
+
+  // Validate output against schema before returning
+  return ControlTimelineV1Schema.parse(ctl) as ControlTimelineV1;
 }

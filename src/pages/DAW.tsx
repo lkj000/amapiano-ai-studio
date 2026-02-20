@@ -55,6 +55,7 @@ import { RAGKnowledgeBase } from '@/components/RAGKnowledgeBase';
 import { RealTimeCollaboration } from '@/components/RealTimeCollaboration';
 import { AIModelMarketplace } from '@/components/AIModelMarketplace';
 import { cn } from '@/lib/utils';
+import { createDefaultAmapianoClip } from '@/lib/audio/amapianoPatterns';
 import { AudioStartGate } from '@/components/AudioStartGate';
 import { useTonePlayback } from '@/hooks/useTonePlayback';
 import { MusicAnalysisTools } from '@/components/MusicAnalysisTools';
@@ -1024,12 +1025,15 @@ function DAWContent({ user }: { user: User }) {
     
     console.log('DAW: Adding track with instrument:', inst);
     
+    // Generate a default MIDI clip with authentic Amapiano pattern
+    const defaultClip = createDefaultAmapianoClip(inst.name);
+    
     const newTrack: DawTrackV2 = isMidiTrack ? {
       id: `track_${Date.now()}`,
       type: 'midi' as const,
       name: inst.name,
       instrument: inst.name,
-      clips: [],
+      clips: [defaultClip],
       mixer: { volume: 0.8, pan: 0, isMuted: false, isSolo: false, effects: [] },
       isArmed: false,
       color: inst.color,

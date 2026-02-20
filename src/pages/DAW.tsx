@@ -622,6 +622,26 @@ function DAWContent({ user }: { user: User }) {
           const trackData = JSON.parse(pendingTrack);
           localStorage.removeItem('pendingGeneratedTrack');
           
+          // Reconstruct blob URL from base64 if audioUrl is missing but base64 is present
+          if (!trackData.audioUrl && trackData.audioBase64) {
+            try {
+              const audioFormat = trackData.audioFormat || 'audio/mpeg';
+              const byteString = atob(trackData.audioBase64);
+              const ab = new ArrayBuffer(byteString.length);
+              const ia = new Uint8Array(ab);
+              for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+              }
+              const blob = new Blob([ab], { type: audioFormat });
+              trackData.audioUrl = URL.createObjectURL(blob);
+              console.log('[DAW] Reconstructed blob URL from base64, size:', blob.size);
+            } catch (b64Err) {
+              console.error('[DAW] Failed to reconstruct audio from base64:', b64Err);
+            }
+            // Remove base64 from trackData to free memory
+            delete trackData.audioBase64;
+          }
+          
           // If no project exists, create a new one first
           if (!projectData) {
             console.log('DAW: Creating new project for pending track from Samples');

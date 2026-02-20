@@ -47,3 +47,13 @@ export { logDatasetRecord, createDatasetRecord } from './datasetLogger';
 
 // Groove presets
 export { GROOVE_PRESETS, getGrooveForGenre } from './groovePresets';
+
+// DAW ↔ ControlTimeline mappers
+export type { DAWMarker, DAWAutomationPoint, DAWAutomationLane, DAWToCTLOptions } from './dawToControlTimeline';
+export { dawToControlTimeline } from './dawToControlTimeline';
+export type { CTLToDAWResult } from './controlTimelineToDaw';
+export { controlTimelineToDAW } from './controlTimelineToDaw';
+
+// Planner (text → CTL)
+export type { PlannerInput } from './planner';
+export { planControlTimeline } from './planner';

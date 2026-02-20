@@ -137,6 +137,21 @@ function selectArrangement(prompt: string, genre: GenreId): ArrangementTemplate 
   return ARRANGEMENT_TEMPLATES.standard;
 }
 
+// ============ Curve Sanitization ============
+
+/** Clamp to [0,1] and replace NaN/Infinity with a safe default */
+function sanitizeCurve(curve: number[], fallback = 0.5): number[] {
+  for (let i = 0; i < curve.length; i++) {
+    const v = curve[i];
+    if (!Number.isFinite(v)) {
+      curve[i] = fallback;
+    } else {
+      curve[i] = Math.max(0, Math.min(1, v));
+    }
+  }
+  return curve;
+}
+
 // ============ Curve Generation ============
 
 const SECTION_ENERGY: Record<SectionLabel, number> = {
@@ -186,11 +201,11 @@ function buildCurvesFromSections(
   }
 
   return {
-    energy,
-    log_drum_density: logDrum,
-    perc_density: perc,
-    pad_warmth: padWarmth,
-    bass_presence: bass,
+    energy: sanitizeCurve(energy),
+    log_drum_density: sanitizeCurve(logDrum),
+    perc_density: sanitizeCurve(perc),
+    pad_warmth: sanitizeCurve(padWarmth),
+    bass_presence: sanitizeCurve(bass),
   };
 }
 

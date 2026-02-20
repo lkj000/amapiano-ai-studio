@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -98,6 +98,7 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
     audioUrl: string;
     isPlaying: boolean;
   } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { toast } = useToast();
 
@@ -166,11 +167,40 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
       clearInterval(progressInterval);
       setGenerationProgress(100);
 
-      // Use the generated track from AI service
-      const audioUrl = data.newTrack?.clips?.[0]?.audioUrl || `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files/mood-generated-${Date.now()}`;
-      
+      // Convert base64 audio to playable blob URL — no fake fallbacks
+      let audioUrl = '';
+      if (data?.audioBase64) {
+        const audioFormat = data.audioFormat || 'audio/mpeg';
+        const byteString = atob(data.audioBase64);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: audioFormat });
+        audioUrl = URL.createObjectURL(blob);
+      } else if (data?.audioUrl) {
+        audioUrl = data.audioUrl;
+      }
+
+      if (!audioUrl) {
+        throw new Error('No audio data returned from generation');
+      }
+
+      // Clean up previous audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (generatedTrack?.audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(generatedTrack.audioUrl);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
       setGeneratedTrack({
-        audioUrl: audioUrl,
+        audioUrl,
         isPlaying: false
       });
 
@@ -205,14 +235,39 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
     }
   };
 
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (generatedTrack?.audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(generatedTrack.audioUrl);
+      }
+    };
+  }, []);
+
   const togglePlayback = () => {
-    if (!generatedTrack) return;
+    if (!generatedTrack || !audioRef.current) return;
     
-    // In real implementation, this would control audio playback
+    if (generatedTrack.isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(e => console.error('Playback error:', e));
+    }
     setGeneratedTrack(prev => prev ? {
       ...prev,
       isPlaying: !prev.isPlaying
     } : null);
+  };
+
+  const downloadTrack = () => {
+    if (!generatedTrack?.audioUrl) return;
+    const a = document.createElement('a');
+    a.href = generatedTrack.audioUrl;
+    a.download = `mood-track-${Date.now()}.mp3`;
+    a.click();
   };
 
   const getMoodColor = (value: number): string => {
@@ -415,7 +470,7 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
                       <Play className="w-4 h-4" />
                     )}
                   </Button>
-                  <Button variant="outline" className="w-12">
+                  <Button variant="outline" className="w-12" onClick={downloadTrack}>
                     <Download className="w-4 h-4" />
                   </Button>
                 </>

@@ -106,8 +106,7 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
     const trackTitle = trackType === "full" ? "Enhanced Amapiano Creation" : "Amapiano Loop/Pattern";
     const trackDuration = trackType === "full" ? duration[0] : Math.min(duration[0], 120);
     
-    // Use Supabase edge function URLs for demo audio files
-    const baseUrl = "https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files";
+    // Real AI generation only — no fake fallback URLs
 
     // Use real AI generation with enhanced parameters
     try {
@@ -187,27 +186,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
       }
     }
 
-    // Fallback simulation if AI fails
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setGeneratedTrack({
-      id: "enhanced-track-id",
-      title: trackTitle,
-      type: trackType,
-      bpm: effectiveBpm,
-      genre: effectiveGenre,
-      duration: trackDuration,
-      audioUrl: `${baseUrl}/generated-track`,
-      stems: {
-        drums: `${baseUrl}/drums`,
-        bass: `${baseUrl}/bass`, 
-        piano: `${baseUrl}/piano`,
-        vocals: `${baseUrl}/vocals`,
-        other: `${baseUrl}/other`
-      }
-    });
+    // No fake fallback — if AI generation failed, stop here
     setIsGenerating(false);
-    toast.success(`🎉 Enhanced ${trackTypeLabel} generated successfully!`);
   };
 
   const handleRecordingComplete = (audioBlob: Blob, transcription?: string) => {

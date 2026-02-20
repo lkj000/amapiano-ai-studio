@@ -22,7 +22,18 @@ export function useRealTimeAudioEngine() {
       }
     };
 
-    initEngine();
+    // Defer until user gesture to avoid AudioContext autoplay warning
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      initEngine();
+    } else {
+      const handler = () => initEngine();
+      window.addEventListener('audio-started', handler, { once: true });
+      // Cleanup listener if component unmounts before gesture
+      return () => {
+        window.removeEventListener('audio-started', handler);
+        engine.dispose();
+      };
+    }
 
     // Update stats periodically
     const statsInterval = setInterval(() => {

@@ -36,17 +36,16 @@ export function useRealAudioDAW() {
     lastRecording: null,
   });
   
-  // Initialize engine
+  // Defer engine initialization until user gesture (audio-started event from AudioStartGate)
   useEffect(() => {
     const engine = getAudioEngine();
     engineRef.current = engine;
     
-    const init = async () => {
+    const initOnGesture = async () => {
       await engine.initialize();
       engine.createDefaultTracks();
       engine.createDefaultPattern();
       
-      // Set up callbacks
       engine.onStep((step, bar) => {
         setState(prev => ({ ...prev, currentStep: step, currentBar: bar }));
       });
@@ -66,7 +65,13 @@ export function useRealAudioDAW() {
       }));
     };
     
-    init();
+    // If audio was already started this session, init immediately
+    if (sessionStorage.getItem('audioContextStarted') === 'true') {
+      initOnGesture();
+    } else {
+      // Wait for user gesture via AudioStartGate
+      window.addEventListener('audio-started', initOnGesture, { once: true });
+    }
     
     // Meter animation loop
     const updateMeter = () => {
@@ -79,6 +84,7 @@ export function useRealAudioDAW() {
     animationRef.current = requestAnimationFrame(updateMeter);
     
     return () => {
+      window.removeEventListener('audio-started', initOnGesture);
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }

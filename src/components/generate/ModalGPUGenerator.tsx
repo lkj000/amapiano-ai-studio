@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Play, Download, Loader2, Zap, AlertCircle } from "lucide-react";
+import { Cpu, Play, Pause, Download, Loader2, Zap, AlertCircle, Music } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,6 +36,21 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedTrack, setGeneratedTrack] = useState<GeneratedTrack | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      if (generatedTrack?.audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(generatedTrack.audioUrl);
+      }
+    };
+  }, []);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -65,10 +80,36 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
         throw new Error(data.error);
       }
 
+      // Convert base64 audio to blob URL if present
+      let audioUrl = data.audio_url || data.audioUrl || '';
+      if (data.audioBase64) {
+        const audioFormat = data.audioFormat || 'audio/mpeg';
+        const byteString = atob(data.audioBase64);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: audioFormat });
+        audioUrl = URL.createObjectURL(blob);
+      }
+
+      if (!audioUrl) {
+        throw new Error('No audio data returned from Modal GPU');
+      }
+
+      // Clean up previous audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (generatedTrack?.audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(generatedTrack.audioUrl);
+      }
+
       const track: GeneratedTrack = {
         id: data.track_id || `modal-${Date.now()}`,
         title: data.title || `Generated: ${prompt.substring(0, 30)}...`,
-        audioUrl: data.audio_url || data.audioUrl,
+        audioUrl,
         duration: data.duration || duration[0],
         bpm: data.bpm || bpm[0],
         genre: data.genre || genre,
@@ -77,10 +118,15 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
         processingTime: data.processing_time_ms,
       };
 
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.addEventListener('ended', () => setIsPlaying(false));
+
       setGeneratedTrack(track);
+      setIsPlaying(false);
       onTrackGenerated?.(track);
       
-      toast.success(`✅ GPU-accelerated track generated in ${track.processingTime}ms!`);
+      toast.success(`✅ GPU-accelerated track generated${track.processingTime ? ` in ${track.processingTime}ms` : ''}!`);
     } catch (err) {
       console.error("Modal generate error:", err);
       const message = err instanceof Error ? err.message : "Failed to generate track";
@@ -89,6 +135,25 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const togglePlayback = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(e => console.error('Playback error:', e));
+      setIsPlaying(true);
+    }
+  };
+
+  const downloadTrack = () => {
+    if (!generatedTrack?.audioUrl) return;
+    const a = document.createElement('a');
+    a.href = generatedTrack.audioUrl;
+    a.download = `modal-gpu-track-${Date.now()}.mp3`;
+    a.click();
   };
 
   const moods = ["energetic", "chill", "melancholic", "uplifting", "dark", "groovy"];
@@ -229,36 +294,38 @@ export function ModalGPUGenerator({ onTrackGenerated }: ModalGPUGeneratorProps) 
 
         {generatedTrack && (
           <Card className="bg-muted/50">
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{generatedTrack.title}</p>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{generatedTrack.title}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {generatedTrack.genre} • {generatedTrack.bpm} BPM • {generatedTrack.key} • {generatedTrack.duration}s
+                    {generatedTrack.processingTime && ` • ${generatedTrack.processingTime}ms`}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {generatedTrack.genre} • {generatedTrack.bpm} BPM • {generatedTrack.key} • {generatedTrack.duration}s
-                  {generatedTrack.processingTime && ` • ${generatedTrack.processingTime}ms`}
-                </p>
-              </div>
                 <div className="flex gap-2">
-                  {generatedTrack.audioUrl && (
-                    <>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={generatedTrack.audioUrl} target="_blank" rel="noopener noreferrer">
-                          <Play className="w-4 h-4 mr-1" />
-                          Play
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={generatedTrack.audioUrl} download>
-                          <Download className="w-4 h-4 mr-1" />
-                          Download
-                        </a>
-                      </Button>
-                    </>
-                  )}
+                  <Button variant="outline" size="sm" onClick={togglePlayback}>
+                    {isPlaying ? <Pause className="w-4 h-4 mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={downloadTrack}>
+                    <Download className="w-4 h-4 mr-1" />
+                    Download
+                  </Button>
                 </div>
               </div>
+              {/* Real inline audio element */}
+              <audio
+                controls
+                className="w-full"
+                src={generatedTrack.audioUrl}
+                ref={(el) => { if (el) audioRef.current = el; }}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => setIsPlaying(false)}
+              />
             </CardContent>
           </Card>
         )}

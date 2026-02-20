@@ -135,10 +135,7 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setGenerationProgress(prev => Math.min(prev + Math.random() * 10, 95));
-    }, 1000);
+    setGenerationProgress(10);
 
     try {
       const promptText = generateMoodPrompt();
@@ -164,7 +161,6 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
 
       if (error) throw error;
 
-      clearInterval(progressInterval);
       setGenerationProgress(100);
 
       // Convert base64 audio to playable blob URL — no fake fallbacks
@@ -229,7 +225,6 @@ export const MoodBasedGenerator: React.FC<MoodBasedGeneratorProps> = ({ onTrackG
         variant: "destructive",
       });
     } finally {
-      clearInterval(progressInterval);
       setIsGenerating(false);
       setGenerationProgress(0);
     }

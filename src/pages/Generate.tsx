@@ -169,6 +169,8 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
           genre: effectiveGenre,
           duration: data.metadata?.duration || trackDuration,
           audioUrl,
+          audioBase64: data.audioBase64 || null,
+          audioFormat: data.audioFormat || 'audio/mpeg',
           stems: {}
         });
         setGenerationDetails({
@@ -1319,15 +1321,16 @@ const Generate: React.FC<GenerateProps> = ({ user }) => {
                              size="sm"
                              onClick={() => {
                                const trackData = {
-                                 name: generatedTrack.title,
-                                 audioUrl: generatedTrack.audioUrl,
-                                 type: 'audio',
-                                 metadata: {
-                                   bpm: generatedTrack.bpm,
-                                   genre: generatedTrack.genre,
-                                   duration: generatedTrack.duration
-                                 }
-                               };
+                                  name: generatedTrack.title,
+                                  audioBase64: generatedTrack.audioBase64 || null,
+                                  audioFormat: generatedTrack.audioFormat || 'audio/mpeg',
+                                  type: 'audio',
+                                  metadata: {
+                                    bpm: generatedTrack.bpm,
+                                    genre: generatedTrack.genre,
+                                    duration: generatedTrack.duration
+                                  }
+                                };
                                localStorage.setItem('pendingGeneratedTrack', JSON.stringify(trackData));
                                window.open('/daw', '_blank');
                                toast.success("🎵 Track sent to DAW! Opening DAW in new tab...");

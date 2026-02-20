@@ -141,6 +141,21 @@ function resampleLane(
   return curve;
 }
 
+// ============ Curve Sanitization ============
+
+/** Clamp to [0,1] and replace NaN/Infinity with a safe default */
+function sanitizeCurve(curve: number[], fallback = 0.5): number[] {
+  for (let i = 0; i < curve.length; i++) {
+    const v = curve[i];
+    if (!Number.isFinite(v)) {
+      curve[i] = fallback;
+    } else {
+      curve[i] = Math.max(0, Math.min(1, v));
+    }
+  }
+  return curve;
+}
+
 // ============ Genre Inference ============
 
 function inferGenre(project: ProjectState): GenreId {
@@ -214,13 +229,13 @@ export function dawToControlTimeline(opts: DAWToCTLOptions): ControlTimelineV1 {
     : buildEnergyCurveFromSections(sections, durationFrames);
 
   const curves: ControlTimelineCurves = {
-    energy: energyCurve,
-    log_drum_density: resample('log_drum_density', 0.6),
-    perc_density: resample('perc_density', 0.5),
-    pad_warmth: resample('pad_warmth', 0.4),
-    bass_presence: resample('bass_presence', 0.6),
+    energy: sanitizeCurve(energyCurve),
+    log_drum_density: sanitizeCurve(resample('log_drum_density', 0.6)),
+    perc_density: sanitizeCurve(resample('perc_density', 0.5)),
+    pad_warmth: sanitizeCurve(resample('pad_warmth', 0.4)),
+    bass_presence: sanitizeCurve(resample('bass_presence', 0.6)),
     vocal_presence: laneMap.has('vocal_presence')
-      ? resampleLane(laneMap.get('vocal_presence')!.points, bpm, durationFrames, 0)
+      ? sanitizeCurve(resampleLane(laneMap.get('vocal_presence')!.points, bpm, durationFrames, 0))
       : undefined,
   };
 

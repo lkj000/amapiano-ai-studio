@@ -5,3 +5,4 @@ export { mergeCtl } from "./mergeCtl";
 export { applyStyle } from "./applyStyle";
 export type { StyleDelta } from "./applyStyle";
 export type { CurveKey } from "./_helpers";
+export { MAX_SECTIONS, MAX_LANE_POINTS } from "./_helpers";

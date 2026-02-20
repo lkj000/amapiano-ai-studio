@@ -1,10 +1,11 @@
 import type { ControlTimelineSection, ControlTimelineV1, SectionLabel } from "../controlTimeline";
-import { validateCtl, resampleCurve } from "./_helpers";
+import { validateCtl, resampleCurve, shiftSections } from "./_helpers";
 import { clamp01 } from "../utils";
 
 /**
  * Merge (mashup) two CTLs into one.
- * Aligns to common duration, combines curves by strategy, merges sections.
+ * mergeMode "overlay" = mashup (curves blended, same duration)
+ * mergeMode "append"  = medley (B appended after A)
  */
 export function mergeCtl(
   a: ControlTimelineV1,
@@ -15,7 +16,22 @@ export function mergeCtl(
     bpmPolicy?: "a" | "b" | "avg";
     sectionPolicy?: "concat" | "a_only" | "b_only";
     labelPrefix?: boolean;
+    /** "overlay" = mashup (default), "append" = medley (B after A) */
+    mergeMode?: "overlay" | "append";
   }
+): ControlTimelineV1 {
+  const mergeMode = opts?.mergeMode ?? "overlay";
+
+  if (mergeMode === "append") {
+    return appendMerge(a, b, opts);
+  }
+  return overlayMerge(a, b, opts);
+}
+
+function overlayMerge(
+  a: ControlTimelineV1,
+  b: ControlTimelineV1,
+  opts?: Parameters<typeof mergeCtl>[2]
 ): ControlTimelineV1 {
   const curveStrategy = opts?.curveStrategy ?? "avg";
   const bpmPolicy = opts?.bpmPolicy ?? "a";
@@ -84,7 +100,7 @@ export function mergeCtl(
   if (bpmPolicy === "avg") global.bpm = Math.max(40, Math.min(220, (a.global.bpm + b.global.bpm) / 2));
   global.swing = clamp01(global.swing);
 
-  const merged: ControlTimelineV1 = {
+  return validateCtl({
     schema_version: "ctl_v1",
     codec_id: a.codec_id,
     frame_rate_hz: 50,
@@ -93,7 +109,55 @@ export function mergeCtl(
     sections,
     curves,
     groove: a.groove,
-  };
+  });
+}
 
-  return validateCtl(merged);
+/** Append mode: B's curves are concatenated after A's, sections shifted */
+function appendMerge(
+  a: ControlTimelineV1,
+  b: ControlTimelineV1,
+  opts?: Parameters<typeof mergeCtl>[2]
+): ControlTimelineV1 {
+  const bpmPolicy = opts?.bpmPolicy ?? "a";
+  const T = a.duration_frames + b.duration_frames;
+
+  // Concatenate curves
+  const curves: any = {};
+  const allKeys = new Set<string>([
+    ...Object.keys(a.curves),
+    ...Object.keys(b.curves),
+  ]);
+
+  for (const k of allKeys) {
+    const fallback = k === "vocal_presence" ? 0 : 0.5;
+    const aCurve = (a.curves as any)[k] as number[] | undefined;
+    const bCurve = (b.curves as any)[k] as number[] | undefined;
+
+    const partA = aCurve ?? new Array<number>(a.duration_frames).fill(fallback);
+    const partB = bCurve ?? new Array<number>(b.duration_frames).fill(fallback);
+
+    curves[k] = [...partA, ...partB];
+  }
+
+  // Sections: A's sections + B's sections shifted by A's duration
+  const sections: ControlTimelineSection[] = [
+    ...a.sections.map(s => ({ ...s })),
+    ...shiftSections(b.sections.map(s => ({ ...s })), a.duration_frames),
+  ];
+
+  const global = { ...a.global };
+  if (bpmPolicy === "b") global.bpm = b.global.bpm;
+  if (bpmPolicy === "avg") global.bpm = Math.max(40, Math.min(220, (a.global.bpm + b.global.bpm) / 2));
+  global.swing = clamp01(global.swing);
+
+  return validateCtl({
+    schema_version: "ctl_v1",
+    codec_id: a.codec_id,
+    frame_rate_hz: 50,
+    duration_frames: T,
+    global,
+    sections,
+    curves,
+    groove: a.groove,
+  });
 }

@@ -230,23 +230,100 @@ export const StemByStepGenerator: React.FC<StemByStepGeneratorProps> = ({
   };
 
   const exportMix = async () => {
+    const stemsWithAudio = stems.filter(s => s.audioUrl);
+    if (stemsWithAudio.length === 0) {
+      toast({ title: "No stems to export", description: "Generate at least one stem first.", variant: "destructive" });
+      return;
+    }
+
     setIsRecording(true);
-    
+
     try {
-      // In a real implementation, this would mix all stems together
+      // Real offline mix using Web Audio API
+      const audioContext = new OfflineAudioContext(2, 44100 * 30, 44100); // 30s stereo
+
+      const bufferPromises = stemsWithAudio.map(async (stem) => {
+        const response = await fetch(stem.audioUrl!);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        return { stem, audioBuffer };
+      });
+
+      const decodedStems = await Promise.all(bufferPromises);
+
+      decodedStems.forEach(({ stem, audioBuffer }) => {
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = (stem.volume / 100) * (masterVolume / 100);
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        source.start(0);
+      });
+
+      const renderedBuffer = await audioContext.startRendering();
+
+      // Encode to WAV
+      const numChannels = renderedBuffer.numberOfChannels;
+      const length = renderedBuffer.length;
+      const sampleRate = renderedBuffer.sampleRate;
+      const bitsPerSample = 16;
+      const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+      const blockAlign = numChannels * (bitsPerSample / 8);
+      const dataSize = length * blockAlign;
+      const bufferSize = 44 + dataSize;
+      const wavBuffer = new ArrayBuffer(bufferSize);
+      const view = new DataView(wavBuffer);
+
+      const writeString = (offset: number, str: string) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+      };
+      writeString(0, 'RIFF');
+      view.setUint32(4, bufferSize - 8, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, byteRate, true);
+      view.setUint16(32, blockAlign, true);
+      view.setUint16(34, bitsPerSample, true);
+      writeString(36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample = Math.max(-1, Math.min(1, renderedBuffer.getChannelData(ch)[i]));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+
+      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      const mixUrl = URL.createObjectURL(blob);
+
+      // Trigger download
+      const a = document.createElement('a');
+      a.href = mixUrl;
+      a.download = `amapiano-mix-${Date.now()}.wav`;
+      a.click();
+
       toast({
         title: "Mix Exported!",
-        description: "Your amapiano track has been exported successfully",
+        description: "Your amapiano track has been downloaded as WAV",
       });
-      
+
       if (onTrackGenerated) {
-        onTrackGenerated('exported-mix-url', {
-          stems: stems.filter(s => s.audioUrl),
+        onTrackGenerated(mixUrl, {
+          stems: stemsWithAudio.map(s => ({ name: s.name, type: s.type, volume: s.volume })),
           masterVolume,
           exportedAt: new Date().toISOString()
         });
       }
     } catch (error) {
+      console.error('Export error:', error);
       toast({
         title: "Export Error",
         description: "Failed to export mix. Please try again.",

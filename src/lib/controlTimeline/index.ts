@@ -57,3 +57,6 @@ export { controlTimelineToDAW } from './controlTimelineToDaw';
 // Planner (text → CTL)
 export type { PlannerInput } from './planner';
 export { planControlTimeline } from './planner';
+
+// Shared utilities
+export { FR, clamp01, finiteOr, sanitizeCurve, curveAvg } from './utils';

@@ -16,6 +16,7 @@ import type {
 import { beatsToFrames, constantCurve, linearRamp } from './controlTimeline';
 import { normalizeSections, ControlTimelineV1Schema } from './controlTimeline.zod';
 import { getGrooveForGenre } from './groovePresets';
+import { sanitizeCurve } from './utils';
 import type { TransportState, ProjectState } from '@/stores/dawStore';
 
 // ============ Input Interfaces ============
@@ -141,20 +142,6 @@ function resampleLane(
   return curve;
 }
 
-// ============ Curve Sanitization ============
-
-/** Clamp to [0,1] and replace NaN/Infinity with a safe default */
-function sanitizeCurve(curve: number[], fallback = 0.5): number[] {
-  for (let i = 0; i < curve.length; i++) {
-    const v = curve[i];
-    if (!Number.isFinite(v)) {
-      curve[i] = fallback;
-    } else {
-      curve[i] = Math.max(0, Math.min(1, v));
-    }
-  }
-  return curve;
-}
 
 // ============ Genre Inference ============
 

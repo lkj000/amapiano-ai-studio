@@ -10,8 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { dawToControlTimeline, type DAWMarker, type DAWAutomationLane } from '../dawToControlTimeline';
 import { controlTimelineToDAW } from '../controlTimelineToDaw';
 import { planControlTimeline } from '../planner';
-import { normalizeSections } from '../controlTimeline.zod';
-import { ControlTimelineV1Schema } from '../controlTimeline.zod';
+import { normalizeSections, ControlTimelineV1Schema } from '../controlTimeline.zod';
 import type { ControlTimelineSection } from '../controlTimeline';
 import type { TransportState, ProjectState } from '@/stores/dawStore';
 
@@ -256,5 +255,17 @@ describe('Planner produces valid CTL', () => {
         expect(Number.isFinite(v)).toBe(true);
       }
     }
+  });
+});
+
+// ============ Test 5: Curve length mismatch throws ============
+
+describe('Schema rejects curve length mismatch', () => {
+  it('throws when energy length !== duration_frames', () => {
+    const ctl = planControlTimeline({ prompt: 'test', durationSeconds: 10 });
+    // Corrupt the energy curve to be 1 frame short
+    const bad = { ...ctl, curves: { ...ctl.curves, energy: ctl.curves.energy.slice(0, -1) } };
+    const result = ControlTimelineV1Schema.safeParse(bad);
+    expect(result.success).toBe(false);
   });
 });

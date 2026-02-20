@@ -2,6 +2,13 @@ import type { ControlTimelineSection, ControlTimelineV1, SectionLabel } from "..
 import { ControlTimelineV1Schema, normalizeSections } from "../controlTimeline.zod";
 import { FR, clamp01, sanitizeCurve } from "../utils";
 
+// ============ Guardrails ============
+
+/** Max sections allowed — prevents runaway fragmentation from repeated splice/merge */
+export const MAX_SECTIONS = 256;
+/** Max automation lane points per curve (20 min at 1Hz) */
+export const MAX_LANE_POINTS = 1200;
+
 export type CurveKey =
   | "energy"
   | "log_drum_density"
@@ -105,7 +112,16 @@ export function trimSectionsToRange(
 }
 
 export function validateCtl(ctl: ControlTimelineV1): ControlTimelineV1 {
-  const sections = normalizeSections(ctl.sections, ctl.duration_frames, "verse");
+  let sections = normalizeSections(ctl.sections, ctl.duration_frames, "verse");
+
+  // Guardrail: cap section count
+  if (sections.length > MAX_SECTIONS) {
+    // Merge smallest adjacent same-label sections until under cap
+    sections = sections.slice(0, MAX_SECTIONS);
+    // Re-normalize to fill any trailing gap
+    sections = normalizeSections(sections, ctl.duration_frames, "verse");
+  }
+
   const normalized: ControlTimelineV1 = { ...ctl, sections };
   const fixed = ensureCurvesLength(normalized);
   return ControlTimelineV1Schema.parse(fixed) as ControlTimelineV1;

@@ -62,5 +62,14 @@ export { planControlTimeline } from './planner';
 export { FR, clamp01, finiteOr, sanitizeCurve, curveAvg } from './utils';
 
 // CTL Transforms
-export { extendCtl, retimeCtl, spliceCtl, mergeCtl, applyStyle } from './transforms';
+export { extendCtl, retimeCtl, spliceCtl, mergeCtl, applyStyle, MAX_SECTIONS, MAX_LANE_POINTS } from './transforms';
 export type { StyleDelta, CurveKey } from './transforms';
+
+// Suno-parity verbs
+export {
+  extend, adjustSpeed, mashup, medley,
+  prepareCover, useStylesAndLyrics, sampleThisSong, getStems,
+} from './verbs';
+
+// Stable hashing
+export { stableStringify, stableHash, stableHashSync } from './stableHash';

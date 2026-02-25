@@ -186,9 +186,17 @@ export function useTonePlayback(projectData: DawProjectData | null) {
       if (transportState === 'stopped' || !scheduledRef.current) {
         Tone.Transport.cancel();
 
+      // Sync channel mute/solo state from current projectData before scheduling
+      projectData.tracks.forEach((track) => {
+        const ch = trackChannelsRef.current.get(track.id);
+        if (ch) {
+          ch.mute = track.mixer?.isMuted || false;
+          ch.solo = track.mixer?.isSolo || false;
+        }
+      });
+
       // Schedule MIDI notes + audio clips for the whole project
       projectData.tracks.forEach((track) => {
-        // Skip muted tracks
         const channel = trackChannelsRef.current.get(track.id);
         
         if (track.type === 'midi') {

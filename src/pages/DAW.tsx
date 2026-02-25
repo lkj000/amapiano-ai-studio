@@ -457,10 +457,16 @@ function DAWContent({ user }: { user: User }) {
       });
 
       // Migrate old track data to V2 format with automationLanes
+      // Force unmute all tracks on load to prevent silent playback
       const migratedProjectData = {
         ...loadedProject.projectData,
         tracks: validTracks.map(track => ({
           ...track,
+          mixer: {
+            ...(track as any).mixer,
+            isMuted: false,
+            isSolo: false,
+          },
           automationLanes: (track as any).automationLanes || [],
           ...((track as any).type === 'audio' && { recordings: (track as any).recordings || [] })
         } as DawTrackV2))

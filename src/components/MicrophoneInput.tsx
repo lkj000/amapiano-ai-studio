@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -127,20 +128,38 @@ export const MicrophoneInput = ({ onRecordingComplete, className }: MicrophoneIn
 
     setIsProcessing(true);
     
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Send recorded audio to transcription edge function
+      const reader = new FileReader();
+      const audioBase64 = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+        reader.readAsDataURL(recordedBlob);
+      });
 
-    let transcription = "";
-    if (mode === "voice") {
-      transcription = "Create a soulful private school amapiano track with jazzy piano chords";
-    } else if (mode === "hum") {
-      transcription = "Melodic humming detected - converted to MIDI pattern";
-    } else {
-      transcription = "Sound sample recorded - ready for integration";
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: { audio: audioBase64, mode }
+      });
+
+      let transcription = "";
+      if (error || !data?.transcription) {
+        // Graceful fallback — pass raw blob without transcription
+        console.warn('Transcription unavailable, passing raw recording');
+        transcription = mode === "voice" 
+          ? "[Voice recording — transcription pending]"
+          : mode === "hum" 
+            ? "[Humming detected — pitch extraction pending]"
+            : "[Sound sample recorded]";
+      } else {
+        transcription = data.transcription;
+      }
+
+      setIsProcessing(false);
+      onRecordingComplete(recordedBlob, transcription);
+    } catch (err) {
+      console.error('Processing error:', err);
+      setIsProcessing(false);
+      onRecordingComplete(recordedBlob, "[Recording ready — processing unavailable]");
     }
-
-    setIsProcessing(false);
-    onRecordingComplete(recordedBlob, transcription);
     setRecordedBlob(null);
     setRecordingTime(0);
     

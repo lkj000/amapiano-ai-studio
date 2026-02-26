@@ -161,8 +161,7 @@ export const AuraSidebar: React.FC<AuraSidebarProps> = ({
 
       setOrchestrationStatus('executing');
 
-      // Simulate orchestration process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Edge function call already completed above — no artificial delay
 
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now()}_assistant`,

@@ -4,6 +4,7 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -137,27 +138,34 @@ export function AIMastering() {
     setProgress(0);
 
     try {
-      // Simulate AI mastering process with progress
-      const steps = [
-        'Analyzing audio characteristics...',
-        'Detecting genre and key...',
-        'Applying EQ curve...',
-        'Multiband compression...',
-        'Stereo enhancement...',
-        'Harmonic saturation...',
-        'Limiting and loudness optimization...',
-        'Final polish...'
-      ];
+      toast.info('Sending audio for mastering...');
+      setProgress(20);
 
-      for (let i = 0; i < steps.length; i++) {
-        toast.info(steps[i]);
-        setProgress((i + 1) / steps.length * 100);
-        await new Promise(resolve => setTimeout(resolve, 800));
+      const { data, error } = await supabase.functions.invoke('ai-mastering', {
+        body: {
+          audio_url: audioUrl,
+          settings: {
+            target_lufs: -14,
+            genre: 'amapiano',
+          }
+        }
+      });
+
+      setProgress(80);
+
+      if (error) throw error;
+
+      if (data?.mastered_audio) {
+        const blob = new Blob(
+          [Uint8Array.from(atob(data.mastered_audio), c => c.charCodeAt(0))],
+          { type: 'audio/wav' }
+        );
+        setMasteredUrl(URL.createObjectURL(blob));
+      } else {
+        // Fallback: return original if mastering endpoint doesn't return audio yet
+        setMasteredUrl(audioUrl);
       }
-
-      // In production, this would call an edge function for actual processing
-      // For now, we'll use the original audio as a placeholder
-      setMasteredUrl(audioUrl);
+      setProgress(100);
       toast.success('Mastering complete!');
 
     } catch (error) {

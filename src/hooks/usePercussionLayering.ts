@@ -120,7 +120,7 @@ export function usePercussionLayering() {
     setIsGenerating(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate AI processing
+      // Generate percussion layers using algorithmic patterns
 
       const newLayers: PercussionLayer[] = [];
       const layerCount = Math.ceil(density / 2);

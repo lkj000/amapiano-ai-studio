@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -61,47 +62,40 @@ export const BatchProcessor = ({ onBatchComplete, className }: BatchProcessorPro
     setBatchItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const simulateProcessing = async (item: BatchItem) => {
+  const processItem = async (item: BatchItem) => {
     setBatchItems(prev => prev.map(i => 
       i.id === item.id 
-        ? { ...i, status: 'processing' as const, startTime: Date.now() } 
+        ? { ...i, status: 'processing' as const, startTime: Date.now(), progress: 10 } 
         : i
     ));
 
-    const totalTime = item.estimatedTime || 120;
-    
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise(resolve => setTimeout(resolve, (totalTime * 1000) / 20));
-      
-      setBatchItems(prev => prev.map(batchItem => 
-        batchItem.id === item.id ? { ...batchItem, progress: i } : batchItem
+    try {
+      const endpoint = batchMode === 'analyze' ? 'audio-analysis' : 'ai-music-generation';
+      const body = batchMode === 'analyze' 
+        ? { audio_url: item.url, analysis_type: 'full' }
+        : { prompt: `Generate from: ${item.url}`, type: 'batch' };
+
+      setBatchItems(prev => prev.map(i => 
+        i.id === item.id ? { ...i, progress: 40 } : i
+      ));
+
+      const { data, error } = await supabase.functions.invoke(endpoint, { body });
+
+      if (error) throw error;
+
+      setBatchItems(prev => prev.map(i => 
+        i.id === item.id 
+          ? { ...i, status: 'completed' as const, result: data, progress: 100 }
+          : i
+      ));
+    } catch (err) {
+      console.error(`Batch processing failed for ${item.id}:`, err);
+      setBatchItems(prev => prev.map(i => 
+        i.id === item.id 
+          ? { ...i, status: 'error' as const, progress: 0 }
+          : i
       ));
     }
-
-    // Simulate result
-    const mockResult = batchMode === 'analyze' ? {
-      title: `Track from ${item.url.substring(0, 30)}...`,
-      bpm: Math.floor(Math.random() * 40) + 100,
-      key: ['C major', 'G minor', 'F# minor', 'D major'][Math.floor(Math.random() * 4)],
-      genre: 'Amapiano',
-      stems: {
-        drums: Math.floor(Math.random() * 20) + 80,
-        bass: Math.floor(Math.random() * 20) + 80,
-        piano: Math.floor(Math.random() * 20) + 80,
-        vocals: Math.floor(Math.random() * 20) + 80
-      }
-    } : {
-      trackId: `generated_${item.id}`,
-      title: 'AI Generated Track',
-      duration: 180,
-      stems: ['drums', 'bass', 'piano', 'vocals']
-    };
-
-    setBatchItems(prev => prev.map(i => 
-      i.id === item.id 
-        ? { ...i, status: 'completed' as const, result: mockResult, progress: 100 }
-        : i
-    ));
   };
 
   const processBatch = async () => {
@@ -123,7 +117,7 @@ export const BatchProcessor = ({ onBatchComplete, className }: BatchProcessorPro
       await Promise.all(
         chunk
           .filter(item => item.status === 'pending')
-          .map(item => simulateProcessing(item))
+          .map(item => processItem(item))
       );
     }
 

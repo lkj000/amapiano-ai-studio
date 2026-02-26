@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Upload, File, X, CheckCircle, AlertCircle, FileAudio, FileVideo } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -53,18 +54,24 @@ export const EnhancedFileUpload = ({
     return { valid: true };
   };
 
-  const simulateUpload = async (fileId: string) => {
+  const uploadFile = async (fileId: string, file: File) => {
     const updateProgress = (progress: number) => {
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, progress } : f
       ));
     };
 
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      updateProgress(i);
-    }
+    updateProgress(10);
+
+    // Real upload to Supabase storage
+    const filePath = `uploads/${fileId}/${file.name}`;
+    const { error } = await supabase.storage
+      .from('audio-files')
+      .upload(filePath, file, { upsert: true });
+
+    if (error) throw error;
+
+    updateProgress(100);
 
     // Mark as completed
     setUploadedFiles(prev => prev.map(f => 
@@ -84,17 +91,17 @@ export const EnhancedFileUpload = ({
       }
 
       const fileId = Math.random().toString(36).substr(2, 9);
-      const uploadFile: UploadedFile = {
+      const newFile: UploadedFile = {
         file,
         progress: 0,
         status: 'uploading',
         id: fileId
       };
 
-      setUploadedFiles(prev => [...prev, uploadFile]);
+      setUploadedFiles(prev => [...prev, newFile]);
       
       try {
-        await simulateUpload(fileId);
+        await uploadFile(fileId, file);
         onFileSelect(file);
         toast.success(`File "${file.name}" uploaded successfully`);
       } catch (error) {

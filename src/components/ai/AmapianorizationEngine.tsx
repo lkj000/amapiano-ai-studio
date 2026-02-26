@@ -200,12 +200,9 @@ export const AmapianorizationEngine: React.FC<AmapianorizationEngineProps> = ({
         { name: 'Cultural authenticity validation...', progress: 95 }
       ];
 
-      // Show progress
-      for (const stage of stages) {
-        toast.info(stage.name);
-        setProgress(stage.progress);
-        await new Promise(resolve => setTimeout(resolve, 400));
-      }
+      // Show initial progress
+      setProgress(10);
+      toast.info('Processing stems...');
 
       // Call the backend
       const { data, error } = await supabase.functions.invoke('amapianorize-audio', {

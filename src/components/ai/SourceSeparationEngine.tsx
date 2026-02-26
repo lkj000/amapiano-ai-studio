@@ -409,20 +409,33 @@ export const SourceSeparationEngine: React.FC<{
   }, [analyzeStems, classifyFromFeatures]);
 
   const analyzeAudioPatterns = useCallback(async (stems: SeparatedStem[]): Promise<AnalysisResult> => {
-    // Simulate pattern analysis
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Call real audio analysis edge function
+    const { data, error } = await supabase.functions.invoke('audio-analysis', {
+      body: {
+        type: 'pattern_analysis',
+        stems: stems.map(s => ({ name: s.name, audioUrl: s.audioUrl, instrument: s.instrument }))
+      }
+    });
+
+    if (error || !data) {
+      console.warn('[SourceSeparation] Pattern analysis failed, using basic analysis');
+      return {
+        bpm: 118,
+        key: 'Unknown',
+        mood: 'Unknown',
+        genre: 'Amapiano',
+        complexity: 50,
+        patterns: { rhythm: [], harmony: [], melody: [] }
+      };
+    }
 
     return {
-      bpm: 118,
-      key: 'F# minor',
-      mood: 'Energetic',
-      genre: 'Private School Amapiano',
-      complexity: 78,
-      patterns: {
-        rhythm: ['4/4 Log Drum Pattern', 'Syncopated Hi-Hat', 'Off-beat Kick'],
-        harmony: ['ii-V-I Progression', 'Jazz Extensions', 'Modal Interchange'],
-        melody: ['Pentatonic Motifs', 'Call-Response', 'Rhythmic Displacement']
-      }
+      bpm: data.bpm || 118,
+      key: data.key || 'Unknown',
+      mood: data.mood || 'Unknown',
+      genre: data.genre || 'Amapiano',
+      complexity: data.complexity || 50,
+      patterns: data.patterns || { rhythm: [], harmony: [], melody: [] }
     };
   }, []);
 
@@ -437,11 +450,7 @@ export const SourceSeparationEngine: React.FC<{
     try {
       await initializeAudioContext();
 
-      // Simulate file upload progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        setUploadProgress(progress);
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      setUploadProgress(100);
 
       toast.info("Starting AI stem separation... (this may take 2-4 minutes)");
 

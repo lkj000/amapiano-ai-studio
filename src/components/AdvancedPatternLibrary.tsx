@@ -256,14 +256,30 @@ export const AdvancedPatternLibrary: React.FC<AdvancedPatternLibraryProps> = ({
   }, [patterns, searchQuery, selectedCategory, selectedDifficulty, selectedType, sortBy]);
 
   const playPattern = (pattern: Pattern) => {
-    // Simulate pattern playback
     setPlayingPattern(pattern.id);
     toast.info(`🎵 Playing: ${pattern.name}`);
-    
-    // Stop after 5 seconds (simulated)
-    setTimeout(() => {
-      setPlayingPattern(null);
-    }, 5000);
+
+    // Use Tone.js to play the pattern's MIDI data
+    if (pattern.midiData && Array.isArray(pattern.midiData)) {
+      import('tone').then((Tone) => {
+        const now = Tone.now();
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        pattern.midiData.forEach((note: any, i: number) => {
+          synth.triggerAttackRelease(
+            note.pitch || 'C4',
+            note.duration || '8n',
+            now + (note.time || i * 0.25)
+          );
+        });
+        const totalDuration = pattern.midiData.reduce((acc: number, n: any) => Math.max(acc, (n.time || 0) + 0.5), 2);
+        setTimeout(() => {
+          setPlayingPattern(null);
+          synth.dispose();
+        }, totalDuration * 1000);
+      });
+    } else {
+      setTimeout(() => setPlayingPattern(null), 2000);
+    }
   };
 
   const stopPattern = () => {
@@ -280,8 +296,15 @@ export const AdvancedPatternLibrary: React.FC<AdvancedPatternLibraryProps> = ({
   };
 
   const downloadMIDI = (pattern: Pattern) => {
-    // Simulate MIDI download
-    toast.success(`Downloaded MIDI for "${pattern.name}"`);
+    const midiData = JSON.stringify(pattern.midiData || { name: pattern.name });
+    const blob = new Blob([midiData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${pattern.name.replace(/\s+/g, '_')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded data for "${pattern.name}"`);
   };
 
   const PatternCard: React.FC<{ pattern: Pattern; isSelected: boolean }> = ({ pattern, isSelected }) => (

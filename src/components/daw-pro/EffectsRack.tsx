@@ -150,19 +150,13 @@ export const EffectsRack: React.FC<EffectsRackProps> = ({
     : AMAPIANO_PRESETS.filter(p => p.category === selectedCategory);
 
   const handleApplyPreset = useCallback((preset: EffectPreset) => {
-    setIsProcessing(true);
-    
-    // Simulate processing delay for visual feedback
-    setTimeout(() => {
-      const newEffects: Effect[] = preset.effects.map((e, i) => ({
-        ...e,
-        id: `${preset.id}-${i}-${Date.now()}`,
-      }));
-      setActiveEffects(newEffects);
-      setExpandedEffects(new Set([newEffects[0]?.id]));
-      setIsProcessing(false);
-      onApplyPreset?.(preset);
-    }, 300);
+    const newEffects: Effect[] = preset.effects.map((e, i) => ({
+      ...e,
+      id: `${preset.id}-${i}-${Date.now()}`,
+    }));
+    setActiveEffects(newEffects);
+    setExpandedEffects(new Set([newEffects[0]?.id]));
+    onApplyPreset?.(preset);
   }, [onApplyPreset]);
 
   const toggleEffect = useCallback((effectId: string) => {

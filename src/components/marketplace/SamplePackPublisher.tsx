@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -193,19 +194,17 @@ export function SamplePackPublisher() {
     setIsUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, 200);
-
     try {
-      await new Promise(resolve => setTimeout(resolve, 4500));
+      // Upload samples to Supabase storage
+      for (let i = 0; i < samples.length; i++) {
+        const sample = samples[i];
+        const filePath = `sample-packs/${Date.now()}/${sample.file.name}`;
+        const { error } = await supabase.storage
+          .from('audio-files')
+          .upload(filePath, sample.file, { upsert: true });
+        if (error) throw error;
+        setUploadProgress(Math.round(((i + 1) / samples.length) * 100));
+      }
       
       toast.success('Sample pack published!', {
         description: 'Your pack is now available in the marketplace.'

@@ -386,11 +386,9 @@ export const ArtistStyleTransfer: React.FC<ArtistStyleTransferProps> = ({
         { progress: 100, message: "Style transfer complete!" }
       ];
 
-      for (const step of steps) {
-        setTransformProgress(step.progress);
-        toast.info(step.message);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+      // Show initial progress
+      setTransformProgress(15);
+      toast.info("Applying artistic transformation...");
 
       // Call the neural music generation function
       const { data, error } = await supabase.functions.invoke('neural-music-generation', {

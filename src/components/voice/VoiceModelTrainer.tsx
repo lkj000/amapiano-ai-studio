@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,32 +132,43 @@ export const VoiceModelTrainer = () => {
     setTrainingStatus('preparing');
     setTrainingProgress(0);
 
-    // Simulate training process
     toast({
       title: 'Training Started',
-      description: 'Preparing dataset and initializing model...',
+      description: 'Submitting dataset to training pipeline...',
     });
 
-    setTimeout(() => {
+    try {
       setTrainingStatus('training');
-      
-      const interval = setInterval(() => {
-        setCurrentEpoch((prev) => {
-          const next = prev + 1;
-          setTrainingProgress((next / config.epochs) * 100);
-          
-          if (next >= config.epochs) {
-            clearInterval(interval);
-            setTrainingStatus('completed');
-            toast({
-              title: 'Training Complete!',
-              description: `Voice model "${config.modelName}" is ready to use`,
-            });
-          }
-          return next;
-        });
-      }, 100); // Simulated fast training for demo
-    }, 2000);
+
+      const { data, error } = await supabase.functions.invoke('train-voice-model', {
+        body: {
+          model_name: config.modelName,
+          epochs: config.epochs,
+          learning_rate: config.learningRate,
+          batch_size: config.batchSize,
+          sample_count: readySamples.length,
+        }
+      });
+
+      if (error) throw error;
+
+      setTrainingProgress(100);
+      setCurrentEpoch(config.epochs);
+      setTrainingStatus('completed');
+      toast({
+        title: 'Training Complete!',
+        description: `Voice model "${config.modelName}" is ready to use`,
+      });
+    } catch (err) {
+      console.error('Training failed:', err);
+      setTrainingStatus('idle');
+      setTrainingProgress(0);
+      toast({
+        title: 'Training Failed',
+        description: 'Voice model training pipeline unavailable. Check backend connectivity.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const readySamples = samples.filter((s) => s.status === 'ready');

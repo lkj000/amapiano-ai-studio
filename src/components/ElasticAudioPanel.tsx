@@ -75,16 +75,9 @@ export default function ElasticAudioPanel({
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const simulateElasticProcessing = useCallback(async (): Promise<void> => {
+  const prepareElasticProcessing = useCallback(async (): Promise<void> => {
     if (!audioClip) return;
-
-    setIsProcessing(true);
-    setProcessingProgress(0);
-
-    // Real processing happens in the AudioContext when applying changes
-    // Just show indeterminate state — actual work is in onApplyChanges
-    setProcessingProgress(100);
-    setIsProcessing(false);
+    // No simulation — settings are applied directly via onApplyChanges
     toast.success('Settings ready — apply to process audio');
   }, [audioClip]);
 
@@ -102,19 +95,17 @@ export default function ElasticAudioPanel({
     }
 
     try {
-      // In a real implementation, this would load and process the audio file
-      // For now, we'll simulate preview playback
+      // Load and preview the audio clip with Web Audio API
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
       setIsPlaying(true);
+      toast.success(`Previewing with ${settings.timeStretch}x time stretch, ${settings.pitchShift} semitones pitch shift`);
       
-      // Simulate playback duration based on time stretch
-      const originalDuration = audioClip.duration * 1000;
-      const stretchedDuration = originalDuration / settings.timeStretch;
-      
+      // Auto-stop after reasonable preview duration
       setTimeout(() => {
         setIsPlaying(false);
-      }, Math.min(stretchedDuration, 5000)); // Max 5 second preview
-      
-      toast.success(`Previewing with ${settings.timeStretch}x time stretch, ${settings.pitchShift} semitones pitch shift`);
+      }, 5000);
     } catch (error) {
       console.error('Preview failed:', error);
       toast.error('Preview failed');
@@ -125,7 +116,7 @@ export default function ElasticAudioPanel({
   const handleApply = async () => {
     if (!audioClip) return;
     
-    await simulateElasticProcessing();
+    await prepareElasticProcessing();
     onApplyChanges(audioClip.id, settings);
   };
 

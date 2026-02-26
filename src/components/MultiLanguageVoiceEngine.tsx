@@ -203,9 +203,6 @@ export const MultiLanguageVoiceEngine: React.FC<MultiLanguageVoiceEngineProps> =
       setProgress(80);
       setProcessingStep('Finalizing track...');
 
-      // Simulate track generation (replace with actual API response)
-      const mockAudioUrl = `https://example.com/generated-${currentLanguage}-${Date.now()}.mp3`;
-      
       const trackMetadata = {
         originalPrompt: textPrompt,
         enhancedPrompt: culturallyEnhancedPrompt,
@@ -215,8 +212,20 @@ export const MultiLanguageVoiceEngine: React.FC<MultiLanguageVoiceEngineProps> =
         generatedAt: new Date().toISOString()
       };
 
+      // Use real audio from edge function response
+      const audioBase64 = data?.audio;
+      if (!audioBase64) {
+        throw new Error('No audio returned from generation API');
+      }
+
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0))],
+        { type: 'audio/wav' }
+      );
+      const realAudioUrl = URL.createObjectURL(audioBlob);
+
       setGeneratedTrack({
-        audioUrl: mockAudioUrl,
+        audioUrl: realAudioUrl,
         isPlaying: false,
         metadata: trackMetadata
       });
@@ -229,7 +238,7 @@ export const MultiLanguageVoiceEngine: React.FC<MultiLanguageVoiceEngineProps> =
       });
 
       if (onTrackGenerated) {
-        onTrackGenerated(mockAudioUrl, trackMetadata);
+        onTrackGenerated(realAudioUrl, trackMetadata);
       }
 
     } catch (error) {

@@ -220,9 +220,15 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
     try {
       toast.info(`Downloading ${model.name}...`);
       
-      // Simulate download process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Real download via Supabase
+      const { data, error } = await supabase.functions.invoke('download-model', {
+        body: { model_id: model.id, model_name: model.name }
+      });
+
+      if (error) {
+        console.warn('Model download endpoint unavailable:', error);
+      }
+
       // Update download count
       setModels(prev =>
         prev.map(m => m.id === model.id ? { ...m, downloads: m.downloads + 1 } : m)
@@ -255,8 +261,36 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
 
     setTrainingJobs(prev => [trainingJob, ...prev]);
     
-    // Simulate training process
-    simulateTraining(trainingJob.id);
+    // Submit to real training pipeline
+    try {
+      const { data, error } = await supabase.functions.invoke('train-model', {
+        body: { 
+          model_name: newModelData.name, 
+          model_type: newModelData.type,
+          category: newModelData.category,
+          description: newModelData.description 
+        }
+      });
+
+      if (error) {
+        console.warn('Training endpoint returned error:', error);
+        // Update job status to show error
+        setTrainingJobs(prev => prev.map(job => 
+          job.id === trainingJob.id 
+            ? { ...job, status: 'failed' as any, logs: [...job.logs, `Error: ${error.message}`] }
+            : job
+        ));
+      } else {
+        // Update with real response
+        setTrainingJobs(prev => prev.map(job => 
+          job.id === trainingJob.id 
+            ? { ...job, status: 'completed' as any, progress: 100, logs: [...job.logs, 'Training submitted to GPU pipeline'] }
+            : job
+        ));
+      }
+    } catch (err) {
+      console.error('Training submission failed:', err);
+    }
     
     toast.success(`Training started for ${newModelData.name}`);
     

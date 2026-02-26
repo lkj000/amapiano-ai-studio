@@ -76,16 +76,21 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     setUpgrading(tierName);
     
     try {
-      // In a real implementation, this would integrate with Stripe
-      // For now, we'll simulate the upgrade process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Upgrade Successful!",
-        description: `Welcome to ${tierName}! Your new features are now active.`,
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { tier: tierName }
       });
 
-      onUpgrade?.(tierName);
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast({
+          title: "Upgrade Initiated",
+          description: `Processing upgrade to ${tierName}...`,
+        });
+        onUpgrade?.(tierName);
+      }
     } catch (error) {
       console.error('Error upgrading subscription:', error);
       toast({

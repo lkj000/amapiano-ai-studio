@@ -143,31 +143,51 @@ serve(async (req) => {
         };
       }
     } else if (notification_type === 'email') {
-      // For email, you would integrate with a service like SendGrid, Resend, or AWS SES
-      // Here's a placeholder that logs the email content
-      console.log('[Alert Notification] Email notification:', {
-        to: user.email,
-        subject: `${anomaly.severity.toUpperCase()} Performance Alert - ${anomaly.anomaly_type}`,
-        body: `
-          Performance Alert Detected
-          
-          Severity: ${anomaly.severity}
-          Type: ${anomaly.anomaly_type}
-          Description: ${anomaly.description}
-          Detected: ${new Date(anomaly.detected_at).toLocaleString()}
-          
-          Metrics:
-          ${JSON.stringify(anomaly.metrics, null, 2)}
-          
-          Please review your performance dashboard for more details.
-        `
-      });
+      const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-      notificationResult = {
-        type: 'email',
-        success: true,
-        message: 'Email notification logged (integration pending)'
-      };
+      if (resendApiKey) {
+        const emailResp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'alerts@amapiano-ai-studio.com',
+            to: user.email,
+            subject: `[Alert] ${anomaly.anomaly_type} threshold exceeded`,
+            html: `<p>Metric <strong>${anomaly.anomaly_type}</strong> reached severity <strong>${anomaly.severity}</strong>.</p>
+<p>${anomaly.description}</p>
+<p>Detected: ${new Date(anomaly.detected_at).toLocaleString()}</p>
+<pre>${JSON.stringify(anomaly.metrics, null, 2)}</pre>`,
+          }),
+        });
+
+        if (!emailResp.ok) {
+          console.error('[Alert Notification] Resend email failed:', await emailResp.text());
+        }
+
+        notificationResult = {
+          type: 'email',
+          success: emailResp.ok,
+          status: emailResp.status,
+        };
+      } else {
+        // No email key — write to Supabase performance_alerts table
+        await supabaseClient.from('performance_alerts').insert({
+          metric: anomaly.anomaly_type,
+          current_value: anomaly.severity,
+          threshold: anomaly.metrics,
+          alert_type: anomaly.anomaly_type,
+          sent_at: new Date().toISOString(),
+        });
+
+        notificationResult = {
+          type: 'email',
+          success: true,
+          message: 'No RESEND_API_KEY configured — alert recorded in performance_alerts table',
+        };
+      }
     }
 
     // Record notification in database (optional - could add a notifications table)

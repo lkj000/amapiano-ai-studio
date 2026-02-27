@@ -79,9 +79,8 @@ export function WaveformVisualizer({
         setWaveformData(normalizedData);
       } catch (error) {
         console.error('Error extracting waveform:', error);
-        // Generate placeholder waveform
-        const placeholder = Array.from({ length: 100 }, () => Math.random() * 0.5 + 0.2);
-        setWaveformData(placeholder);
+        // Show flat line on error — no fake random data
+        setWaveformData(Array.from(new Float32Array(100)));
       } finally {
         setIsLoading(false);
       }
@@ -184,13 +183,13 @@ export function WaveformVisualizer({
     >
       {isLoading ? (
         <div className="absolute inset-0 flex items-center justify-center bg-muted/20 rounded">
-          <div className="flex gap-1">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div 
+          <div className="flex gap-1 items-center">
+            {[10, 20, 16, 24, 12].map((h, i) => (
+              <div
                 key={i}
                 className="w-1 bg-primary animate-pulse rounded"
-                style={{ 
-                  height: Math.random() * 20 + 10,
+                style={{
+                  height: h,
                   animationDelay: `${i * 0.1}s`
                 }}
               />
@@ -244,8 +243,8 @@ export function MiniWaveform({
   className 
 }: MiniWaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [waveformData] = useState<number[]>(() => 
-    Array.from({ length: 30 }, () => Math.random() * 0.6 + 0.2)
+  const [waveformData] = useState<number[]>(() =>
+    Array.from(new Float32Array(30))
   );
 
   useEffect(() => {

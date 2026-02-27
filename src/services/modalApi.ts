@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 // Modal Backend API Service
 // Routes through Supabase Edge Functions → Modal GPU Backend
 
+const MODAL_API_BASE = import.meta.env.VITE_MODAL_API_URL || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+
 export interface AudioAnalysisResult {
   bpm: number;
   key: string;
@@ -94,7 +96,7 @@ class ModalApiService {
    * Check backend health status
    */
   async checkHealth(): Promise<{ status: string; gpu: boolean }> {
-    const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/health');
+    const response = await fetch(`${MODAL_API_BASE}/health`);
     return response.json();
   }
 }

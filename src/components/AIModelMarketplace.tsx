@@ -260,79 +260,65 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
     };
 
     setTrainingJobs(prev => [trainingJob, ...prev]);
-    
-    // Submit to real training pipeline
-    try {
-      const { data, error } = await supabase.functions.invoke('train-model', {
-        body: { 
-          model_name: newModelData.name, 
-          model_type: newModelData.type,
-          category: newModelData.category,
-          description: newModelData.description 
-        }
-      });
 
-      if (error) {
-        console.warn('Training endpoint returned error:', error);
-        // Update job status to show error
-        setTrainingJobs(prev => prev.map(job => 
-          job.id === trainingJob.id 
-            ? { ...job, status: 'failed' as any, logs: [...job.logs, `Error: ${error.message}`] }
-            : job
-        ));
-      } else {
-        // Update with real response
-        setTrainingJobs(prev => prev.map(job => 
-          job.id === trainingJob.id 
-            ? { ...job, status: 'completed' as any, progress: 100, logs: [...job.logs, 'Training submitted to GPU pipeline'] }
-            : job
-        ));
-      }
-    } catch (err) {
-      console.error('Training submission failed:', err);
-    }
-    
-    toast.success(`Training started for ${newModelData.name}`);
-    
-    // Reset form
-    setNewModelData({
-      name: '',
-      description: '',
-      type: 'melody',
-      category: 'amapiano'
+    const modelConfig = {
+      model_name: newModelData.name,
+      model_type: newModelData.type,
+      category: newModelData.category,
+      description: newModelData.description,
+    };
+
+    // Try neural-model-trainer first, fall back to train-model
+    let data: any = null;
+    let invokeError: any = null;
+
+    const firstAttempt = await supabase.functions.invoke('neural-model-trainer', {
+      body: { modelConfig, trainingData: {} }
     });
-  };
-
-  const simulateTraining = async (jobId: string) => {
-    const stages = [
-      { status: 'preparing' as const, progress: 10, log: 'Dataset validation complete' },
-      { status: 'training' as const, progress: 30, log: 'Training epoch 1/10 completed' },
-      { status: 'training' as const, progress: 60, log: 'Training epoch 5/10 completed' },
-      { status: 'training' as const, progress: 85, log: 'Training epoch 9/10 completed' },
-      { status: 'validating' as const, progress: 95, log: 'Running validation tests...' },
-      { status: 'completed' as const, progress: 100, log: 'Model training completed successfully!' }
-    ];
-
-    for (const stage of stages) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      setTrainingJobs(prev =>
-        prev.map(job =>
-          job.id === jobId
-            ? {
-                ...job,
-                status: stage.status,
-                progress: stage.progress,
-                logs: [...job.logs, stage.log]
-              }
-            : job
-        )
-      );
+    if (!firstAttempt.error) {
+      data = firstAttempt.data;
+    } else {
+      const secondAttempt = await supabase.functions.invoke('train-model', {
+        body: modelConfig
+      });
+      if (!secondAttempt.error) {
+        data = secondAttempt.data;
+      } else {
+        invokeError = secondAttempt.error;
+      }
     }
 
-    // Add completed model to marketplace
-    if (Math.random() > 0.2) { // 80% success rate
-      setTimeout(() => {
+    if (invokeError) {
+      // Neither function exists — show honest message, disable further interaction
+      setTrainingJobs(prev => prev.map(job =>
+        job.id === trainingJob.id
+          ? { ...job, status: 'failed' as const, logs: [...job.logs, 'Model training requires GPU infrastructure. Contact support to enable.'] }
+          : job
+      ));
+      toast.error('Model training requires GPU infrastructure. Contact support to enable.');
+    } else {
+      // Use size and accuracy from the real training response
+      const responseSize: string = data?.model_size || data?.size || 'Unknown';
+      const responseAccuracy: number = typeof data?.accuracy === 'number' ? data.accuracy : 0;
+
+      setTrainingJobs(prev => prev.map(job =>
+        job.id === trainingJob.id
+          ? {
+              ...job,
+              status: 'completed' as const,
+              progress: 100,
+              logs: [
+                ...job.logs,
+                'Training submitted to GPU pipeline',
+                ...(responseSize !== 'Unknown' ? [`Model size: ${responseSize}`] : []),
+                ...(responseAccuracy > 0 ? [`Accuracy: ${(responseAccuracy * 100).toFixed(1)}%`] : []),
+              ]
+            }
+          : job
+      ));
+
+      // Add trained model to marketplace with real response values
+      if (data) {
         const newModel: AIModel = {
           id: `model_${Date.now()}`,
           name: newModelData.name,
@@ -341,8 +327,8 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
           type: newModelData.type,
           category: newModelData.category,
           version: '1.0.0',
-          size: `${Math.round(Math.random() * 50 + 20)}MB`,
-          accuracy: Math.random() * 0.2 + 0.8,
+          size: responseSize,
+          accuracy: responseAccuracy,
           downloads: 0,
           rating: 0,
           reviews: 0,
@@ -353,12 +339,22 @@ export const AIModelMarketplace: React.FC<AIModelMarketplaceProps> = ({
           isVerified: false,
           isFeatured: false
         };
-
         setModels(prev => [newModel, ...prev]);
-        toast.success(`🎉 Your model "${newModel.name}" is now available in the marketplace!`);
-      }, 1000);
+        toast.success(`Your model "${newModel.name}" is now available in the marketplace!`);
+      } else {
+        toast.success(`Training started for ${newModelData.name}`);
+      }
     }
+
+    // Reset form
+    setNewModelData({
+      name: '',
+      description: '',
+      type: 'melody',
+      category: 'amapiano'
+    });
   };
+
 
   const playDemo = async (model: AIModel) => {
     if (model.demoUrl) {

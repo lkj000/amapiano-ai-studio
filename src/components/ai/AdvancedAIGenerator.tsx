@@ -2,13 +2,12 @@ import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Brain, Wand2, Zap, Music, Layers, Target, Settings2 } from 'lucide-react';
+import { Brain, Wand2, Zap, Music, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -46,9 +45,7 @@ export const AdvancedAIGenerator: React.FC = () => {
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationProgress, setGenerationProgress] = useState(0);
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
-  const [activePhase, setActivePhase] = useState<string>('');
 
   const updateParam = useCallback((key: keyof AdvancedGenerationParams, value: any) => {
     setParams(prev => ({ ...prev, [key]: value }));
@@ -61,36 +58,8 @@ export const AdvancedAIGenerator: React.FC = () => {
     }
 
     setIsGenerating(true);
-    setGenerationProgress(0);
-    setActivePhase('Initializing Neural Engine');
-
-    const phases = [
-      { name: 'Initializing Neural Engine', duration: 1000 },
-      { name: 'Analyzing Prompt & Context', duration: 1500 },
-      { name: 'Loading Cultural Knowledge', duration: 1200 },
-      { name: 'Generating Musical Patterns', duration: 2500 },
-      { name: 'Applying Cultural Authenticity', duration: 1800 },
-      { name: 'Quality Analysis & Refinement', duration: 1500 },
-      { name: 'Finalizing Generation', duration: 800 },
-    ];
 
     try {
-      let currentProgress = 0;
-      
-      for (const phase of phases) {
-        setActivePhase(phase.name);
-        
-        // Simulate realistic progress
-        const phaseProgress = 100 / phases.length;
-        const interval = setInterval(() => {
-          setGenerationProgress(prev => Math.min(prev + 2, currentProgress + phaseProgress));
-        }, phase.duration / 20);
-        
-        await new Promise(resolve => setTimeout(resolve, phase.duration));
-        clearInterval(interval);
-        currentProgress += phaseProgress;
-      }
-
       // Call the neural music generation service
       const { data, error } = await supabase.functions.invoke('neural-music-generation', {
         body: {
@@ -114,9 +83,6 @@ export const AdvancedAIGenerator: React.FC = () => {
 
       if (error) throw error;
 
-      setGenerationProgress(100);
-      setActivePhase('Generation Complete');
-
       const content: GeneratedContent = {
         trackId: `advanced_${Date.now()}`,
         instrumentData: data.midiData,
@@ -138,8 +104,6 @@ export const AdvancedAIGenerator: React.FC = () => {
       toast.error('Advanced generation failed. Please try again.');
     } finally {
       setIsGenerating(false);
-      setGenerationProgress(0);
-      setActivePhase('');
     }
   };
 
@@ -323,16 +287,6 @@ export const AdvancedAIGenerator: React.FC = () => {
 
                 {/* Generation Button */}
                 <div className="flex flex-col gap-4">
-                  {isGenerating && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">{activePhase}</span>
-                        <span className="text-sm text-muted-foreground">{Math.round(generationProgress)}%</span>
-                      </div>
-                      <Progress value={generationProgress} />
-                    </div>
-                  )}
-
                   <Button
                     onClick={generateAdvancedContent}
                     disabled={isGenerating || !params.prompt.trim()}

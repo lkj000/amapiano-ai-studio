@@ -223,15 +223,24 @@ export const AuraConductor: React.FC<AuraConductorProps> = ({ user }) => {
           })
           .eq('id', session.id);
 
-        // Simulate progress within each step
-        for (let p = 0; p <= 100; p += 20) {
-          setOrchestrationSteps(prev => 
-            prev.map((step, idx) => 
-              idx === i ? { ...step, progress: p } : step
-            )
-          );
-          await new Promise(resolve => setTimeout(resolve, 300));
+        // Execute the real step via edge function and wait for response
+        setOrchestrationSteps(prev =>
+          prev.map((step, idx) =>
+            idx === i ? { ...step, progress: 50 } : step
+          )
+        );
+        try {
+          await supabase.functions.invoke('aura-conductor-orchestration', {
+            body: { ...task, session_id: session.id }
+          });
+        } catch (stepError) {
+          console.error(`Step error for task ${task.task}:`, stepError);
         }
+        setOrchestrationSteps(prev =>
+          prev.map((step, idx) =>
+            idx === i ? { ...step, progress: 100 } : step
+          )
+        );
         
         // Update progress
         setProgress(((i + 1) / tasks.length) * 100);

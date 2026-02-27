@@ -31,8 +31,9 @@ import {
   Users
 } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWasmAcceleratedGeneration } from '@/hooks/useWasmAcceleratedGeneration';
+import { supabase } from '@/integrations/supabase/client';
 import { usePerformanceAlerts } from '@/hooks/usePerformanceAlerts';
 import { useCostTracking } from '@/hooks/useCostTracking';
 import { useRealtimePerformanceMonitoring } from '@/hooks/useRealtimePerformanceMonitoring';
@@ -82,17 +83,57 @@ export function PerformanceMonitoringDashboard() {
     target: 180
   }));
 
-  const throughputData = Array.from({ length: 10 }, (_, i) => ({
-    minute: i + 1,
-    generations: Math.floor(Math.random() * 30) + 20,
-    target: 25
-  }));
+  // Throughput and cost data fetched from metrics edge function
+  const [throughputData, setThroughputData] = useState<Array<{ minute: number; generations: number; target: number }>>([]);
+  const [costData, setCostData] = useState<Array<{ day: string; cost: number; budget: number }>>([]);
+  const lastThroughputRef = useRef<typeof throughputData>([]);
+  const lastCostRef = useRef<typeof costData>([]);
 
-  const costData = Array.from({ length: 7 }, (_, i) => ({
-    day: `Day ${i + 1}`,
-    cost: Math.random() * 100 + 50,
-    budget: 120
-  }));
+  useEffect(() => {
+    const fetchChartMetrics = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('metrics');
+        if (error || !data) return;
+
+        // Map throughput window — use real data if available, else keep last known
+        if (data.throughput_window && Array.isArray(data.throughput_window)) {
+          const td = data.throughput_window.map((g: number, i: number) => ({
+            minute: i + 1,
+            generations: g,
+            target: 25
+          }));
+          lastThroughputRef.current = td;
+          setThroughputData(td);
+        } else if (data.requests_per_minute !== undefined) {
+          // Single value — build a rolling window from last known + new point
+          const prev = lastThroughputRef.current.length === 10
+            ? lastThroughputRef.current.slice(1)
+            : Array.from({ length: 9 }, (_, i) => ({ minute: i + 1, generations: 0, target: 25 }));
+          const td = [...prev, { minute: 10, generations: Number(data.requests_per_minute), target: 25 }]
+            .map((p, i) => ({ ...p, minute: i + 1 }));
+          lastThroughputRef.current = td;
+          setThroughputData(td);
+        }
+
+        // Map daily cost breakdown — use real data if available, else keep last known
+        if (data.cost_by_day && Array.isArray(data.cost_by_day)) {
+          const cd = data.cost_by_day.map((entry: any, i: number) => ({
+            day: entry.day ?? `Day ${i + 1}`,
+            cost: Number(entry.cost ?? 0),
+            budget: Number(entry.budget ?? data.daily_budget ?? 120)
+          }));
+          lastCostRef.current = cd;
+          setCostData(cd);
+        }
+      } catch {
+        // On error keep last known values — already set in state, no update needed
+      }
+    };
+
+    fetchChartMetrics();
+    const id = setInterval(fetchChartMetrics, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   // Monitor for alerts
   useEffect(() => {

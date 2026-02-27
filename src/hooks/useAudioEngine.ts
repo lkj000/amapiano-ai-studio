@@ -44,7 +44,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   useEffect(() => {
     const initAudioContext = async () => {
       try {
-        console.log('AudioEngine: Initializing AudioContext...');
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         masterGainRef.current = audioContextRef.current.createGain();
         
@@ -60,11 +59,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         }
         
         // Initialize effects system with the AudioContext
-        console.log('AudioEngine: Initializing effects system...');
         const { createAudioEffectsSystem } = await import('./useAudioEffects');
         effectsRef.current = createAudioEffectsSystem(audioContextRef.current);
-        
-        console.log('AudioEngine: AudioContext initialized successfully');
       } catch (error) {
         console.error('Failed to initialize audio context:', error);
       }
@@ -91,16 +87,8 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   // Setup track gains and effects when track structure changes (NOT on mixer updates)
   useEffect(() => {
     if (!audioContextRef.current || !masterGainRef.current || !projectData || !effectsRef.current) {
-      console.log('AudioEngine: Not ready for track setup:', {
-        audioContext: !!audioContextRef.current,
-        masterGain: !!masterGainRef.current,
-        projectData: !!projectData,
-        effects: !!effectsRef.current
-      });
       return;
     }
-
-    console.log('AudioEngine: Setting up tracks...', projectData.tracks);
 
     // Clear existing track gains and analyzers
     trackGainsRef.current.clear();
@@ -110,17 +98,14 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     if (projectData.tracks && Array.isArray(projectData.tracks)) {
       projectData.tracks.forEach(async (track, index) => {
         try {
-          console.log(`AudioEngine: Setting up track ${index}:`, track);
-          
           const gainNode = audioContextRef.current!.createGain();
           const analyzer = audioContextRef.current!.createAnalyser();
-          
+
           analyzer.fftSize = 256;
           gainNode.gain.value = track.mixer?.volume || 0.8;
-          
+
           // Initialize effects chain for the track
           const trackEffects = track.mixer?.effects || [];
-          console.log(`AudioEngine: Track ${track.id} effects:`, trackEffects);
           
           if (trackEffects.length > 0) {
             const effectsChain = await effectsRef.current.initializeEffectsChain(
@@ -146,8 +131,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
           
           trackGainsRef.current.set(track.id, gainNode);
           trackAnalyzers.current.set(track.id, analyzer);
-          
-          console.log(`AudioEngine: Track ${track.id} setup complete`);
         } catch (error) {
           console.error(`AudioEngine: Error setting up track ${track.id}:`, error);
         }
@@ -197,22 +180,13 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, [isPlaying]);
 
   const play = useCallback(() => {
-    console.log('🎬 AudioEngine: play() CALLED');
-    
     if (!audioContextRef.current) {
-      console.warn('AudioEngine: No audio context available');
       return;
     }
     
     if (audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
     }
-
-    console.log('AudioEngine: Starting playback', { 
-      tracks: projectData?.tracks.length,
-      allTracks: projectData?.tracks.map(t => ({ id: t.id, name: t.name, clips: t.clips.length })),
-      projectData: projectData
-    });
 
     setIsPlaying(true);
     
@@ -260,15 +234,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
                       // Schedule with setTimeout so we can cancel on stop/pause
                       const timeoutId = window.setTimeout(() => {
                         const osc = synthNote(note.pitch, note.velocity, noteDuration, track.instrument || '', track.id);
-                        console.log('AudioEngine: transport NOTE', {
-                          pitch: note.pitch,
-                          startTimeBeats: absoluteNoteTime,
-                          durationBeats: note.duration,
-                          frequency: 440 * Math.pow(2, (note.pitch - 69) / 12),
-                          waveform: osc?.type,
-                          trackId: track.id,
-                          instrument: track.instrument,
-                        });
 
                         // Cleanup tracking after note start
                         if (scheduledNotesRef.current) scheduledNotesRef.current.delete(noteKey);
@@ -322,7 +287,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, [projectData]);
 
   const pause = useCallback(() => {
-    console.log('⏸️ AudioEngine: pause() CALLED');
     setIsPlaying(false);
     
     if (playbackIntervalRef.current) {
@@ -361,14 +325,12 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   }, []);
 
   const stop = useCallback(() => {
-    console.log('⏹️ AudioEngine: stop() CALLED');
     pause();
     setCurrentTime(0);
   }, [pause]);
 
   const setBpm = useCallback((bpm: number) => {
     // In a real implementation, this would adjust the audio engine's tempo
-    console.log(`Setting BPM to ${bpm}`);
   }, []);
 
   const setMasterVolume = useCallback((volume: number) => {
@@ -483,7 +445,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
       const beatOffset = currentBeat - clipStartBeat;
       const timeOffset = Math.max(0, beatOffset * secsPerBeat);
       
-      console.log('AudioEngine: Loading audio clip', { audioUrl, trackId, timeOffset });
       
       // Fetch and decode audio
       const response = await fetch(audioUrl);
@@ -514,7 +475,6 @@ export function useAudioEngine(projectData: DawProjectData | null) {
         audioBufferSourcesRef.current.delete(sourceId);
       };
       
-      console.log('AudioEngine: Audio clip playing', { sourceId, duration: audioBuffer.duration, offset: timeOffset });
     } catch (error) {
       console.error('AudioEngine: Failed to play audio clip:', error);
       throw error;
@@ -530,17 +490,7 @@ export function useAudioEngine(projectData: DawProjectData | null) {
     notes.forEach(note => {
       const delayMs = Math.max(0, (note.startTime - startBeat) * secsPerBeat * 1000);
       const timeoutId = window.setTimeout(() => {
-        const osc = synthNote(note.pitch, note.velocity, note.duration * secsPerBeat, instrument, trackId);
-        if (!osc) return;
-        console.log('AudioEngine: playClip NOTE', {
-          pitch: note.pitch,
-          startTimeBeats: note.startTime,
-          durationBeats: note.duration,
-          frequency: 440 * Math.pow(2, (note.pitch - 69) / 12),
-          waveform: osc.type,
-          instrument,
-          trackId,
-        });
+        synthNote(note.pitch, note.velocity, note.duration * secsPerBeat, instrument, trackId);
       }, delayMs);
       if (scheduledTimeoutsRef.current) {
         scheduledTimeoutsRef.current.add(timeoutId);
@@ -553,28 +503,19 @@ export function useAudioEngine(projectData: DawProjectData | null) {
   const addTrackEffect = useCallback(async (trackId: string, effectType: any) => {
     const trackGain = trackGainsRef.current.get(trackId);
     if (trackGain && effectsRef.current) {
-      console.log('AudioEngine: Adding effect', effectType, 'to track', trackId);
       await effectsRef.current.addEffect(trackId, effectType, trackGain);
-    } else {
-      console.warn('AudioEngine: Cannot add effect - missing trackGain or effects system');
     }
   }, []);
 
   const removeTrackEffect = useCallback((trackId: string, effectId: string) => {
     if (effectsRef.current) {
-      console.log('AudioEngine: Removing effect', effectId, 'from track', trackId);
       effectsRef.current.removeEffect(trackId, effectId);
-    } else {
-      console.warn('AudioEngine: Cannot remove effect - effects system not ready');
     }
   }, []);
 
   const updateEffectParam = useCallback((trackId: string, effectId: string, paramName: string, value: any) => {
     if (effectsRef.current) {
-      console.log('AudioEngine: Updating effect param', { trackId, effectId, paramName, value });
       effectsRef.current.updateEffectParam(trackId, effectId, paramName, value);
-    } else {
-      console.warn('AudioEngine: Cannot update effect param - effects system not ready');
     }
   }, []);
 

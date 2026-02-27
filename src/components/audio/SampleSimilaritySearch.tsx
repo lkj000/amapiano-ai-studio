@@ -66,45 +66,63 @@ export function SampleSimilaritySearch() {
     }
 
     setIsSearching(true);
-    
+
     try {
-      // Search using vector similarity
-      const { data: vectors, error } = await supabase
-        .from('musical_vectors')
-        .select('entity_id, metadata, embedding')
-        .eq('entity_type', 'sample')
-        .limit(20);
+      // Primary: call audio-similarity-search edge function with text query
+      let results: SampleResult[] = [];
 
-      if (error) throw error;
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('audio-similarity-search', {
+        body: { query: searchQuery, mode: 'text' }
+      });
 
-      // Simple text matching for demo (in production, use proper vector search)
-      const queryLower = searchQuery.toLowerCase();
-      const matchedResults: SampleResult[] = (vectors || [])
-        .filter(v => {
-          const meta = v.metadata as any;
-          const searchText = `${meta?.name || ''} ${meta?.category || ''} ${(meta?.tags || []).join(' ')}`.toLowerCase();
-          return searchText.includes(queryLower);
-        })
-        .map((v, i) => {
-          const meta = v.metadata as any;
-          return {
-            id: v.entity_id,
-            name: meta?.name || 'Unknown Sample',
-            category: meta?.category || 'Uncategorized',
-            bpm: meta?.bpm || null,
-            key: meta?.key || null,
-            duration: meta?.duration || null,
-            similarity: 95 - (i * 5), // Simulated similarity scores
-            tags: meta?.tags || []
-          };
+      if (!edgeError && edgeData?.results && edgeData.results.length > 0) {
+        results = edgeData.results.map((r: any) => ({
+          id: r.id,
+          name: r.name || 'Unknown Sample',
+          category: r.category || 'Uncategorized',
+          bpm: r.bpm ?? null,
+          key: r.key ?? null,
+          duration: r.duration ?? null,
+          similarity: typeof r.score === 'number'
+            ? Math.round(r.score * 100)
+            : typeof r.similarity === 'number'
+              ? Math.round(r.similarity)
+              : 0,
+          tags: r.tags || []
+        }));
+      } else {
+        // Fallback: rag-knowledge-search with real relevance scores
+        const { data: ragData, error: ragError } = await supabase.functions.invoke('rag-knowledge-search', {
+          body: { query: searchQuery, collection: 'samples', limit: 20 }
         });
 
-      if (matchedResults.length === 0) {
+        if (!ragError && ragData?.results && ragData.results.length > 0) {
+          results = ragData.results.map((r: any) => {
+            const meta = r.metadata ?? r;
+            return {
+              id: r.id ?? r.entity_id ?? String(Math.random()),
+              name: meta?.name || r.title || 'Unknown Sample',
+              category: meta?.category || 'Uncategorized',
+              bpm: meta?.bpm ?? null,
+              key: meta?.key ?? null,
+              duration: meta?.duration ?? null,
+              similarity: typeof r.score === 'number'
+                ? Math.round(r.score * 100)
+                : typeof r.relevance === 'number'
+                  ? Math.round(r.relevance * 100)
+                  : 0,
+              tags: meta?.tags || []
+            };
+          });
+        }
+      }
+
+      if (results.length === 0) {
         setResults([]);
         toast.info('No matching samples found. Index your samples for search.');
       } else {
-        setResults(matchedResults);
-        toast.success(`Found ${matchedResults.length} similar samples`);
+        setResults(results);
+        toast.success(`Found ${results.length} similar samples`);
       }
 
     } catch (error) {

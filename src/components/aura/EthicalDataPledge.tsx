@@ -81,22 +81,48 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
 
   const fetchPartnerships = async () => {
     try {
-      // For now, use sample data as database tables may not exist yet
-      // In production, this would query: supabase.from('ethical_data_partnerships')
-      setPartnerships([]);
+      const { data, error } = await (supabase as any)
+        .from('ethical_data_partnerships')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        // Table may not exist yet — show empty state silently
+        console.warn('ethical_data_partnerships not available:', error.message);
+        setPartnerships([]);
+        return;
+      }
+      setPartnerships(data || []);
     } catch (error) {
       console.error('Error fetching partnerships:', error);
+      setPartnerships([]);
     }
   };
 
   const fetchTransactions = async () => {
     try {
-      // For now, use sample data as database tables may not exist yet
-      // In production, this would query: supabase.from('micro_royalty_transactions')
-      setTransactions([]);
-      setTotalRevenue(0);
+      const { data, error } = await (supabase as any)
+        .from('micro_royalty_transactions')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        // Table may not exist yet — show empty state silently
+        console.warn('micro_royalty_transactions not available:', error.message);
+        setTransactions([]);
+        setTotalRevenue(0);
+        return;
+      }
+      const rows = data || [];
+      setTransactions(rows);
+      const total = rows.reduce((sum: number, t: any) => sum + (t.amount_cents || 0), 0) / 100;
+      setTotalRevenue(total);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setTransactions([]);
+      setTotalRevenue(0);
     }
   };
 
@@ -112,12 +138,31 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
 
     setLoading(true);
     try {
-      // For now, simulate partnership creation as database tables may not exist yet
-      // In production, this would insert into: supabase.from('ethical_data_partnerships')
-      
-      // Simulate successful creation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + newPartnership.duration_months);
+
+      const { error } = await (supabase as any)
+        .from('ethical_data_partnerships')
+        .insert([{
+          user_id: user.id,
+          artist_name: newPartnership.artist_name,
+          data_rights_granted: [newPartnership.license_type],
+          compensation_model: `${newPartnership.royalty_percentage}% royalty`,
+          status: 'pending',
+        }]);
+
+      if (error) {
+        console.error('Error creating partnership:', error);
+        toast({
+          title: "Error",
+          description: error.message.includes('does not exist')
+            ? "Partnership table not yet available. Please run database migrations."
+            : "Failed to create data partnership",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await fetchPartnerships();
       setNewPartnership({
         track_title: '',
@@ -145,64 +190,9 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
     }
   };
 
-  // Sample data for demonstration
-  const samplePartnerships: DataPartnership[] = [
-    {
-      id: 'partnership-1',
-      artist_id: user?.id || 'sample-user',
-      artist_name: 'Kabza De Small',
-      track_title: 'Scorpion Kings Legacy',
-      license_type: 'style_reference',
-      royalty_percentage: 8.5,
-      usage_count: 1247,
-      revenue_earned: 892.45,
-      cultural_authenticity_score: 0.96,
-      status: 'active',
-      created_at: '2024-01-15T10:30:00Z',
-      expires_at: '2025-01-15T10:30:00Z'
-    },
-    {
-      id: 'partnership-2',
-      artist_id: user?.id || 'sample-user',
-      artist_name: 'Kelvin Momo',
-      track_title: 'Amorette',
-      license_type: 'training',
-      royalty_percentage: 5.0,
-      usage_count: 892,
-      revenue_earned: 445.60,
-      cultural_authenticity_score: 0.94,
-      status: 'active',
-      created_at: '2024-02-20T14:15:00Z',
-      expires_at: '2025-02-20T14:15:00Z'
-    }
-  ];
-
-  const sampleTransactions: RoyaltyTransaction[] = [
-    {
-      id: 'tx-1',
-      partnership_id: 'partnership-1',
-      artist_id: user?.id || 'sample-user',
-      amount_cents: 1245,
-      usage_type: 'generation',
-      ai_model_used: 'AmapianoAI-v2.1',
-      cultural_impact_score: 0.92,
-      transaction_date: '2024-03-15T09:22:00Z'
-    },
-    {
-      id: 'tx-2',
-      partnership_id: 'partnership-2',
-      artist_id: user?.id || 'sample-user',
-      amount_cents: 876,
-      usage_type: 'style_transfer',
-      ai_model_used: 'StyleTransfer-v1.5',
-      cultural_impact_score: 0.89,
-      transaction_date: '2024-03-14T16:45:00Z'
-    }
-  ];
-
-  const displayPartnerships = partnerships.length > 0 ? partnerships : samplePartnerships;
-  const displayTransactions = transactions.length > 0 ? transactions : sampleTransactions;
-  const displayRevenue = totalRevenue > 0 ? totalRevenue : 1338.05;
+  const displayPartnerships = partnerships;
+  const displayTransactions = transactions;
+  const displayRevenue = totalRevenue;
 
   const getLicenseColor = (type: string) => {
     switch (type) {
@@ -294,7 +284,9 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Cultural Score</p>
                 <p className="text-2xl font-bold">
-                  {(displayPartnerships.reduce((sum, p) => sum + p.cultural_authenticity_score, 0) / displayPartnerships.length * 100).toFixed(1)}%
+                  {displayPartnerships.length > 0
+                    ? (displayPartnerships.reduce((sum, p) => sum + (p.cultural_authenticity_score || 0), 0) / displayPartnerships.length * 100).toFixed(1)
+                    : '—'}%
                 </p>
               </div>
               <Award className="w-8 h-8 text-purple-500" />
@@ -398,6 +390,9 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
           )}
 
           {/* Partnerships List */}
+          {displayPartnerships.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">No partnerships yet. Create your first partnership above.</p>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {displayPartnerships.map((partnership) => (
               <Card key={partnership.id}>
@@ -456,6 +451,9 @@ export const EthicalDataPledge: React.FC<EthicalDataPledgeProps> = ({ user, clas
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
+          {displayTransactions.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">No transactions yet.</p>
+          )}
           <div className="space-y-3">
             {displayTransactions.map((transaction) => (
               <Card key={transaction.id}>

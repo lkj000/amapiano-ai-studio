@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, TrendingUp, Users, Zap, Star } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface RecommendedPlugin {
   id: string;
@@ -18,54 +19,66 @@ interface RecommendedPlugin {
 export function AIPluginRecommendations() {
   const [recommendations, setRecommendations] = useState<RecommendedPlugin[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEmpty, setIsEmpty] = useState(false);
 
   useEffect(() => {
-    // Simulate AI recommendation generation
-    setTimeout(() => {
-      setRecommendations([
-        {
-          id: '1',
-          name: 'Amapiano Bass Generator',
-          category: 'Instrument',
-          rating: 4.8,
-          downloads: 1247,
-          reason: 'Complements your recent synth purchases',
-          confidence: 0.92,
-          price: 1299,
-        },
-        {
-          id: '2',
-          name: 'Log Drum Enhancer',
-          category: 'Effect',
-          rating: 4.6,
-          downloads: 892,
-          reason: 'Popular with users who bought similar effects',
-          confidence: 0.87,
-          price: 999,
-        },
-        {
-          id: '3',
-          name: 'VAST Reverb Pro',
-          category: 'Effect',
-          rating: 4.9,
-          downloads: 2134,
-          reason: 'Top-rated in your preferred genre',
-          confidence: 0.95,
-          price: 1999,
-        },
-        {
-          id: '4',
-          name: 'Piano Roll Delay Ultra',
-          category: 'Effect',
-          rating: 4.7,
-          downloads: 1523,
-          reason: 'Frequently purchased together',
-          confidence: 0.89,
-          price: 1499,
-        },
-      ]);
-      setIsLoading(false);
-    }, 1000);
+    const fetchRecommendations = async () => {
+      setIsLoading(true);
+      setIsEmpty(false);
+
+      try {
+        // Primary: AI edge function
+        const userContext = { genre: 'amapiano', source: 'plugin-recommendations' };
+        const { data: edgeData, error: edgeError } = await supabase.functions.invoke(
+          'ai-plugin-generator',
+          { body: { mode: 'recommend', context: userContext } }
+        );
+
+        if (!edgeError && edgeData?.recommendations && edgeData.recommendations.length > 0) {
+          setRecommendations(edgeData.recommendations.map((r: any) => ({
+            id: String(r.id),
+            name: r.name,
+            category: r.category || 'Plugin',
+            rating: r.rating ?? 0,
+            downloads: r.downloads ?? 0,
+            reason: r.reason || '',
+            confidence: r.confidence ?? 0,
+            price: r.price ?? 0,
+          })));
+          return;
+        }
+
+        // Fallback: real database query
+        const { data: dbData, error: dbError } = await supabase
+          .from('audio_plugins')
+          .select('*')
+          .limit(4)
+          .order('created_at', { ascending: false });
+
+        if (!dbError && dbData && dbData.length > 0) {
+          setRecommendations(dbData.map((r: any) => ({
+            id: String(r.id),
+            name: r.name,
+            category: r.category || 'Plugin',
+            rating: r.rating ?? 0,
+            downloads: r.downloads ?? 0,
+            reason: r.description || '',
+            confidence: r.confidence ?? 0.75,
+            price: r.price ?? 0,
+          })));
+          return;
+        }
+
+        // Both failed — show empty state
+        setIsEmpty(true);
+      } catch {
+        setIsEmpty(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRecommendations();
   }, []);
 
   const getConfidenceBadge = (confidence: number) => {
@@ -90,6 +103,27 @@ export function AIPluginRecommendations() {
               <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isEmpty || recommendations.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            AI-Powered Recommendations
+          </CardTitle>
+          <CardDescription>
+            Personalized plugin suggestions based on your workflow and preferences
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No recommendations available yet. Add plugins to the marketplace to see suggestions here.
+          </p>
         </CardContent>
       </Card>
     );

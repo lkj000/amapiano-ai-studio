@@ -48,16 +48,23 @@ serve(async (req) => {
       throw new Error('Failed to fetch posts from database');
     }
 
+    // Fetch user preferences once so they can be used for both ordering and reason labelling
+    const userPrefs = userId ? await getUserPreferences(userId) : {
+      favoriteGenres: [],
+      followedArtists: [],
+      engagementHistory: { totalLikes: 0, totalPlays: 0, averageListenTime: 0 }
+    };
+
     // Apply AI-powered feed ordering based on user preferences
     if (userId && posts.length > 0) {
-      posts = await personalizePostOrder(posts, userId, feedType);
+      posts = await personalizePostOrder(posts, userId, feedType, userPrefs);
     }
 
     // Add engagement predictions
     posts = posts.map((post: any) => ({
       ...post,
       predicted_engagement: calculateEngagementPrediction(post, feedType),
-      recommendation_reason: getRecommendationReason(post, feedType)
+      recommendation_reason: getRecommendationReason(post, feedType, userPrefs, userId)
     }));
 
     const response = {
@@ -127,22 +134,36 @@ function generateDescription(genre: string, feedType: string): string {
   };
 
   const genreDescriptions = descriptions[genre] || descriptions['Classic Amapiano'];
-  return genreDescriptions[Math.floor(Math.random() * genreDescriptions.length)];
+  // Deterministic selection based on genre string so the same genre always gets the same description
+  return genreDescriptions[genre.length % genreDescriptions.length];
 }
 
-async function personalizePostOrder(posts: any[], userId: string, feedType: string) {
-  // Simulate AI-powered personalization
-  const userPreferences = await getUserPreferences(userId);
-  
+// Deterministic hash for stable per-user-per-track noise (avoids Math.random() drift)
+function deterministicNoise(userId: string, trackId: string): number {
+  let hash = 0;
+  const str = `${userId}:${trackId}`;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  // Normalise to [-0.05, 0.05] — small stable nudge so identical base scores break ties consistently
+  return ((hash % 1000) / 1000 - 0.5) * 0.1;
+}
+
+async function personalizePostOrder(
+  posts: any[],
+  userId: string,
+  feedType: string,
+  userPreferences: { favoriteGenres: string[]; followedArtists: string[]; engagementHistory: any }
+) {
   return posts.sort((a, b) => {
     let scoreA = a.relevance_score || 0;
     let scoreB = b.relevance_score || 0;
 
     // Boost posts based on user preferences
-    if (userPreferences.favoriteGenres.includes(a.genre_tags[0])) {
+    if (userPreferences.favoriteGenres.includes(a.genre_tags?.[0])) {
       scoreA += 2;
     }
-    if (userPreferences.favoriteGenres.includes(b.genre_tags[0])) {
+    if (userPreferences.favoriteGenres.includes(b.genre_tags?.[0])) {
       scoreB += 2;
     }
 
@@ -161,6 +182,10 @@ async function personalizePostOrder(posts: any[], userId: string, feedType: stri
       scoreA -= ageA / (1000 * 60 * 60 * 24); // Reduce score by age in days
       scoreB -= ageB / (1000 * 60 * 60 * 24);
     }
+
+    // Add stable per-user-per-track noise instead of Math.random()
+    scoreA += deterministicNoise(userId, String(a.id));
+    scoreB += deterministicNoise(userId, String(b.id));
 
     return scoreB - scoreA;
   });
@@ -226,26 +251,39 @@ function calculateEngagementPrediction(post: any, feedType: string): number {
   return Math.min(Math.max(prediction, 0), 1); // Clamp between 0 and 1
 }
 
-function getRecommendationReason(post: any, feedType: string): string {
-  const reasons: Record<string, string[]> = {
-    'trending': [
-      'Trending in your area',
-      'Viral on social media',
-      'Popular with amapiano fans'
-    ],
-    'following': [
-      'From artists you follow',
-      'Similar to your recent likes',
-      'Recommended by your network'
-    ],
-    'discover': [
-      'Matches your music taste',
-      'New artist discovery',
-      'Similar to your recent plays',
-      'Popular in your genre preferences'
-    ]
-  };
+function getRecommendationReason(
+  post: any,
+  feedType: string,
+  userPrefs: { favoriteGenres: string[]; followedArtists: string[]; engagementHistory: any },
+  userId?: string
+): string {
+  // Deterministic, data-driven reason selection
 
-  const feedReasons = reasons[feedType] || reasons['discover'];
-  return feedReasons[Math.floor(Math.random() * feedReasons.length)];
+  // 1. From an artist the user follows
+  if (userId && userPrefs.followedArtists.includes(post.creator_id)) {
+    return 'From an artist you follow';
+  }
+
+  // 2. Matches user's top-listened genre (first favourite genre)
+  const topGenre = userPrefs.favoriteGenres[0];
+  if (topGenre && post.genre_tags?.includes(topGenre)) {
+    return 'Matches your favorite genre';
+  }
+
+  // 3. New release — created within the last 7 days
+  if (post.created_at) {
+    const ageMs = Date.now() - new Date(post.created_at).getTime();
+    if (ageMs < 7 * 24 * 60 * 60 * 1000) {
+      return 'New release';
+    }
+  }
+
+  // 4. BPM within 10 of user's average listening BPM (stored in engagementHistory)
+  const avgBpm: number | undefined = userPrefs.engagementHistory?.averageListeningBpm;
+  if (avgBpm && post.bpm && Math.abs(post.bpm - avgBpm) <= 10) {
+    return 'Matches your preferred tempo';
+  }
+
+  // 5. Fallback
+  return 'Popular in Amapiano community';
 }

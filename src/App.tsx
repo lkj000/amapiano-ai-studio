@@ -8,6 +8,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from "./components/Navigation";
 import LoadingSpinner from "./components/LoadingSpinner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Eager load critical pages
 import Index from "./pages/Index";
@@ -74,6 +75,13 @@ const RhythmDemo = lazy(() => import("./pages/RhythmDemo"));
 // AmapianoPro consolidated into DAW
 const AdminInventory = lazy(() => import("./pages/AdminInventory"));
 
+const ProtectedRoute = ({ user, children }: { user: User | null; children: React.ReactNode }) => {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -101,14 +109,6 @@ const App = () => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event, session ? 'Session active' : 'No session');
-        
-        if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed successfully');
-        } else if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-        }
-        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -130,13 +130,11 @@ const App = () => {
     if (!session) return;
 
     const refreshInterval = setInterval(async () => {
-      console.log('Attempting to refresh session token...');
       const { data, error } = await supabase.auth.refreshSession();
-      
+
       if (error) {
         console.error('Token refresh failed:', error);
       } else if (data.session) {
-        console.log('Token refreshed successfully');
         setSession(data.session);
         setUser(data.session.user);
       }
@@ -164,82 +162,86 @@ const App = () => {
         <BrowserRouter>
           <div className="min-h-screen bg-background">
             <Navigation user={user} />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                {/* Eager loaded routes */}
-                <Route path="/" element={<Index user={user} />} />
-                <Route path="/auth" element={<Auth />} />
-                
-                {/* Lazy loaded routes */}
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/templates" element={<TemplatesShowcase />} />
-                <Route path="/generate" element={<Generate user={user} />} />
-                <Route path="/analyze" element={<Analyze user={user} />} />
-                <Route path="/samples" element={<Samples user={user} />} />
-                <Route path="/patterns" element={<Patterns user={user} />} />
-                <Route path="/daw" element={<DAW user={user} />} />
-                <Route path="/aura" element={<AuraPlatform user={user} />} />
-                <Route path="/aura808" element={<Aura808Demo />} />
-                <Route path="/ai-hub" element={<AIHub user={user} />} />
-                <Route path="/social" element={<SocialFeed user={user} />} />
-                <Route path="/social/post/:id" element={<SocialFeed user={user} />} />
-                <Route path="/creator-hub" element={<CreatorHub user={user} />} />
-                <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
-                <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
-                <Route path="/subscription-success" element={<Index user={user} />} />
-                <Route path="/purchase-success" element={<Index user={user} />} />
-                <Route path="/admin" element={<Admin />} />
-                <Route path="/vast-demo" element={<VASTDemo />} />
-                <Route path="/research" element={<Research />} />
-                <Route path="/essentia-demo" element={<EssentiaDemo />} />
-                <Route path="/plugin-dev" element={<PluginDev />} />
-                <Route path="/audio-editor" element={<AudioEditor user={user} />} />
-                <Route path="/performance" element={<Performance />} />
-                <Route path="/amapianorize" element={<Amapianorize />} />
-                <Route path="/audio-test-lab" element={<AudioTestLab />} />
-                <Route path="/workflow-validation" element={<WorkflowValidation />} />
-                <Route path="/user-study" element={<UserStudy />} />
-                <Route path="/study-recruitment" element={<StudyRecruitment />} />
-                <Route path="/study-analytics" element={<StudyAnalytics />} />
-                <Route path="/ab-pair-generator" element={<ABPairGenerator />} />
-                <Route path="/agent-demo" element={<AgentDemo />} />
-                <Route path="/level5-dashboard" element={<Level5Dashboard />} />
-                <Route path="/ml/quantize" element={<MLQuantize />} />
-                <Route path="/modal-dashboard" element={<ModalDashboard />} />
-                <Route path="/generate-song-suno" element={<SunoGenerator user={user} />} />
-                <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
-                <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
-                <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
-                <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
-                <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
-                <Route path="/vocal-remover" element={<VocalRemoverPage />} />
-                <Route path="/sound-effect" element={<SoundEffectPage />} />
-                <Route path="/training" element={<TrainingDataCollection />} />
-                <Route path="/aura-x" element={<AuraXHub />} />
-                <Route path="/aura-x/architecture" element={<AuraXArchitecture />} />
-                <Route path="/aura-x/voice-licensing" element={<VoiceLicensing user={user} />} />
-                <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
-                <Route path="/training-dataset" element={<TrainingDataset />} />
-                <Route path="/voice-lab" element={<VoiceLab />} />
-                <Route path="/audio-lab" element={<AudioLab />} />
-                <Route path="/studio" element={<Navigate to="/daw" replace />} />
-                <Route path="/landr" element={<LANDRHub />} />
-                <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
-                <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
-                <Route path="/master" element={<MasteringStudio />} />
-                <Route path="/release" element={<ReleaseManager />} />
-                <Route path="/promote" element={<PromotionHub />} />
-                <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
-                <Route path="/rhythm-demo" element={<RhythmDemo />} />
-                <Route path="/amapiano-pro" element={<Navigate to="/daw" replace />} />
-                <Route path="/dj-agent" element={<DJAgent user={user} />} />
-                <Route path="/admin/inventory" element={<AdminInventory />} />
-                <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
-                
-                {/* Catch-all route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  {/* Eager loaded routes */}
+                  <Route path="/" element={<Index user={user} />} />
+                  <Route path="/auth" element={<Auth />} />
+
+                  {/* Lazy loaded routes — public */}
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/templates" element={<TemplatesShowcase />} />
+                  <Route path="/generate" element={<Generate user={user} />} />
+                  <Route path="/analyze" element={<Analyze user={user} />} />
+                  <Route path="/samples" element={<Samples user={user} />} />
+                  <Route path="/patterns" element={<Patterns user={user} />} />
+                  <Route path="/daw" element={<DAW user={user} />} />
+                  <Route path="/aura" element={<AuraPlatform user={user} />} />
+                  <Route path="/aura808" element={<Aura808Demo />} />
+                  <Route path="/ai-hub" element={<AIHub user={user} />} />
+                  <Route path="/social" element={<SocialFeed user={user} />} />
+                  <Route path="/social/post/:id" element={<SocialFeed user={user} />} />
+                  <Route path="/creator-hub" element={<CreatorHub user={user} />} />
+                  <Route path="/subscription" element={<Index user={user} showSubscription={true} />} />
+                  <Route path="/marketplace" element={<Index user={user} showMarketplace={true} />} />
+                  <Route path="/subscription-success" element={<Index user={user} />} />
+                  <Route path="/purchase-success" element={<Index user={user} />} />
+                  <Route path="/vast-demo" element={<VASTDemo />} />
+                  <Route path="/research" element={<Research />} />
+                  <Route path="/essentia-demo" element={<EssentiaDemo />} />
+                  <Route path="/plugin-dev" element={<PluginDev />} />
+                  <Route path="/audio-editor" element={<AudioEditor user={user} />} />
+                  <Route path="/amapianorize" element={<Amapianorize />} />
+                  <Route path="/audio-test-lab" element={<AudioTestLab />} />
+                  <Route path="/workflow-validation" element={<WorkflowValidation />} />
+                  <Route path="/user-study" element={<UserStudy />} />
+                  <Route path="/study-recruitment" element={<StudyRecruitment />} />
+                  <Route path="/study-analytics" element={<StudyAnalytics />} />
+                  <Route path="/ab-pair-generator" element={<ABPairGenerator />} />
+                  <Route path="/agent-demo" element={<AgentDemo />} />
+                  <Route path="/ml/quantize" element={<MLQuantize />} />
+                  <Route path="/generate-song-suno" element={<SunoGenerator user={user} />} />
+                  <Route path="/generate-song-elevenlabs-singing" element={<ElevenLabsSinging user={user} />} />
+                  <Route path="/generate-instrumental" element={<InstrumentalGenerator user={user} />} />
+                  <Route path="/generate-backing-with-intro" element={<BackingWithIntro user={user} />} />
+                  <Route path="/ai-lyrics-generator" element={<AILyricsGeneratorPage user={user} />} />
+                  <Route path="/stem-splitter" element={<StemSplitterPage user={user} />} />
+                  <Route path="/vocal-remover" element={<VocalRemoverPage />} />
+                  <Route path="/sound-effect" element={<SoundEffectPage />} />
+                  <Route path="/aura-x" element={<AuraXHub />} />
+                  <Route path="/aura-x/architecture" element={<AuraXArchitecture />} />
+                  <Route path="/aura-x/text-to-production" element={<TextToProduction user={user} />} />
+                  <Route path="/voice-lab" element={<VoiceLab />} />
+                  <Route path="/audio-lab" element={<AudioLab />} />
+                  <Route path="/studio" element={<Navigate to="/daw" replace />} />
+                  <Route path="/landr" element={<LANDRHub />} />
+                  <Route path="/pitch-deck" element={<AWSActivatePitchDeck />} />
+                  <Route path="/pitch-deck-comparison" element={<PitchDeckComparison />} />
+                  <Route path="/master" element={<MasteringStudio />} />
+                  <Route path="/release" element={<ReleaseManager />} />
+                  <Route path="/promote" element={<PromotionHub />} />
+                  <Route path="/suno-studio" element={<SunoStudioPage user={user} />} />
+                  <Route path="/rhythm-demo" element={<RhythmDemo />} />
+                  <Route path="/amapiano-pro" element={<Navigate to="/daw" replace />} />
+                  <Route path="/aihub" element={<Navigate to="/ai-hub" replace />} />
+
+                  {/* Protected routes — require authentication */}
+                  <Route path="/admin" element={<ProtectedRoute user={user}><Admin /></ProtectedRoute>} />
+                  <Route path="/admin/inventory" element={<ProtectedRoute user={user}><AdminInventory /></ProtectedRoute>} />
+                  <Route path="/training" element={<ProtectedRoute user={user}><TrainingDataCollection /></ProtectedRoute>} />
+                  <Route path="/training-dataset" element={<ProtectedRoute user={user}><TrainingDataset /></ProtectedRoute>} />
+                  <Route path="/aura-x/voice-licensing" element={<ProtectedRoute user={user}><VoiceLicensing user={user} /></ProtectedRoute>} />
+                  <Route path="/performance" element={<ProtectedRoute user={user}><Performance /></ProtectedRoute>} />
+                  <Route path="/dj-agent" element={<ProtectedRoute user={user}><DJAgent user={user} /></ProtectedRoute>} />
+                  <Route path="/level5-dashboard" element={<ProtectedRoute user={user}><Level5Dashboard /></ProtectedRoute>} />
+                  <Route path="/modal-dashboard" element={<ProtectedRoute user={user}><ModalDashboard /></ProtectedRoute>} />
+
+                  {/* Catch-all route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </BrowserRouter>
       </TooltipProvider>

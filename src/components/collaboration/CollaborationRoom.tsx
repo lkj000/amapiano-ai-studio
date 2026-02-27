@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,7 +75,8 @@ export function CollaborationRoom() {
   const [newMessage, setNewMessage] = useState('');
   const [isMuted, setIsMuted] = useState(true);
   const [currentUser, setCurrentUser] = useState<Participant | null>(null);
-  
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   const [roomState, setRoomState] = useState<RoomState>({
     roomCode: '',
     roomName: 'Untitled Session',
@@ -95,6 +96,82 @@ export function CollaborationRoom() {
     return code;
   };
 
+  // Subscribe to Supabase presence for a room
+  const subscribeToPresence = (roomId: string, user: Participant) => {
+    // Unsubscribe from any existing channel first
+    if (presenceChannelRef.current) {
+      presenceChannelRef.current.unsubscribe();
+    }
+
+    const channel = supabase.channel(`room:${roomId}`, {
+      config: { presence: { key: user.id } }
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const presenceList = Object.values(state).flat() as any[];
+        const colorIndex = (idx: number) => PARTICIPANT_COLORS[idx % PARTICIPANT_COLORS.length];
+        setParticipants(
+          presenceList.map((p: any, idx: number) => ({
+            id: p.user_id,
+            name: p.username || 'Anonymous',
+            color: colorIndex(idx),
+            isHost: p.is_host || false,
+            isMuted: p.is_muted !== undefined ? p.is_muted : true,
+            currentTool: p.current_tool || 'cursor',
+            lastSeen: new Date(),
+          }))
+        );
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        newPresences.forEach((p: any) => {
+          setMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            senderId: 'system',
+            senderName: 'System',
+            content: `${p.username || 'Someone'} joined the session`,
+            timestamp: new Date(),
+            type: 'system',
+          }]);
+        });
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        leftPresences.forEach((p: any) => {
+          setMessages(prev => [...prev, {
+            id: crypto.randomUUID(),
+            senderId: 'system',
+            senderName: 'System',
+            content: `${p.username || 'Someone'} left the session`,
+            timestamp: new Date(),
+            type: 'system',
+          }]);
+        });
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: user.id,
+            username: user.name,
+            is_host: user.isHost,
+            is_muted: user.isMuted,
+            current_tool: user.currentTool,
+          });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+  };
+
+  // Cleanup presence on unmount
+  useEffect(() => {
+    return () => {
+      if (presenceChannelRef.current) {
+        presenceChannelRef.current.unsubscribe();
+      }
+    };
+  }, []);
+
   // Create a new room
   const createRoom = async () => {
     const code = generateRoomCode();
@@ -107,13 +184,12 @@ export function CollaborationRoom() {
       currentTool: 'cursor',
       lastSeen: new Date()
     };
-    
+
     setCurrentUser(user);
-    setParticipants([user]);
     setRoomState(prev => ({ ...prev, roomCode: code }));
     setRoomCode(code);
     setIsConnected(true);
-    
+
     // Add system message
     setMessages([{
       id: crypto.randomUUID(),
@@ -123,7 +199,9 @@ export function CollaborationRoom() {
       timestamp: new Date(),
       type: 'system'
     }]);
-    
+
+    subscribeToPresence(code, user);
+
     toast.success('Room created!', {
       description: `Room code: ${code}`
     });
@@ -135,40 +213,24 @@ export function CollaborationRoom() {
       toast.error('Invalid room code');
       return;
     }
-    
+
     setIsJoining(true);
-    
-    // Simulate joining delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const colorIndex = Math.floor(Math.random() * PARTICIPANT_COLORS.length);
+
     const user: Participant = {
       id: crypto.randomUUID(),
-      name: userName || `Guest ${Math.floor(Math.random() * 1000)}`,
-      color: PARTICIPANT_COLORS[colorIndex],
+      name: userName || 'Guest',
+      color: PARTICIPANT_COLORS[1],
       isHost: false,
       isMuted: true,
       currentTool: 'cursor',
       lastSeen: new Date()
     };
-    
-    // Simulate existing host
-    const host: Participant = {
-      id: 'host-1',
-      name: 'Session Host',
-      color: PARTICIPANT_COLORS[0],
-      isHost: true,
-      isMuted: false,
-      currentTool: 'piano-roll',
-      lastSeen: new Date()
-    };
-    
+
     setCurrentUser(user);
-    setParticipants([host, user]);
     setRoomState(prev => ({ ...prev, roomCode }));
     setIsConnected(true);
     setIsJoining(false);
-    
+
     // Add system message
     setMessages([{
       id: crypto.randomUUID(),
@@ -178,7 +240,9 @@ export function CollaborationRoom() {
       timestamp: new Date(),
       type: 'system'
     }]);
-    
+
+    subscribeToPresence(roomCode, user);
+
     toast.success('Joined room!');
   };
 
@@ -218,6 +282,10 @@ export function CollaborationRoom() {
 
   // Leave room
   const leaveRoom = () => {
+    if (presenceChannelRef.current) {
+      presenceChannelRef.current.unsubscribe();
+      presenceChannelRef.current = null;
+    }
     setIsConnected(false);
     setParticipants([]);
     setMessages([]);

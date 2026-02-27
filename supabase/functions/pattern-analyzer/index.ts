@@ -48,7 +48,11 @@ serve(async (req) => {
 
     console.log(`[PATTERN-ANALYZER] Analyzing ${files.length} files for ${analysisType} patterns`);
 
-    // Process each file and extract basic metadata
+    // Process each file: upload to a temporary public URL is not feasible here,
+    // so we use file metadata + MIME type to call Modal with a data-uri approach
+    // where the Modal endpoint supports base64-encoded audio via audio_data field.
+    const modalUrl = Deno.env.get('MODAL_API_URL') || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+
     const fileAnalyses = await Promise.all(
       files.map(async (file, index) => {
         const fileInfo = {
@@ -58,9 +62,60 @@ serve(async (req) => {
           index,
         };
 
-        // For demo purposes, simulate file analysis
-        // In a real implementation, you'd use audio processing libraries
-        return analyzeFilePatterns(fileInfo, analysisType);
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+          const modalResp = await fetch(`${modalUrl}/audio/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audio_data: base64,
+              audio_mime: file.type,
+              extract_features: true,
+            }),
+          });
+
+          if (!modalResp.ok) {
+            throw new Error(`Modal /audio/analyze returned ${modalResp.status}`);
+          }
+
+          const modalData = await modalResp.json();
+
+          return {
+            fileInfo,
+            patterns: {
+              rhythm: {
+                complexity: modalData.rhythm_complexity ?? 0,
+                syncopation: modalData.syncopation ?? 0,
+                authenticity: modalData.authenticity ?? 0,
+              },
+              harmony: {
+                jazzInfluence: modalData.jazz_influence ?? 0,
+                modernProgression: modalData.modern_progression ?? 0,
+                culturalElements: modalData.cultural_elements ?? 0,
+              },
+              melody: {
+                pianoComplexity: modalData.piano_complexity ?? 0,
+                vocalElements: modalData.vocal_elements ?? 0,
+                instrumentalDiversity: modalData.instrumental_diversity ?? 0,
+              },
+            },
+            confidence: modalData.confidence ?? 0,
+          };
+        } catch (err) {
+          console.error(`[PATTERN-ANALYZER] Modal analysis failed for ${file.name}:`, err);
+          // On failure return zeros — do not use random values
+          return {
+            fileInfo,
+            patterns: {
+              rhythm: { complexity: 0, syncopation: 0, authenticity: 0 },
+              harmony: { jazzInfluence: 0, modernProgression: 0, culturalElements: 0 },
+              melody: { pianoComplexity: 0, vocalElements: 0, instrumentalDiversity: 0 },
+            },
+            confidence: 0,
+          };
+        }
       })
     );
 
@@ -104,57 +159,58 @@ Focus on identifying authentic Amapiano elements and their frequency of occurren
     const aiResponse = await response.json();
     const aiAnalysis = aiResponse.choices[0].message.content;
 
-    // Combine file analysis with AI insights
+    // Default template patterns (Amapiano genre knowledge — NOT derived from uploaded files)
+    // These serve as reference templates when no audio-specific data is available.
     const patternAnalysis: PatternAnalysis = {
       rhythmPatterns: [
         {
           pattern: [1, 0, 0, 1, 0, 1, 0, 0], // Classic Amapiano log drum pattern
-          frequency: 0.85,
-          style: 'Classic Log Drums'
+          frequency: 0, // frequency not measured — template only
+          style: '[Template] Classic Log Drums'
         },
         {
           pattern: [1, 0, 1, 0, 1, 0, 1, 0], // Four-on-floor with syncopation
-          frequency: 0.70,
-          style: 'Syncopated Percussion'
+          frequency: 0,
+          style: '[Template] Syncopated Percussion'
         },
         {
           pattern: [1, 0, 0, 0, 0, 1, 0, 1], // Deep bass pattern
-          frequency: 0.65,
-          style: 'Deep Bass Rhythm'
+          frequency: 0,
+          style: '[Template] Deep Bass Rhythm'
         }
       ],
       harmonicProgressions: [
         {
           chords: ['Cm', 'Ab', 'Bb', 'Gm'],
-          frequency: 0.60,
-          context: 'Classic Amapiano progression'
+          frequency: 0,
+          context: '[Template] Classic Amapiano progression'
         },
         {
           chords: ['Am', 'F', 'C', 'G'],
-          frequency: 0.45,
-          context: 'Jazz-influenced harmony'
+          frequency: 0,
+          context: '[Template] Jazz-influenced harmony'
         },
         {
           chords: ['Dm', 'Bb', 'F', 'C'],
-          frequency: 0.40,
-          context: 'Private School style'
+          frequency: 0,
+          context: '[Template] Private School style'
         }
       ],
       melodicMotifs: [
         {
           notes: [60, 62, 64, 67, 69], // C, D, E, G, A
           interval: [2, 2, 3, 2],
-          usage: 'Piano melody foundation'
+          usage: '[Template] Piano melody foundation'
         },
         {
           notes: [36, 43, 36, 31], // Bass line pattern
           interval: [7, -7, -5],
-          usage: 'Log drum bass pattern'
+          usage: '[Template] Log drum bass pattern'
         },
         {
           notes: [72, 74, 76, 72, 69], // High piano accents
           interval: [2, 2, -4, -3],
-          usage: 'Piano accents and fills'
+          usage: '[Template] Piano accents and fills'
         }
       ]
     };
@@ -184,29 +240,3 @@ Focus on identifying authentic Amapiano elements and their frequency of occurren
   }
 });
 
-function analyzeFilePatterns(fileInfo: any, analysisType: string) {
-  // Simulate file analysis based on file properties
-  const basePatterns = {
-    rhythm: {
-      complexity: Math.random() * 0.8 + 0.2,
-      syncopation: Math.random() * 0.7 + 0.3,
-      authenticity: Math.random() * 0.3 + 0.7,
-    },
-    harmony: {
-      jazzInfluence: Math.random() * 0.6 + 0.4,
-      modernProgression: Math.random() * 0.5 + 0.5,
-      culturalElements: Math.random() * 0.4 + 0.6,
-    },
-    melody: {
-      pianoComplexity: Math.random() * 0.7 + 0.3,
-      vocalElements: Math.random() * 0.8,
-      instrumentalDiversity: Math.random() * 0.6 + 0.4,
-    }
-  };
-
-  return {
-    fileInfo,
-    patterns: basePatterns,
-    confidence: Math.random() * 0.3 + 0.7,
-  };
-}

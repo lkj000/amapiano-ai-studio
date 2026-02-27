@@ -401,26 +401,17 @@ export class LLMGateway {
 
   /**
    * Execute local ONNX model
+   * Local model inference requires WASM/ONNX runtime not yet bundled.
+   * Falls back to cloud inference via Lovable AI gateway.
    */
   private async executeLocal(model: ModelConfig, request: LLMRequest, startTime: number): Promise<LLMResponse> {
-    // Placeholder for ONNX Runtime inference
-    // Would integrate with src/lib/wasm/OnnxAudioProcessor.ts
-    const latency = Date.now() - startTime;
-    
-    return {
-      id: `local_${Date.now()}`,
-      provider: model.provider,
-      model: model.modelName,
-      content: '[Local model inference not yet implemented]',
-      usage: {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        cost: 0
-      },
-      latency,
-      cached: false
-    };
+    console.warn('[LLMGateway] Local inference unavailable, falling back to cloud');
+    // Select the best available cloud model and route through Lovable AI
+    const cloudModel = MODEL_REGISTRY.find(m => m.available && m.provider === 'lovable-ai') || null;
+    if (!cloudModel) {
+      throw new Error('No cloud model available for local inference fallback');
+    }
+    return this.executeLovableAI(cloudModel, request, startTime);
   }
 
 

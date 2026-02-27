@@ -25,22 +25,59 @@ serve(async (req) => {
     }
 
     const replicateApiKey = Deno.env.get('REPLICATE_API_KEY');
-    
-    if (!replicateApiKey) {
-      console.log('[generate-music] No Replicate API key, returning placeholder');
-      // Return placeholder for development
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+
+    if (!replicateApiKey && !lovableApiKey) {
+      console.error('[generate-music] No music generation API key configured');
       return new Response(
         JSON.stringify({
-          audioUrl: 'https://example.com/generated-music.mp3',
+          error: 'Music generation not configured. Set REPLICATE_API_KEY.',
+          audioUrl: null,
+          model: null,
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use Lovable AI gateway with MusicGen if REPLICATE_API_KEY is absent but LOVABLE_API_KEY is set
+    if (!replicateApiKey && lovableApiKey) {
+      const prompt = `${genre} instrumental track, ${bpm || 118} BPM, ${key || 'Am'} key, ${mood || 'energetic'} mood, high quality production`;
+      console.log('[generate-music] Using Lovable AI gateway, prompt:', prompt);
+
+      const lovableResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'musicgen-stereo-melody-large',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 256,
+        }),
+      });
+
+      if (!lovableResp.ok) {
+        const errText = await lovableResp.text();
+        console.error('[generate-music] Lovable AI gateway error:', errText);
+        throw new Error(`Lovable AI gateway error: ${lovableResp.status}`);
+      }
+
+      const lovableData = await lovableResp.json();
+      const audioUrl = lovableData.choices?.[0]?.message?.content || null;
+
+      return new Response(
+        JSON.stringify({
+          audioUrl,
           duration: duration || 30,
           metadata: {
             genre,
             bpm: bpm || 118,
             key: key || 'Am',
             mood: mood || 'energetic',
-            model: 'placeholder',
-            generatedAt: new Date().toISOString()
-          }
+            model: 'musicgen-lovable',
+            generatedAt: new Date().toISOString(),
+          },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

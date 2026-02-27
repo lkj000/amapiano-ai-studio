@@ -35,14 +35,27 @@ const DEFAULT_FLAGS: FeatureFlags = {
   neural_music_engine: true,
 };
 
+// Unauthenticated users get no features enabled by default
+const UNAUTHENTICATED_FLAGS: FeatureFlags = {
+  aura_sidebar: false,
+  enhanced_style_exchange: false,
+  ai_model_router: false,
+  realtime_collaboration: false,
+  multi_agent_system: false,
+  cultural_authenticity_engine: false,
+  micro_royalty_system: false,
+  voice_ai_guide: false,
+  neural_music_engine: false,
+};
+
 export const useFeatureFlags = (user: User | null) => {
-  const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FLAGS);
+  const [flags, setFlags] = useState<FeatureFlags>(user ? DEFAULT_FLAGS : UNAUTHENTICATED_FLAGS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchFeatureFlags = async () => {
       if (!user) {
-        setFlags(DEFAULT_FLAGS);
+        setFlags(UNAUTHENTICATED_FLAGS);
         setLoading(false);
         return;
       }

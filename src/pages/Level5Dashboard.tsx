@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const MODAL_API_BASE = import.meta.env.VITE_MODAL_API_URL || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+
 // Component test definitions
 interface ComponentTest {
   id: string;
@@ -368,7 +370,7 @@ export default function Level5Dashboard() {
       test: async () => {
         const startTime = Date.now();
         try {
-          const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/health');
+          const response = await fetch(`${MODAL_API_BASE}/health`);
           const data = await response.json();
           return { 
             passed: response.ok && data.status === 'healthy', 

@@ -121,9 +121,10 @@ export function useDistribution() {
 
       setUploadProgress(70);
 
-      // Generate UPC and ISRC codes
-      const upcCode = generateUPC();
-      const isrcCode = generateISRC();
+      // Generate deterministic UPC and ISRC codes based on user + title + timestamp
+      const seed = `${user.id}:${params.title}:${Date.now()}`;
+      const upcCode = generateUPC(seed);
+      const isrcCode = generateISRC(seed);
 
       // Create release record
       const { data, error: insertError } = await supabase
@@ -215,17 +216,51 @@ export function useDistribution() {
   };
 }
 
-// Generate mock UPC code (in production, use a real UPC provider)
-function generateUPC(): string {
-  const digits = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10));
-  return digits.join('');
+/**
+ * Deterministic CRC-style hash of an input string.
+ * Returns a non-negative 32-bit integer.
+ */
+function crc32Hash(input: string): number {
+  let hash = 0xffffffff;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    for (let j = 0; j < 8; j++) {
+      hash = hash & 1 ? (hash >>> 1) ^ 0xedb88320 : hash >>> 1;
+    }
+  }
+  return (hash ^ 0xffffffff) >>> 0; // unsigned 32-bit
 }
 
-// Generate mock ISRC code (in production, use a real ISRC registrar)
-function generateISRC(): string {
+/**
+ * Generate a deterministic UPC-A code (12 digits) from a seed string.
+ * Derived from a CRC-style hash — not a registered GS1 UPC.
+ */
+function generateUPC(seed: string): string {
+  const hash = crc32Hash(seed);
+  // Pad hash to 11 digits (UPC-A body without check digit)
+  const body = hash.toString().padStart(11, '0').slice(0, 11);
+  // Calculate UPC-A check digit
+  let odd = 0;
+  let even = 0;
+  for (let i = 0; i < 11; i++) {
+    const d = parseInt(body[i], 10);
+    if (i % 2 === 0) odd += d;
+    else even += d;
+  }
+  const checkDigit = (10 - ((odd * 3 + even) % 10)) % 10;
+  return body + checkDigit;
+}
+
+/**
+ * Generate a deterministic ISRC code from a seed string.
+ * Format: ZA-AB1-{YY}-{5-digit hash}
+ * Derived from a hash — not issued by an official ISRC registrar.
+ */
+function generateISRC(seed: string): string {
   const countryCode = 'ZA'; // South Africa
-  const registrantCode = 'XX1';
+  const registrantCode = 'AB1';
   const year = new Date().getFullYear().toString().slice(-2);
-  const designation = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
+  const hash = crc32Hash(seed);
+  const designation = (hash % 100000).toString().padStart(5, '0');
   return `${countryCode}-${registrantCode}-${year}-${designation}`;
 }

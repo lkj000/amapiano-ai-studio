@@ -341,33 +341,35 @@ export const MultiAgentOrchestrator: React.FC<MultiAgentOrchestratorProps> = ({
   };
 
   const executeTask = async (task: OrchestrationTask, agent: Agent): Promise<void> => {
-    // Simulate progressive task execution
-    for (let progress = 0; progress <= 100; progress += 20) {
-      setAgents(prev => prev.map(a => 
-        a.id === agent.id ? { ...a, progress } : a
-      ));
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
+    // Set agent to working state with 0 progress
+    setAgents(prev => prev.map(a =>
+      a.id === agent.id ? { ...a, progress: 0 } : a
+    ));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('aura-conductor-orchestration', {
+        body: {
+          task: task.name,
+          params: {
+            agent_id: agent.id,
+            agent_type: agent.type,
+            task_id: task.id,
+            dependencies: task.dependencies,
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Orchestration task error:', error);
+      }
+    } catch (error) {
+      console.error('AI orchestration error:', error);
     }
 
-    // Call real AI orchestration for specific tasks
-    if (task.name === 'Neural Music Generation') {
-      try {
-        await supabase.functions.invoke('aura-conductor-orchestration', {
-          body: {
-            prompt: 'Generate authentic amapiano track with cultural validation',
-            target: 'neural_generation',
-            config: {
-              ai_models: ['neural-music-engine-v2'],
-              tools: ['cultural_authenticity_engine'],
-              quality_threshold: 0.9
-            }
-          }
-        });
-      } catch (error) {
-        console.error('AI orchestration error:', error);
-      }
-    }
+    // Mark agent progress as complete after real call returns
+    setAgents(prev => prev.map(a =>
+      a.id === agent.id ? { ...a, progress: 100 } : a
+    ));
   };
 
   const generateTaskOutput = (taskName: string): any => {

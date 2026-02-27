@@ -4,41 +4,66 @@ interface PeakMeterProps {
   height?: number;
   width?: number;
   animated?: boolean;
+  analyserNode?: AnalyserNode;
 }
 
 export const PeakMeter: React.FC<PeakMeterProps> = ({
   height = 200,
   width = 20,
-  animated = true
+  animated = true,
+  analyserNode
 }) => {
   const [level, setLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const animationRef = useRef<number>();
+  const peakTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!animated) return;
 
-    const animate = () => {
-      // Simulate audio levels
-      const newLevel = Math.random() * 0.8 + 0.1;
-      setLevel(newLevel);
-      
-      if (newLevel > peak) {
-        setPeak(newLevel);
-        setTimeout(() => setPeak(0), 1000);
-      }
+    if (analyserNode) {
+      // Real peak detection from AnalyserNode
+      const bufferLength = analyserNode.fftSize;
+      const timeData = new Float32Array(bufferLength);
 
-      animationRef.current = requestAnimationFrame(animate);
-    };
+      const animate = () => {
+        analyserNode.getFloatTimeDomainData(timeData);
 
-    animate();
+        // Compute RMS
+        let sumSq = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sumSq += timeData[i] * timeData[i];
+        }
+        const rms = Math.sqrt(sumSq / bufferLength);
+        // Map RMS (0..1 linear) to 0..1 meter range
+        const newLevel = Math.min(1, rms * 4);
+        setLevel(newLevel);
+
+        if (newLevel > peak) {
+          setPeak(newLevel);
+          if (peakTimeoutRef.current) clearTimeout(peakTimeoutRef.current);
+          peakTimeoutRef.current = setTimeout(() => setPeak(0), 1000);
+        }
+
+        animationRef.current = requestAnimationFrame(animate);
+      };
+
+      animate();
+    } else {
+      // No analyser provided — show silence (0)
+      setLevel(0);
+      setPeak(0);
+    }
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (peakTimeoutRef.current) {
+        clearTimeout(peakTimeoutRef.current);
+      }
     };
-  }, [animated, peak]);
+  }, [animated, analyserNode, peak]);
 
   const segments = 20;
   const segmentHeight = (height - (segments - 1) * 2) / segments;

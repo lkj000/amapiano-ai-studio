@@ -206,26 +206,85 @@ export function ChordDetector() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      
+
+      // Set up Web Audio API for real chord detection
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 4096;
+      source.connect(analyser);
+
+      const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+      const detectChordFromFFT = (): DetectedChord | null => {
+        const bufferLength = analyser.frequencyBinCount;
+        const freqData = new Float32Array(bufferLength);
+        analyser.getFloatFrequencyData(freqData);
+
+        const sampleRate = audioCtx.sampleRate;
+        const chroma = new Float32Array(12).fill(0);
+        let totalEnergy = 0;
+
+        for (let bin = 1; bin < bufferLength; bin++) {
+          const freq = (bin * sampleRate) / analyser.fftSize;
+          if (freq < 50 || freq > 4200) continue;
+          const amplitude = Math.pow(10, freqData[bin] / 20);
+          const energy = amplitude * amplitude;
+          // Map frequency to pitch class (mod 12)
+          const midiNote = 12 * Math.log2(freq / 440) + 69;
+          const pitchClass = ((Math.round(midiNote) % 12) + 12) % 12;
+          chroma[pitchClass] += energy;
+          totalEnergy += energy;
+        }
+
+        if (totalEnergy < 1e-10) return null; // silence
+
+        // Root = pitch class with highest chroma energy
+        let rootPc = 0;
+        let rootEnergy = 0;
+        for (let pc = 0; pc < 12; pc++) {
+          if (chroma[pc] > rootEnergy) {
+            rootEnergy = chroma[pc];
+            rootPc = pc;
+          }
+        }
+
+        // Major vs minor: compare energy at major third (+4) vs minor third (+3)
+        const majorThirdEnergy = chroma[(rootPc + 4) % 12];
+        const minorThirdEnergy = chroma[(rootPc + 3) % 12];
+        const isMinor = minorThirdEnergy > majorThirdEnergy;
+
+        const chordName = NOTE_NAMES[rootPc] + (isMinor ? 'm' : '');
+        const confidence = totalEnergy > 0 ? Math.min(100, (rootEnergy / totalEnergy) * 100 * 12) : 0;
+
+        return {
+          chord: chordName,
+          timestamp: Date.now(),
+          duration: 1,
+          confidence,
+          notes: [
+            NOTE_NAMES[rootPc],
+            NOTE_NAMES[(rootPc + (isMinor ? 3 : 4)) % 12],
+            NOTE_NAMES[(rootPc + 7) % 12]
+          ]
+        };
+      };
+
       mediaRecorder.start();
       setIsRecording(true);
       toast.info('Listening for chords...');
 
-      // Simulate real-time chord detection
       const interval = setInterval(() => {
-        const randomChords = ['C', 'Am', 'F', 'G', 'Dm', 'Em'];
-        const chord = randomChords[Math.floor(Math.random() * randomChords.length)];
-        setCurrentChord({
-          chord,
-          timestamp: Date.now(),
-          duration: 1,
-          confidence: 70 + Math.random() * 30,
-          notes: []
-        });
+        const detected = detectChordFromFFT();
+        if (detected) {
+          setCurrentChord(detected);
+        }
       }, 2000);
 
       mediaRecorder.onstop = () => {
         clearInterval(interval);
+        source.disconnect();
+        audioCtx.close();
         stream.getTracks().forEach(track => track.stop());
       };
 

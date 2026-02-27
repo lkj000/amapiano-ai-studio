@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MetricDataPoint {
   timestamp: string;
@@ -20,33 +21,32 @@ interface AnimatedMetricsChartProps {
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
-export const AnimatedMetricsChart = ({ 
+export const AnimatedMetricsChart = ({
   data: externalData,
   title = "Real-Time Performance Metrics",
   type = 'area'
 }: AnimatedMetricsChartProps) => {
   const [data, setData] = useState<MetricDataPoint[]>([]);
   const [isAnimating, setIsAnimating] = useState(true);
+  // Keep last known values so we don't show noise when metrics endpoint is down
+  const lastKnownRef = useRef<Omit<MetricDataPoint, 'timestamp'> | null>(null);
 
-  // Generate realistic data points
-  const generateDataPoint = (index: number): MetricDataPoint => {
-    const baseAccuracy = 92.1;
-    const baseLatency = 373;
-    const baseThroughput = 11.5;
-    const baseAuthenticity = 94.3;
-    const baseCacheHit = 57.5;
+  const fetchMetrics = async (): Promise<Omit<MetricDataPoint, 'timestamp'> | null> => {
+    try {
+      const { data: metricsData, error } = await supabase.functions.invoke('metrics');
+      if (error || !metricsData) return null;
 
-    return {
-      timestamp: new Date(Date.now() - (29 - index) * 60000).toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
-      accuracy: baseAccuracy + (Math.random() - 0.5) * 2,
-      latency: baseLatency + (Math.random() - 0.5) * 50,
-      throughput: baseThroughput + (Math.random() - 0.5) * 1,
-      authenticity: baseAuthenticity + (Math.random() - 0.5) * 3,
-      cacheHitRate: baseCacheHit + (Math.random() - 0.5) * 10
-    };
+      // Map Prometheus-style or structured metrics to chart fields
+      return {
+        accuracy: typeof metricsData.accuracy === 'number' ? metricsData.accuracy : metricsData.accuracy_score ?? metricsData.ai_accuracy ?? 0,
+        latency: typeof metricsData.latency === 'number' ? metricsData.latency : metricsData.avg_latency_ms ?? metricsData.response_time ?? 0,
+        throughput: typeof metricsData.throughput === 'number' ? metricsData.throughput : metricsData.requests_per_minute ?? metricsData.rps ?? 0,
+        authenticity: typeof metricsData.authenticity === 'number' ? metricsData.authenticity : metricsData.authenticity_score ?? 0,
+        cacheHitRate: typeof metricsData.cacheHitRate === 'number' ? metricsData.cacheHitRate : metricsData.cache_hit_rate ?? metricsData.cache_hits ?? 0,
+      };
+    } catch {
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -55,19 +55,37 @@ export const AnimatedMetricsChart = ({
       return;
     }
 
-    // Initialize with 30 data points
-    const initialData = Array.from({ length: 30 }, (_, i) => generateDataPoint(i));
-    setData(initialData);
+    let intervalId: ReturnType<typeof setInterval>;
 
-    // Update every 5 seconds
-    const interval = setInterval(() => {
-      setData(prev => {
-        const newData = [...prev.slice(1), generateDataPoint(29)];
-        return newData;
-      });
-    }, 5000);
+    const tick = async () => {
+      const metrics = await fetchMetrics();
+      const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    return () => clearInterval(interval);
+      if (metrics) {
+        lastKnownRef.current = metrics;
+        const point: MetricDataPoint = { timestamp, ...metrics };
+        setData(prev => {
+          const next = [...prev, point];
+          return next.length > 30 ? next.slice(next.length - 30) : next;
+        });
+      } else if (lastKnownRef.current) {
+        // Endpoint unavailable — repeat last known values, no random noise
+        const point: MetricDataPoint = { timestamp, ...lastKnownRef.current };
+        setData(prev => {
+          const next = [...prev, point];
+          return next.length > 30 ? next.slice(next.length - 30) : next;
+        });
+      }
+      // If both null and no last known, leave data unchanged (empty state)
+    };
+
+    // Initial fetch
+    tick();
+
+    // Poll every 5 seconds
+    intervalId = setInterval(tick, 5000);
+
+    return () => clearInterval(intervalId);
   }, [externalData]);
 
   const latestData = data[data.length - 1] || {

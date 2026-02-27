@@ -26,6 +26,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
+const MODAL_API_BASE = import.meta.env.VITE_MODAL_API_URL || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+
 interface HealthStatus {
   status: string;
   gpu: boolean;
@@ -163,7 +165,7 @@ export default function ModalDashboard() {
   const checkHealth = async () => {
     setIsCheckingHealth(true);
     try {
-      const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/health');
+      const response = await fetch(`${MODAL_API_BASE}/health`);
       const data = await response.json();
       setHealth(data);
       toast.success('Modal backend is healthy');
@@ -340,7 +342,7 @@ export default function ModalDashboard() {
 
     setIsGeneratingLLM(true);
     try {
-      const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/llm/generate', {
+      const response = await fetch(`${MODAL_API_BASE}/llm/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -367,7 +369,7 @@ export default function ModalDashboard() {
 
   const fetchLLMStats = async () => {
     try {
-      const response = await fetch('https://mabgwej--aura-x-backend-fastapi-app.modal.run/llm/stats');
+      const response = await fetch(`${MODAL_API_BASE}/llm/stats`);
       if (!response.ok) throw new Error('Failed to fetch stats');
       const data = await response.json();
       setLlmStats(data);

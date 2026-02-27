@@ -62,20 +62,46 @@ serve(async (req) => {
     console.log(`Analyzing sample: ${sample.filename}`);
     console.log(`Audio URL: ${urlData.publicUrl}`);
 
-    // Simulated audio analysis (in production, use Essentia.js or similar)
-    // These would be replaced with actual audio analysis
+    const sampleUrl = urlData.publicUrl;
+
+    // Call Modal backend for real audio analysis
+    const modalUrl = Deno.env.get('MODAL_API_URL') || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+    const analysisResp = await fetch(`${modalUrl}/audio/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio_url: sampleUrl, extract_features: true }),
+    });
+
+    if (!analysisResp.ok) throw new Error(`Modal analysis failed: ${analysisResp.status}`);
+    const modalData = await analysisResp.json();
+
+    // Map Modal response to our schema
+    const analysis = {
+      bpm: modalData.bpm || 110,
+      key: modalData.key || 'Am',
+      energy: modalData.energy_level || 0.7,
+      danceability: modalData.danceability || 0.8,
+      spectralFeatures: {
+        centroid: modalData.spectral_centroid || 2000,
+        rolloff: modalData.spectral_rolloff || 4000,
+        flux: modalData.spectral_flux || 0.5,
+        logDrumPresence: modalData.log_drum_presence || 0.85,
+      },
+      embedding: modalData.embedding || Array.from({ length: 512 }, () => 0), // zeros if no embedding
+    };
+
     const analysisResults = {
-      bpm: 112 + Math.random() * 10, // Amapiano typically 112-122 BPM
-      key_signature: ['C major', 'D minor', 'F major', 'G minor', 'A minor'][Math.floor(Math.random() * 5)],
-      energy: 0.5 + Math.random() * 0.4,
-      danceability: 0.6 + Math.random() * 0.3,
-      valence: 0.4 + Math.random() * 0.4,
-      spectral_centroid: 1500 + Math.random() * 1000,
-      spectral_rolloff: 4000 + Math.random() * 2000,
-      log_drum_presence: 0.3 + Math.random() * 0.6,
-      bassline_score: 0.4 + Math.random() * 0.5,
-      shaker_presence: 0.2 + Math.random() * 0.6,
-      vocal_style_score: 0.3 + Math.random() * 0.5,
+      bpm: analysis.bpm,
+      key_signature: analysis.key,
+      energy: analysis.energy,
+      danceability: analysis.danceability,
+      valence: modalData.valence || 0.5,
+      spectral_centroid: analysis.spectralFeatures.centroid,
+      spectral_rolloff: analysis.spectralFeatures.rolloff,
+      log_drum_presence: analysis.spectralFeatures.logDrumPresence,
+      bassline_score: modalData.bassline_score || 0.5,
+      shaker_presence: modalData.shaker_presence || 0.4,
+      vocal_style_score: modalData.vocal_style_score || 0.4,
     };
 
     // Calculate authenticity score (weighted average)
@@ -87,11 +113,7 @@ serve(async (req) => {
       (analysisResults.bpm >= 110 && analysisResults.bpm <= 125 ? 0.15 : 0)
     );
 
-    // Generate a mock embedding (in production, use a real model)
-    const embedding = Array.from(
-      { length: 512 }, 
-      () => (Math.random() - 0.5) * 2
-    );
+    const embedding = analysis.embedding;
 
     // Update the sample with analysis results
     const { error: updateError } = await supabase

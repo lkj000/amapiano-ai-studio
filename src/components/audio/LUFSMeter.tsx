@@ -62,18 +62,73 @@ export function LUFSMeter({
   const peakRef = useRef<number>(-70);
 
   /**
-   * K-weighting filter coefficients (simplified)
-   * Full implementation would use two cascaded biquad filters
+   * K-weighting filter per ITU-R BS.1770-4
+   * Stage 1: high-shelf pre-filter
+   * Stage 2: RLB high-pass 2nd-order Butterworth at 38.13 Hz
+   * Coefficients below are for 48 kHz; other rates use bilinear transform approximation.
    */
   const applyKWeighting = useCallback((samples: Float32Array): Float32Array => {
-    // Simplified K-weighting - just a high-shelf approximation
-    // Production would use proper biquad filters
-    const weighted = new Float32Array(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-      weighted[i] = samples[i] * 1.0; // Placeholder for real K-weighting
+    const sampleRate = audioContext?.sampleRate ?? 48000;
+
+    // Stage 1 coefficients (high-shelf pre-filter)
+    let b0_1: number, b1_1: number, b2_1: number, a1_1: number, a2_1: number;
+    // Stage 2 coefficients (RLB high-pass)
+    let b0_2: number, b1_2: number, b2_2: number, a1_2: number, a2_2: number;
+
+    if (Math.abs(sampleRate - 48000) < 1) {
+      // Exact 48 kHz coefficients from ITU-R BS.1770-4
+      b0_1 = 1.53512485958697;  b1_1 = -2.69169618940638; b2_1 = 1.19839281085285;
+      a1_1 = -1.69065929318241; a2_1 = 0.73248077421585;
+      b0_2 = 1.0;               b1_2 = -2.0;              b2_2 = 1.0;
+      a1_2 = -1.99004745483398; a2_2 = 0.99007225036500;
+    } else {
+      // Bilinear transform approximation for other sample rates
+      const f0_shelf = 1681.974450955533;
+      const Q_shelf  = 0.7071752369554196;
+      const G_shelf  = 3.999843853973347; // dB
+      const K_shelf  = Math.tan(Math.PI * f0_shelf / sampleRate);
+      const Vb       = Math.pow(10, G_shelf / 20);
+      const a0d      = 1 + K_shelf / Q_shelf + K_shelf * K_shelf;
+      b0_1 = (Vb + Vb * K_shelf / Q_shelf + K_shelf * K_shelf) / a0d;
+      b1_1 = (2 * (K_shelf * K_shelf - Vb)) / a0d;
+      b2_1 = (Vb - Vb * K_shelf / Q_shelf + K_shelf * K_shelf) / a0d;
+      a1_1 = (2 * (K_shelf * K_shelf - 1)) / a0d;
+      a2_1 = (1 - K_shelf / Q_shelf + K_shelf * K_shelf) / a0d;
+
+      const f0_hp = 38.13547087602444;
+      const Q_hp  = 0.5003270373238773;
+      const K_hp  = Math.tan(Math.PI * f0_hp / sampleRate);
+      const a0hp  = 1 + K_hp / Q_hp + K_hp * K_hp;
+      b0_2 = 1.0 / a0hp;
+      b1_2 = -2.0 / a0hp;
+      b2_2 = 1.0 / a0hp;
+      a1_2 = (2 * (K_hp * K_hp - 1)) / a0hp;
+      a2_2 = (1 - K_hp / Q_hp + K_hp * K_hp) / a0hp;
     }
-    return weighted;
-  }, []);
+
+    const out = new Float32Array(samples.length);
+
+    // Stage 1 state
+    let x1_1 = 0, x2_1 = 0, y1_1 = 0, y2_1 = 0;
+    // Stage 2 state
+    let x1_2 = 0, x2_2 = 0, y1_2 = 0, y2_2 = 0;
+
+    for (let i = 0; i < samples.length; i++) {
+      // Stage 1: high-shelf
+      const xn1 = samples[i];
+      const yn1 = b0_1 * xn1 + b1_1 * x1_1 + b2_1 * x2_1 - a1_1 * y1_1 - a2_1 * y2_1;
+      x2_1 = x1_1; x1_1 = xn1; y2_1 = y1_1; y1_1 = yn1;
+
+      // Stage 2: RLB high-pass
+      const xn2 = yn1;
+      const yn2 = b0_2 * xn2 + b1_2 * x1_2 + b2_2 * x2_2 - a1_2 * y1_2 - a2_2 * y2_2;
+      x2_2 = x1_2; x1_2 = xn2; y2_2 = y1_2; y1_2 = yn2;
+
+      out[i] = yn2;
+    }
+
+    return out;
+  }, [audioContext]);
 
   /**
    * Calculate RMS of samples (mean square -> LUFS)

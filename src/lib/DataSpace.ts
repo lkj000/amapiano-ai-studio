@@ -227,16 +227,68 @@ export class DataSpace {
    * Handle patterns operations
    */
   private async handlePatterns(query: DataQuery): Promise<DataSpaceResponse> {
-    // Similar pattern to samples
-    return { data: null, error: new Error('Patterns operations not yet implemented') };
+    const table = supabase.from('drum_patterns' as any);
+
+    switch (query.operation) {
+      case 'create': {
+        const result = await table.insert(query.data).select().single();
+        return { data: result.data, error: result.error ? new Error(result.error.message) : null };
+      }
+      case 'read': {
+        let q: any = table.select('*');
+        if (query.filters) {
+          Object.entries(query.filters).forEach(([key, value]) => {
+            q = q.eq(key, value);
+          });
+        }
+        if (query.limit) q = q.limit(query.limit);
+        const result = await q;
+        // If the table doesn't exist yet, return an empty array rather than propagating the error
+        if (result.error) return { data: [], error: null };
+        return { data: result.data, error: null };
+      }
+      case 'search': {
+        const result = await (table as any).select('*').ilike('name', `%${query.filters?.query}%`);
+        if (result.error) return { data: [], error: null };
+        return { data: result.data, error: null };
+      }
+      default:
+        return { data: [], error: null };
+    }
   }
 
   /**
    * Handle plugins operations
    */
   private async handlePlugins(query: DataQuery): Promise<DataSpaceResponse> {
-    // Plugin management through DataSpace
-    return { data: null, error: new Error('Plugin operations not yet implemented') };
+    const table = supabase.from('audio_plugins' as any);
+
+    switch (query.operation) {
+      case 'create': {
+        const result = await table.insert(query.data).select().single();
+        return { data: result.data, error: result.error ? new Error(result.error.message) : null };
+      }
+      case 'read': {
+        let q: any = table.select('*');
+        if (query.filters) {
+          Object.entries(query.filters).forEach(([key, value]) => {
+            q = q.eq(key, value);
+          });
+        }
+        if (query.limit) q = q.limit(query.limit);
+        const result = await q;
+        // If the table doesn't exist yet, return an empty array rather than propagating the error
+        if (result.error) return { data: [], error: null };
+        return { data: result.data, error: null };
+      }
+      case 'search': {
+        const result = await (table as any).select('*').ilike('name', `%${query.filters?.query}%`);
+        if (result.error) return { data: [], error: null };
+        return { data: result.data, error: null };
+      }
+      default:
+        return { data: [], error: null };
+    }
   }
 
   /**

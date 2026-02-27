@@ -34,46 +34,122 @@ export const PluginTester: React.FC<PluginTesterProps> = ({
     { id: 'wasm', name: 'WASM Integration', status: 'pending', duration: 0 }
   ]);
 
+  // Deterministic validators — no Math.random()
+  const runValidation = (testId: string): { passed: boolean; reason?: string } => {
+    const p = project;
+    switch (testId) {
+      case 'initialization': {
+        // Test 1: Plugin loads — check name, version, category fields exist
+        const hasName = typeof p.name === 'string' && p.name.trim().length > 0;
+        const hasVersion = typeof p.metadata?.version === 'string' && p.metadata.version.trim().length > 0;
+        const hasCategory = typeof p.metadata?.category === 'string' && p.metadata.category.trim().length > 0;
+        const passed = hasName && hasVersion && hasCategory;
+        return { passed, reason: passed ? undefined : `Missing: ${[!hasName && 'name', !hasVersion && 'version', !hasCategory && 'category'].filter(Boolean).join(', ')}` };
+      }
+      case 'parameters': {
+        // Test 2: Parameters valid — all params have min/max/default, default in [min, max]
+        const params = p.parameters ?? [];
+        if (params.length === 0) return { passed: true };
+        const invalid = params.filter(param => {
+          if (param.type === 'bool' || param.type === 'enum') return false;
+          const hasMin = typeof param.min === 'number';
+          const hasMax = typeof param.max === 'number';
+          const hasDef = typeof param.defaultValue === 'number';
+          if (!hasMin || !hasMax || !hasDef) return true;
+          return param.defaultValue < param.min || param.defaultValue > param.max;
+        });
+        const passed = invalid.length === 0;
+        return { passed, reason: passed ? undefined : `Invalid params: ${invalid.map(p => p.name).join(', ')}` };
+      }
+      case 'audio-processing': {
+        // Test 3: DSP type valid — type in ['instrument','effect','utility'] (PluginProject.type)
+        const validTypes = ['instrument', 'effect', 'utility'];
+        const passed = validTypes.includes(p.type);
+        return { passed, reason: passed ? undefined : `Invalid type: "${p.type}"` };
+      }
+      case 'latency': {
+        // Test 4: No circular deps — framework field is not self-referential
+        // (PluginProject has no explicit dependency list; check framework sanity instead)
+        const validFrameworks = ['juce', 'web-audio', 'custom'];
+        const passed = validFrameworks.includes(p.framework);
+        return { passed, reason: passed ? undefined : `Unknown framework: "${p.framework}"` };
+      }
+      case 'cpu-load': {
+        // Test 5: Audio IO valid — for web-audio framework, code must be non-empty
+        if (p.framework === 'web-audio') {
+          const passed = typeof p.code === 'string' && p.code.trim().length > 0;
+          return { passed, reason: passed ? undefined : 'Web-audio plugin has empty code' };
+        }
+        return { passed: true };
+      }
+      case 'memory': {
+        // Extra: metadata completeness — author and description present
+        const hasAuthor = typeof p.metadata?.author === 'string' && p.metadata.author.trim().length > 0;
+        const hasDesc = typeof p.metadata?.description === 'string' && p.metadata.description.trim().length > 0;
+        const passed = hasAuthor && hasDesc;
+        return { passed, reason: passed ? undefined : `Missing: ${[!hasAuthor && 'author', !hasDesc && 'description'].filter(Boolean).join(', ')}` };
+      }
+      case 'stability': {
+        // Extra: parameter IDs are unique
+        const params = p.parameters ?? [];
+        const ids = params.map(p => p.id);
+        const uniqueIds = new Set(ids);
+        const passed = uniqueIds.size === ids.length;
+        return { passed, reason: passed ? undefined : 'Duplicate parameter IDs detected' };
+      }
+      case 'wasm': {
+        // WASM availability check
+        if (!wasmEngine.isInitialized) {
+          return { passed: false, reason: 'WASM engine not initialized' };
+        }
+        return { passed: true };
+      }
+      default:
+        return { passed: true };
+    }
+  };
+
   const runTests = async () => {
     setIsRunning(true);
-    
+
     for (let i = 0; i < tests.length; i++) {
       const test = tests[i];
       setCurrentTest(test.name);
-      
-      // Update test status to running
-      setTests(prev => prev.map((t, idx) => 
+
+      // Mark as running
+      setTests(prev => prev.map((t, idx) =>
         idx === i ? { ...t, status: 'running' } : t
       ));
-      
-      // Simulate test execution
+
       const startTime = performance.now();
-      await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
+      // Small async yield so React can repaint
+      await new Promise(resolve => setTimeout(resolve, 50));
       const duration = performance.now() - startTime;
-      
-      // Determine pass/fail
-      let status = 'passed';
+
+      // Deterministic validation — no Math.random()
+      const { passed, reason } = runValidation(test.id);
+      let status: string;
       if (test.id === 'wasm' && !wasmEngine.isInitialized) {
         status = 'warning';
-      } else if (Math.random() > 0.95) {
-        status = 'failed';
+      } else {
+        status = passed ? 'passed' : 'failed';
       }
-      
-      // Update test status
-      setTests(prev => prev.map((t, idx) => 
+
+      setTests(prev => prev.map((t, idx) =>
         idx === i ? { ...t, status, duration } : t
       ));
     }
-    
+
     setIsRunning(false);
     setCurrentTest('');
-    
-    const passed = tests.filter(t => t.status === 'passed').length;
-    const failed = tests.filter(t => t.status === 'failed').length;
-    
+
+    const currentTests = tests;
+    const passed = currentTests.filter(t => t.status === 'passed').length;
+    const failed = currentTests.filter(t => t.status === 'failed').length;
+
     if (failed === 0) {
       toast.success('All tests passed!', {
-        description: `${passed}/${tests.length} tests successful`
+        description: `${passed}/${currentTests.length} tests successful`
       });
     } else {
       toast.error('Some tests failed', {

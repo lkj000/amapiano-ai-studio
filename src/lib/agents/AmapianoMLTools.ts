@@ -40,13 +40,21 @@ export const amapianoMLTools: ToolDefinition[] = [
       }
     },
     execute: async (input) => {
-      console.log('[AmapianoML] Classification requested:', input);
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase.functions.invoke('music-analysis', {
+        body: {
+          analysisType: 'style_classification',
+          content: input.audio_features || input.audioUrl || input.description || '',
+          context: 'Classify this Amapiano track into: private-school, classic, deep, soulful, afro-house, or gqom',
+        },
+      });
+      if (error || !data) throw new Error('Style classification failed');
       return {
-        genre: 'Amapiano',
-        subgenre: 'private-school',
-        confidence: 0.87,
-        regionalMatch: { region: input.region || 'johannesburg', confidence: 0.82 },
-        headScores: { rhythm: 0.9, timbral: 0.85, harmonic: 0.8, production: 0.88 }
+        genre: data.genre || 'Amapiano',
+        subgenre: data.classification?.subgenre || data.style || 'classic',
+        confidence: data.classification?.confidence || data.confidence || 0.7,
+        regionalMatch: { region: input.region || 'johannesburg', confidence: data.classification?.regionalConfidence || 0.7 },
+        headScores: data.classification?.headScores || { rhythm: 0.7, timbral: 0.7, harmonic: 0.7, production: 0.7 },
       };
     }
   },

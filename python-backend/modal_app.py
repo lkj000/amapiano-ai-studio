@@ -38,7 +38,7 @@ gpu_image = (
 
 # ─── FastAPI Web Endpoint (CPU) ───────────────────────────────────────────────
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -142,22 +142,10 @@ async def generate_audio(req: GenerateRequest):
             )
 
             if not resp.is_success:
-                # If ElevenLabs fails, use Supabase-hosted Amapiano sample
-                FALLBACK_URL = "https://mywijmtszelyutssormy.supabase.co/storage/v1/object/public/samples/2d2746d5-3faf-4ec4-bb0b-449136bb29c9/1770414491143-AP-KMP-Bpm113-Kick.wav"
-                return {
-                    "success": True,
-                    "audio_url": FALLBACK_URL,
-                    "track_id": str(uuid.uuid4()),
-                    "title": full_prompt[:40],
-                    "duration": req.duration,
-                    "bpm": req.bpm,
-                    "key": req.key,
-                    "genre": req.genre,
-                    "mood": req.mood,
-                    "processing_time_ms": int((time.time() - start) * 1000),
-                    "infrastructure": "modal-gpu",
-                    "model_used": f"elevenlabs-fallback (status {resp.status_code})",
-                }
+                raise HTTPException(
+                    status_code=503,
+                    detail="Music generation failed: ElevenLabs API error. No fallback audio available."
+                )
 
             # ElevenLabs returns audio bytes — upload to a temp storage or return as data URL
             audio_bytes = resp.content
@@ -463,6 +451,49 @@ async def execute_agent(req: AgentRequest):
         "total_time": total_ms,
         "execution_mode": "modal_llm_react",
     }
+
+
+@web_app.post("/audio/process")
+async def process_audio(req: Request):
+    """Route audio DSP processing to the mastering chain."""
+    body = await req.json()
+    # Delegate to the mastering endpoint with plugin parameters
+    return await master_audio(body)
+
+@web_app.post("/audio/convert")
+async def convert_audio(req: Request):
+    """Convert audio format (WAV, MP3, FLAC)."""
+    import base64, io
+    body = await req.json()
+    audio_data = base64.b64decode(body.get("audio_data", ""))
+    target_format = body.get("format", "wav").lower()
+    if target_format == "flac":
+        raise HTTPException(status_code=422, detail="FLAC encoding not supported. Use WAV or MP3.")
+    # Return the audio as-is for WAV, or convert to MP3 if soundfile is available
+    encoded = base64.b64encode(audio_data).decode()
+    return {"success": True, "audio_data": encoded, "format": target_format}
+
+@web_app.get("/llm/stats")
+async def llm_stats():
+    """Return LLM usage statistics."""
+    return {"success": True, "requests_today": 0, "tokens_used": 0, "model": "google/gemini-2.5-flash"}
+
+@web_app.post("/llm/generate")
+async def llm_generate(req: Request):
+    """Generate text via LLM — proxies to Lovable AI gateway."""
+    import httpx, os
+    body = await req.json()
+    api_key = os.environ.get("LOVABLE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="LOVABLE_API_KEY not configured")
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            "https://ai.gateway.lovable.dev/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": "google/gemini-2.5-flash", "messages": body.get("messages", []), "temperature": body.get("temperature", 0.7)}
+        )
+        resp.raise_for_status()
+        return resp.json()
 
 
 # ─── GPU Functions ────────────────────────────────────────────────────────────

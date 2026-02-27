@@ -47,15 +47,7 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY');
     
     if (!ELEVENLABS_API_KEY) {
-      console.log('ElevenLabs API key not configured, returning null for client-side fallback');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          audioContent: null,
-          message: 'TTS API not configured, use browser fallback',
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'ElevenLabs API key not configured. Set ELEVENLABS_API_KEY secret.' }), { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
     // Map internal voice ID to ElevenLabs voice ID

@@ -1,7 +1,7 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,38 +19,76 @@ serve(async (req) => {
     console.log(`[ML Optimizer] Analyzing plugin code (${pluginCode.length} chars)`);
     console.log(`[ML Optimizer] Optimization type: ${optimizationType || 'all'}`);
 
-    // Use GPT-5 to analyze code and provide optimization suggestions
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert audio DSP optimization engineer. Analyze the provided plugin code and suggest specific, actionable optimizations focusing on:
-            
+    // Use Lovable AI gateway (Gemini 2.5 Flash) or fall back to Anthropic Claude Haiku
+    const systemPrompt = `You are an expert audio DSP optimization engineer. Analyze the provided plugin code and suggest specific, actionable optimizations focusing on:
+
 1. Performance: SIMD vectorization, memory allocation, cache efficiency
 2. Quality: Anti-aliasing, DC blocking, oversampling opportunities
 3. Architecture: Better patterns, modularity, maintainability
 4. Parameters: Perceptual scaling, smoothing, value ranges
 
-Provide concrete code examples for each suggestion. Be specific about the improvement impact (high/medium/low effort, high/medium/low impact).`
-          },
-          {
-            role: 'user',
-            content: `Analyze this audio plugin code and provide optimization suggestions:\n\n${pluginCode}`
-          }
-        ],
-        max_completion_tokens: 2000,
-      }),
-    });
+Provide concrete code examples for each suggestion. Be specific about the improvement impact (high/medium/low effort, high/medium/low impact).`;
 
-    const data = await response.json();
-    const analysis = data.choices[0].message.content;
+    const userMessage = `Analyze this audio plugin code and provide optimization suggestions:\n\n${pluginCode}`;
+
+    let analysis: string;
+
+    if (LOVABLE_API_KEY) {
+      console.log('[ML Optimizer] Using Lovable AI gateway (google/gemini-2.5-flash)');
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage }
+          ],
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Lovable AI gateway error ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      analysis = data.choices[0].message.content;
+
+    } else if (ANTHROPIC_API_KEY) {
+      console.log('[ML Optimizer] Falling back to Anthropic Claude Haiku');
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          system: systemPrompt,
+          messages: [
+            { role: 'user', content: userMessage }
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Anthropic API error ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      analysis = data.content[0].text;
+
+    } else {
+      throw new Error('No AI API key configured. Set LOVABLE_API_KEY or ANTHROPIC_API_KEY.');
+    }
     
     // Parse AI response into structured suggestions
     const suggestions = parseOptimizationSuggestions(analysis);

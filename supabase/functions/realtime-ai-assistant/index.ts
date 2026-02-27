@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface RealtimeSession {
+  id: string;
   ws: WebSocket;
   preferences: {
     sensitivity: number;
@@ -30,6 +32,7 @@ serve((req) => {
     console.log(`[REALTIME-AI] Session ${sessionId} opened`);
     
     activeSessions.set(sessionId, {
+      id: sessionId,
       ws,
       preferences: {
         sensitivity: 0.7,
@@ -105,27 +108,18 @@ serve((req) => {
   return response;
 });
 
-async function processContextUpdate(session: RealtimeSession, context: any) {
-  try {
-    const suggestions = generateRealtimeSuggestions(context, session.preferences);
-    
-    for (const suggestion of suggestions) {
-      if (suggestion.confidence >= session.preferences.sensitivity) {
-        session.ws.send(JSON.stringify({
-          type: 'suggestion',
-          suggestionType: suggestion.type,
-          confidence: suggestion.confidence,
-          text: suggestion.text,
-          action: suggestion.action,
-          timestamp: Date.now()
-        }));
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    }
-  } catch (error) {
-    console.error('[REALTIME-AI] Context processing error:', error);
-  }
+async function processContextUpdate(session: RealtimeSession, context: unknown): Promise<void> {
+  // Store context update in agent_memory table for session continuity
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+  await supabaseClient.from('agent_memory').upsert({
+    agent_id: session.id,
+    memory_type: 'context_update',
+    content: JSON.stringify(context),
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'agent_id,memory_type' });
 }
 
 function generateRealtimeSuggestions(context: any, preferences: any) {

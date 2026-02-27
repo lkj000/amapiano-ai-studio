@@ -59,8 +59,8 @@ async function modalTemporalProxy(action: string, body: Record<string, unknown>)
  * Local fallback when Modal backend doesn't have Temporal endpoints yet.
  */
 function localFallback(action: string, request: WorkflowRequest) {
-  const workflowId = request.workflowId || 
-    `${request.workflowType || 'workflow'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const workflowId = request.workflowId ||
+    `${request.workflowType || 'workflow'}-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
   console.log(`[TEMPORAL] Local fallback for action: ${action}, workflow: ${workflowId}`);
 

@@ -90,7 +90,8 @@ serve(async (req) => {
       quality_assessment: qualityAssessment,
       cultural_validation: culturalValidation,
       final_output: {
-        audio_url: `https://mywijmtszelyutssormy.supabase.co/functions/v1/demo-audio-files?track=orchestrated_${Date.now()}`,
+        audio_url: null,
+        audio_status: 'pending_generation',
         metadata: {
           style: 'amapiano',
           cultural_authenticity: culturalValidation.overall_score,
@@ -595,62 +596,136 @@ async function validateCulturalAuthenticity(results: TaskResult[], config: any) 
   };
 }
 
+// Fixed sensible defaults used when LLM preset generation fails — no Math.random()
+const PRESET_DEFAULTS = {
+  pitch: 55,
+  glide_time: 200,
+  knock_mix: 0.45,
+  body_mix: 0.75,
+  decay_time: 600,
+  attack_time: 2,
+  sustain_level: 0.40,
+  release_time: 1000,
+  master_gain: 0.80,
+  cultural_authenticity_score: 0.85,
+};
+
 // Handle AI preset generation for plugins
 async function handlePresetGeneration(request: PresetGenerationRequest) {
-  console.log('🎛️ Generating preset for:', request.plugin_type, 'in genre:', request.genre);
-  
-  // Genre-specific preset definitions for 808 Log Drum
-  const presetTemplates = {
-    'amapiano': {
-      pitch: 50 + Math.floor(Math.random() * 8), // 50-57
-      glide_time: 180 + Math.floor(Math.random() * 40), // 180-220ms
-      knock_mix: 0.35 + Math.random() * 0.15, // 0.35-0.5
-      body_mix: 0.75 + Math.random() * 0.15, // 0.75-0.9
-      decay_time: 550 + Math.floor(Math.random() * 100), // 550-650ms
-      attack_time: 1 + Math.floor(Math.random() * 3), // 1-4ms
-      sustain_level: 0.35 + Math.random() * 0.15, // 0.35-0.5
-      release_time: 950 + Math.floor(Math.random() * 100), // 950-1050ms
-      master_gain: 0.7 + Math.random() * 0.2 // 0.7-0.9
-    },
-    'private_school': {
-      pitch: 53 + Math.floor(Math.random() * 6), // 53-58
-      glide_time: 60 + Math.floor(Math.random() * 40), // 60-100ms
-      knock_mix: 0.15 + Math.random() * 0.15, // 0.15-0.3
-      body_mix: 0.85 + Math.random() * 0.1, // 0.85-0.95
-      decay_time: 350 + Math.floor(Math.random() * 100), // 350-450ms
-      attack_time: 1 + Math.floor(Math.random() * 2), // 1-3ms
-      sustain_level: 0.15 + Math.random() * 0.15, // 0.15-0.3
-      release_time: 700 + Math.floor(Math.random() * 150), // 700-850ms
-      master_gain: 0.75 + Math.random() * 0.15 // 0.75-0.9
-    },
-    'deep_house': {
-      pitch: 43 + Math.floor(Math.random() * 8), // 43-50
-      glide_time: 280 + Math.floor(Math.random() * 40), // 280-320ms
-      knock_mix: 0.5 + Math.random() * 0.2, // 0.5-0.7
-      body_mix: 0.6 + Math.random() * 0.2, // 0.6-0.8
-      decay_time: 1100 + Math.floor(Math.random() * 200), // 1100-1300ms
-      attack_time: 6 + Math.floor(Math.random() * 4), // 6-10ms
-      sustain_level: 0.45 + Math.random() * 0.15, // 0.45-0.6
-      release_time: 1600 + Math.floor(Math.random() * 400), // 1600-2000ms
-      master_gain: 0.65 + Math.random() * 0.25 // 0.65-0.9
+  console.log('Generating preset for:', request.plugin_type, 'in genre:', request.genre);
+
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
+  // Attempt LLM-based preset generation
+  const tryLLMPreset = async (): Promise<Record<string, number> | null> => {
+    if (!LOVABLE_API_KEY) {
+      console.warn('[preset] LOVABLE_API_KEY not configured — skipping LLM call');
+      return null;
+    }
+
+    const styleDescription = `${request.genre} style, plugin: ${request.plugin_type}`;
+    const existingParams = request.current_parameters
+      ? `Current parameters for context: ${JSON.stringify(request.current_parameters)}`
+      : '';
+
+    try {
+      const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an Amapiano sound designer. Generate precise synthesizer preset parameters as JSON.',
+            },
+            {
+              role: 'user',
+              content: [
+                `Generate preset parameters for: ${styleDescription}.`,
+                existingParams,
+                'Return JSON with: pitch (40-70), glide_time (100-300ms), knock_mix (0.2-0.6), body_mix (0.5-0.9),',
+                'decay_time (200-1500ms), attack_time (1-15ms), sustain_level (0.1-0.7), release_time (500-2000ms),',
+                'master_gain (0.5-1.0), cultural_authenticity_score (0-1).',
+                'Values must be musically meaningful for the requested style.',
+              ].filter(Boolean).join(' '),
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+          max_tokens: 400,
+        }),
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`[preset] LLM call failed: ${resp.status} ${errText}`);
+        return null;
+      }
+
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content || '{}';
+
+      let parsed: Record<string, number>;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        console.warn('[preset] Failed to parse LLM JSON response, using defaults');
+        return null;
+      }
+
+      console.log('[preset] LLM preset generated successfully');
+      return parsed;
+    } catch (err) {
+      console.error('[preset] LLM call threw:', err);
+      return null;
     }
   };
 
-  const template = presetTemplates[request.genre as keyof typeof presetTemplates] || presetTemplates['amapiano'];
-  
+  const llmParams = await tryLLMPreset();
+
+  // Merge LLM result with defaults — defaults fill any missing or out-of-range fields
+  const mergeWithDefaults = (llm: Record<string, number> | null): Record<string, number> => {
+    if (!llm) {
+      console.warn('[preset] Using fixed defaults (LLM unavailable)');
+      return { ...PRESET_DEFAULTS };
+    }
+
+    return {
+      pitch:                    typeof llm.pitch === 'number'                    ? llm.pitch                    : PRESET_DEFAULTS.pitch,
+      glide_time:               typeof llm.glide_time === 'number'               ? llm.glide_time               : PRESET_DEFAULTS.glide_time,
+      knock_mix:                typeof llm.knock_mix === 'number'                ? llm.knock_mix                : PRESET_DEFAULTS.knock_mix,
+      body_mix:                 typeof llm.body_mix === 'number'                 ? llm.body_mix                 : PRESET_DEFAULTS.body_mix,
+      decay_time:               typeof llm.decay_time === 'number'               ? llm.decay_time               : PRESET_DEFAULTS.decay_time,
+      attack_time:              typeof llm.attack_time === 'number'              ? llm.attack_time              : PRESET_DEFAULTS.attack_time,
+      sustain_level:            typeof llm.sustain_level === 'number'            ? llm.sustain_level            : PRESET_DEFAULTS.sustain_level,
+      release_time:             typeof llm.release_time === 'number'             ? llm.release_time             : PRESET_DEFAULTS.release_time,
+      master_gain:              typeof llm.master_gain === 'number'              ? llm.master_gain              : PRESET_DEFAULTS.master_gain,
+      cultural_authenticity_score: typeof llm.cultural_authenticity_score === 'number'
+        ? llm.cultural_authenticity_score
+        : PRESET_DEFAULTS.cultural_authenticity_score,
+    };
+  };
+
+  const parameters = mergeWithDefaults(llmParams);
+  const { cultural_authenticity_score, ...synthParams } = parameters;
+
   const response = {
     success: true,
     preset: {
       name: `AI ${request.genre.charAt(0).toUpperCase() + request.genre.slice(1)} Preset`,
       genre: request.genre,
-      parameters: template,
+      parameters: synthParams,
       description: `AI-generated ${request.genre} preset optimized for authentic sound`,
-      cultural_authenticity_score: 0.92 + Math.random() * 0.06,
-      generation_timestamp: new Date().toISOString()
-    }
+      cultural_authenticity_score,
+      generation_timestamp: new Date().toISOString(),
+    },
   };
 
-  console.log('✅ Generated preset successfully:', response.preset.name);
+  console.log('Generated preset successfully:', response.preset.name);
   return new Response(JSON.stringify(response), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

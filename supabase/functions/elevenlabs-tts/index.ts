@@ -40,7 +40,7 @@ serve(async (req) => {
 
   try {
     if (!ELEVENLABS_API_KEY) {
-      throw new Error('ELEVENLABS_API_KEY is not configured');
+      return new Response(JSON.stringify({ error: 'ElevenLabs API key not configured. Set ELEVENLABS_API_KEY secret.' }), { status: 503, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
     }
 
     const { text, voice, model, voice_settings } = await req.json();

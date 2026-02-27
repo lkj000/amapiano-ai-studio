@@ -27,7 +27,13 @@ serve(async (req) => {
 
     console.log(`Generating ${framework} plugin: ${type} - ${description}`);
 
-    const systemPrompt = `You are an elite VST plugin development AI with mastery of JUCE framework, Web Audio API, C++ DSP, and professional audio engineering.
+    const systemPrompt = `You are an expert DSP engineer and JUCE framework developer. Generate complete, working, production-ready C++ plugin code. Never leave TODO placeholders — implement every function fully with real signal processing algorithms.
+
+ABSOLUTE RULES — violating any of these will make the output unusable:
+1. NEVER write "// TODO", "// Implement this", "// Add your DSP here", or any other placeholder comment.
+2. NEVER leave a function body empty or stub it out. Every method must contain real, working code.
+3. The processBlock() method MUST contain the complete DSP algorithm — not a comment describing what to do.
+4. Generate actual signal processing mathematics: convolution/delay lines for reverb, biquad coefficients for EQ, RMS detection and gain reduction for compressors, band-limited oscillator algorithms for synths, etc.
 
 MISSION: Generate complete, production-ready, professional-grade VST plugin code for ANY type of audio plugin imaginable.
 
@@ -69,21 +75,26 @@ public:
     }
     
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
-        // ⚠️ CRITICAL: This method is MANDATORY - plugin will not compile without it
+        // This method MUST contain the complete DSP implementation.
+        // The example below shows the required structure — replace the inner
+        // loop with the FULL signal processing algorithm for the requested plugin type.
         juce::ScopedNoDenormals noDenormals;
         auto totalNumInputChannels  = getTotalNumInputChannels();
         auto totalNumOutputChannels = getTotalNumOutputChannels();
-        
-        // Clear unused channels
+
         for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
-        
-        // IMPLEMENT COMPLETE DSP PROCESSING HERE:
-        // - Handle MIDI for instruments
-        // - Process audio with professional algorithms
-        // - Add parameter smoothing
-        // - Optimize for real-time (<3ms latency)
-        // - Include proper gain staging
+
+        // Example for a one-pole lowpass filter (replace with actual algorithm):
+        // float alpha = 1.0f - std::exp(-2.0f * juce::MathConstants<float>::pi * cutoffHz / currentSampleRate);
+        // for (int ch = 0; ch < totalNumInputChannels; ++ch) {
+        //     auto* data = buffer.getWritePointer(ch);
+        //     for (int n = 0; n < buffer.getNumSamples(); ++n) {
+        //         filterState[ch] += alpha * (data[n] - filterState[ch]);
+        //         data[n] = filterState[ch];
+        //     }
+        // }
+        // The generated code must replace this comment block with real working math.
     }
     
     // Include ALL other required JUCE methods
@@ -165,25 +176,33 @@ Return ONLY the complete C++ code. No markdown, no explanations, just pure compi
         model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
+          {
+            role: 'user',
             content: `Create a professional ${type} VST plugin:
 
 DESCRIPTION: ${description}
 
 REQUIREMENTS:
 - Generate COMPLETE, production-ready C++ code
-- Implement ALL DSP algorithms from scratch
+- Implement ALL DSP algorithms from scratch with real signal processing mathematics
+- The processBlock() method must contain the FULL DSP implementation — not a comment, not a stub
+- For the plugin type requested, use the appropriate algorithm:
+    • Reverb: delay lines, all-pass filters, comb filters, early reflections
+    • EQ: biquad filter coefficients (bilinear transform), shelf and bell curves
+    • Compressor: RMS/peak level detection, attack/release envelopes, gain reduction in dB
+    • Synth: band-limited oscillators (BLEP/BLAMP), ADSR envelopes, polyphonic voice management
+    • Delay: circular buffer with interpolation (linear or Hermite), feedback path, modulation
+    • Other: use the mathematically correct algorithm for the requested effect
 - Include ALL parameter definitions (6-12 parameters)
-- Add comprehensive parameter smoothing
+- Add comprehensive parameter smoothing using SmoothedValue or one-pole IIR
 - Include proper audio buffer handling
-- Optimize for real-time performance (<3ms latency)
-- Add detailed inline documentation
+- Optimize for real-time performance (<3ms latency, no heap allocation in processBlock)
+- Add detailed inline documentation explaining the DSP mathematics
 - Follow professional audio coding standards
-- Make it sound professional and musical
-- NO placeholders, NO TODOs - everything must be fully implemented
+- NEVER write "// TODO", "// Implement this", "// Add DSP here", or any placeholder comment
+- Everything must be fully implemented and compile without modification
 
-Generate the complete plugin code now!` 
+Generate the complete plugin code now!`
           }
         ],
         max_tokens: 8000,
@@ -212,43 +231,44 @@ Generate the complete plugin code now!`
     const data = await response.json();
     let generatedCode = data.choices[0].message.content;
 
-    // Validate that processBlock exists
+    // Validate that processBlock exists.
+    // This fallback should rarely trigger because the LLM is explicitly instructed to
+    // generate a complete processBlock. When it does trigger, inject a safe pass-through
+    // (unity gain, no DSP) rather than a TODO placeholder, so the code at least compiles.
     if (!generatedCode.includes('void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)')) {
-      console.warn('Generated code missing processBlock - injecting default implementation');
-      
-      // Find the class definition and inject processBlock
-      const classMatch = generatedCode.match(/class\s+(\w+)\s*:\s*public\s+juce::AudioProcessor/);
-      if (classMatch) {
-        const className = classMatch[1];
-        const processBlockImpl = `
+      console.warn('Generated code missing processBlock - injecting pass-through fallback (no TODO placeholders)');
+
+      const processBlockImpl = `
     void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override {
+        // Fallback pass-through implementation injected because the LLM omitted processBlock.
+        // Audio is passed through unmodified (unity gain) so the plugin compiles and runs.
         juce::ScopedNoDenormals noDenormals;
         auto totalNumInputChannels  = getTotalNumInputChannels();
         auto totalNumOutputChannels = getTotalNumOutputChannels();
-        
-        // Clear unused channels
+
         for (int i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
             buffer.clear(i, 0, buffer.getNumSamples());
-        
-        // Process audio (pass-through for now)
+
+        // Unity-gain pass-through: copy input to output without modification.
         for (int channel = 0; channel < totalNumInputChannels; ++channel) {
             auto* channelData = buffer.getWritePointer(channel);
-            // TODO: Add your DSP processing here
+            for (int sample = 0; sample < buffer.getNumSamples(); ++sample) {
+                channelData[sample] *= 1.0f; // pass-through
+            }
         }
     }`;
-        
-        // Try to inject after prepareToPlay
-        if (generatedCode.includes('void prepareToPlay')) {
-          generatedCode = generatedCode.replace(
-            /(void prepareToPlay[^}]+})/,
-            `$1\n${processBlockImpl}`
-          );
-        } else {
-          // Inject before the closing brace of the class
-          const lastBrace = generatedCode.lastIndexOf('};');
-          if (lastBrace !== -1) {
-            generatedCode = generatedCode.slice(0, lastBrace) + processBlockImpl + '\n' + generatedCode.slice(lastBrace);
-          }
+
+      // Try to inject after prepareToPlay
+      if (generatedCode.includes('void prepareToPlay')) {
+        generatedCode = generatedCode.replace(
+          /(void prepareToPlay[^}]+})/,
+          `$1\n${processBlockImpl}`
+        );
+      } else {
+        // Inject before the closing brace of the class
+        const lastBrace = generatedCode.lastIndexOf('};');
+        if (lastBrace !== -1) {
+          generatedCode = generatedCode.slice(0, lastBrace) + processBlockImpl + '\n' + generatedCode.slice(lastBrace);
         }
       }
     }

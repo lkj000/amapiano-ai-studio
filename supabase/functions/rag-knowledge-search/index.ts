@@ -29,29 +29,31 @@ interface SearchRequest {
   getEmbeddingOnly?: boolean;
 }
 
-// Compute cosine similarity between two vectors
+// Compute cosine similarity between two vectors (dimension-agnostic)
 function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
-  
+  const len = Math.min(a.length, b.length);
+  if (len === 0) return 0;
+
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
-  
-  for (let i = 0; i < a.length; i++) {
+
+  for (let i = 0; i < len; i++) {
     dotProduct += a[i] * b[i];
     normA += a[i] * a[i];
     normB += b[i] * b[i];
   }
-  
+
   const denominator = Math.sqrt(normA) * Math.sqrt(normB);
   return denominator > 0 ? dotProduct / denominator : 0;
 }
 
-// Generate deterministic pseudo-embedding from text (128 dimensions)
+// Generate deterministic pseudo-embedding from text (128 dimensions).
+// Used only as a fallback when the real embeddings API is unavailable.
 function generatePseudoEmbedding(text: string): number[] {
   const embedding: number[] = [];
   const normalized = text.toLowerCase().trim();
-  
+
   // Create a deterministic hash-based embedding
   for (let i = 0; i < 128; i++) {
     let hash = 0;
@@ -62,48 +64,46 @@ function generatePseudoEmbedding(text: string): number[] {
     // Normalize to [-1, 1] range
     embedding.push(Math.sin(hash) * 0.5 + Math.cos(hash * 0.7) * 0.5);
   }
-  
+
   // Normalize the vector
   const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
   return magnitude > 0 ? embedding.map(v => v / magnitude) : embedding;
 }
 
-// Get embeddings using Lovable AI Gateway (chat-based extraction)
-async function getEmbeddingViaLovableAI(text: string, apiKey: string): Promise<number[]> {
+// Generate a real semantic embedding by calling the Lovable AI embeddings endpoint.
+// Falls back to generatePseudoEmbedding if the API call fails for any reason.
+async function generateRealEmbedding(text: string, apiKey: string): Promise<number[]> {
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are a text analysis assistant. Extract 5 key semantic concepts from the text as a comma-separated list. Be concise.' 
-          },
-          { role: 'user', content: text.slice(0, 2000) }
-        ],
+        model: 'text-embedding-3-small',
+        input: text,
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429 || response.status === 402) {
-        console.log('[RAG-SEARCH] Rate limited, using pseudo-embedding');
+        console.log('[RAG-SEARCH] Embeddings API rate limited/quota, falling back to pseudo-embedding');
         return generatePseudoEmbedding(text);
       }
-      throw new Error(`Lovable AI error: ${response.status}`);
+      throw new Error(`Embeddings API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const concepts = data.choices?.[0]?.message?.content || '';
-    
-    // Generate embedding from extracted concepts combined with original text
-    return generatePseudoEmbedding(`${concepts} ${text}`);
+    const embedding: number[] = data.data?.[0]?.embedding;
+    if (!Array.isArray(embedding) || embedding.length === 0) {
+      throw new Error('Invalid embedding response: missing data[0].embedding');
+    }
+
+    console.log(`[RAG-SEARCH] Real embedding received, dimensions: ${embedding.length}`);
+    return embedding;
   } catch (error) {
-    console.log('[RAG-SEARCH] Lovable AI error, using pseudo-embedding:', error);
+    console.log('[RAG-SEARCH] Real embedding failed, falling back to pseudo-embedding:', error);
     return generatePseudoEmbedding(text);
   }
 }
@@ -121,16 +121,16 @@ serve(async (req) => {
 
     // If only requesting embedding test
     if (getEmbeddingOnly) {
-      const embedding = LOVABLE_API_KEY 
-        ? await getEmbeddingViaLovableAI(query, LOVABLE_API_KEY)
+      const embedding = LOVABLE_API_KEY
+        ? await generateRealEmbedding(query, LOVABLE_API_KEY)
         : generatePseudoEmbedding(query);
-      
+
       console.log(`[RAG-SEARCH] Generated embedding, dim: ${embedding.length}`);
-      
+
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           embedding,
-          method: LOVABLE_API_KEY ? 'lovable_ai_enhanced' : 'pseudo_deterministic',
+          method: LOVABLE_API_KEY ? 'real_semantic' : 'pseudo_deterministic',
           dimensions: embedding.length
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -138,12 +138,12 @@ serve(async (req) => {
     }
 
     // Get query embedding
-    const searchText = currentContext 
+    const searchText = currentContext
       ? `${query} Context: ${currentContext.slice(0, 500)}`
       : query;
-    
-    const queryEmbedding = LOVABLE_API_KEY 
-      ? await getEmbeddingViaLovableAI(searchText, LOVABLE_API_KEY)
+
+    const queryEmbedding = LOVABLE_API_KEY
+      ? await generateRealEmbedding(searchText, LOVABLE_API_KEY)
       : generatePseudoEmbedding(searchText);
     
     console.log(`[RAG-SEARCH] Got query embedding, dim: ${queryEmbedding.length}`);
@@ -200,10 +200,15 @@ serve(async (req) => {
     delete (globalThis as any).__mergedKB;
 
     // Generate embeddings for knowledge base items
-    const itemEmbeddings = effectiveKnowledgeBase.map((item: KnowledgeItem) => {
-      const text = `${item.title}. ${item.content.slice(0, 500)}. Tags: ${item.tags.join(', ')}`;
-      return generatePseudoEmbedding(text);
-    });
+    // Use real semantic embeddings when possible; fall back to pseudo-embeddings per item on failure.
+    const itemEmbeddings = await Promise.all(
+      effectiveKnowledgeBase.map((item: KnowledgeItem) => {
+        const text = `${item.title}. ${item.content.slice(0, 500)}. Tags: ${item.tags.join(', ')}`;
+        return LOVABLE_API_KEY
+          ? generateRealEmbedding(text, LOVABLE_API_KEY)
+          : Promise.resolve(generatePseudoEmbedding(text));
+      })
+    );
 
     console.log(`[RAG-SEARCH] Generated ${itemEmbeddings.length} item embeddings`);
 
@@ -239,10 +244,10 @@ serve(async (req) => {
     console.log(`[RAG-SEARCH] Top result score: ${topResults[0]?.score.toFixed(3)}`);
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         enhancedResults: topResults,
-        searchMethod: LOVABLE_API_KEY ? 'hybrid_lovable_ai' : 'pseudo_semantic',
-        embeddingDimensions: 128
+        searchMethod: LOVABLE_API_KEY ? 'hybrid_real_semantic' : 'pseudo_semantic',
+        embeddingDimensions: queryEmbedding.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

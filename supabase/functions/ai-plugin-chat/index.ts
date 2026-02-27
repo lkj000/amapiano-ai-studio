@@ -1,7 +1,4 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,10 +55,6 @@ serve(async (req) => {
 
   try {
     const { messages, context } = await req.json();
-    
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
 
     // Build conversation context
     const conversationMessages = [
@@ -72,42 +65,104 @@ serve(async (req) => {
 
     console.log(`[AI-PLUGIN-CHAT] Processing ${messages.length} messages`);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
-        messages: conversationMessages,
-        max_completion_tokens: 2000,
-        stream: true,
-      }),
-    });
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[AI-PLUGIN-CHAT] OpenAI API error:', response.status, errorText);
-      return new Response(JSON.stringify({ error: 'AI service error' }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (lovableApiKey) {
+      // Primary: Lovable AI gateway with Gemini 2.5 Flash
+      console.log('[AI-PLUGIN-CHAT] Using Lovable AI gateway (google/gemini-2.5-flash)');
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: conversationMessages,
+          max_tokens: 2000,
+          stream: true,
+        }),
       });
-    }
 
-    // Stream the response back to client
-    return new Response(response.body, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AI-PLUGIN-CHAT] Lovable gateway error:', response.status, errorText);
+        return new Response(JSON.stringify({ error: 'AI service error' }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(response.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+
+    } else if (anthropicApiKey) {
+      // Fallback: Anthropic API with Claude Haiku
+      console.log('[AI-PLUGIN-CHAT] LOVABLE_API_KEY not set, falling back to Anthropic (claude-haiku-4-5-20251001)');
+
+      // Separate system messages from user/assistant messages for Anthropic format
+      const systemContent = conversationMessages
+        .filter(m => m.role === 'system')
+        .map(m => m.content)
+        .join('\n\n');
+      const chatMessages = conversationMessages.filter(m => m.role !== 'system');
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          system: systemContent,
+          messages: chatMessages,
+          max_tokens: 2000,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AI-PLUGIN-CHAT] Anthropic API error:', response.status, errorText);
+        return new Response(JSON.stringify({ error: 'AI service error' }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(response.body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+
+    } else {
+      console.error('[AI-PLUGIN-CHAT] No AI API key configured (LOVABLE_API_KEY or ANTHROPIC_API_KEY required)');
+      return new Response(
+        JSON.stringify({ error: 'No AI API key configured. Set LOVABLE_API_KEY or ANTHROPIC_API_KEY.' }),
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
   } catch (error) {
     console.error('[AI-PLUGIN-CHAT] Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

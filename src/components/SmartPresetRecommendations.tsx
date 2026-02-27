@@ -63,24 +63,29 @@ export const SmartPresetRecommendations = ({
   const loadRecommendations = async () => {
     setIsLoading(true);
     try {
-      // In production, this would fetch from actual database
-      // For now, simulate user history
-      const mockUserHistory = {
-        userId,
-        recentProjects: [
-          { bpm: 116, key: 'F#m', genre: 'private-school', completionRate: 0.8 },
-          { bpm: 118, key: 'Cm', genre: 'classic', completionRate: 0.9, presetUsed: 'kabza-bounce' },
-          { bpm: 115, key: 'Am', genre: 'private-school', completionRate: 0.75 },
-          { bpm: 117, key: 'F#m', genre: 'private-school', completionRate: 0.85 },
-          { bpm: 114, key: 'Gm', genre: 'bacardi', completionRate: 0.7 }
-        ],
-        preferredArtists: ['Kelvin Momo', 'Vigro Deep'],
-        skillLevel: 'intermediate' as const
-      };
+      // Fetch real user project history from DAW projects
+      const { data: userProjects } = await supabase
+        .from('daw_projects')
+        .select('bpm, key_signature, project_data, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      const recentProjects = (userProjects || []).map(p => ({
+        bpm: p.bpm,
+        key: p.key_signature || '',
+        genre: (p.project_data as any)?.genre || 'amapiano',
+        completionRate: 0.8
+      }));
 
       const { data, error } = await supabase.functions.invoke('preset-recommendations', {
         body: {
-          userHistory: mockUserHistory,
+          userHistory: {
+            userId,
+            recentProjects,
+            preferredArtists: [],
+            skillLevel: 'intermediate'
+          },
           currentContext: {
             projectBpm: currentProjectBpm,
             projectKey: currentProjectKey

@@ -67,15 +67,15 @@ export default function AudioTestLab() {
     try {
       toast.info('Starting audio processing test...');
       
-      // Create mock stems for testing
-      const mockStems = {
+      // Create empty stems — amapianorizeAudio generates elements from synthesis, not stems
+      const stems = {
         vocals: null,
         drums: null,
         bass: null,
         other: null,
       };
 
-      const result = await amapianorizeAudio(mockStems, settings);
+      const result = await amapianorizeAudio(stems, settings);
       
       if (result.processedAudio?.url) {
         setProcessedAudioUrl(result.processedAudio.url);

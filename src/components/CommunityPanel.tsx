@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   X, Share2, Heart, Download, Upload, Users, Music, 
   Headphones, Star, MessageCircle, ThumbsUp, Bookmark,
-  TrendingUp, Clock, Award
+  TrendingUp, Clock, Award, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CommunityPanelProps {
   onClose: () => void;
@@ -49,69 +49,75 @@ interface Sample {
   tags: string[];
 }
 
-const mockProjects: CommunityProject[] = [
-  {
-    id: '1',
-    title: 'Midnight Groove',
-    artist: 'AmapianoPro',
-    avatar: '/api/placeholder/40/40',
-    bpm: 118,
-    key: 'F#m',
-    genre: 'Private School',
-    likes: 142,
-    downloads: 89,
-    comments: 23,
-    duration: '3:45',
-    tags: ['log-drums', 'piano', 'deep-bass'],
-    uploadedAt: '2 hours ago',
-    isLiked: true
-  },
-  {
-    id: '2', 
-    title: 'Sunday Vibes',
-    artist: 'KeysMaster',
-    avatar: '/api/placeholder/40/40',
-    bpm: 115,
-    key: 'Cm',
-    genre: 'Gospel',
-    likes: 98,
-    downloads: 156,
-    comments: 31,
-    duration: '4:12',
-    tags: ['gospel-piano', 'vocal-chops', 'strings'],
-    uploadedAt: '1 day ago'
-  }
-];
-
-const mockSamples: Sample[] = [
-  {
-    id: '1',
-    name: 'Log Drum Loop 01',
-    artist: 'DrumLab',
-    bpm: 118,
-    key: 'F#m',
-    category: 'Drums',
-    downloads: 234,
-    likes: 67,
-    duration: '0:08',
-    tags: ['log-drum', 'amapiano', 'percussion']
-  },
-  {
-    id: '2',
-    name: 'Piano Chord Progression',
-    artist: 'ChordMaster',
-    bpm: 120,
-    category: 'Piano',
-    downloads: 189,
-    likes: 45,
-    duration: '0:16',
-    tags: ['piano', 'chords', 'gospel']
-  }
-];
-
 export default function CommunityPanel({ onClose }: CommunityPanelProps) {
   const [selectedTab, setSelectedTab] = useState('projects');
   const [searchQuery, setSearchQuery] = useState('');
+  const [projects, setProjects] = useState<CommunityProject[]>([]);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadCommunityData();
+  }, []);
+
+  const loadCommunityData = async () => {
+    setIsLoading(true);
+    try {
+      // Load real community posts from social_posts
+      const { data: posts } = await supabase
+        .from('social_posts')
+        .select('*, profiles:creator_id(display_name, avatar_url)')
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (posts) {
+        setProjects(posts.map(post => ({
+          id: post.id,
+          title: post.title,
+          artist: (post as any).profiles?.display_name || 'Unknown Artist',
+          avatar: (post as any).profiles?.avatar_url || '',
+          bpm: (post.generation_params as any)?.bpm ?? 0,
+          key: (post.generation_params as any)?.key ?? '',
+          genre: post.genre_tags?.[0] || 'Amapiano',
+          likes: post.like_count || 0,
+          downloads: post.share_count || 0,
+          comments: post.comment_count || 0,
+          duration: post.duration_seconds ? `${Math.floor(post.duration_seconds / 60)}:${(post.duration_seconds % 60).toString().padStart(2, '0')}` : '0:00',
+          previewUrl: post.preview_url || post.audio_url,
+          tags: post.genre_tags || [],
+          uploadedAt: new Date(post.created_at).toLocaleDateString(),
+        })));
+      }
+
+      // Load real samples from generated_samples
+      const { data: sampleData } = await supabase
+        .from('generated_samples')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (sampleData) {
+        setSamples(sampleData.map(s => ({
+          id: s.id,
+          name: s.sample_type,
+          artist: 'Community',
+          bpm: s.bpm ?? undefined,
+          key: s.key_signature ?? undefined,
+          category: s.sample_type,
+          downloads: 0,
+          likes: 0,
+          duration: '0:08',
+          tags: [s.sample_type, s.region || 'global'].filter(Boolean),
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to load community data:', error);
+      toast.error('Failed to load community data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLike = (projectId: string) => {
     toast.success('Liked project!');
@@ -149,8 +155,8 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
         </div>
 
         <div className="flex gap-2 mb-3">
-          <Badge variant="secondary" className="text-xs">{project.bpm} BPM</Badge>
-          <Badge variant="secondary" className="text-xs">{project.key}</Badge>
+          {project.bpm > 0 && <Badge variant="secondary" className="text-xs">{project.bpm} BPM</Badge>}
+          {project.key && <Badge variant="secondary" className="text-xs">{project.key}</Badge>}
           <Badge variant="outline" className="text-xs">{project.genre}</Badge>
         </div>
 
@@ -258,6 +264,17 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
     </Card>
   );
 
+  if (isLoading) {
+    return (
+      <Card className="fixed inset-4 z-50 bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading community content...</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="fixed inset-4 z-50 bg-background flex flex-col">
       <CardHeader className="pb-3 border-b">
@@ -267,9 +284,6 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
               <Users className="w-5 h-5 text-primary" />
               Community Hub
             </CardTitle>
-            <Badge variant="outline" className="bg-gradient-to-r from-purple-500/20 to-pink-500/20">
-              Version 2.0
-            </Badge>
           </div>
           
           <div className="flex items-center gap-2">
@@ -286,7 +300,6 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
 
       <CardContent className="flex-1 overflow-hidden p-4">
         <div className="h-full flex flex-col">
-          {/* Search */}
           <div className="mb-4">
             <Input
               placeholder="Search projects, samples, or artists..."
@@ -296,7 +309,6 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
             />
           </div>
 
-          {/* Tabs */}
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1 flex flex-col">
             <TabsList className="grid w-full grid-cols-4 mb-4">
               <TabsTrigger value="projects" className="gap-2">
@@ -320,32 +332,36 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
             <TabsContent value="projects" className="flex-1 overflow-y-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Community Projects ({mockProjects.length})</h3>
-                  <Button size="sm" variant="outline">
-                    Filter & Sort
-                  </Button>
+                  <h3 className="font-semibold">Community Projects ({projects.length})</h3>
+                  <Button size="sm" variant="outline">Filter & Sort</Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {mockProjects.map(project => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))}
-                </div>
+                {projects.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {projects.map(project => (
+                      <ProjectCard key={project.id} project={project} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">No community projects yet. Be the first to share!</p>
+                )}
               </div>
             </TabsContent>
 
             <TabsContent value="samples" className="flex-1 overflow-y-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Sample Library ({mockSamples.length})</h3>
-                  <Button size="sm" variant="outline">
-                    Filter by Category
-                  </Button>
+                  <h3 className="font-semibold">Sample Library ({samples.length})</h3>
+                  <Button size="sm" variant="outline">Filter by Category</Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {mockSamples.map(sample => (
-                    <SampleCard key={sample.id} sample={sample} />
-                  ))}
-                </div>
+                {samples.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {samples.map(sample => (
+                      <SampleCard key={sample.id} sample={sample} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">No samples available yet.</p>
+                )}
               </div>
             </TabsContent>
 
@@ -355,9 +371,8 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
                   <TrendingUp className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold">Trending This Week</h3>
                 </div>
-                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockProjects.slice(0, 2).map(project => (
+                  {projects.slice(0, 4).map(project => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
                 </div>
@@ -388,7 +403,7 @@ export default function CommunityPanel({ onClose }: CommunityPanelProps) {
                 </Card>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockProjects.slice(0, 4).map(project => (
+                  {projects.filter(p => p.likes > 0).slice(0, 4).map(project => (
                     <ProjectCard key={project.id} project={project} />
                   ))}
                 </div>

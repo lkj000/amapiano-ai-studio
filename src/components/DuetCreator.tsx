@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useDuetCollaboration } from '@/hooks/useDuetCollaboration';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -7,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Users, Volume2, Mic, Music } from 'lucide-react';
+import { toast } from 'sonner';
 import { SocialPost } from '@/hooks/useSocialFeed';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -35,14 +37,34 @@ const DuetCreator: React.FC<DuetCreatorProps> = ({
   const handleCreateDuet = async () => {
     if (!userTrackUrl) return;
 
-    // In a real implementation, this would:
-    // 1. Upload the user's track to create a new social post
-    // 2. Create the duet collaboration record
-    // 3. Generate a mixed version using the mix settings
-    
-    const mockDuetPostId = 'user-duet-post-id'; // This would come from the actual post creation
-    
-    const duet = await createDuet(originalPost.id, mockDuetPostId, mixSettings);
+    // Create social post for user's duet track, then link as duet collaboration
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error('Please sign in to create duets');
+      return;
+    }
+
+    const { data: duetPost, error: postError } = await supabase
+      .from('social_posts')
+      .insert({
+        creator_id: user.id,
+        title: `Duet: ${originalPost.title}`,
+        audio_url: userTrackUrl,
+        is_remix: true,
+        original_post_id: originalPost.id,
+        remix_style: 'duet',
+        visibility: 'public',
+        genre_tags: originalPost.genre_tags,
+      })
+      .select()
+      .single();
+
+    if (postError || !duetPost) {
+      toast.error('Failed to create duet post');
+      return;
+    }
+
+    const duet = await createDuet(originalPost.id, duetPost.id, mixSettings);
     
     if (duet && onDuetCreated) {
       onDuetCreated(duet.id);

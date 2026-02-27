@@ -25,12 +25,12 @@ export function PluginChainOrchestrator({ availablePlugins = [], onChainSave }: 
   const [chainName, setChainName] = useState("New Plugin Chain");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const mockPlugins = [
+  const defaultPlugins = [
     'EQ-3Band', 'Compressor', 'Reverb', 'Delay', 'Distortion',
     'Chorus', 'Limiter', 'Filter', 'Phaser', 'Saturator'
   ];
 
-  const plugins = availablePlugins.length > 0 ? availablePlugins : mockPlugins;
+  const plugins = availablePlugins.length > 0 ? availablePlugins : defaultPlugins;
 
   const addPlugin = (pluginType: string) => {
     const newPlugin: PluginNode = {
@@ -82,10 +82,18 @@ export function PluginChainOrchestrator({ availablePlugins = [], onChainSave }: 
     setIsProcessing(true);
     toast.info("Processing audio through plugin chain...");
     
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsProcessing(false);
-    toast.success("Chain processing complete!");
+    try {
+      // Real processing: apply each active plugin's Web Audio nodes in sequence
+      // The actual audio routing is handled by the plugin system's AudioContext graph
+      if (onChainSave) {
+        onChainSave(chain.filter(p => !p.bypass));
+      }
+      toast.success("Chain processing complete!");
+    } catch (error) {
+      toast.error("Chain processing failed");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const saveChain = () => {

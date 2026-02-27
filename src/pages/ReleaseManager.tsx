@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,11 +59,53 @@ const GENRES = [
   "Hip Hop", "R&B", "Pop", "Dance", "Gqom"
 ];
 
+/**
+ * Deterministic CRC-style hash — mirrors the implementation in useDistribution.ts.
+ * Returns an unsigned 32-bit integer derived from the input string.
+ */
+function crc32Hash(str: string): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i);
+    for (let k = 0; k < 8; k++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Generate a deterministic UPC-A code (12 digits with check digit). */
+function generateUPC(seed: string): string {
+  const hash = crc32Hash(seed);
+  const body = hash.toString().padStart(11, '0').slice(0, 11);
+  let odd = 0, even = 0;
+  for (let i = 0; i < 11; i++) {
+    const d = parseInt(body[i], 10);
+    if (i % 2 === 0) odd += d; else even += d;
+  }
+  const checkDigit = (10 - ((odd * 3 + even) % 10)) % 10;
+  return body + checkDigit;
+}
+
+/** Generate a deterministic ISRC code (ZA-AB1-YY-NNNNN). */
+function generateISRC(seed: string): string {
+  const year = new Date().getFullYear().toString().slice(-2);
+  const hash = crc32Hash(seed);
+  const designation = (hash % 100000).toString().padStart(5, '0');
+  return `ZA-AB1-${year}-${designation}`;
+}
+
 export default function ReleaseManager() {
   const [step, setStep] = useState(1);
   const [releaseDate, setReleaseDate] = useState<Date>();
   const [platforms, setPlatforms] = useState(PLATFORMS);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userId, setUserId] = useState<string>('anonymous');
+
+  // Fetch current user ID for deterministic code generation
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) setUserId(data.user.id);
+    });
+  }, []);
   
   // Track details
   const [trackTitle, setTrackTitle] = useState("");
@@ -223,7 +266,7 @@ export default function ReleaseManager() {
                       value={isrc}
                       onChange={(e) => setIsrc(e.target.value)}
                     />
-                    <Button variant="outline" onClick={() => setIsrc(`ZA-${Math.random().toString(36).substring(2, 5).toUpperCase()}-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}`)}>
+                    <Button variant="outline" onClick={() => setIsrc(generateISRC(`${userId}:${trackTitle}:${Date.now()}`))}>
                       Generate
                     </Button>
                   </div>
@@ -240,7 +283,7 @@ export default function ReleaseManager() {
                       value={upc}
                       onChange={(e) => setUpc(e.target.value)}
                     />
-                    <Button variant="outline" onClick={() => setUpc(Math.floor(Math.random() * 1000000000000).toString().padStart(12, '0'))}>
+                    <Button variant="outline" onClick={() => setUpc(generateUPC(`${userId}:${trackTitle}:${Date.now()}`))}>
                       Generate
                     </Button>
                   </div>

@@ -7,6 +7,7 @@
 
 import * as tf from '@tensorflow/tfjs';
 import type { AudioFeatures, QualityAssessment, QualityIssue } from './types';
+import { supabase } from '@/integrations/supabase/client';
 
 // Model state
 let discriminatorModel: tf.LayersModel | null = null;
@@ -122,82 +123,59 @@ async function loadDiscriminatorModel(): Promise<tf.LayersModel> {
 }
 
 /**
- * Initialize model with prior knowledge about Amapiano quality
+ * Initialize model with real audio feature data fetched from the backend.
+ * If no real examples are available, the model is saved as-is (untrained)
+ * rather than being trained on synthetic random data.
  */
 async function initializeWithPriors(model: tf.LayersModel): Promise<void> {
-  // Generate synthetic training examples based on known Amapiano characteristics
-  const syntheticExamples = generateSyntheticExamples(100);
-  
-  const xs = tf.tensor2d(syntheticExamples.map(e => e.features));
-  const ys = tf.tensor2d(syntheticExamples.map(e => e.labels));
-  
+  const examples = await generateSyntheticExamples();
+
+  if (examples.length === 0) {
+    console.warn('[NeuralDiscriminator] No real training examples available — saving untrained model');
+    await model.save('indexeddb://amapiano-discriminator');
+    return;
+  }
+
+  const xs = tf.tensor2d(examples.map(e => e.features));
+  const ys = tf.tensor2d(examples.map(e => e.labels));
+
   await model.fit(xs, ys, {
     epochs: 10,
     batchSize: 16,
     validationSplit: 0.2,
     verbose: 0
   });
-  
+
   xs.dispose();
   ys.dispose();
-  
+
   // Save initialized model
   await model.save('indexeddb://amapiano-discriminator');
-  console.log('[NeuralDiscriminator] Model initialized with Amapiano priors');
+  console.log(`[NeuralDiscriminator] Model initialized with ${examples.length} real audio examples`);
 }
 
 /**
- * Generate synthetic training examples based on Amapiano knowledge
+ * Fetch real audio feature training examples from the music-analysis edge function.
+ * Returns an empty array if the edge function call fails — no synthetic fallback.
  */
-function generateSyntheticExamples(count: number): Array<{ features: number[]; labels: number[] }> {
-  const examples: Array<{ features: number[]; labels: number[] }> = [];
-  
-  for (let i = 0; i < count; i++) {
-    // Generate random features within Amapiano ranges
-    const isGood = Math.random() > 0.5;
-    
-    const bpm = isGood 
-      ? 110 + Math.random() * 10  // Good: 110-120
-      : 80 + Math.random() * 60;   // Bad: 80-140
-      
-    const logDrumPresence = isGood
-      ? 0.5 + Math.random() * 0.5  // Good: 0.5-1.0
-      : Math.random() * 0.5;        // Bad: 0-0.5
-      
-    const dynamicRange = isGood
-      ? 10 + Math.random() * 6     // Good: 10-16
-      : 4 + Math.random() * 20;     // Bad: 4-24
-      
-    const loudness = isGood
-      ? -14 + Math.random() * 4    // Good: -14 to -10
-      : -24 + Math.random() * 20;   // Bad: -24 to -4
-    
-    // Normalize to 64-dim feature vector
-    const features = normalizeFeatures({
-      bpm,
-      logDrumPresence,
-      dynamicRange,
-      loudness,
-      spectralCentroid: 1500 + Math.random() * 2000,
-      harmonicRatio: isGood ? 0.5 + Math.random() * 0.4 : Math.random(),
-      swingRatio: isGood ? 0.45 + Math.random() * 0.1 : 0.3 + Math.random() * 0.4
+async function generateSyntheticExamples(): Promise<Array<{ features: number[]; labels: number[] }>> {
+  try {
+    const { data, error } = await supabase.functions.invoke('music-analysis', {
+      body: { analysisType: 'feature_extraction', batch: true }
     });
-    
-    // Quality labels
-    const overallScore = isGood ? 0.7 + Math.random() * 0.3 : Math.random() * 0.5;
-    const labels = [
-      overallScore,
-      isGood ? 0.7 + Math.random() * 0.3 : Math.random() * 0.6,  // rhythm
-      isGood ? 0.6 + Math.random() * 0.4 : Math.random() * 0.5,  // harmony
-      isGood ? 0.6 + Math.random() * 0.4 : Math.random() * 0.5,  // timbre
-      isGood ? 0.7 + Math.random() * 0.3 : Math.random() * 0.5,  // dynamics
-      isGood ? 0.7 + Math.random() * 0.3 : Math.random() * 0.5   // production
-    ];
-    
-    examples.push({ features, labels });
+
+    if (error || !data?.examples || !Array.isArray(data.examples)) {
+      console.warn('[NeuralDiscriminator] music-analysis edge function returned no examples, skipping training');
+      return [];
+    }
+
+    return (data.examples as Array<{ features: number[]; labels: number[] }>).filter(
+      e => Array.isArray(e.features) && Array.isArray(e.labels)
+    );
+  } catch (err) {
+    console.warn('[NeuralDiscriminator] Failed to fetch real audio features, skipping training:', err);
+    return [];
   }
-  
-  return examples;
 }
 
 /**

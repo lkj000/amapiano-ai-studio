@@ -18,9 +18,6 @@ serve(async (req) => {
 
   try {
     const { sourceUrl, targetFormat, orchestrationData }: ConversionRequest = await req.json();
-    
-    console.log(`🎵 Audio Format Converter: Converting to ${targetFormat}`);
-    console.log(`Source URL: ${sourceUrl}`);
 
     // Fetch the source audio
     const audioResponse = await fetch(sourceUrl);
@@ -38,15 +35,13 @@ serve(async (req) => {
     switch (targetFormat) {
       case 'wav':
         // Convert to WAV format
-        console.log('Converting to WAV (44.1kHz, 16-bit, stereo)');
         convertedBuffer = await convertToWav(audioBuffer);
         mimeType = 'audio/wav';
         fileExtension = 'wav';
         break;
 
       case 'flac':
-        // Convert to FLAC format
-        console.log('Converting to FLAC (lossless compression)');
+        // Delegate FLAC encoding to the Modal backend
         convertedBuffer = await convertToFlac(audioBuffer);
         mimeType = 'audio/flac';
         fileExtension = 'flac';
@@ -54,7 +49,6 @@ serve(async (req) => {
 
       case 'midi':
         // Generate MIDI from orchestration data
-        console.log('Generating MIDI file from orchestration data');
         if (!orchestrationData) {
           throw new Error('Orchestration data required for MIDI export');
         }
@@ -65,7 +59,6 @@ serve(async (req) => {
 
       case 'project':
         // Generate DAW project file
-        console.log('Generating DAW project file');
         if (!orchestrationData) {
           throw new Error('Orchestration data required for project export');
         }
@@ -91,8 +84,6 @@ serve(async (req) => {
     );
     const dataUrl = `data:${mimeType};base64,${base64}`;
 
-    console.log(`✅ Conversion complete: ${targetFormat.toUpperCase()}`);
-
     return new Response(
       JSON.stringify({
         success: true,
@@ -109,14 +100,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Audio conversion error:', error);
+    const statusCode = (error as any)?.statusCode ?? 500;
+    console.error('Audio conversion error:', error);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : 'Audio conversion failed'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: statusCode,
       }
     );
   }
@@ -164,10 +156,34 @@ async function convertToWav(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
 }
 
 async function convertToFlac(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
-  // For now, return WAV format with FLAC mime type
-  // In production, use a FLAC encoder library
-  console.log('Note: FLAC encoding not fully implemented, returning WAV');
-  return convertToWav(audioBuffer);
+  const MODAL_API_URL = Deno.env.get('MODAL_API_URL') || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run';
+  const base64data = btoa(
+    new Uint8Array(audioBuffer).reduce(
+      (data, byte) => data + String.fromCharCode(byte),
+      ''
+    )
+  );
+
+  const modalResponse = await fetch(`${MODAL_API_URL}/audio/convert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ format: 'flac', audio_data: base64data }),
+  });
+
+  if (!modalResponse.ok) {
+    // Throw a typed error that the outer handler can detect and map to HTTP 422
+    const err = new Error('FLAC encoding not supported. Use WAV or MP3.');
+    (err as any).statusCode = 422;
+    throw err;
+  }
+
+  const json = await modalResponse.json();
+  const binaryStr = atob(json.audio_data as string);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
 async function generateMidi(orchestrationData: any): Promise<ArrayBuffer> {

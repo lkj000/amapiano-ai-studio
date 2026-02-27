@@ -115,6 +115,9 @@ interface LLMStats {
 }
 
 export default function ModalDashboard() {
+  // Error state — surfaces the most recent operation failure in the UI
+  const [error, setError] = useState<string | null>(null);
+
   // Health
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
@@ -164,12 +167,15 @@ export default function ModalDashboard() {
 
   const checkHealth = async () => {
     setIsCheckingHealth(true);
+    setError(null);
     try {
       const response = await fetch(`${MODAL_API_BASE}/health`);
       const data = await response.json();
       setHealth(data);
       toast.success('Modal backend is healthy');
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to connect to Modal backend';
+      setError(msg);
       toast.error('Failed to connect to Modal backend');
       setHealth(null);
     } finally {
@@ -196,7 +202,9 @@ export default function ModalDashboard() {
 
       return urlData.publicUrl;
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to upload audio';
       console.error('Upload failed:', error);
+      setError(msg);
       toast.error('Failed to upload audio');
       return null;
     } finally {
@@ -242,6 +250,7 @@ export default function ModalDashboard() {
     }
 
     setIsAnalyzing(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('modal-analyze', {
         body: { audio_url: publicUrl, analysis_type: 'full' }
@@ -251,8 +260,10 @@ export default function ModalDashboard() {
       setAnalysisResult(data);
       toast.success(`Analysis complete: ${data.key} ${data.mode}, ${data.bpm.toFixed(0)} BPM`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Analysis failed';
       console.error('Analysis failed:', error);
-      toast.error('Analysis failed');
+      setError(msg);
+      toast.error(`Analysis failed: ${msg}`);
     } finally {
       setIsAnalyzing(false);
     }
@@ -265,6 +276,7 @@ export default function ModalDashboard() {
     }
 
     setIsSeparating(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('modal-separate', {
         body: { audio_url: publicUrl, stems: ['vocals', 'drums', 'bass', 'other'], model: stemModel }
@@ -274,8 +286,10 @@ export default function ModalDashboard() {
       setStemResult(data);
       toast.success(`Separated ${Object.keys(data.stems || {}).length} stems with ${stemModel}`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Stem separation failed';
       console.error('Stem separation failed:', error);
-      toast.error('Stem separation failed');
+      setError(msg);
+      toast.error(`Stem separation failed: ${msg}`);
     } finally {
       setIsSeparating(false);
     }
@@ -288,10 +302,11 @@ export default function ModalDashboard() {
     }
 
     setIsQuantizing(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('modal-quantize', {
-        body: { 
-          audio_url: publicUrl, 
+        body: {
+          audio_url: publicUrl,
           target_bits: bitDepth,
           use_mid_side: useMidSide,
           use_dithering: useDithering,
@@ -303,8 +318,10 @@ export default function ModalDashboard() {
       setQuantResult(data);
       toast.success(`Quantized to ${bitDepth}-bit: SNR=${data.snr_db?.toFixed(1)}dB`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Quantization failed';
       console.error('Quantization failed:', error);
-      toast.error('Quantization failed');
+      setError(msg);
+      toast.error(`Quantization failed: ${msg}`);
     } finally {
       setIsQuantizing(false);
     }
@@ -317,6 +334,7 @@ export default function ModalDashboard() {
     }
 
     setIsExecutingAgent(true);
+    setError(null);
     try {
       const { data, error } = await supabase.functions.invoke('modal-agent', {
         body: { goal: agentGoal, context: { audio_url: publicUrl }, max_steps: 10 }
@@ -326,8 +344,10 @@ export default function ModalDashboard() {
       setAgentResult(data);
       toast.success(`Agent completed: ${data.tools_used?.length} tools used`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Agent execution failed';
       console.error('Agent execution failed:', error);
-      toast.error('Agent execution failed');
+      setError(msg);
+      toast.error(`Agent execution failed: ${msg}`);
     } finally {
       setIsExecutingAgent(false);
     }
@@ -341,6 +361,7 @@ export default function ModalDashboard() {
     }
 
     setIsGeneratingLLM(true);
+    setError(null);
     try {
       const response = await fetch(`${MODAL_API_BASE}/llm/generate`, {
         method: 'POST',
@@ -355,26 +376,32 @@ export default function ModalDashboard() {
         })
       });
 
-      if (!response.ok) throw new Error('LLM generation failed');
+      if (!response.ok) throw new Error(`LLM generation failed (${response.status})`);
       const data = await response.json();
       setLlmResponse(data);
       toast.success(`Generated via ${data.provider_used}/${data.model_used}`);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'LLM generation failed';
       console.error('LLM generation failed:', error);
-      toast.error('LLM generation failed');
+      setError(msg);
+      toast.error(`LLM generation failed: ${msg}`);
     } finally {
       setIsGeneratingLLM(false);
     }
   };
 
   const fetchLLMStats = async () => {
+    setError(null);
     try {
       const response = await fetch(`${MODAL_API_BASE}/llm/stats`);
-      if (!response.ok) throw new Error('Failed to fetch stats');
+      if (!response.ok) throw new Error(`Failed to fetch LLM stats (${response.status})`);
       const data = await response.json();
       setLlmStats(data);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch LLM stats';
       console.error('Failed to fetch LLM stats:', error);
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -430,6 +457,17 @@ export default function ModalDashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between gap-2">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="shrink-0 text-xs font-medium hover:underline">Dismiss</button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Health Status */}
         {health && (

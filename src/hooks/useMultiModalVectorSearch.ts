@@ -6,7 +6,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { useVectorSearch } from './useVectorSearch';
 
 export interface MultiModalSearchParams {
   text?: string;
@@ -32,7 +31,6 @@ export interface MultiModalResult {
 export const useMultiModalVectorSearch = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<MultiModalResult[]>([]);
-  const vectorSearch = useVectorSearch();
 
   /**
    * Extract audio features using Web Audio API
@@ -67,9 +65,9 @@ export const useMultiModalVectorSearch = () => {
           }
           features.push(zcr / channelData.length);
 
-          // Pad to 512 dimensions for feature vector
+          // Pad to 512 dimensions with zeros (no synthetic random data)
           while (features.length < 512) {
-            features.push(Math.random() * 0.1);
+            features.push(0);
           }
 
           resolve(features);
@@ -165,11 +163,26 @@ export const useMultiModalVectorSearch = () => {
       const embeddings: { text?: number[]; audio?: number[]; midi?: number[] } = {};
       const weights = params.weights || { text: 1, audio: 1, midi: 1 };
 
-      // Generate text embedding
+      // Generate real text embedding via edge function
       if (params.text) {
-        const textResults = await vectorSearch.searchSimilar(params.text, params.entityType, 0);
-        // Mock text embedding - in production, call edge function
-        embeddings.text = Array(1536).fill(0).map(() => Math.random());
+        const searchQuery = params.text;
+        const { data: embedData, error: embedError } = await supabase.functions.invoke(
+          'rag-knowledge-search',
+          { body: { query: searchQuery, mode: 'embedding' } }
+        );
+
+        if (embedError || !embedData?.embedding || !Array.isArray(embedData.embedding)) {
+          console.error('[MultiModalSearch] Failed to get real text embedding:', embedError);
+          toast({
+            title: "Embedding Generation Failed",
+            description: embedError?.message || "Could not retrieve a real text embedding. Search aborted.",
+            variant: "destructive",
+          });
+          setIsSearching(false);
+          return [];
+        }
+
+        embeddings.text = embedData.embedding as number[];
       }
 
       // Extract audio features
@@ -220,7 +233,7 @@ export const useMultiModalVectorSearch = () => {
     } finally {
       setIsSearching(false);
     }
-  }, [vectorSearch, extractAudioFeatures, extractMidiFeatures, combineEmbeddings]);
+  }, [extractAudioFeatures, extractMidiFeatures, combineEmbeddings]);
 
   /**
    * Search by audio similarity

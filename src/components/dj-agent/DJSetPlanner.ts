@@ -154,8 +154,33 @@ function chooseTransitionType(
     return 'mashup_overlay';
   }
 
-  // Default
-  return Math.random() > 0.5 ? 'phrase_crossfade_eq_swap' : 'clean_cut_on_phrase';
+  // Music-theory-based default selection using actual track properties
+  const fromEnergy = fFeats.energyCurve.length > 0
+    ? fFeats.energyCurve.reduce((a, b) => a + b, 0) / fFeats.energyCurve.length
+    : undefined;
+  const toEnergy = tFeats.energyCurve.length > 0
+    ? tFeats.energyCurve.reduce((a, b) => a + b, 0) / tFeats.energyCurve.length
+    : undefined;
+
+  if (fromEnergy !== undefined && toEnergy !== undefined) {
+    const energyDelta = Math.abs(fromEnergy - toEnergy);
+    const keyCompatibility = getCamelotCompatibility(fFeats.camelot, tFeats.camelot);
+
+    // Large energy change — smooth crossfade with EQ swap
+    if (energyDelta > 0.3) return 'phrase_crossfade_eq_swap';
+
+    // BPM difference too large for a clean cut — use filter sweep to mask tempo change
+    if (bpmDiff > 4) return 'filter_sweep';
+
+    // Harmonically compatible (same key or perfect 5th) — blend smoothly
+    if (keyCompatibility > 0.7) return 'harmonic_blend' as TransitionType;
+
+    // Both tracks at similar energy — clean phrase-boundary cut works well
+    if (energyDelta < 0.1) return 'clean_cut_on_phrase';
+  }
+
+  // Property-missing fallback
+  return 'phrase_crossfade_eq_swap';
 }
 
 /**

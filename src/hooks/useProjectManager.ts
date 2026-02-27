@@ -99,12 +99,45 @@ export const useProjectManager = (user: User | null) => {
       }));
       setProjects(convertedProjects);
 
+      // Query collaborative projects: count distinct project_ids in collaboration_sessions
+      // that belong to the current user's projects.
+      let collaborativeProjects = 0;
+      try {
+        const projectIds = convertedProjects.map(p => p.id);
+        if (projectIds.length > 0) {
+          const { data: collabData, error: collabError } = await supabase
+            .from('collaboration_sessions' as any)
+            .select('project_id')
+            .in('project_id', projectIds);
+          if (!collabError && collabData) {
+            const uniqueProjectIds = new Set((collabData as any[]).map((r: any) => r.project_id));
+            collaborativeProjects = uniqueProjectIds.size;
+          }
+        }
+      } catch {
+        // collaboration_sessions table may not exist yet — leave count as 0
+      }
+
+      // Query storage used: sum file_size from audio_files for the current user.
+      let storageUsed = 0;
+      try {
+        const { data: storageData, error: storageError } = await supabase
+          .from('audio_files' as any)
+          .select('file_size')
+          .eq('user_id', user.id);
+        if (!storageError && storageData) {
+          storageUsed = (storageData as any[]).reduce((sum: number, row: any) => sum + (row.file_size || 0), 0);
+        }
+      } catch {
+        // audio_files table may not exist yet — leave storageUsed as 0
+      }
+
       // Calculate stats
       const stats: ProjectStats = {
         totalProjects: convertedProjects.length,
         recentProjects: convertedProjects.slice(0, 5),
-        collaborativeProjects: 0, // TODO: Add collaboration count
-        storageUsed: 0 // TODO: Calculate storage usage
+        collaborativeProjects,
+        storageUsed,
       };
       setProjectStats(stats);
 
@@ -396,12 +429,25 @@ export const useProjectManager = (user: User | null) => {
 
     if (!v1 || !v2) return null;
 
+    // Shallow comparison: count tracks that exist in both versions but differ
+    // by comparing their JSON representations.
+    const v1TracksMap = new Map(
+      v1.projectData.tracks.map((t: any) => [t.id, JSON.stringify(t)])
+    );
+    let modifiedCount = 0;
+    for (const track of v2.projectData.tracks) {
+      const v1Json = v1TracksMap.get((track as any).id);
+      if (v1Json !== undefined && v1Json !== JSON.stringify(track)) {
+        modifiedCount++;
+      }
+    }
+
     return {
       v1,
       v2,
       tracksDiff: {
         added: v2.projectData.tracks.length - v1.projectData.tracks.length,
-        modified: 0, // TODO: Deep comparison
+        modified: modifiedCount,
       },
       bpmChange: v2.projectData.bpm - v1.projectData.bpm,
       keyChange: v1.projectData.keySignature !== v2.projectData.keySignature,

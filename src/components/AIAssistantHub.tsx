@@ -178,7 +178,6 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
           <RealtimeAIAssistant
             projectData={projectData}
             onLiveAction={(action) => {
-              console.log('Live AI Action:', action);
               if (action.type === 'addEffect' && onEffectAdded) {
                 onEffectAdded(action.effectName);
               }
@@ -189,8 +188,8 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
 
       {activeFeature === 'models' && (
         <AIModelRouter
-          onModelSelect={(modelId) => {
-            console.log('Selected AI Model:', modelId);
+          onModelSelect={(_modelId) => {
+            // model selection is handled by AIModelRouter internally
           }}
         />
       )}
@@ -199,8 +198,8 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
         <ErrorBoundary>
           <VoiceAIGuide
             currentContext={`Project: ${projectData ? 'Active' : 'None'} | Features: All AI capabilities available`}
-            onVoiceCommand={(command) => {
-              console.log('Voice Command:', command);
+            onVoiceCommand={(_command) => {
+              // voice commands are processed by VoiceAIGuide internally
             }}
           />
         </ErrorBoundary>
@@ -219,8 +218,8 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
           projectId={activeProjectId || 'demo'}
           currentUser={user}
           projectData={projectData || null}
-          onProjectUpdate={(update) => {
-            console.log('Project update:', update);
+          onProjectUpdate={(_update) => {
+            // collaboration updates are handled by RealTimeCollaboration internally
           }}
         />
       )}
@@ -240,7 +239,6 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
       {activeFeature === 'voice-to-music' && (
         <VoiceToMusicEngine
           onTrackGenerated={(track) => {
-            console.log('Generated track from voice:', track);
             if (onTrackGenerated) {
               onTrackGenerated(track);
             }
@@ -254,8 +252,8 @@ export const AIAssistantHub: React.FC<AIAssistantHubProps> = ({
           context={{
             bpm: projectData?.bpm
           }}
-          onSuggestionReceived={(suggestion) => {
-            console.log('Received suggestion:', suggestion);
+          onSuggestionReceived={(_suggestion) => {
+            // suggestions are rendered by StreamingAISuggestions internally
           }}
         />
       </div>

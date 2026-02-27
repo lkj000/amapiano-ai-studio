@@ -312,19 +312,22 @@ export class DistributedInferenceCoordinator {
   }
 
   /**
-   * Execute inference on cloud node
+   * Execute inference on cloud node via Modal backend
    */
   private async executeOnCloud(inputData: any, nodeId: string): Promise<any> {
-    // Simulate cloud processing (higher latency than edge)
-    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 100));
-    
-    return {
-      processed: true,
-      location: 'cloud',
-      nodeId,
-      timestamp: Date.now(),
-      data: inputData
-    };
+    const modalApiUrl = (import.meta.env.VITE_MODAL_API_URL || 'https://mabgwej--aura-x-backend-fastapi-app.modal.run').replace(/\/+$/, '');
+
+    const response = await fetch(`${modalApiUrl}/llm/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...inputData, nodeId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Modal /llm/generate returned ${response.status}: ${await response.text()}`);
+    }
+
+    return await response.json();
   }
 
   /**

@@ -511,8 +511,8 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
         zoom={zoom}
         onZoomChange={setZoom}
         siActive={true}
-        onSave={() => console.log('Save project')}
-        onExport={() => console.log('Export project')}
+        onSave={() => { /* save handled by DAWHeaderBar */ }}
+        onExport={() => { /* export handled by DAWHeaderBar */ }}
       />
 
       {/* Transport Bar */}
@@ -539,8 +539,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
           {/* Left SI Panel */}
           <ResizablePanel defaultSize={15} minSize={12} maxSize={22}>
             <SIPanel
-              onGenerate={(params) => {
-                console.log('Generate with params:', params);
+              onGenerate={(_params) => {
                 setIsGenerating(true);
                 // Simulate generation
                 let progress = 0;
@@ -627,8 +626,8 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
                 {showBrowser && (
                   <>
                     <ResizablePanel defaultSize={25} minSize={15} maxSize={35}>
-                      <SoundLibrary 
-                        onSelectSound={(sound) => console.log('Selected sound:', sound)}
+                      <SoundLibrary
+                        onSelectSound={(_sound) => { /* sound selection handled by SoundLibrary */ }}
                       />
                     </ResizablePanel>
                     <ResizableHandle withHandle />
@@ -670,41 +669,34 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
                                 </TabsList>
                                 <div className="flex-1 overflow-hidden">
                                   <TabsContent value="producer-dna" className="h-full m-0">
-                                    <ProducerDNAPanel 
+                                    <ProducerDNAPanel
                                       selectedProfileId={audioDAW.producerProfile.id}
                                       onProfileChange={audioDAW.setProducerProfile}
                                       currentSettings={audioDAW.producerProfile}
                                       onApplyMorph={(morphedProfile) => {
-                                        console.log('[AmapianoPro] Applying morphed profile:', morphedProfile.name);
                                         audioDAW.setProducerProfile(morphedProfile.id);
                                       }}
                                     />
                                   </TabsContent>
                                   <TabsContent value="fm-logdrum" className="h-full m-0">
-                                    <FMLogDrumPanel 
-                                      onPatchChange={(patch) => {
-                                        console.log('[AmapianoPro] FM Patch changed:', patch);
-                                      }} 
+                                    <FMLogDrumPanel
+                                      onPatchChange={(_patch) => { /* patch change handled by FMLogDrumPanel */ }}
                                     />
                                   </TabsContent>
                                   <TabsContent value="groove" className="h-full m-0">
-                                    <GrooveEnginePanel 
+                                    <GrooveEnginePanel
                                       bpm={project.bpm}
                                       selectedProfile={audioDAW.producerProfile.style}
-                                      onProfileChange={(profileId) => {
-                                        console.log('[AmapianoPro] Groove profile changed:', profileId);
-                                      }}
-                                      onGrooveChange={(groove) => {
-                                        console.log('[AmapianoPro] Groove settings changed:', groove);
-                                      }}
+                                      onProfileChange={(_profileId) => { /* handled by GrooveEnginePanel */ }}
+                                      onGrooveChange={(_groove) => { /* handled by GrooveEnginePanel */ }}
                                     />
                                   </TabsContent>
                                   <TabsContent value="effects" className="h-full m-0">
                                     <EffectsRack />
                                   </TabsContent>
                                   <TabsContent value="ai" className="h-full m-0">
-                                    <SyntheticIntelligence 
-                                      onGenerate={(result) => console.log('AI Generated:', result)}
+                                    <SyntheticIntelligence
+                                      onGenerate={(_result) => { /* generation handled by SyntheticIntelligence */ }}
                                     />
                                   </TabsContent>
                                 </div>
@@ -782,7 +774,7 @@ const AmapianoPro: React.FC<AmapianoproProps> = ({ user }) => {
       <QuickAudioBar
         zoom={zoom}
         onZoomChange={setZoom}
-        onQuickGenerate={(type) => console.log('Quick generate:', type)}
+        onQuickGenerate={(_type) => { /* quick generation handled by QuickAudioBar */ }}
         onLoopRecord={audioDAW.toggleRecording}
         isRecording={audioDAW.isRecording}
       />

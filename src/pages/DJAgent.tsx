@@ -21,6 +21,7 @@ import { recommendPreset } from '@/lib/audio/amapianorizerPresets';
 import {
   DJTrack, SetConfig, AgentPhase, GeneratedSet
 } from '@/components/dj-agent/DJAgentTypes';
+import { AlertCircle } from 'lucide-react';
 
 const DJ_STATE_KEY = 'dj-agent-state';
 
@@ -82,6 +83,7 @@ export default function DJAgent({ user }: DJAgentProps) {
   const [aiNarrative, setAiNarrative] = useState(saved?.aiNarrative ?? '');
   const [isStreamingAI, setIsStreamingAI] = useState(false);
   const [amapianorizingTrackId, setAmapianorizingTrackId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Persist state on meaningful changes
@@ -260,6 +262,9 @@ export default function DJAgent({ user }: DJAgentProps) {
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
         console.error('AI narrative error:', err);
+        const msg = err.message || 'AI narrative failed';
+        setError(msg);
+        toast.error(`AI narrative error: ${msg}`);
       }
     } finally {
       setIsStreamingAI(false);
@@ -271,6 +276,8 @@ export default function DJAgent({ user }: DJAgentProps) {
       toast.error('Add at least 3 tracks to generate a DJ set');
       return;
     }
+
+    setError(null);
 
     // Check for stale blob URLs before starting
     const staleTracks = tracks.filter(t => t.fileUrl?.startsWith('blob:'));
@@ -381,8 +388,10 @@ export default function DJAgent({ user }: DJAgentProps) {
     } catch (err) {
       console.error('[DJ Agent] 💥 Generation failed:', err);
       setPhase('error');
-      setMessage(err instanceof Error ? err.message : 'Generation failed');
-      toast.error('Failed to generate DJ set');
+      const errMsg = err instanceof Error ? err.message : 'Generation failed';
+      setMessage(errMsg);
+      setError(errMsg);
+      toast.error(`Failed to generate DJ set: ${errMsg}`);
     }
   }, [tracks, config, streamAINarrative]);
 
@@ -395,6 +404,7 @@ export default function DJAgent({ user }: DJAgentProps) {
     setActiveSetIndex(0);
     setAiNarrative('');
     setIsStreamingAI(false);
+    setError(null);
     localStorage.removeItem(DJ_STATE_KEY);
   }, []);
 
@@ -413,6 +423,17 @@ export default function DJAgent({ user }: DJAgentProps) {
           </div>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button onClick={() => setError(null)} className="shrink-0 font-medium hover:underline">Dismiss</button>
+          </div>
+        </div>
+      )}
 
       {/* Main layout */}
       <div className="max-w-7xl mx-auto px-4 py-6">

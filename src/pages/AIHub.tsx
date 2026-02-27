@@ -235,12 +235,8 @@ export default function AIHub({ user }: AIHubProps) {
               <CardContent>
                 <AIAssistantHub
                   user={user}
-                  onTrackGenerated={(track) => {
-                    console.log('Track generated:', track);
-                  }}
-                  onEffectAdded={(effectName) => {
-                    console.log('Effect added:', effectName);
-                  }}
+                  onTrackGenerated={(_track) => { /* track generation handled by AIAssistantHub */ }}
+                  onEffectAdded={(_effectName) => { /* effect addition handled by AIAssistantHub */ }}
                 />
               </CardContent>
             </Card>
@@ -266,9 +262,8 @@ export default function AIHub({ user }: AIHubProps) {
               </div>
               
               <UnifiedVoiceToMusicEngine
-                onTrackGenerated={(audioUrl, metadata) => {
-                  console.log('Voice track generated:', { audioUrl, metadata });
-                  // Could integrate with DAW here
+                onTrackGenerated={(_audioUrl, _metadata) => {
+                  // Generated track can be wired into the DAW via onTrackGenerated prop
                 }}
               />
             </div>
@@ -295,17 +290,14 @@ export default function AIHub({ user }: AIHubProps) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RealtimeAIAssistant
                 projectData={mockProjectData}
-                onLiveAction={(action) => {
-                  console.log('Live action:', action);
-                }}
+                onLiveAction={(_action) => { /* live actions handled by RealtimeAIAssistant */ }}
                 className="w-full"
               />
               <RealtimeAudioEngine
                 isEnabled={isAudioEngineEnabled}
                 onToggle={setIsAudioEngineEnabled}
-                onAudioData={(audioData) => {
-                  // Process real-time audio data for AI analysis
-                  console.log('Real-time audio data:', audioData.length);
+                onAudioData={(_audioData) => {
+                  // Real-time audio data available here for AI analysis if needed
                 }}
                 className="w-full"
               />
@@ -324,12 +316,8 @@ export default function AIHub({ user }: AIHubProps) {
               <RealTimeCollaborationPanel
                 projectId="demo-project"
                 projectData={mockProjectData as any}
-                onProjectUpdate={(data) => {
-                  console.log('Project updated:', data);
-                }}
-                onClose={() => {
-                  console.log('Collaboration panel closed');
-                }}
+                onProjectUpdate={(_data) => { /* project updates handled by RealTimeCollaborationPanel */ }}
+                onClose={() => { /* close handled by parent routing */ }}
               />
             </Card>
           </TabsContent>
@@ -351,11 +339,9 @@ export default function AIHub({ user }: AIHubProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <UnifiedAnalysisPanel 
+                <UnifiedAnalysisPanel
                   showOptions={true}
-                  onAnalysisComplete={(result) => {
-                    console.log('AI Hub analysis complete:', result);
-                  }}
+                  onAnalysisComplete={(_result) => { /* analysis results rendered by UnifiedAnalysisPanel */ }}
                 />
               </CardContent>
             </Card>

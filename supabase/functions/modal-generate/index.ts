@@ -8,9 +8,6 @@ const corsHeaders = {
 // Modal URL - will need to be updated when you deploy your Modal backend
 const MODAL_URL = (Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run").replace(/\/+$/, '');
 
-// Development mode flag - DISABLED: Always use real Modal backend
-const DEV_MODE = false;
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -65,12 +62,6 @@ serve(async (req) => {
         );
       }
 
-      // If Modal backend fails and we're in dev mode, return mock response
-      if (DEV_MODE) {
-        console.log(`[modal-generate] Modal backend unavailable (${response.status}), returning development mock response`);
-        return generateMockResponse(prompt, genre, bpm, duration, key, mood, processingTime);
-      }
-
       const errorText = await response.text();
       console.error(`[modal-generate] Modal error: ${response.status}`, errorText);
       return new Response(
@@ -82,13 +73,16 @@ serve(async (req) => {
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (fetchError) {
-      // Network error reaching Modal - return mock in dev mode
-      if (DEV_MODE) {
-        const processingTime = Date.now() - startTime;
-        console.log(`[modal-generate] Network error reaching Modal, returning development mock response`);
-        return generateMockResponse(prompt, genre, bpm, duration, key, mood, processingTime);
-      }
-      throw fetchError;
+      // Network error reaching Modal - backend is offline
+      const processingTime = Date.now() - startTime;
+      console.error(`[modal-generate] Network error reaching Modal after ${processingTime}ms:`, fetchError);
+      return new Response(
+        JSON.stringify({
+          error: 'Music generation temporarily unavailable. Modal GPU backend is offline.',
+          audioUrl: null
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   } catch (error) {
     console.error("[modal-generate] Error:", error);
@@ -98,62 +92,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Generate a mock response for development/testing
-function generateMockResponse(
-  prompt: string,
-  genre: string,
-  bpm: number,
-  duration: number,
-  key: string,
-  mood: string,
-  processingTime: number
-) {
-  // Generate a unique ID based on prompt
-  const trackId = crypto.randomUUID();
-  
-  // Use a sample audio URL for development (royalty-free sample)
-  const sampleAudioUrls = [
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-  ];
-  
-  const audioUrl = sampleAudioUrls[Math.floor(Math.random() * sampleAudioUrls.length)];
-  
-  // Create track title from prompt
-  const title = prompt.length > 40 
-    ? prompt.substring(0, 40) + "..." 
-    : prompt;
-
-  const mockResult = {
-    success: true,
-    audio_url: audioUrl,
-    track_id: trackId,
-    title: title,
-    duration: duration,
-    bpm: bpm,
-    key: key,
-    genre: genre,
-    mood: mood,
-    processing_time_ms: processingTime + Math.floor(Math.random() * 1000) + 500, // Simulate processing time
-    infrastructure: "development-mock",
-    is_mock: true,
-    message: "This is a development mock response. Deploy your Modal backend for real AI generation.",
-    metadata: {
-      model: "mock-v1",
-      quality_score: 0.85 + Math.random() * 0.1,
-      timestamp: new Date().toISOString()
-    }
-  };
-
-  console.log(`[modal-generate] Mock response generated: track_id=${trackId}`);
-
-  return new Response(
-    JSON.stringify(mockResult),
-    { headers: { 
-      ...corsHeaders, 
-      "Content-Type": "application/json" 
-    }}
-  );
-}

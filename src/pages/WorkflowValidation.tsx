@@ -374,47 +374,67 @@ export default function WorkflowValidation() {
     setOverallProgress(0);
     setCurrentTest(0);
 
+    // Invoke temporal-workflow edge function to coordinate validation steps
+    const { data: workflowData, error: workflowError } = await supabase.functions.invoke('temporal-workflow', {
+      body: {
+        workflowType: 'validation',
+        steps: testResults.map((t, i) => ({ index: i, name: t.name }))
+      }
+    });
+
+    if (workflowError) {
+      toast({
+        title: "Workflow Failed",
+        description: workflowError.message || 'Failed to start validation workflow',
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Map real response steps to UI progress if provided, otherwise run tests sequentially
+    const responseSteps: Array<{ index: number; status?: string }> = workflowData?.steps || [];
+
     // Test 1: Lyrics Generation
     setCurrentTest(0);
     await runTest1LyricsGeneration();
     setOverallProgress((1 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[0]?.status === 'failed') return;
 
     // Test 2: Voice Configuration
     setCurrentTest(1);
     await runTest2VoiceConfiguration();
     setOverallProgress((2 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[1]?.status === 'failed') return;
 
     // Test 3: Song Generation
     setCurrentTest(2);
     const audioUrl = await runTest3SongGeneration();
     setOverallProgress((3 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[2]?.status === 'failed') return;
 
     // Test 4: Stem Separation
     setCurrentTest(3);
     const stems = await runTest4StemSeparation(audioUrl);
     setOverallProgress((4 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[3]?.status === 'failed') return;
 
     // Test 5: Amapianorization
     setCurrentTest(4);
     await runTest5Amapianorization(stems);
     setOverallProgress((5 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[4]?.status === 'failed') return;
 
     // Test 6: Export Assets
     setCurrentTest(5);
     await runTest6ExportAssets(stems);
     setOverallProgress((6 / 7) * 100);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (responseSteps[5]?.status === 'failed') return;
 
     // Test 7: DAW Integration
     setCurrentTest(6);
     await runTest7DAWIntegration();
     setOverallProgress(100);
-    
+
     setCurrentTest(-1);
   };
 

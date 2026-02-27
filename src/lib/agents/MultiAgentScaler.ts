@@ -247,11 +247,9 @@ export class MultiAgentScaler {
     const agent = this.agents.get(agentId);
     if (!agent) return;
     
-    // Wait for current task if busy
+    // Mark as paused if busy, then proceed immediately
     if (agent.status === 'busy') {
       agent.status = 'paused';
-      // Give time for graceful completion
-      await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
     agent.status = 'shutdown';

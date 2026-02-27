@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-import { Upload, Loader2, Play, Pause, Download, Music, Mic2, Drum, Guitar, FileArchive } from 'lucide-react';
+import { Upload, Loader2, Play, Pause, Download, Music, Mic2, Drum, Guitar, FileArchive, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface StemSplitterProps {
@@ -22,6 +23,7 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [stems, setStems] = useState<StemResult | null>(null);
   const [playingTrack, setPlayingTrack] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement | null }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +80,7 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
 
     setIsProcessing(true);
     setStems(null);
+    setError(null);
 
     try {
       const formData = new FormData();
@@ -152,8 +155,10 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
 
       throw new Error('Stem separation timed out after 4 minutes');
     } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to split stems';
       console.error('Stem splitting error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to split stems');
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -256,6 +261,7 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
       toast.success('ZIP file downloaded!');
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown error';
+      setError(`ZIP download failed: ${msg}`);
       toast.error(`ZIP download failed: ${msg}`);
       console.error('[ZIP] Error:', error);
     } finally {
@@ -377,6 +383,16 @@ const StemSplitter: React.FC<StemSplitterProps> = ({ compact = false }) => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between gap-2">
+              <span>{error}</span>
+              <button onClick={() => setError(null)} className="shrink-0 text-xs font-medium hover:underline">Dismiss</button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Button
           onClick={handleSplit}

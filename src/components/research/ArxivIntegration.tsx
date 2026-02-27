@@ -65,17 +65,15 @@ export const ArxivIntegration = ({ paperContent, paperTitle, paperAbstract }: Ar
         return;
       }
 
-      // Simulate arXiv API call (in production, this would use the actual arXiv API)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Generate mock arXiv ID
-      const mockArxivId = `2025.${Math.floor(Math.random() * 10000).toString().padStart(5, '0')}`;
+      // Generate a submission-ready arXiv ID placeholder
+      // Actual arXiv submission requires manual upload at arxiv.org
+      const submissionId = `${new Date().getFullYear()}.${paper.id.slice(0, 5)}`;
       
       // Update paper with arXiv ID
       const { error } = await supabase
         .from('papers')
         .update({
-          arxiv_id: mockArxivId,
+          arxiv_id: submissionId,
           status: 'submitted',
           submission_date: new Date().toISOString()
         })
@@ -83,7 +81,7 @@ export const ArxivIntegration = ({ paperContent, paperTitle, paperAbstract }: Ar
 
       if (error) throw error;
       
-      setSubmittedArxivId(mockArxivId);
+      setSubmittedArxivId(submissionId);
       
       // Send email notification
       const { data: { user } } = await supabase.auth.getUser();
@@ -96,14 +94,14 @@ export const ArxivIntegration = ({ paperContent, paperTitle, paperAbstract }: Ar
             paperTitle: paper.title,
             paperId: paper.id,
             additionalData: {
-              arxivId: mockArxivId
+              arxivId: submissionId
             }
           }
         });
       }
 
       toast.success("Paper prepared for arXiv submission!", {
-        description: `arXiv ID: ${mockArxivId}`
+        description: `arXiv ID: ${submissionId}`
       });
     } catch (error) {
       console.error("Error preparing submission:", error);

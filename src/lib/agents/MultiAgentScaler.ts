@@ -373,39 +373,34 @@ export class MultiAgentScaler {
       task.priority > 5 ? 'high' : 'normal'
     );
     
-    // Simulate task execution (in real implementation, agent would handle this)
+    // Execute task via edge function for real distributed processing
     this.executeTask(task, agent);
     
     console.log(`[MultiAgentScaler] Assigned task ${task.taskId} to ${agent.id}`);
   }
 
   /**
-   * Execute task (simulation for demonstration)
+   * Execute task via edge function backend
    */
   private async executeTask(task: DistributedTask, agent: AgentInstance): Promise<void> {
     task.status = 'running';
     const startTime = Date.now();
     
     try {
-      // Simulate task execution time based on type
-      const executionTimes: Record<AgentType, number> = {
-        composer: 5000,
-        arranger: 3000,
-        mixer: 4000,
-        mastering: 6000,
-        analyzer: 2000,
-        synthesis: 4000,
-        effects: 2500,
-        general: 3000
-      };
-      
-      await new Promise(resolve => 
-        setTimeout(resolve, executionTimes[task.type] * (0.5 + Math.random()))
-      );
+      // Route task to appropriate edge function based on type
+      const { data, error } = await supabase.functions.invoke('modal-agent', {
+        body: {
+          goal: `Execute ${task.type} task`,
+          context: { taskId: task.taskId, input: task.input, agentType: task.type },
+          max_steps: 5
+        }
+      });
+
+      if (error) throw error;
       
       // Mark completed
       task.status = 'completed';
-      task.output = { success: true, processedAt: Date.now() };
+      task.output = data || { success: true, processedAt: Date.now() };
       
       // Update agent metrics
       const duration = Date.now() - startTime;

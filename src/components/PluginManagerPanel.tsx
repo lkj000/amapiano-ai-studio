@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePluginSystem } from '@/hooks/usePluginSystem';
+import { supabase } from '@/integrations/supabase/client';
 import type { PluginManifest, PluginInstance, PluginFilters } from '@/hooks/usePluginSystem';
 
 interface PluginManagerPanelProps {
@@ -59,150 +60,47 @@ export default function PluginManagerPanel({
   }, []);
 
   const loadMarketplaceData = async () => {
-    // Mock marketplace data for demo
-    const mockMarketplace: PluginManifest[] = [
-      {
-        id: 'vintage-tube-comp',
-        name: 'Vintage Tube Compressor',
-        version: '2.1.0',
-        author: 'AudioCorp',
-        description: 'Authentic tube compression with warmth and character. Perfect for vocals and instruments.',
-        type: 'effect',
-        category: 'Dynamics',
-        tags: ['compressor', 'vintage', 'tube', 'warmth'],
-        icon: '🎛️',
-        screenshots: ['screenshot1.jpg', 'screenshot2.jpg'],
-        audioInputs: 2,
-        audioOutputs: 2,
-        midiInputs: 0,
-        midiOutputs: 0,
-        parameters: [
-          {
-            id: 'drive',
-            name: 'Drive',
-            type: 'float',
-            defaultValue: 0.3,
-            minValue: 0.0,
-            maxValue: 1.0,
-            unit: '%',
-            automatable: true
-          },
-          {
-            id: 'compression',
-            name: 'Compression',
-            type: 'float',
-            defaultValue: 0.5,
-            minValue: 0.0,
-            maxValue: 1.0,
-            unit: '%',
-            automatable: true
-          }
-        ],
-        presets: [],
-        entryPoint: 'https://plugins.example.com/vintage-tube-comp.js',
-        dependencies: [],
-        minimumVersion: '1.0.0',
-        website: 'https://audiocorp.com/vintage-tube-comp',
-        repository: 'https://github.com/audiocorp/vintage-tube-comp',
-        license: 'Commercial',
-        price: 29.99,
-        downloadCount: 15420,
-        rating: 4.8,
-        reviews: 342
-      },
-      {
-        id: 'space-reverb-pro',
-        name: 'Space Reverb Pro',
-        version: '1.5.2',
-        author: 'SoundFX Studios',
-        description: 'Professional algorithmic reverb with 50+ impulse responses and advanced modulation.',
-        type: 'effect',
-        category: 'Reverb',
-        tags: ['reverb', 'space', 'algorithmic', 'professional'],
-        icon: '🌌',
-        audioInputs: 2,
-        audioOutputs: 2,
-        midiInputs: 0,
-        midiOutputs: 0,
-        parameters: [
-          {
-            id: 'size',
-            name: 'Room Size',
-            type: 'float',
-            defaultValue: 0.7,
-            minValue: 0.1,
-            maxValue: 1.0,
-            unit: '%',
-            automatable: true
-          },
-          {
-            id: 'decay',
-            name: 'Decay Time',
-            type: 'float',
-            defaultValue: 2.5,
-            minValue: 0.1,
-            maxValue: 10.0,
-            unit: 's',
-            automatable: true
-          }
-        ],
-        presets: [],
-        entryPoint: 'https://plugins.example.com/space-reverb-pro.js',
-        dependencies: [],
-        minimumVersion: '1.0.0',
-        license: 'Commercial',
-        price: 49.99,
-        downloadCount: 8765,
-        rating: 4.9,
-        reviews: 198
-      },
-      {
-        id: 'fm-synth-classic',
-        name: 'FM Synth Classic',
-        version: '3.0.1',
-        author: 'Synth Labs',
-        description: 'Classic 6-operator FM synthesizer with modern interface and preset library.',
-        type: 'instrument',
-        category: 'Synthesizers',
-        tags: ['synthesizer', 'fm', 'classic', '80s'],
-        icon: '🎹',
-        audioInputs: 0,
-        audioOutputs: 2,
-        midiInputs: 1,
-        midiOutputs: 0,
-        parameters: [
-          {
-            id: 'algorithm',
-            name: 'Algorithm',
-            type: 'enum',
-            defaultValue: 'algorithm1',
-            options: ['algorithm1', 'algorithm2', 'algorithm3', 'algorithm4'],
-            automatable: false
-          },
-          {
-            id: 'carrier_freq',
-            name: 'Carrier Frequency',
-            type: 'float',
-            defaultValue: 440,
-            minValue: 20,
-            maxValue: 20000,
-            unit: 'Hz',
-            automatable: true
-          }
-        ],
-        presets: [],
-        entryPoint: 'https://plugins.example.com/fm-synth-classic.js',
-        dependencies: [],
-        minimumVersion: '1.0.0',
-        license: 'GPL-3.0',
-        price: 0,
-        downloadCount: 25680,
-        rating: 4.6,
-        reviews: 523
+    try {
+      const { data, error } = await supabase
+        .from('marketplace_items')
+        .select('*')
+        .eq('active', true)
+        .order('downloads', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const mapped: PluginManifest[] = data.map(item => ({
+          id: item.id,
+          name: item.name,
+          version: '1.0.0',
+          author: item.seller_id || 'Community',
+          description: item.description || '',
+          type: (item.subcategory === 'instrument' ? 'instrument' : 'effect') as 'instrument' | 'effect',
+          category: item.category,
+          tags: item.tags || [],
+          icon: '🔌',
+          audioInputs: 2,
+          audioOutputs: 2,
+          midiInputs: 0,
+          midiOutputs: 0,
+          parameters: [],
+          presets: [],
+          entryPoint: item.download_url || '',
+          dependencies: [],
+          minimumVersion: '1.0.0',
+          license: 'Commercial',
+          price: item.price_cents / 100,
+          downloadCount: item.downloads || 0,
+          rating: item.rating || 0,
+          reviews: 0
+        }));
+        setMarketplacePlugins(mapped);
       }
-    ];
-    
-    setMarketplacePlugins(mockMarketplace);
+    } catch (error) {
+      console.error('Failed to load marketplace plugins:', error);
+      setMarketplacePlugins([]);
+    }
   };
 
   const categories = [

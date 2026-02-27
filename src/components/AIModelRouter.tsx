@@ -9,6 +9,7 @@ import {
   BarChart3, Settings, Shuffle, Target, Brain, Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AIModel {
   id: string;
@@ -133,22 +134,28 @@ export const AIModelRouter: React.FC<AIModelRouterProps> = ({
     successRate: 0.94
   });
 
-  // Simulated real-time model monitoring
+  // Load real usage stats from ai_model_usage table
   useEffect(() => {
-    const interval = setInterval(() => {
-      setModels(prevModels => 
-        prevModels.map(model => ({
-          ...model,
-          latency: model.latency + (Math.random() - 0.5) * 100,
-          usage: {
-            ...model.usage,
-            successRate: Math.min(1, model.usage.successRate + (Math.random() - 0.5) * 0.02)
-          }
-        }))
-      );
-    }, 5000);
+    const loadUsageStats = async () => {
+      try {
+        const { data } = await supabase
+          .from('ai_model_usage')
+          .select('model_name, cost_cents, generation_time_ms, success')
+          .order('created_at', { ascending: false })
+          .limit(100);
 
-    return () => clearInterval(interval);
+        if (data && data.length > 0) {
+          const totalRequests = data.length;
+          const totalCost = data.reduce((sum, d) => sum + (d.cost_cents || 0), 0) / 100;
+          const avgLatency = Math.round(data.reduce((sum, d) => sum + (d.generation_time_ms || 0), 0) / totalRequests);
+          const successRate = data.filter(d => d.success).length / totalRequests;
+          setRoutingStats({ totalRequests, totalCost, avgLatency, successRate });
+        }
+      } catch (error) {
+        console.error('Failed to load model usage stats:', error);
+      }
+    };
+    loadUsageStats();
   }, []);
 
   const getOptimalModel = (task: string, requirements?: any) => {

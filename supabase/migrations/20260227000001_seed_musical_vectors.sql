@@ -1,16 +1,53 @@
 -- Seed musical_vectors with AMAPIANO_KNOWLEDGE_BASE items
 -- Uses text content for semantic search (real embeddings generated at query time via edge function)
 
--- First ensure the musical_vectors table has the right schema
--- The existing migration has vector(1536) - we'll use text_content for now
--- and generate embeddings via the rag-knowledge-search function
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
--- Add text_content column if it doesn't exist, for keyword fallback
+-- Create musical_vectors table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.musical_vectors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  knowledge_id text UNIQUE,
+  title text,
+  text_content text,
+  tags text[],
+  embedding extensions.vector(1536),
+  created_at timestamptz DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.musical_vectors ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'musical_vectors' AND policyname = 'Anyone can read musical_vectors') THEN
+    CREATE POLICY "Anyone can read musical_vectors" ON public.musical_vectors FOR SELECT USING (true);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'musical_vectors' AND policyname = 'Service role can insert musical_vectors') THEN
+    CREATE POLICY "Service role can insert musical_vectors" ON public.musical_vectors FOR INSERT WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Add extra columns if the table already existed without them
 ALTER TABLE public.musical_vectors
   ADD COLUMN IF NOT EXISTS text_content text,
-  ADD COLUMN IF NOT EXISTS knowledge_id text UNIQUE,
+  ADD COLUMN IF NOT EXISTS knowledge_id text,
   ADD COLUMN IF NOT EXISTS title text,
   ADD COLUMN IF NOT EXISTS tags text[];
+
+-- Ensure unique constraint on knowledge_id
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'musical_vectors_knowledge_id_key'
+  ) THEN
+    ALTER TABLE public.musical_vectors ADD CONSTRAINT musical_vectors_knowledge_id_key UNIQUE (knowledge_id);
+  END IF;
+END $$;
 
 -- Seed the AMAPIANO_KNOWLEDGE_BASE knowledge items (without vector - generated at query time)
 INSERT INTO public.musical_vectors (knowledge_id, title, text_content, tags, user_id)
@@ -19,7 +56,7 @@ SELECT
   kb.title,
   kb.text_content,
   kb.tags,
-  '00000000-0000-0000-0000-000000000000'::uuid  -- system user
+  NULL::uuid  -- system seed rows have no user owner
 FROM (VALUES
   ('kb_logdrum_1', 'Log Drum Fundamentals',
    'The log drum is the defining bass instrument of Amapiano. It sits in the E1-A1 frequency range with a long decay (500-900ms). Classic pattern places it on the downbeat and syncopated 16th positions. Essential for the genre''s bouncy, rolling feel.',

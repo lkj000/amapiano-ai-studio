@@ -135,15 +135,64 @@ async def separate_audio(req: SeparateRequest):
 
 @web_app.post("/ml/quantize")
 async def quantize_audio(req: QuantizeRequest):
-    """Quantize audio (placeholder)."""
-    return {
-        "success": True,
-        "snr_db": 42.5,
-        "fad_score": 0.012,
-        "compression_ratio": 4.0,
-        "rank_used": req.target_bits,
-        "message": "Quantization model not yet loaded.",
-    }
+    """Real audio quantization noise measurement using librosa."""
+    import librosa
+    import numpy as np
+    import requests
+    import tempfile
+    import os
+    import time
+
+    start = time.time()
+
+    # Download audio
+    try:
+        audio_resp = requests.get(req.audio_url, timeout=30)
+        audio_resp.raise_for_status()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch audio: {exc}")
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(audio_resp.content)
+        tmp_path = f.name
+
+    try:
+        y, sr = librosa.load(tmp_path, sr=22050, mono=True, duration=30)
+
+        # Quantize: map to integer range at target_bits, then reconstruct
+        scale = float(2 ** (req.target_bits - 1))
+        y_int = np.round(y * scale)
+        y_int = np.clip(y_int, -scale, scale - 1)
+        y_q = y_int / scale  # reconstructed float
+
+        # Measure quantization noise
+        noise = y - y_q
+        signal_power = float(np.mean(y ** 2)) + 1e-12
+        noise_power = float(np.mean(noise ** 2)) + 1e-12
+        snr_db = round(10.0 * np.log10(signal_power / noise_power), 2)
+
+        # Compression ratio: original 32-bit float vs target_bits
+        compression_ratio = round(32.0 / req.target_bits, 2)
+
+        # Dynamic range in dB
+        dynamic_range = round(20.0 * np.log10(float(np.max(np.abs(y)) + 1e-12) /
+                                              (float(np.std(y)) + 1e-12)), 2)
+
+        processing_ms = int((time.time() - start) * 1000)
+        print(f"[modal-quantize] bits={req.target_bits} snr={snr_db}dB ratio={compression_ratio}x time={processing_ms}ms")
+
+        return {
+            "success": True,
+            "snr_db": snr_db,
+            "compression_ratio": compression_ratio,
+            "target_bits": req.target_bits,
+            "dynamic_range_db": dynamic_range,
+            "sample_count": len(y),
+            "sample_rate": sr,
+            "processing_time_ms": processing_ms,
+        }
+    finally:
+        os.unlink(tmp_path)
 
 
 class MasteringRequest(BaseModel):
@@ -197,22 +246,115 @@ async def master_audio(req: MasteringRequest):
         os.unlink(tmp_path)
 
 
+AGENT_SYSTEM_PROMPT = """You are an autonomous Amapiano music production agent running on GPU infrastructure.
+Your goal is to reason step-by-step and accomplish the given music production task.
+
+Available actions: analyze_audio, generate_music, separate_stems, master_audio, plan_composition, complete.
+
+You MUST respond with valid JSON only:
+{
+  "reasoning": "your step-by-step thinking",
+  "shouldContinue": true or false,
+  "confidence": 0.0-1.0,
+  "nextAction": "action_name or null when done",
+  "explanation": "what you accomplished or decided in this step"
+}
+
+Rules:
+- Set shouldContinue to false and nextAction to null when the goal is complete
+- Do not repeat actions unnecessarily
+- Reference BPM, key, instruments when relevant to music goals"""
+
+
 @web_app.post("/agent/execute")
 async def execute_agent(req: AgentRequest):
-    """Execute autonomous agent goal."""
+    """Execute autonomous agent goal via real LLM ReAct loop."""
+    import httpx
+    import json
+    import os
     import time
 
+    api_key = os.environ.get("LOVABLE_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="LOVABLE_API_KEY not configured in Modal secrets. "
+                   "Set it with: modal secret create lovable-secret LOVABLE_API_KEY=<key>"
+        )
+
+    steps = []
+    history = []
     start = time.time()
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for i in range(min(req.max_steps, 10)):
+            user_msg = "\n".join(filter(None, [
+                f"Goal: {req.goal}",
+                f"Context: {json.dumps(req.context)}" if req.context else "",
+                f"History (last 3 steps):\n{json.dumps(history[-3:])}" if history else "",
+                "\nDetermine the next action to progress toward the goal.",
+            ]))
+
+            try:
+                resp = await client.post(
+                    "https://ai.gateway.lovable.dev/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "google/gemini-2.5-flash",
+                        "messages": [
+                            {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_msg},
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 600,
+                    },
+                )
+                resp.raise_for_status()
+            except httpx.HTTPError as exc:
+                print(f"[modal-agent] LLM call failed on step {i+1}: {exc}")
+                break
+
+            raw = resp.json()["choices"][0]["message"]["content"]
+            try:
+                import re
+                match = re.search(r"```(?:json)?\s*([\s\S]*?)```", raw)
+                thought = json.loads(match.group(1).strip() if match else raw.strip())
+            except json.JSONDecodeError:
+                print(f"[modal-agent] Failed to parse JSON on step {i+1}")
+                break
+
+            steps.append({
+                "step": i + 1,
+                "thought": thought.get("reasoning", ""),
+                "action": thought.get("nextAction"),
+                "observation": thought.get("explanation", ""),
+                "confidence": thought.get("confidence", 0.0),
+            })
+            history.append({
+                "action": thought.get("nextAction"),
+                "result": thought.get("explanation", ""),
+            })
+
+            print(f"[modal-agent] Step {i+1}: action={thought.get('nextAction')} continue={thought.get('shouldContinue')}")
+
+            if not thought.get("shouldContinue", True) or not thought.get("nextAction"):
+                break
+
+    total_ms = int((time.time() - start) * 1000)
+    tools_used = [s["action"] for s in steps if s.get("action")]
+    last_obs = steps[-1]["observation"] if steps else "No steps executed"
+
     return {
-        "success": True,
+        "success": len(steps) > 0,
         "goal": req.goal,
-        "steps": [
-            {"step": 1, "thought": f"Analyzing: {req.goal}", "action": "plan", "observation": "Plan created"},
-            {"step": 2, "thought": "Executing plan", "action": "execute", "observation": "Done"},
-        ],
-        "result": {"status": "completed"},
-        "tools_used": ["planner"],
-        "total_time": int((time.time() - start) * 1000),
+        "steps": steps,
+        "result": {"status": "completed", "summary": last_obs},
+        "tools_used": tools_used,
+        "total_time": total_ms,
+        "execution_mode": "modal_llm_react",
     }
 
 

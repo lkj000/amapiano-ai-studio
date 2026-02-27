@@ -8,104 +8,155 @@ const corsHeaders = {
 // Modal backend URL - may not always be available
 const MODAL_BASE_URL = (Deno.env.get("MODAL_API_URL") || "https://mabgwej--aura-x-backend-fastapi-app.modal.run").replace(/\/+$/, '');
 
-// Local agent execution fallback when Modal is unavailable
-async function executeLocalAgent(goal: string, context: Record<string, unknown>, maxSteps: number) {
-  console.log("[MODAL-AGENT] Executing locally with fallback agent");
-  
-  const steps: Array<{
-    step: number;
-    thought: string;
-    action: string;
-    observation: string;
-    timestamp: number;
-  }> = [];
-  
+const AGENT_SYSTEM_PROMPT = `You are an autonomous Amapiano music production agent.
+Your goal is to reason step-by-step and accomplish the given music production task.
+
+Available actions: analyze_audio, generate_music, separate_stems, master_audio, plan_composition, complete.
+
+You MUST respond with valid JSON only:
+{
+  "reasoning": "your step-by-step thinking",
+  "shouldContinue": true or false,
+  "confidence": 0.0-1.0,
+  "nextAction": "action_name or null when done",
+  "explanation": "what you accomplished or decided in this step"
+}
+
+Rules:
+- Set shouldContinue to false and nextAction to null when the goal is achieved or no further action is needed
+- Do not repeat actions unnecessarily
+- Be specific — reference BPM, key, instrument choices when relevant to music goals`;
+
+/**
+ * Execute agent goal via real LLM ReAct loop using Lovable AI gateway.
+ * Replaces the previous hardcoded simulation.
+ */
+async function executeWithLLM(
+  goal: string,
+  context: Record<string, unknown>,
+  maxSteps: number
+): Promise<{
+  success: boolean;
+  goal: string;
+  steps: Array<{ step: number; thought: string; action: string | null; observation: string; timestamp: number }>;
+  result: Record<string, unknown>;
+  tools_used: string[];
+  total_time: number;
+  execution_mode: string;
+}> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+  if (!LOVABLE_API_KEY) {
+    console.error("[MODAL-AGENT] LOVABLE_API_KEY not configured — cannot execute LLM agent");
+    return {
+      success: false,
+      goal,
+      steps: [{
+        step: 1,
+        thought: "Agent execution requires LOVABLE_API_KEY to be configured in project secrets.",
+        action: null,
+        observation: "LOVABLE_API_KEY not set",
+        timestamp: Date.now(),
+      }],
+      result: { error: "LOVABLE_API_KEY not configured" },
+      tools_used: [],
+      total_time: 0,
+      execution_mode: "llm_error",
+    };
+  }
+
+  const steps: Array<{ step: number; thought: string; action: string | null; observation: string; timestamp: number }> = [];
+  const history: Array<{ action: string | null; result: string }> = [];
   const startTime = Date.now();
-  
-  // Parse goal to determine action type
-  const goalLower = goal.toLowerCase();
-  let actionType = 'general';
-  if (goalLower.includes('amapiano') || goalLower.includes('music') || goalLower.includes('track')) {
-    actionType = 'music_production';
-  } else if (goalLower.includes('analyze') || goalLower.includes('analysis')) {
-    actionType = 'analysis';
-  } else if (goalLower.includes('generate') || goalLower.includes('create')) {
-    actionType = 'generation';
+
+  console.log("[MODAL-AGENT] Starting real LLM ReAct loop for goal:", goal.substring(0, 100));
+
+  for (let i = 0; i < Math.min(maxSteps, 10); i++) {
+    const userMessage = [
+      `Goal: ${goal}`,
+      Object.keys(context).length > 0 ? `Context: ${JSON.stringify(context)}` : "",
+      history.length > 0 ? `History (last ${Math.min(history.length, 3)} steps):\n${JSON.stringify(history.slice(-3))}` : "",
+      `\nDetermine the next action to make progress toward the goal.`,
+    ].filter(Boolean).join("\n");
+
+    let thought: {
+      reasoning: string;
+      shouldContinue: boolean;
+      confidence: number;
+      nextAction: string | null;
+      explanation: string;
+    };
+
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: AGENT_SYSTEM_PROMPT },
+            { role: "user", content: userMessage },
+          ],
+          temperature: 0.3,
+          max_tokens: 600,
+        }),
+      });
+
+      if (!resp.ok) {
+        console.error(`[MODAL-AGENT] LLM step ${i + 1} failed: ${resp.status}`);
+        break;
+      }
+
+      const data = await resp.json();
+      const raw = data.choices?.[0]?.message?.content || "{}";
+
+      try {
+        const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+        thought = JSON.parse(match ? match[1].trim() : raw.trim());
+      } catch {
+        console.warn("[MODAL-AGENT] Failed to parse step JSON, stopping loop");
+        break;
+      }
+    } catch (fetchErr) {
+      console.error("[MODAL-AGENT] Fetch error on step", i + 1, fetchErr);
+      break;
+    }
+
+    steps.push({
+      step: i + 1,
+      thought: thought.reasoning,
+      action: thought.nextAction || null,
+      observation: thought.explanation,
+      timestamp: Date.now(),
+    });
+
+    history.push({ action: thought.nextAction || null, result: thought.explanation });
+
+    console.log(`[MODAL-AGENT] Step ${i + 1}: action=${thought.nextAction || "none"} continue=${thought.shouldContinue}`);
+
+    if (!thought.shouldContinue || !thought.nextAction) {
+      break;
+    }
   }
-  
-  // Step 1: Planning
-  steps.push({
-    step: 1,
-    thought: `Analyzing goal: "${goal}". Identified action type: ${actionType}`,
-    action: 'plan',
-    observation: `Created execution plan for ${actionType} task`,
-    timestamp: Date.now()
-  });
-  
-  // Step 2: Context Analysis
-  steps.push({
-    step: 2,
-    thought: `Processing context with ${Object.keys(context).length} parameters`,
-    action: 'analyze_context',
-    observation: `Context analyzed: ${JSON.stringify(context).substring(0, 200)}...`,
-    timestamp: Date.now()
-  });
-  
-  // Step 3: Execution simulation based on type
-  const executionResults: Record<string, unknown> = {};
-  
-  if (actionType === 'music_production') {
-    executionResults.genre = context.genre || 'amapiano';
-    executionResults.bpm = context.bpm || 113;
-    executionResults.key = context.key || 'C minor';
-    executionResults.structure = ['intro', 'verse', 'drop', 'breakdown', 'drop2', 'outro'];
-    executionResults.elements = ['log_drum', 'kick', 'hi_hats', 'keys', 'bass', 'shaker'];
-    
-    steps.push({
-      step: 3,
-      thought: `Executing music production workflow for ${executionResults.genre}`,
-      action: 'generate_music_plan',
-      observation: `Generated ${executionResults.structure.length} sections with ${(executionResults.elements as string[]).length} elements`,
-      timestamp: Date.now()
-    });
-  } else if (actionType === 'analysis') {
-    executionResults.analysisType = 'audio_features';
-    executionResults.features = ['tempo', 'key', 'energy', 'danceability', 'valence'];
-    
-    steps.push({
-      step: 3,
-      thought: 'Preparing audio analysis pipeline',
-      action: 'analyze_audio',
-      observation: `Configured analysis for ${(executionResults.features as string[]).length} audio features`,
-      timestamp: Date.now()
-    });
-  } else {
-    steps.push({
-      step: 3,
-      thought: `Processing general goal: ${goal}`,
-      action: 'process_goal',
-      observation: 'Goal processed successfully',
-      timestamp: Date.now()
-    });
-  }
-  
-  // Step 4: Completion
-  steps.push({
-    step: 4,
-    thought: 'All steps completed successfully',
-    action: 'complete',
-    observation: `Execution completed in ${Date.now() - startTime}ms`,
-    timestamp: Date.now()
-  });
-  
+
+  const toolsUsed = steps.map(s => s.action).filter((a): a is string => Boolean(a));
+  const lastStep = steps[steps.length - 1];
+
   return {
-    success: true,
+    success: steps.length > 0,
     goal,
     steps,
-    result: executionResults,
-    tools_used: ['planner', 'context_analyzer', actionType + '_processor'],
+    result: {
+      status: "completed",
+      summary: lastStep?.observation || "Agent loop completed",
+      steps_executed: steps.length,
+    },
+    tools_used: toolsUsed,
     total_time: Date.now() - startTime,
-    execution_mode: 'local_fallback'
+    execution_mode: "llm_react_loop",
   };
 }
 
@@ -173,14 +224,14 @@ serve(async (req) => {
         modalError instanceof Error ? modalError.message : 'Unknown error');
     }
     
-    // Local fallback execution
-    const result = await executeLocalAgent(goal, context as Record<string, unknown>, max_steps);
+    // LLM ReAct loop fallback when Modal is unavailable
+    const result = await executeWithLLM(goal, context as Record<string, unknown>, max_steps);
     const totalTime = Date.now() - startTime;
-    
-    console.log("[MODAL-AGENT] Local execution complete:", {
+
+    console.log("[MODAL-AGENT] LLM ReAct execution complete:", {
       steps_executed: result.steps.length,
       tools_used: result.tools_used,
-      total_time: `${totalTime}ms`
+      total_time: `${totalTime}ms`,
     });
 
     return new Response(JSON.stringify({

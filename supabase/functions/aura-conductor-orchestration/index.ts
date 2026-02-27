@@ -55,9 +55,10 @@ serve(async (req) => {
 
     // Step 1: Generate orchestration plan (robust with fallback)
     const orchestrationPlan = await generateOrchestrationPlan(prompt, target, config);
-    
-    // Step 2: Execute orchestration plan
-    const executionResults = await executeOrchestrationPlan(orchestrationPlan, config);
+
+    // Step 2: Execute orchestration plan — pass original prompt for LLM context
+    const configWithPrompt = { ...(config || {}), original_prompt: prompt };
+    const executionResults = await executeOrchestrationPlan(orchestrationPlan, configWithPrompt);
     
     // Step 3: Perform quality assessment
     const qualityAssessment = await performQualityAssessment(executionResults);
@@ -311,148 +312,270 @@ function buildHeuristicPlan(prompt: string, target: string, config: any) {
   };
 }
 
-// Execute orchestration plan
+// Step-specific system prompts for each orchestration task
+const STEP_SYSTEM_PROMPTS: Record<string, string> = {
+  analysis: `You are an expert Amapiano music analyst. Given a creative prompt and target, perform a musical analysis and return a JSON object with these exact fields:
+{
+  "bpm": number (e.g., 113),
+  "key": string (e.g., "F#m"),
+  "mood": string (e.g., "deep and soulful"),
+  "style_confidence": number 0-1,
+  "complexity_score": number 0-1,
+  "sub_genre": string (e.g., "Private School"),
+  "ai_insights": string (your detailed analysis, 2-3 sentences),
+  "cultural_score": number 0-1,
+  "confidence": number 0-1
+}
+Respond with JSON only.`,
+
+  style_selection: `You are an Amapiano style curator. Given the musical analysis from previous steps, select the appropriate artist influences and cultural elements. Return a JSON object:
+{
+  "selected_artists": string[] (e.g., ["Kelvin Momo", "Babalwa M"]),
+  "style_blend": object (e.g., {"deep": 0.6, "soulful": 0.4}),
+  "cultural_elements": string[] (e.g., ["log_drums", "jazz_piano", "deep_bass"]),
+  "ai_insights": string (your style reasoning, 2-3 sentences),
+  "cultural_score": number 0-1,
+  "confidence": number 0-1
+}
+Respond with JSON only.`,
+
+  neural_generation: `You are an Amapiano production planner. Given the style profile, plan the stems and generation targets. Return a JSON object:
+{
+  "tracks_planned": number,
+  "total_bars": number,
+  "stem_plan": object (which instruments, how many bars each),
+  "quality_target": number 0-1,
+  "pattern_complexity": number 0-1,
+  "ai_insights": string (your production plan, 2-3 sentences),
+  "cultural_score": number 0-1,
+  "confidence": number 0-1
+}
+Respond with JSON only.`,
+
+  quality_assurance: `You are an audio quality assessor for Amapiano production. Given the generation plan, assess expected quality metrics. Return a JSON object:
+{
+  "audio_quality": number 0-1,
+  "mix_balance": number 0-1,
+  "mastering_score": number 0-1,
+  "technical_issues": number (count of potential issues),
+  "recommendations": string[],
+  "ai_insights": string (your quality assessment, 2-3 sentences),
+  "cultural_score": number 0-1,
+  "confidence": number 0-1
+}
+Respond with JSON only.`,
+
+  cultural_authenticity: `You are a cultural authenticity validator for Amapiano music. Assess the cultural integrity of the proposed composition. Return a JSON object:
+{
+  "authenticity_score": number 0-1,
+  "traditional_elements": number 0-1,
+  "modern_fusion": number 0-1,
+  "respect_score": number 0-1,
+  "validation_checks": [{"check": string, "status": "authentic"|"warning"|"issue", "score": number}],
+  "cultural_recommendations": string[],
+  "ai_insights": string (your authenticity assessment, 2-3 sentences),
+  "confidence": number 0-1
+}
+Respond with JSON only.`,
+};
+
+// Execute orchestration plan — passes accumulated context from step to step
 async function executeOrchestrationPlan(plan: any, config: any): Promise<TaskResult[]> {
   const results: TaskResult[] = [];
-  
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+
   for (const step of plan.steps || []) {
     console.log(`🎵 Executing step: ${step.name}`);
-    
-    const result = await executeTask(step, config);
+
+    const result = await executeTask(step, config, results, LOVABLE_API_KEY);
     results.push(result);
-    
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 800));
   }
-  
+
   return results;
 }
 
-// Execute individual task
-async function executeTask(task: any, config: any): Promise<TaskResult> {
-  // Simulate AI processing for each task type
-  const taskResults = {
-    'analysis': {
-      bpm: 118,
-      key: 'F#m', 
-      mood_vector: [0.8, 0.6, 0.9],
-      style_confidence: 0.94,
-      complexity_score: 0.76
-    },
-    'style_selection': {
-      selected_artists: ['Kelvin Momo', 'Kabza De Small'],
-      style_blend: { deep: 0.7, uplifting: 0.3 },
-      cultural_elements: ['log_drums', 'deep_bass', 'piano_chords']
-    },
-    'neural_generation': {
-      tracks_generated: 4,
-      total_bars: 64,
-      audio_quality: 0.96,
-      pattern_complexity: 0.88
-    },
-    'quality_assurance': {
-      audio_quality: 0.96,
-      mix_balance: 0.92,
-      mastering_score: 0.94,
-      technical_issues: 0
-    },
-    'cultural_authenticity': {
-      authenticity_score: 0.98,
-      traditional_elements: 0.95,
-      modern_fusion: 0.87,
-      respect_score: 1.0
-    }
-  };
-
+// Execute individual task via real LLM call, passing previous results as context
+async function executeTask(
+  task: any,
+  config: any,
+  previousResults: TaskResult[],
+  apiKey: string | undefined
+): Promise<TaskResult> {
   const taskId = task.id || task.name.toLowerCase().replace(/\s+/g, '_');
-  const result = taskResults[taskId as keyof typeof taskResults] || { success: true };
-  
-  return {
-    taskId,
-    taskName: task.name,
-    status: 'completed',
-    result,
-    ai_insights: generateTaskInsights(taskId, result),
-    cultural_score: calculateCulturalScore(taskId, result),
-    quality_metrics: {
-      execution_time: Math.random() * 1000 + 500,
-      confidence: 0.85 + Math.random() * 0.15,
-      success_rate: 0.95 + Math.random() * 0.05
-    },
-    timestamp: new Date().toISOString()
-  };
+  const stepPrompt = STEP_SYSTEM_PROMPTS[taskId];
+  const startTime = Date.now();
+
+  if (!apiKey || !stepPrompt) {
+    // If no API key or unknown step, return a minimal honest result
+    console.warn(`[AURA] No API key or unknown step "${taskId}" — skipping LLM call`);
+    return {
+      taskId,
+      taskName: task.name,
+      status: 'completed',
+      result: { note: 'LOVABLE_API_KEY not configured — LLM call skipped' },
+      ai_insights: `Step "${task.name}" could not be executed: LOVABLE_API_KEY not set.`,
+      cultural_score: 0,
+      quality_metrics: { execution_time: 0, confidence: 0, success_rate: 0 },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // Build context from previous step results
+  const previousContext = previousResults
+    .map(r => `${r.taskName}: ${r.ai_insights}`)
+    .join('\n');
+
+  const userMessage = [
+    `Task: ${task.name}`,
+    `Parameters: ${JSON.stringify(task.parameters || {})}`,
+    previousContext ? `\nPrevious steps:\n${previousContext}` : '',
+    `\nOriginal prompt: ${config?.original_prompt || '(not provided)'}`,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: stepPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: 0.3,
+        max_tokens: 800,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[AURA] LLM call failed for step "${taskId}": ${resp.status} ${errText}`);
+      return {
+        taskId,
+        taskName: task.name,
+        status: 'failed',
+        result: { error: `LLM error ${resp.status}` },
+        ai_insights: `Step failed: LLM returned ${resp.status}.`,
+        cultural_score: 0,
+        quality_metrics: { execution_time: Date.now() - startTime, confidence: 0, success_rate: 0 },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const data = await resp.json();
+    const raw = data.choices?.[0]?.message?.content || '{}';
+
+    // Parse JSON — strip markdown fences if present
+    let result: any = {};
+    try {
+      const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+      result = JSON.parse(match ? match[1].trim() : raw.trim());
+    } catch {
+      console.warn(`[AURA] Failed to parse JSON for step "${taskId}", using raw text`);
+      result = { raw_response: raw };
+    }
+
+    const executionTime = Date.now() - startTime;
+    const confidence = typeof result.confidence === 'number' ? result.confidence : 0.85;
+    const culturalScore = typeof result.cultural_score === 'number'
+      ? result.cultural_score
+      : (taskId === 'cultural_authenticity' ? (result.authenticity_score || 0.85) : 0.85);
+
+    console.log(`[AURA] Step "${taskId}" completed. confidence=${confidence.toFixed(2)}, cultural=${culturalScore.toFixed(2)}, time=${executionTime}ms`);
+
+    return {
+      taskId,
+      taskName: task.name,
+      status: 'completed',
+      result,
+      ai_insights: result.ai_insights || raw.slice(0, 200),
+      cultural_score: culturalScore,
+      quality_metrics: {
+        execution_time: executionTime,
+        confidence,
+        success_rate: 1.0,
+      },
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err) {
+    console.error(`[AURA] executeTask "${taskId}" threw:`, err);
+    return {
+      taskId,
+      taskName: task.name,
+      status: 'failed',
+      result: { error: err instanceof Error ? err.message : 'Unknown error' },
+      ai_insights: `Step "${task.name}" failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      cultural_score: 0,
+      quality_metrics: { execution_time: Date.now() - startTime, confidence: 0, success_rate: 0 },
+      timestamp: new Date().toISOString(),
+    };
+  }
 }
 
-function generateTaskInsights(taskId: string, result: any): string {
-  const insights = {
-    'analysis': `Detected classic amapiano characteristics with ${(result.style_confidence * 100).toFixed(1)}% confidence. Optimal BPM and key signature identified.`,
-    'style_selection': `Successfully blended ${result.selected_artists?.join(' and ')} influences while maintaining cultural authenticity.`,
-    'neural_generation': `Generated ${result.tracks_generated} high-quality tracks with ${(result.audio_quality * 100).toFixed(1)}% audio fidelity.`,
-    'quality_assurance': `Audio meets professional standards with ${(result.audio_quality * 100).toFixed(1)}% quality score and balanced mix.`,
-    'cultural_authenticity': `Achieved ${(result.authenticity_score * 100).toFixed(1)}% cultural authenticity while respecting traditional amapiano elements.`
-  };
-  
-  return insights[taskId as keyof typeof insights] || 'Task completed successfully with AI optimization.';
-}
-
-function calculateCulturalScore(taskId: string, result: any): number {
-  const culturalScores = {
-    'analysis': 0.85,
-    'style_selection': 0.92,
-    'neural_generation': 0.88,
-    'quality_assurance': 0.90,
-    'cultural_authenticity': result.authenticity_score || 0.95
-  };
-  
-  return culturalScores[taskId as keyof typeof culturalScores] || 0.85;
-}
-
-// Perform quality assessment
+// Derive quality assessment from real LLM task results — no Math.random()
 async function performQualityAssessment(results: TaskResult[]) {
-  const qualityScores = results.map(r => r.quality_metrics.confidence);
-  const avgQuality = qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length;
-  
+  const qualityScores = results.map(r => r.quality_metrics.confidence).filter(s => s > 0);
+  const avgQuality = qualityScores.length > 0
+    ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length
+    : 0;
+
+  const completedCount = results.filter(r => r.status === 'completed').length;
+  const successRate = results.length > 0 ? completedCount / results.length : 0;
+
+  // Extract QA task result if available
+  const qaResult = results.find(r => r.taskId === 'quality_assurance');
+  const qaData = qaResult?.result || {};
+
   return {
     overall_score: avgQuality,
     individual_scores: results.map(r => ({
       task: r.taskName,
       score: r.quality_metrics.confidence,
-      status: r.status
+      status: r.status,
     })),
-    recommendations: avgQuality > 0.9 
-      ? ['Excellent quality - ready for release']
-      : ['Consider additional refinement', 'Review mix balance'],
+    recommendations: qaData.recommendations || (avgQuality > 0.85
+      ? ['Quality targets met — ready for production']
+      : ['Review step confidence scores', 'Consider re-running low-confidence steps']),
     technical_metrics: {
-      latency: 1250,
-      cpu_usage: 0.65,
-      memory_usage: 0.45,
-      success_rate: 0.96
-    }
+      steps_completed: completedCount,
+      steps_total: results.length,
+      avg_confidence: avgQuality,
+      success_rate: successRate,
+    },
   };
 }
 
-// Validate cultural authenticity
+// Derive cultural authenticity from real LLM cultural_authenticity task result
 async function validateCulturalAuthenticity(results: TaskResult[], config: any) {
-  const culturalScores = results.map(r => r.cultural_score);
-  const avgCultural = culturalScores.reduce((a, b) => a + b, 0) / culturalScores.length;
-  
+  const culturalScores = results.map(r => r.cultural_score).filter(s => s > 0);
+  const avgCultural = culturalScores.length > 0
+    ? culturalScores.reduce((a, b) => a + b, 0) / culturalScores.length
+    : 0;
+
+  // Extract real cultural_authenticity task result
+  const authResult = results.find(r => r.taskId === 'cultural_authenticity');
+  const authData = authResult?.result || {};
+
   return {
     overall_score: avgCultural,
     authenticity_breakdown: {
-      traditional_elements: 0.95,
-      modern_fusion: 0.87,
-      cultural_respect: 1.0,
-      artist_influence: 0.92
+      traditional_elements: authData.traditional_elements ?? avgCultural,
+      modern_fusion: authData.modern_fusion ?? avgCultural,
+      cultural_respect: authData.respect_score ?? avgCultural,
+      artist_influence: authData.authenticity_score ?? avgCultural,
     },
-    validation_checks: [
-      { check: 'Log drum patterns', status: 'authentic', score: 0.96 },
-      { check: 'Piano chord progressions', status: 'authentic', score: 0.94 },
-      { check: 'Bass line characteristics', status: 'authentic', score: 0.98 },
-      { check: 'Overall amapiano feel', status: 'authentic', score: 0.93 }
+    validation_checks: authData.validation_checks || [
+      { check: 'Log drum patterns', status: 'assessed', score: avgCultural },
+      { check: 'Piano chord progressions', status: 'assessed', score: avgCultural },
+      { check: 'Bass line characteristics', status: 'assessed', score: avgCultural },
+      { check: 'Overall amapiano feel', status: 'assessed', score: avgCultural },
     ],
-    cultural_recommendations: avgCultural > 0.9
-      ? ['Maintains excellent cultural authenticity']
-      : ['Consider strengthening traditional elements', 'Review cultural context']
+    cultural_recommendations: authData.cultural_recommendations || (avgCultural > 0.85
+      ? ['Cultural authenticity validated by AI assessment']
+      : ['Review traditional element integration', 'Consult style guide for sub-genre conventions']),
   };
 }
 

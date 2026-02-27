@@ -10,12 +10,23 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import {
   Bot, Users, Zap, Target, Music, Brain,
   Clock, CheckCircle, AlertCircle, Database, Layers
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentMemoryPersistence } from "@/hooks/useAgentMemoryPersistence";
+import { signalBus } from "@/lib/agents/AgentSignalBus";
 
 interface Agent {
   id: string;
@@ -267,6 +278,8 @@ export const AgenticMusicComposer = () => {
   const [agentCoordination, setAgentCoordination] = useState(true);
   const [creativityLevel, setCreativityLevel] = useState(75);
   const [isComposing, setIsComposing] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{agent: Agent, goal: CompositionGoal, resolve: (confirmed: boolean) => void} | null>(null);
+  const [auditLog, setAuditLog] = useState<Array<{id: string, type: string, source: string, target: string, timestamp: number, priority: string}>>([]);
 
   const sessionRef = useRef<CompositionSession | null>(null);
   const { saveExecution } = useAgentMemoryPersistence();
@@ -411,6 +424,24 @@ export const AgenticMusicComposer = () => {
       ]
         .filter(Boolean)
         .join("\n");
+
+      // Human-in-the-loop gate for arrangement/analysis agents doing sensitive operations
+      if (['arrangement', 'analysis'].includes(agent.type)) {
+        const needsConfirmation = ['stem_separation', 'generate', 'master'].some(kw => goal.description.toLowerCase().includes(kw));
+        if (needsConfirmation) {
+          const confirmed = await new Promise<boolean>(resolve => setPendingConfirmation({agent, goal, resolve}));
+          if (!confirmed) {
+            setAgents((prev) =>
+              prev.map((a) =>
+                a.id === agent.id
+                  ? { ...a, status: "idle", currentTask: undefined, lastActivity: "Action skipped by user" }
+                  : a
+              )
+            );
+            return `${agent.name}: Action skipped by user.`;
+          }
+        }
+      }
 
       // Call real agent-reasoning edge function with the agent's role
       const { data, error } = await supabase.functions.invoke("agent-reasoning", {
@@ -613,6 +644,10 @@ export const AgenticMusicComposer = () => {
         );
 
         toast.success("Agentic composition completed!");
+
+        // Populate audit log from signal bus history
+        const history = signalBus.getSignalHistory('conductor');
+        setAuditLog(history.map(s => ({ id: s.id, type: s.type, source: s.source, target: s.target, timestamp: s.timestamp, priority: s.priority })));
 
         // Persist execution to database
         const {
@@ -985,11 +1020,47 @@ export const AgenticMusicComposer = () => {
                     </div>
                   </Card>
                 )}
+                {auditLog.length > 0 && (
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      Agent Signal Audit Log
+                    </h4>
+                    <ScrollArea className="h-32">
+                      <div className="space-y-1">
+                        {auditLog.map(entry => (
+                          <div key={entry.id} className="text-xs flex gap-2 text-muted-foreground">
+                            <span className="text-xs opacity-60">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                            <Badge variant="outline" className="text-xs py-0">{entry.priority}</Badge>
+                            <span>{entry.source} → {entry.target}: {entry.type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingConfirmation} onOpenChange={(open) => { if (!open && pendingConfirmation) pendingConfirmation.resolve(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Agent Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{pendingConfirmation?.agent.name}</strong> wants to perform: <br />
+              <em>{pendingConfirmation?.goal.description}</em><br /><br />
+              This may trigger audio processing or API calls. Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { pendingConfirmation?.resolve(false); setPendingConfirmation(null); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { pendingConfirmation?.resolve(true); setPendingConfirmation(null); }}>Proceed</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

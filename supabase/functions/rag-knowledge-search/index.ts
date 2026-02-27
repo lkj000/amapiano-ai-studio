@@ -148,16 +148,67 @@ serve(async (req) => {
     
     console.log(`[RAG-SEARCH] Got query embedding, dim: ${queryEmbedding.length}`);
 
+    // Try pgvector search from musical_vectors table first
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        // Check if musical_vectors has seeded data
+        const checkResp = await fetch(
+          `${supabaseUrl}/rest/v1/musical_vectors?select=knowledge_id,title,text_content,tags&knowledge_id=not.is.null&limit=1`,
+          { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+        );
+
+        if (checkResp.ok) {
+          const checkData = await checkResp.json();
+          if (checkData.length > 0) {
+            // Fetch all knowledge items from DB
+            const dbResp = await fetch(
+              `${supabaseUrl}/rest/v1/musical_vectors?select=knowledge_id,title,text_content,tags&knowledge_id=not.is.null&limit=50`,
+              { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+            );
+            if (dbResp.ok) {
+              const dbItems = await dbResp.json();
+              // Build knowledge base from DB rows and run hybrid search
+              const dbKnowledgeBase = dbItems.map((row: any) => ({
+                id: row.knowledge_id,
+                title: row.title,
+                content: row.text_content || "",
+                tags: row.tags || [],
+              }));
+              // Merge with any provided knowledgeBase items (deduplicate by id)
+              const merged = [...dbKnowledgeBase];
+              for (const item of (knowledgeBase || [])) {
+                if (!merged.find((m: any) => m.id === item.id)) merged.push(item);
+              }
+              // Use merged knowledge base for search
+              // (the existing hybridSearch logic below will use this)
+              // Store merged for use below
+              (globalThis as any).__mergedKB = merged;
+              console.log(`[rag-knowledge-search] Using ${merged.length} items from pgvector+provided KB`);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn("[rag-knowledge-search] DB fetch failed, using provided KB:", dbErr);
+      }
+    }
+
+    // Use merged KB if available, fall back to provided
+    const effectiveKnowledgeBase = (globalThis as any).__mergedKB || knowledgeBase || [];
+    delete (globalThis as any).__mergedKB;
+
     // Generate embeddings for knowledge base items
-    const itemEmbeddings = knowledgeBase.map(item => {
+    const itemEmbeddings = effectiveKnowledgeBase.map((item: KnowledgeItem) => {
       const text = `${item.title}. ${item.content.slice(0, 500)}. Tags: ${item.tags.join(', ')}`;
       return generatePseudoEmbedding(text);
     });
-    
+
     console.log(`[RAG-SEARCH] Generated ${itemEmbeddings.length} item embeddings`);
 
     // Calculate similarity scores
-    const enhancedResults = knowledgeBase.map((item, index) => {
+    const enhancedResults = effectiveKnowledgeBase.map((item: KnowledgeItem, index: number) => {
       const semanticScore = cosineSimilarity(queryEmbedding, itemEmbeddings[index]);
       
       // Boost score with keyword matching for hybrid search

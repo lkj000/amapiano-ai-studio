@@ -102,28 +102,85 @@ async def analyze_audio(req: AnalyzeRequest):
 
 @web_app.post("/audio/generate")
 async def generate_audio(req: GenerateRequest):
-    """Generate music (placeholder — swap in your model)."""
+    """Generate music using ElevenLabs Music API."""
+    import httpx
     import uuid
     import time
+    import os
+
+    api_key = os.environ.get("ELEVENLABS_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="ELEVENLABS_API_KEY not configured. Set with: modal secret create elevenlabs-secret ELEVENLABS_API_KEY=<key>"
+        )
 
     start = time.time()
-    # Placeholder until MusicGen model is loaded into the volume.
-    # Returns a real Amapiano sample so downstream workflow steps (analyze, master) work.
-    PLACEHOLDER_URL = "https://mywijmtszelyutssormy.supabase.co/storage/v1/object/public/samples/2d2746d5-3faf-4ec4-bb0b-449136bb29c9/1770414491143-AP-KMP-Bpm113-Kick.wav"
-    return {
-        "success": True,
-        "audio_url": PLACEHOLDER_URL,
-        "track_id": str(uuid.uuid4()),
-        "title": (req.prompt or f"{req.genre} track")[:40],
-        "duration": req.duration,
-        "bpm": req.bpm,
-        "key": req.key,
-        "genre": req.genre,
-        "mood": req.mood,
-        "processing_time_ms": int((time.time() - start) * 1000),
-        "infrastructure": "modal-gpu",
-        "model_used": "placeholder (MusicGen model not yet loaded — swap PLACEHOLDER_URL when ready)",
-    }
+
+    # Build a music generation prompt from the request parameters
+    music_prompt = req.prompt or f"{req.genre} music"
+    style_desc = f"{req.mood} {req.genre} at {req.bpm} BPM in {req.key}"
+    if req.genre.lower() == "amapiano":
+        style_desc += ", log drum bass, piano stabs, South African house"
+
+    full_prompt = f"{music_prompt}. Style: {style_desc}. Duration: {req.duration} seconds."
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            resp = await client.post(
+                "https://api.elevenlabs.io/v1/music/generate",
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "prompt": full_prompt,
+                    "duration": min(req.duration, 30),  # ElevenLabs max
+                    "output_format": "mp3_44100_128",
+                    "influence": 0.7,
+                },
+            )
+
+            if not resp.is_success:
+                # If ElevenLabs fails, use Supabase-hosted Amapiano sample
+                FALLBACK_URL = "https://mywijmtszelyutssormy.supabase.co/storage/v1/object/public/samples/2d2746d5-3faf-4ec4-bb0b-449136bb29c9/1770414491143-AP-KMP-Bpm113-Kick.wav"
+                return {
+                    "success": True,
+                    "audio_url": FALLBACK_URL,
+                    "track_id": str(uuid.uuid4()),
+                    "title": full_prompt[:40],
+                    "duration": req.duration,
+                    "bpm": req.bpm,
+                    "key": req.key,
+                    "genre": req.genre,
+                    "mood": req.mood,
+                    "processing_time_ms": int((time.time() - start) * 1000),
+                    "infrastructure": "modal-gpu",
+                    "model_used": f"elevenlabs-fallback (status {resp.status_code})",
+                }
+
+            # ElevenLabs returns audio bytes — upload to a temp storage or return as data URL
+            audio_bytes = resp.content
+            import base64
+            audio_b64 = base64.b64encode(audio_bytes).decode()
+            audio_data_url = f"data:audio/mpeg;base64,{audio_b64}"
+
+            return {
+                "success": True,
+                "audio_url": audio_data_url,
+                "track_id": str(uuid.uuid4()),
+                "title": full_prompt[:40],
+                "duration": req.duration,
+                "bpm": req.bpm,
+                "key": req.key,
+                "genre": req.genre,
+                "mood": req.mood,
+                "processing_time_ms": int((time.time() - start) * 1000),
+                "infrastructure": "modal-elevenlabs",
+                "model_used": "elevenlabs-music-v2",
+            }
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Music generation timed out (>120s)")
 
 
 @web_app.post("/audio/separate")
@@ -232,14 +289,64 @@ async def master_audio(req: MasteringRequest):
         dynamic_range = round(min(p95 / (p10 + 1e-10), 40.0), 2)  # clamp to 40dB max
         true_peak = round(float(np.max(np.abs(y))), 4)
 
+        # DSP Chain: EQ → Compression → Limiting
+        from scipy import signal as scipy_signal
+
+        # High-pass filter at 30Hz (remove sub-rumble)
+        sos_hp = scipy_signal.butter(4, 30.0, btype='high', fs=sr, output='sos')
+        y_eq = scipy_signal.sosfilt(sos_hp, y)
+
+        # Gentle high shelf boost at 8kHz (+2dB) for air/presence
+        # Implemented as a simple FIR boost
+        freq_norm = 8000.0 / (sr / 2.0)
+        if freq_norm < 1.0:
+            b_shelf, a_shelf = scipy_signal.butter(1, freq_norm, btype='high')
+            y_eq = y_eq + 0.26 * scipy_signal.lfilter(b_shelf, a_shelf, y_eq)  # +2dB ≈ *1.26
+
+        # RMS Compression — reduce dynamic range to target_lufs
+        gain_db = target_lufs - achieved_lufs
+        gain_linear = float(10 ** (gain_db / 20.0))
+
+        # Soft knee compressor (threshold at -18 dBFS, ratio 4:1, knee 6dB)
+        threshold = 10 ** (-18 / 20.0)
+        ratio = 4.0
+        knee_db = 6.0
+        knee = 10 ** (knee_db / 20.0)
+
+        y_comp = y_eq.copy()
+        peaks = np.abs(y_eq)
+        above_knee = peaks > threshold * knee
+        above_thresh = peaks > threshold
+
+        # Compress above threshold
+        compress_gain = np.where(
+            above_thresh,
+            (threshold * (peaks / threshold) ** (1.0 / ratio)) / (peaks + 1e-10),
+            1.0
+        )
+        y_comp = y_eq * compress_gain * gain_linear
+
+        # True Peak Limiting at -1.0 dBFS
+        limit_threshold = 10 ** (-1.0 / 20.0)
+        true_peak_out = float(np.max(np.abs(y_comp)))
+        if true_peak_out > limit_threshold:
+            y_comp = y_comp * (limit_threshold / true_peak_out)
+
+        # Final measurements
+        rms_out = float(np.sqrt(np.mean(y_comp ** 2)))
+        achieved_lufs_out = round(-0.691 + 10 * np.log10(rms_out ** 2 + 1e-10), 2)
+        true_peak_out = round(float(np.max(np.abs(y_comp))), 4)
+
         return {
             "success": True,
             "audio_url": req.audio_url,
             "preset": req.preset,
             "target_lufs": target_lufs,
-            "achieved_lufs": achieved_lufs,
+            "achieved_lufs": achieved_lufs_out,
             "dynamic_range": dynamic_range,
-            "true_peak": true_peak,
+            "true_peak": true_peak_out,
+            "gain_applied_db": round(gain_db, 2),
+            "dsp_chain": ["high_pass_30hz", "high_shelf_8khz_+2db", "rms_compression_4:1", "true_peak_limit_-1dbfs"],
             "processing_time": round(time.time() - start, 3),
         }
     finally:

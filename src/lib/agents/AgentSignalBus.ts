@@ -4,6 +4,8 @@
  * Implements Signals & Queries pattern for reliable message passing
  */
 
+import { supabase } from '@/integrations/supabase/client';
+
 export type SignalType = 
   | 'nudge'           // Wake up and process
   | 'update_prompt'   // Update system prompt
@@ -54,8 +56,39 @@ export class AgentSignalBus {
   private signalHistory: AgentSignal[] = [];
   private isProcessing: boolean = false;
   private maxHistorySize: number = 1000;
+  // High-priority signals are persisted to agent_memory for durability across reloads
+  private persistedTypes: Set<SignalType> = new Set(['update_strategy', 'evaluation', 'refinement', 'terminate']);
 
   private constructor() {}
+
+  /**
+   * Persist a signal to the agent_memory table for durability.
+   * Only high-priority or significant signal types are written.
+   */
+  private async persistSignal(signal: AgentSignal): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('agent_memory').insert({
+        user_id: user.id,
+        memory_type: 'agent_signal',
+        content: `Signal ${signal.type} from ${signal.source} to ${signal.target}`,
+        metadata: {
+          signal_id: signal.id,
+          type: signal.type,
+          source: signal.source,
+          target: signal.target,
+          priority: signal.priority,
+          payload: signal.payload,
+          timestamp: signal.timestamp,
+        },
+        created_at: new Date(signal.timestamp).toISOString(),
+      });
+    } catch {
+      // Persistence is best-effort; do not break the signal flow
+    }
+  }
 
   static getInstance(): AgentSignalBus {
     if (!AgentSignalBus.instance) {
@@ -156,6 +189,11 @@ export class AgentSignalBus {
     }
 
     console.log(`[SignalBus] Signal queued: ${type} from ${source} to ${target}`);
+
+    // Persist durable signal types to agent_memory for cross-reload durability
+    if (this.persistedTypes.has(type) || priority === 'critical') {
+      this.persistSignal(signal); // fire-and-forget
+    }
 
     // Process queue
     this.processQueue();

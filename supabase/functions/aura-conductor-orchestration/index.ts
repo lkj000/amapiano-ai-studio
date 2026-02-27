@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, RATE_LIMITS } from "../_shared/rateLimiter.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,21 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Extract user identifier from JWT auth header
+  const authHeader = req.headers.get('authorization') || '';
+  const userId = authHeader.replace('Bearer ', '').slice(-16) || 'anonymous'; // last 16 chars of token
+
+  const rateCheck = await checkRateLimit(RATE_LIMITS.AI_GENERATION, userId);
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({ error: 'Rate limit exceeded', fallback: true }),
+      {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   try {

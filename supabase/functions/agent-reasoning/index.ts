@@ -1,9 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getRateLimitHeaders, RATE_LIMITS } from "../_shared/rateLimiter.ts";
+
+export const PROMPT_VERSION = "2.1.0"; // Bump on any prompt change
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Allowed agent roles allowlist
+const ALLOWED_ROLES = ["conductor", "harmony", "rhythm", "melody", "arrangement", "analysis", "rag"] as const;
 
 /**
  * Role-specific system prompts for each music agent.
@@ -157,9 +163,111 @@ ${base}`;
   }
 }
 
+// Role-based model routing
+function getModelConfig(agentRole?: string): { model: string; maxTokens: number; temperature: number } {
+  switch (agentRole) {
+    case "conductor":
+    case "harmony":
+      return { model: "google/gemini-2.5-flash", maxTokens: 2000, temperature: 0.3 };
+    case "rag":
+      return { model: "google/gemini-2.5-flash", maxTokens: 800, temperature: 0.1 };
+    default:
+      return { model: "google/gemini-2.5-flash", maxTokens: 1500, temperature: 0.3 };
+  }
+}
+
+// Multi-provider call with Anthropic fallback
+async function callLLMWithFallback(
+  systemPrompt: string,
+  userPrompt: string,
+  agentRole?: string,
+  lovableKey?: string,
+  anthropicKey?: string
+): Promise<{ content: string; provider: string }> {
+  const modelConfig = getModelConfig(agentRole);
+
+  // Primary: Lovable AI gateway
+  if (lovableKey) {
+    try {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: modelConfig.model,
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          temperature: modelConfig.temperature,
+          max_tokens: modelConfig.maxTokens,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { content: data.choices?.[0]?.message?.content || "", provider: "lovable" };
+      }
+      if (resp.status === 429 || resp.status === 402) throw new Error(`Gateway: ${resp.status}`);
+    } catch (err) {
+      console.warn("[agent-reasoning] Primary provider failed:", err);
+    }
+  }
+
+  // Secondary: Anthropic Claude (if key configured)
+  if (anthropicKey) {
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: modelConfig.maxTokens,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { content: data.content?.[0]?.text || "", provider: "anthropic" };
+      }
+    } catch (err) {
+      console.warn("[agent-reasoning] Anthropic fallback failed:", err);
+    }
+  }
+
+  throw new Error("All LLM providers failed");
+}
+
+// Strip prompt injection patterns
+function sanitizeInput(text: string): string {
+  return text
+    .replace(/\bignore\s+(all\s+)?previous\s+instructions?\b/gi, "[filtered]")
+    .replace(/\bsystem\s*:\s*/gi, "[filtered]: ")
+    .replace(/\b(jailbreak|dan\s+mode|developer\s+mode)\b/gi, "[filtered]");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Extract user identifier from JWT auth header
+  const authHeader = req.headers.get("authorization") || "";
+  const userId = authHeader.replace("Bearer ", "").slice(-16) || "anonymous"; // last 16 chars of token
+
+  const rateCheck = await checkRateLimit(RATE_LIMITS.AI_GENERATION, userId);
+  if (!rateCheck.allowed) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded", fallback: true }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          ...getRateLimitHeaders(RATE_LIMITS.AI_GENERATION.maxRequests, 0, rateCheck.resetTime!),
+        },
+      }
+    );
   }
 
   try {
@@ -170,71 +278,53 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // Sanitize agentRole
+    const sanitizedRole = ALLOWED_ROLES.includes(agentRole as any) ? agentRole : undefined;
+
+    // Sanitize input lengths
+    const MAX_GOAL_LENGTH = 2000;
+    const MAX_CONTEXT_LENGTH = 8000;
+    const MAX_HISTORY_ITEMS = 10;
+
+    const sanitizedGoal = (goal || "").slice(0, MAX_GOAL_LENGTH);
+    const sanitizedContext = (context || "").slice(0, MAX_CONTEXT_LENGTH);
+    const sanitizedHistory = (history || []).slice(-MAX_HISTORY_ITEMS);
+
+    const cleanGoal = sanitizeInput(sanitizedGoal);
+    const cleanContext = sanitizeInput(sanitizedContext);
+
     // Get role-specific or generic system prompt
-    let systemPrompt = getRoleSystemPrompt(agentRole);
+    let systemPrompt = getRoleSystemPrompt(sanitizedRole);
 
     // Inject available tools into default prompt
-    if (!agentRole) {
+    if (!sanitizedRole) {
       systemPrompt = systemPrompt.replace(
         '"{availableTools}"',
         (availableTools?.join(", ") || "none")
       );
     }
 
-    const roleContext = agentRole
-      ? `\nAgent Role: ${agentRole}\nAvailable sub-tasks: ${availableTools?.join(", ") || "none"}`
+    const roleContext = sanitizedRole
+      ? `\nAgent Role: ${sanitizedRole}\nAvailable sub-tasks: ${availableTools?.join(", ") || "none"}`
       : "";
 
-    const userPrompt = `Goal: ${goal}${roleContext}
+    const userPrompt = `Goal: ${cleanGoal}${roleContext}
 
 Current Context:
-${context}
+${cleanContext}
 
 Recent History:
-${JSON.stringify(history?.slice(-5) || [], null, 2)}
+${JSON.stringify(sanitizedHistory.slice(-5), null, 2)}
 
 Analyze the situation and determine the next action. Return valid JSON only.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 1500,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded", fallback: true }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required", fallback: true }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "AI gateway error", fallback: true }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const { content, provider } = await callLLMWithFallback(
+      systemPrompt,
+      userPrompt,
+      sanitizedRole,
+      LOVABLE_API_KEY,
+      Deno.env.get("ANTHROPIC_API_KEY")
+    );
 
     // Parse the JSON response
     let thought;
@@ -254,7 +344,10 @@ Analyze the situation and determine the next action. Return valid JSON only.`;
       };
     }
 
-    console.log(`[agent-reasoning] role=${agentRole || "generic"} confidence=${thought.confidence}`);
+    thought.prompt_version = PROMPT_VERSION;
+    thought.provider = provider;
+
+    console.log(`[agent-reasoning] role=${sanitizedRole || "generic"} confidence=${thought.confidence} provider=${provider}`);
 
     return new Response(JSON.stringify(thought), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

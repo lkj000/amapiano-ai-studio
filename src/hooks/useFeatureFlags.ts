@@ -48,14 +48,27 @@ export const useFeatureFlags = (user: User | null) => {
       }
 
     try {
-      // For now, use default flags as database tables may not exist yet
-      // In production, this would query the actual feature_flags table
-      const userFlags: FeatureFlags = { ...DEFAULT_FLAGS };
-      
-      // Simulate feature flag logic - in production this would be:
-      // const { data, error } = await supabase.from('feature_flags').select('*').eq('enabled', true);
-      
-      setFlags(userFlags);
+      const { data, error } = await supabase
+        .from('feature_flags')
+        .select('name, enabled, rollout_percentage, user_groups')
+        .eq('enabled', true);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const userFlags: FeatureFlags = { ...DEFAULT_FLAGS };
+        for (const flag of data) {
+          const name = flag.name as keyof FeatureFlags;
+          if (name in DEFAULT_FLAGS) {
+            // Rollout check: use user id hash to determine inclusion
+            const userHash = user.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            userFlags[name] = (userHash % 100) < flag.rollout_percentage;
+          }
+        }
+        setFlags(userFlags);
+      } else {
+        setFlags(DEFAULT_FLAGS);
+      }
       } catch (error) {
         console.error('Error fetching feature flags:', error);
         setFlags(DEFAULT_FLAGS);

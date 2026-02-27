@@ -58,16 +58,11 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
   const messageCountRef = useRef(0);
   const reconnectAttemptsRef = useRef(0);
 
-  // Initialize realtime connection
+  // Initialize realtime connection on mount and clean up on unmount
   useEffect(() => {
-    if (session.isConnected) {
-      connectToRealtimeAI();
-    } else {
-      disconnect();
-    }
-
+    connectToRealtimeAI();
     return () => disconnect();
-  }, [session.isConnected]);
+  }, []);
 
   // Message rate tracking
   useEffect(() => {
@@ -85,8 +80,9 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
   const connectToRealtimeAI = async () => {
     try {
       console.log('Attempting to connect to Realtime AI Assistant...');
-      
-      const wsUrl = `wss://mywijmtszelyutssormy.supabase.co/functions/v1/realtime-ai-assistant`;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+      const wsUrl = `${supabaseUrl.replace('https://', 'wss://')}/functions/v1/realtime-ai-assistant`;
       console.log('WebSocket URL:', wsUrl);
       
       wsRef.current = new WebSocket(wsUrl);
@@ -262,7 +258,7 @@ export const RealtimeAIAssistant: React.FC<RealtimeAIAssistantProps> = ({
     } else {
       // Reset reconnect attempts when manually connecting
       reconnectAttemptsRef.current = 0;
-      setSession(prev => ({ ...prev, isConnected: true }));
+      connectToRealtimeAI();
     }
   };
 

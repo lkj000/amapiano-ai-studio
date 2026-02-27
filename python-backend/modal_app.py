@@ -43,6 +43,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import json
+import httpx
+import os
+import uuid as uuid_lib
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+
+async def upload_to_supabase_storage(audio_bytes: bytes, filename: str, content_type: str = "audio/mpeg") -> str:
+    """Upload audio to Supabase Storage and return public URL."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/storage/v1/object/audio-samples/{filename}",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": content_type,
+                "x-upsert": "true"
+            },
+            content=audio_bytes
+        )
+        resp.raise_for_status()
+    return f"{SUPABASE_URL}/storage/v1/object/public/audio-samples/{filename}"
 
 web_app = FastAPI(title="AURA-X Backend")
 web_app.add_middleware(
@@ -103,10 +125,7 @@ async def analyze_audio(req: AnalyzeRequest):
 @web_app.post("/audio/generate")
 async def generate_audio(req: GenerateRequest):
     """Generate music using ElevenLabs Music API."""
-    import httpx
-    import uuid
     import time
-    import os
 
     api_key = os.environ.get("ELEVENLABS_API_KEY")
     if not api_key:
@@ -147,16 +166,30 @@ async def generate_audio(req: GenerateRequest):
                     detail="Music generation failed: ElevenLabs API error. No fallback audio available."
                 )
 
-            # ElevenLabs returns audio bytes — upload to a temp storage or return as data URL
+            # ElevenLabs returns audio bytes — upload to Supabase Storage for persistence
             audio_bytes = resp.content
-            import base64
-            audio_b64 = base64.b64encode(audio_bytes).decode()
-            audio_data_url = f"data:audio/mpeg;base64,{audio_b64}"
+            track_id = str(uuid_lib.uuid4())
+            filename = f"generated/{track_id}.mp3"
+
+            audio_url: str
+            if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+                try:
+                    audio_url = await upload_to_supabase_storage(audio_bytes, filename)
+                except Exception as upload_err:
+                    import base64
+                    print(f"[modal-generate] WARNING: Supabase upload failed ({upload_err}); falling back to base64 data URL")
+                    audio_b64 = base64.b64encode(audio_bytes).decode()
+                    audio_url = f"data:audio/mpeg;base64,{audio_b64}"
+            else:
+                import base64
+                print("[modal-generate] WARNING: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured; falling back to base64 data URL")
+                audio_b64 = base64.b64encode(audio_bytes).decode()
+                audio_url = f"data:audio/mpeg;base64,{audio_b64}"
 
             return {
                 "success": True,
-                "audio_url": audio_data_url,
-                "track_id": str(uuid.uuid4()),
+                "audio_url": audio_url,
+                "track_id": track_id,
                 "title": full_prompt[:40],
                 "duration": req.duration,
                 "bpm": req.bpm,

@@ -12,7 +12,9 @@
       "Bash(supabase secrets:*)",
       "Bash(npx supabase:*)",
       "Bash(touch:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(do npx:*)"
     ]
   }
 }

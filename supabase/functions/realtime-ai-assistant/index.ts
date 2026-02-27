@@ -120,80 +120,88 @@ async function processContextUpdate(session: RealtimeSession, context: unknown):
     content: JSON.stringify(context),
     updated_at: new Date().toISOString()
   }, { onConflict: 'agent_id,memory_type' });
+
+  // Generate AI-driven suggestions and send them over the WebSocket
+  const suggestions = await generateRealtimeSuggestions(context, session.preferences, []);
+  session.ws.send(JSON.stringify({
+    type: 'suggestions',
+    suggestions,
+    timestamp: Date.now()
+  }));
 }
 
-function generateRealtimeSuggestions(context: any, preferences: any) {
-  const suggestions = [];
-  const bpm = context?.bpm || 118;
-  const keySignature = context?.keySignature || 'F#m';
-  const tracks = context?.tracks || [];
+async function generateRealtimeSuggestions(context: any, preferences: any, recentMessages: any[]): Promise<any[]> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-  if (Math.random() > 0.7) {
-    suggestions.push({
-      type: 'chord_change',
-      confidence: 0.75 + Math.random() * 0.2,
-      text: `Try adding a ii-V-I progression in ${keySignature} for more harmonic movement`,
-      action: {
-        type: 'addChords',
-        chords: ['Bm7', 'E7', 'AM7'],
-        key: keySignature
-      }
-    });
+  if (!LOVABLE_API_KEY) {
+    console.warn('[REALTIME-AI] LOVABLE_API_KEY not configured — cannot generate suggestions');
+    return [];
   }
 
-  if (tracks.length > 1 && Math.random() > 0.6) {
-    suggestions.push({
-      type: 'rhythm_sync',
-      confidence: 0.8 + Math.random() * 0.15,
-      text: `Sync percussion to ${bpm} BPM with syncopated ghost hits for authentic amapiano groove`,
-      action: {
-        type: 'adjustTiming',
-        bpm,
-        pattern: 'amapiano_syncopated'
-      }
-    });
-  }
+  const systemPrompt =
+    'You are an AI music production assistant. Given the conversation context, suggest 2-3 specific, actionable music production improvements. ' +
+    'Return JSON array: [{type, suggestion, confidence, action}] where confidence is 0-1 based on relevance, ' +
+    'type is one of: harmony|rhythm|arrangement|mixing|sound_design';
 
-  if (Math.random() > 0.65) {
-    suggestions.push({
-      type: 'effect_add',
-      confidence: 0.7 + Math.random() * 0.2,
-      text: 'Add subtle reverb to piano for spatial depth while keeping vocals dry',
-      action: {
-        type: 'addEffect',
-        effectName: 'reverb',
-        targetTrack: 'piano',
-        params: { mix: 0.25, decay: 2.5 }
-      }
-    });
-  }
+  const contextSummary = [
+    `BPM: ${context?.bpm || 'unknown'}`,
+    `Key: ${context?.keySignature || 'unknown'}`,
+    `Tracks: ${(context?.tracks || []).length}`,
+    preferences.customPrompt ? `User preference: ${preferences.customPrompt}` : '',
+    recentMessages.length > 0
+      ? `Recent activity:\n${recentMessages.map((m: any) => `  - ${JSON.stringify(m)}`).join('\n')}`
+      : '',
+  ].filter(Boolean).join('\n');
 
-  if (tracks.length > 0 && Math.random() > 0.8) {
-    suggestions.push({
-      type: 'arrangement',
-      confidence: 0.85 + Math.random() * 0.1,
-      text: 'Build energy by gradually adding percussion layers every 16 bars',
-      action: {
-        type: 'arrangement',
-        pattern: 'gradual_build',
-        interval: 16
-      }
+  try {
+    const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Current session context:\n${contextSummary}` },
+        ],
+        temperature: 0.4,
+        max_tokens: 600,
+      }),
     });
-  }
 
-  if (preferences.customPrompt && Math.random() > 0.75) {
-    suggestions.push({
-      type: 'chord_change',
-      confidence: 0.8,
-      text: `Based on your preference: ${preferences.customPrompt}`,
-      action: {
-        type: 'custom',
-        prompt: preferences.customPrompt
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error(`[REALTIME-AI] LLM call failed: ${resp.status} ${errText}`);
+      return [];
+    }
+
+    const data = await resp.json();
+    const raw = data.choices?.[0]?.message?.content || '[]';
+
+    // Strip markdown fences if present, then parse JSON
+    const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const jsonText = match ? match[1].trim() : raw.trim();
+
+    let suggestions: any[];
+    try {
+      suggestions = JSON.parse(jsonText);
+      if (!Array.isArray(suggestions)) {
+        console.warn('[REALTIME-AI] LLM returned non-array JSON — returning empty suggestions');
+        return [];
       }
-    });
-  }
+    } catch {
+      console.warn('[REALTIME-AI] Failed to parse LLM JSON response — returning empty suggestions');
+      return [];
+    }
 
-  return suggestions;
+    console.log(`[REALTIME-AI] LLM returned ${suggestions.length} suggestion(s)`);
+    return suggestions;
+  } catch (err) {
+    console.error('[REALTIME-AI] generateRealtimeSuggestions threw:', err);
+    return [];
+  }
 }
 
 setInterval(() => {

@@ -232,15 +232,23 @@ The plan must include and return structured fields:
   return buildHeuristicPlan(prompt, target, safeConfig);
 }
 
+// Deterministic BPM selection based on a hash of the seed string.
+// Produces a stable integer in [min, max] without any randomness.
+function deterministicBpm(seed: string, min: number, max: number): number {
+  let hash = 0;
+  for (const c of seed) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  return min + (hash % (max - min + 1));
+}
+
 // Heuristic orchestration plan generator – deterministic, offline
 function buildHeuristicPlan(prompt: string, target: string, config: any) {
   const text = (prompt || '').toLowerCase();
 
-  // BPM heuristics
+  // BPM heuristics — deterministic selection based on prompt content
   let bpm = 118;
-  if (text.includes('private school')) bpm = 112 + Math.floor(Math.random() * 6); // 112-117
-  if (text.includes('soulful')) bpm = 110 + Math.floor(Math.random() * 8); // 110-117
-  if (text.includes('uptempo') || text.includes('festival')) bpm = 120 + Math.floor(Math.random() * 6); // 120-125
+  if (text.includes('private school')) bpm = deterministicBpm(text, 112, 117);
+  if (text.includes('soulful')) bpm = deterministicBpm(text, 110, 117);
+  if (text.includes('uptempo') || text.includes('festival')) bpm = deterministicBpm(text, 120, 125);
 
   // Key heuristics
   let key = 'F#m';

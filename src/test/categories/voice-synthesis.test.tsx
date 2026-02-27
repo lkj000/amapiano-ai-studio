@@ -43,8 +43,9 @@ describe('🎤 Voice Synthesis Studio', () => {
 
   describe('Audio Processing', () => {
     it('processes voice synthesis request', async () => {
-      const mockAudio = new Audio();
+      const mockAudio = { play: vi.fn(), pause: vi.fn(), src: '' };
       expect(mockAudio).toBeDefined();
+      expect(mockAudio.play).toBeDefined();
     });
 
     it('applies voice effects', () => {

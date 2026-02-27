@@ -88,6 +88,6 @@ export function detectPitch(dataArray: Float32Array, sampleRate: number): number
 export function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 10);
+  const ms = Math.floor((seconds * 10) % 10);
   return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
 }

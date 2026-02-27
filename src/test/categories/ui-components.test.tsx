@@ -19,16 +19,16 @@ describe('🎨 UI Components Library', () => {
     it('renders with all variants', () => {
       const variants = ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'] as const;
       variants.forEach(variant => {
-        const { getByRole } = render(<Button variant={variant}>{variant}</Button>);
-        expect(getByRole('button')).toBeInTheDocument();
+        const { container } = render(<Button variant={variant}>{variant}</Button>);
+        expect(container.querySelector('button')).toBeInTheDocument();
       });
     });
 
     it('renders with all sizes', () => {
       const sizes = ['default', 'sm', 'lg', 'icon'] as const;
       sizes.forEach(size => {
-        const { getByRole } = render(<Button size={size}>Button</Button>);
-        expect(getByRole('button')).toBeInTheDocument();
+        const { container } = render(<Button size={size}>Button</Button>);
+        expect(container.querySelector('button')).toBeInTheDocument();
       });
     });
 

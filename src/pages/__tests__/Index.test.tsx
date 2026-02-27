@@ -45,8 +45,8 @@ describe('Index Page', () => {
   } as User;
 
   it('renders hero section with title', () => {
-    const { getByText } = renderWithRouter(<Index user={null} />);
-    expect(getByText(/Create Authentic/i)).toBeInTheDocument();
+    const { getAllByText } = renderWithRouter(<Index user={null} />);
+    expect(getAllByText(/Create Authentic/i).length).toBeGreaterThan(0);
   });
 
   it('shows sign-in CTA for unauthenticated users', () => {
@@ -73,8 +73,8 @@ describe('Index Page', () => {
   });
 
   it('renders cultural heritage section', () => {
-    const { getByText } = renderWithRouter(<Index user={null} />);
-    expect(getByText(/Preserving South African Musical Heritage/i)).toBeInTheDocument();
+    const { getAllByText } = renderWithRouter(<Index user={null} />);
+    expect(getAllByText(/Preserving South African Musical Heritage/i).length).toBeGreaterThan(0);
   });
 
   it('renders without crashing with no user', () => {

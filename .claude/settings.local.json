@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npm install:*)",
+      "Bash(python:*)",
+      "Bash(git:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh:*)",
+      "Bash(supabase secrets:*)",
+      "Bash(npx supabase:*)"
+    ]
+  }
+}

@@ -50,6 +50,19 @@ window.HTMLMediaElement.prototype.load = () => {};
 window.HTMLMediaElement.prototype.play = () => Promise.resolve();
 window.HTMLMediaElement.prototype.pause = () => {};
 
+// Polyfill Blob.arrayBuffer for jsdom (uses FileReader which jsdom does support)
+if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
+  Blob.prototype.arrayBuffer = function () {
+    const self = this;
+    return new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(self);
+    });
+  };
+}
+
 // Mock Audio
 global.Audio = vi.fn().mockImplementation(() => ({
   play: vi.fn().mockResolvedValue(undefined),

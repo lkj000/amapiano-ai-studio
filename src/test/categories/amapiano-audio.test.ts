@@ -133,12 +133,14 @@ describe('🎛️ Neural Groove Engine', () => {
     });
 
     it('correctly identifies low-mid frequencies', () => {
-      expect(engine.getFrequencyBand('C3')).toBe('lowMid');
+      // Low/lowMid boundary is 200 Hz; A3=220 Hz and 400 Hz are both lowMid
+      expect(engine.getFrequencyBand('A3')).toBe('lowMid');
       expect(engine.getFrequencyBand(400)).toBe('lowMid');
     });
 
     it('correctly identifies mid frequencies', () => {
-      expect(engine.getFrequencyBand('C5')).toBe('mid');
+      // lowMid/mid boundary is 800 Hz; C6=1046 Hz and 1000 Hz are both mid
+      expect(engine.getFrequencyBand('C6')).toBe('mid');
       expect(engine.getFrequencyBand(1000)).toBe('mid');
     });
 

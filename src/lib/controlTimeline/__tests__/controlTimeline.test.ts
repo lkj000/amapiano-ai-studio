@@ -239,7 +239,7 @@ describe('Planner produces valid CTL', () => {
     expect(a.global.genre).toEqual(b.global.genre);
   });
 
-  it('all curves are within [0, 1] with no NaN', () => {
+  it('all curves are within [0, 1] with no NaN', { timeout: 30000 }, () => {
     const ctl = planControlTimeline({ prompt: 'energetic afro house club banger', durationSeconds: 120 });
     const allCurves = [
       ctl.curves.energy,

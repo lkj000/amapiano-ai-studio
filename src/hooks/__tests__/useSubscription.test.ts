@@ -35,6 +35,19 @@ describe('useSubscription', () => {
     expect(result.current.subscribed).toBe(false);
   });
 
+  it('handles subscription check errors gracefully', async () => {
+    // Run BEFORE the producer-tier test to avoid hitting the module-level cache
+    mockInvoke.mockRejectedValue(new Error('Network error'));
+
+    const { result } = renderHook(() => useSubscription(mockUser));
+
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 100));
+    });
+
+    expect(result.current.subscription_tier).toBe('free');
+  });
+
   it('checks subscription for authenticated user', async () => {
     mockInvoke.mockResolvedValue({
       data: { subscribed: true, subscription_tier: 'producer', subscription_end: '2026-12-31' },
@@ -59,17 +72,5 @@ describe('useSubscription', () => {
     const { result } = renderHook(() => useSubscription(null));
     expect(result.current.getFeatureLimit('max_projects')).toBe(3);
     expect(result.current.getFeatureLimit('max_tracks_per_project')).toBe(8);
-  });
-
-  it('handles subscription check errors gracefully', async () => {
-    mockInvoke.mockRejectedValue(new Error('Network error'));
-
-    const { result } = renderHook(() => useSubscription(mockUser));
-
-    await act(async () => {
-      await new Promise(r => setTimeout(r, 100));
-    });
-
-    expect(result.current.subscription_tier).toBe('free');
   });
 });

@@ -242,15 +242,7 @@ export const LANDRIntegration: React.FC = () => {
                                 Available
                               </Badge>
                             )}
-                            {plugin.status === 'downloading' && (
-                              <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 text-xs">
-                                {plugin.downloadProgress}%
-                              </Badge>
-                            )}
                           </div>
-                          {plugin.status === 'downloading' && (
-                            <Progress value={plugin.downloadProgress} className="h-1 mt-2" />
-                          )}
                         </div>
                       ))}
                     </div>
@@ -420,17 +412,22 @@ export const LANDRIntegration: React.FC = () => {
                 <div className="space-y-2">
                   <Label>VST3 Plugin Path</Label>
                   <div className="flex gap-2">
-                    <Input value={dawPath} onChange={(e) => setDawPath(e.target.value)} />
+                    <Input
+                      value={dawPath}
+                      onChange={(e) => setDawPath(e.target.value)}
+                      placeholder="e.g. C:\Program Files\Common Files\VST3 (Windows) or /Library/Audio/Plug-Ins/VST3 (macOS)"
+                    />
                     <Button variant="outline" size="icon">
                       <FolderOpen className="w-4 h-4" />
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">Enter the path where your DAW scans for VST3 plugins</p>
                 </div>
 
                 <div className="space-y-2">
                   <Label>AU Plugin Path (macOS)</Label>
                   <div className="flex gap-2">
-                    <Input value="/Library/Audio/Plug-Ins/Components" readOnly />
+                    <Input placeholder="/Library/Audio/Plug-Ins/Components (macOS only)" readOnly />
                     <Button variant="outline" size="icon">
                       <FolderOpen className="w-4 h-4" />
                     </Button>
@@ -440,7 +437,7 @@ export const LANDRIntegration: React.FC = () => {
                 <div className="space-y-2">
                   <Label>AAX Plugin Path</Label>
                   <div className="flex gap-2">
-                    <Input value="/Library/Application Support/Avid/Audio/Plug-Ins" readOnly />
+                    <Input placeholder="/Library/Application Support/Avid/Audio/Plug-Ins (macOS only)" readOnly />
                     <Button variant="outline" size="icon">
                       <FolderOpen className="w-4 h-4" />
                     </Button>

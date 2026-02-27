@@ -6,6 +6,7 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 import { Activity, Zap, Network, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
 import { useSparseInferenceCache } from "@/hooks/useSparseInferenceCache";
 import { useDistributedInference } from "@/hooks/useDistributedInference";
+import { supabase } from "@/integrations/supabase/client";
 
 export const RealTimeThesisMonitor = () => {
   const { stats: sparseStats } = useSparseInferenceCache();
@@ -14,37 +15,62 @@ export const RealTimeThesisMonitor = () => {
   const [sigeLatencyHistory, setSigeLatencyHistory] = useState<Array<{ time: string; latency: number }>>([]);
   const [nunchakuQualityHistory, setNunchakuQualityHistory] = useState<Array<{ time: string; quality: number }>>([]);
   const [distrifusionLoadHistory, setDistrifusionLoadHistory] = useState<Array<{ time: string; edge: number; cloud: number }>>([]);
+  const [metricsAvailable, setMetricsAvailable] = useState<boolean | null>(null);
 
-  // Simulate real-time updates
+  // Poll real metrics every 5 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date().toLocaleTimeString();
+    const fetchMetrics = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('metrics', {
+          body: null,
+          // Request JSON format for easy parsing
+          headers: { 'x-format': 'json' },
+        });
 
-      // SIGE-Audio latency (80ms baseline with slight variation)
-      setSigeLatencyHistory(prev => {
-        const newLatency = 80.29 + (Math.random() - 0.5) * 10;
-        const newData = [...prev, { time: now, latency: newLatency }].slice(-20);
-        return newData;
-      });
+        if (error || !data) {
+          setMetricsAvailable(false);
+          return;
+        }
 
-      // Nunchaku-Audio quality (negative values showing crisis)
-      setNunchakuQualityHistory(prev => {
-        const newQuality = -1894.5 + (Math.random() - 0.5) * 200;
-        const newData = [...prev, { time: now, quality: newQuality }].slice(-20);
-        return newData;
-      });
+        setMetricsAvailable(true);
+        const now = new Date().toLocaleTimeString();
 
-      // DistriFusion load distribution
-      setDistrifusionLoadHistory(prev => {
-        const newData = [...prev, { 
-          time: now, 
-          edge: distributedStats.edgeLoad,
-          cloud: distributedStats.cloudLoad 
-        }].slice(-20);
-        return newData;
-      });
-    }, 3000);
+        // Extract amapiano_agent_execution_duration_ms for latency
+        const metricsArr: any[] = data.metrics || [];
+        const latencyMetric = metricsArr.find((m: any) => m.name === 'amapiano_agent_execution_duration_ms');
+        const latencyValue: number | null = latencyMetric?.values?.[0]?.value ?? null;
 
+        // Extract amapiano_performance_anomalies_active for quality
+        const qualityMetric = metricsArr.find((m: any) => m.name === 'amapiano_performance_anomalies_active');
+        const qualityValue: number | null = qualityMetric?.values?.[0]?.value ?? null;
+
+        if (latencyValue !== null) {
+          setSigeLatencyHistory(prev =>
+            [...prev, { time: now, latency: latencyValue }].slice(-20)
+          );
+        }
+
+        if (qualityValue !== null) {
+          setNunchakuQualityHistory(prev =>
+            [...prev, { time: now, quality: qualityValue }].slice(-20)
+          );
+        }
+
+        setDistrifusionLoadHistory(prev =>
+          [...prev, {
+            time: now,
+            edge: distributedStats.edgeLoad,
+            cloud: distributedStats.cloudLoad
+          }].slice(-20)
+        );
+      } catch (err) {
+        console.error('Metrics polling error:', err);
+        setMetricsAvailable(false);
+      }
+    };
+
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
   }, [distributedStats]);
 
@@ -76,9 +102,11 @@ export const RealTimeThesisMonitor = () => {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {sigeLatencyHistory.length > 0 
-                      ? sigeLatencyHistory[sigeLatencyHistory.length - 1].latency.toFixed(2) 
-                      : "80.29"} ms
+                    {sigeLatencyHistory.length > 0
+                      ? `${sigeLatencyHistory[sigeLatencyHistory.length - 1].latency.toFixed(2)} ms`
+                      : metricsAvailable === false
+                        ? "Waiting for data..."
+                        : "—"}
                   </div>
                   <div className="text-xs text-muted-foreground">Average Latency</div>
                 </div>
@@ -99,11 +127,13 @@ export const RealTimeThesisMonitor = () => {
                 </div>
                 <div>
                   <div className="text-2xl font-bold">
-                    {nunchakuQualityHistory.length > 0 
-                      ? nunchakuQualityHistory[nunchakuQualityHistory.length - 1].quality.toFixed(1) 
-                      : "-1894.5"}%
+                    {nunchakuQualityHistory.length > 0
+                      ? `${nunchakuQualityHistory[nunchakuQualityHistory.length - 1].quality.toFixed(1)} anomalies`
+                      : metricsAvailable === false
+                        ? "Waiting for data..."
+                        : "—"}
                   </div>
-                  <div className="text-xs text-muted-foreground">Quality Retained (PTQ)</div>
+                  <div className="text-xs text-muted-foreground">Active Anomalies</div>
                 </div>
                 <Progress value={0} className="h-2 bg-red-200" />
                 <div className="text-xs text-red-600">Foundational Crisis Identified</div>
@@ -167,10 +197,10 @@ export const RealTimeThesisMonitor = () => {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span>Current: {sigeLatencyHistory.length > 0 ? sigeLatencyHistory[sigeLatencyHistory.length - 1].latency.toFixed(2) : "80.29"} ms</span>
+                  <span>Current: {sigeLatencyHistory.length > 0 ? `${sigeLatencyHistory[sigeLatencyHistory.length - 1].latency.toFixed(2)} ms` : "Waiting for data..."}</span>
                 </div>
                 <div>Target: &lt;150 ms</div>
-                <Badge variant="default" className="bg-green-500 text-white">On Target</Badge>
+                {sigeLatencyHistory.length > 0 && <Badge variant="default" className="bg-green-500 text-white">On Target</Badge>}
               </div>
             </div>
           </Card>
@@ -210,9 +240,9 @@ export const RealTimeThesisMonitor = () => {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                  <span>Current: {nunchakuQualityHistory.length > 0 ? nunchakuQualityHistory[nunchakuQualityHistory.length - 1].quality.toFixed(1) : "-1894.5"}%</span>
+                  <span>Current: {nunchakuQualityHistory.length > 0 ? `${nunchakuQualityHistory[nunchakuQualityHistory.length - 1].quality.toFixed(0)} anomalies` : "Waiting for data..."}</span>
                 </div>
-                <Badge variant="default" className="bg-amber-500 text-white">Crisis Identified</Badge>
+                {nunchakuQualityHistory.length > 0 && <Badge variant="default" className="bg-amber-500 text-white">Live</Badge>}
               </div>
             </div>
           </Card>

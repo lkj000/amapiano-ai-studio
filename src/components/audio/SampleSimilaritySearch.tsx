@@ -97,10 +97,10 @@ export function SampleSimilaritySearch() {
         });
 
         if (!ragError && ragData?.results && ragData.results.length > 0) {
-          results = ragData.results.map((r: any) => {
+          results = ragData.results.map((r: any, idx: number) => {
             const meta = r.metadata ?? r;
             return {
-              id: r.id ?? r.entity_id ?? String(Math.random()),
+              id: r.id ?? r.entity_id ?? `rag-result-${idx}`,
               name: meta?.name || r.title || 'Unknown Sample',
               category: meta?.category || 'Uncategorized',
               bpm: meta?.bpm ?? null,

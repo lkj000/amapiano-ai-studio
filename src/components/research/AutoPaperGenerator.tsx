@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AutoPaperGeneratorProps {
   testResults?: any;
@@ -26,18 +27,36 @@ export const AutoPaperGenerator = ({ testResults, validationData }: AutoPaperGen
   const generatePaper = async () => {
     setIsGenerating(true);
     try {
-      // Simulate paper generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const paperContext = {
+        title: paperConfig.title,
+        author: paperConfig.author,
+        institution: paperConfig.institution,
+        keywords: paperConfig.keywords,
+        testResults,
+        validationData,
+      };
 
-      const paperContent = generatePaperContent();
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          message: `Generate a research paper section on: ${paperConfig.title}. Style: academic LaTeX IEEE conference format. Include: abstract, methodology, results, conclusion. Use author: ${paperConfig.author || 'Author Name'}, institution: ${paperConfig.institution || 'Institution Name'}, keywords: ${paperConfig.keywords}.`,
+          context: paperContext,
+        }
+      });
+
+      if (error) throw error;
+
+      const generatedContent: string = data?.response || data?.content || '';
+
+      // Fall back to template if LLM returns empty
+      const paperContent = generatedContent.trim() || generatePaperContent();
       downloadPaper(paperContent, "latex");
-      
+
       toast.success("Paper generated successfully!", {
-        description: "LaTeX and PDF files ready for download"
+        description: "LaTeX file ready for download"
       });
     } catch (error) {
       console.error("Error generating paper:", error);
-      toast.error("Failed to generate paper");
+      toast.error("Failed to generate paper. Check AI service availability.");
     } finally {
       setIsGenerating(false);
     }

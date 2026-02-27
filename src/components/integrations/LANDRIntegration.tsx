@@ -101,16 +101,13 @@ export const LANDRIntegration: React.FC = () => {
   const [plugins, setPlugins] = useState<LANDRPlugin[]>(defaultPlugins);
   const [showLicenseKey, setShowLicenseKey] = useState<Record<string, boolean>>({});
   const [selectedPlugin, setSelectedPlugin] = useState<LANDRPlugin | null>(plugins[0]);
-  const [dawPath, setDawPath] = useState('/Library/Audio/Plug-Ins/VST3');
+  const [dawPath, setDawPath] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
   const syncLibrary = async () => {
     setIsSyncing(true);
-    toast.info('Syncing library...');
-    // Simulate sync - in production this would refresh data from Supabase
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    toast.error('LANDR sync requires LANDR API credentials. Configure in Settings.');
     setIsSyncing(false);
-    toast.success('Library synced successfully!');
   };
 
   const copyLicenseKey = (key: string) => {
@@ -129,24 +126,12 @@ export const LANDRIntegration: React.FC = () => {
   };
 
   const downloadPlugin = (plugin: LANDRPlugin) => {
-    setPlugins(prev => prev.map(p => 
-      p.id === plugin.id ? { ...p, status: 'downloading' as const, downloadProgress: 0 } : p
-    ));
-    
-    const interval = setInterval(() => {
-      setPlugins(prev => prev.map(p => {
-        if (p.id === plugin.id && p.status === 'downloading') {
-          const newProgress = (p.downloadProgress || 0) + 10;
-          if (newProgress >= 100) {
-            clearInterval(interval);
-            toast.success(`${plugin.name} downloaded successfully!`);
-            return { ...p, status: 'installed' as const, downloadProgress: 100 };
-          }
-          return { ...p, downloadProgress: newProgress };
-        }
-        return p;
-      }));
-    }, 500);
+    if (plugin.modelUrl) {
+      // Open the real download URL if available
+      window.open(plugin.modelUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      toast.error('Download URL not available');
+    }
   };
 
   return (
